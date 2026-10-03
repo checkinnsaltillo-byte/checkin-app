@@ -58179,8 +58179,11 @@ function pcEnsureStyles_() {
     .pc-hm .c{height:13px}
     /* Tablas → tarjetas apiladas, sin desbordar el ancho de la pantalla */
     .pc-tblwrap{overflow:visible}
-    .pc-tbl,.pc-tbl tbody,.pc-tbl tr,.pc-tbl td{display:block;width:100%}
+    .pc-tbl,.pc-tbl tbody,.pc-tbl tr,.pc-tbl td{display:block;width:100%;min-width:0 !important;max-width:100%}
     .pc-tbl{border:0;background:transparent}
+    #pc-drawer .pn{overflow-x:hidden}
+    .pc-dhdr>div{min-width:0}
+    .pc-dhdr>div:first-child{flex:1 1 180px}
     .pc-tbl thead{display:none}
     .pc-tbl tr{background:#fff;border:1px solid var(--pc-line);border-radius:12px;padding:8px 10px;margin-bottom:8px;box-sizing:border-box}
     .pc-tbl td{border:0;padding:4px 0;display:flex;justify-content:space-between;gap:12px;text-align:right;word-break:break-word;box-sizing:border-box}
