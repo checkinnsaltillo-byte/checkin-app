@@ -58175,6 +58175,9 @@ function pcSpark_(vals, color) {
     <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="2.2" fill="${color}"/></svg>`;
 }
 function pcDelta_(cur, prev, invert) {
+  // Mes en curso: compararlo contra un mes completo engaña (va a medias).
+  const _d = new Date();
+  if (PC.ym === pcYm(_d.getFullYear(), _d.getMonth())) return `<span class="pc-delta flat" title="El mes aún no termina">📍 mes en curso</span>`;
   if (!isFinite(prev) || prev === 0 || !isFinite(cur)) return '';
   const d = (cur - prev) / Math.abs(prev);
   const good = invert ? d < 0 : d > 0;
@@ -58475,11 +58478,12 @@ async function pcLoadDisp_() {
 window.panelControlInit = function () {
   pcEnsureStyles_();
   if (!PC.ym) { const d = new Date(); PC.ym = pcYm(d.getFullYear(), d.getMonth()); }
+  PC.updatedAt = new Date();
   pcRenderShell_();
   pcLoadAll_(false);
 };
 window.pcSetMonth = function (delta) { PC.ym = pcYmShift(PC.ym, delta); pcRenderShell_(); ['fin', 'ocup', 'cob', 'rentas', 'op', 'rh', 'disp'].forEach(pcRenderSection_); pcRenderKpis_(); };
-window.pcReload = function () { pcRenderShell_(); pcLoadAll_(true); };
+window.pcReload = function () { PC.updatedAt = new Date(); pcRenderShell_(); pcLoadAll_(true); };
 window.pcGo = function (mod) { pcCloseDrawer(); if (typeof switchModule === 'function') switchModule(mod); };
 
 function pcRenderShell_() {
@@ -58709,7 +58713,7 @@ function pcRenderSection_(key) {
     const items = devs.map(d => {
       const pct = typeof tuyaWaterLevelCurrentPct === 'function' ? tuyaWaterLevelCurrentPct(d) : null;
       const al = typeof tuyaResolveAloj === 'function' ? tuyaResolveAloj(d) : null;
-      const nm = (al && (al.nombre || al.Propiedad)) || d.name;
+      const nm = al ? [al['Propiedad'], al['# Departamento'] ? '#' + al['# Departamento'] : ''].filter(Boolean).join(' ') || d.name : d.name;
       const col = pct == null ? '#94a3b8' : pct < 25 ? '#dc2626' : pct < 50 ? '#f59e0b' : '#16a34a';
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;min-width:120px">
         <div class="pc-tank"><span style="height:${pct == null ? 0 : pct}%;${pct != null && pct < 25 ? 'background:linear-gradient(180deg,#fca5a5,#dc2626)' : ''}"></span><b>${pct == null ? '—' : pct + '%'}</b></div>
