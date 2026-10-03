@@ -6391,6 +6391,15 @@ body.dark .ug-logout:hover { background: #334155; }
 }
 .ug-panel:hover { filter: brightness(1.1); }
 .ug-panel:active { transform: scale(.96); }
+@media (max-width: 640px) {
+  .user-greeting { padding: 8px 10px; gap: 8px; }
+  .ug-left { flex: 1 1 auto; gap: 6px; }
+  .ug-hello { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ug-version { flex: none; margin-left: 0 !important; }
+  .ug-panel-txt { display: none; }
+  .ug-panel { padding: 4px 9px; font-size: 15px; line-height: 1; }
+  .ug-logout { white-space: nowrap; }
+}
 
 /* ─── Logo animado: bloquear proporciones (no estirar en mobile/desktop) ─── */
 .checkinn-loader {

@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión inmobiliaria | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=153">
+  <link rel="stylesheet" href="styles.css?v=154">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -282,7 +282,7 @@
         <span id="ug-version" title="Versión del sistema cargada en este navegador" style="margin-left:8px;font-size:10.5px;font-weight:800;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px"></span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex:none">
-        <button type="button" id="ug-panel-btn" class="ug-panel" onclick="switchModule('panel-control')" title="Ir al Panel de control">📊 Panel de control</button>
+        <button type="button" id="ug-panel-btn" class="ug-panel" onclick="switchModule('panel-control')" title="Ir al Panel de control">📊<span class="ug-panel-txt"> Panel de control</span></button>
         <button type="button" class="ug-logout" onclick="sysLogout()">Cerrar sesión</button>
       </div>
     </div>
@@ -2958,7 +2958,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1402"></script>
+  <script src="app.js?v=1403"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
