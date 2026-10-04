@@ -60658,12 +60658,17 @@ const VA_TIPOS = {
     ['dispositivo', 'Dispositivo'], ['ubicacion', 'Ubicación / propiedad'], ['usuario', 'Usuario / red'], ['pass', 'Contraseña / PIN', 's'], ['serie', 'Número de serie'] ] },
   acceso: { l: '🚪 Clave de acceso físico', c: '#16a34a', g: 'Accesos físicos', f: [
     ['lugar', 'Tipo (lavandería, gabinete, bodega…)'], ['propiedad', 'Propiedad'], ['clave', 'Clave', 's'] ] },
+  internet: { l: '🌐 Conexión de internet', c: '#0891b2', g: 'Conexiones de internet', f: [
+    ['propiedad', 'Propiedad'], ['equipo', 'Equipo (módem / router)'], ['ubicacion', 'Ubicación'], ['redes', 'Red(es) WiFi'], ['pass', 'Contraseña WiFi', 's'],
+    ['cuenta', '# cuenta / tel'], ['proveedor', 'Proveedor'] ] },
   otro: { l: '📝 Otro', c: '#475569', g: 'Otros', f: [['usuario', 'Usuario'], ['pass', 'Contraseña', 's']] },
 };
 const VA_SUG = {
   plataforma: ['Gmail', 'Airbnb', 'Breezeway', 'Leadsales', 'Stripe', 'Facturapi', 'Amazon', 'Lodgify', 'Booking'],
   servicio: ['CFE', 'Naturgy', 'Agua (Aguas de Saltillo)', 'Totalplay', 'Telmex', 'Izzi'],
   dispositivo: ['Módem', 'Router WiFi', 'Celular', 'Tablet', 'Cerradura inteligente'],
+  equipo: ['Módem', 'Router', 'Repetidor / Deco'],
+  proveedor: ['Telmex Infinitum', 'Totalplay', 'Izzi', 'Megacable', 'TP-Link', 'Tenda', 'Huawei', 'Steren'],
   lugar: ['Lavandería', 'Gabinete', 'Bodega', 'Puerta principal', 'Caja de seguridad'],
 };
 window.VA = window.VA || { token: null, exp: 0, challenge: null, to: '', sid: '', busy: false, err: '', msg: '', records: [], log: [], q: '', grupo: '', reveal: new Set(), tick: null, cool: 0 };
@@ -60917,7 +60922,7 @@ function vaRenderVault_(root) {
   const ms = VA.exp - Date.now();
   root.innerHTML = `
     <div class="va-top"><div><div class="t">🔓 Control de contraseñas y accesos</div><div class="s">${VA.records.length} registros · sesión de ${vaEsc_(vaUser_())} · se bloquea en <span class="va-timer" id="va-timer">${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}</span></div></div>
-      <div class="sp"><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button><button class="va-btn" onclick="vaBitacora_()">🕓 Bitácora</button><button class="va-btn" onclick="vaLockNow_()">🔒 Bloquear</button></div></div>
+      <div class="sp"><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button><button class="va-btn" onclick="vaImportar_()">📥 Importar desde Sheets</button><button class="va-btn" onclick="vaBitacora_()">🕓 Bitácora</button><button class="va-btn" onclick="vaLockNow_()">🔒 Bloquear</button></div></div>
     <div class="va-search"><span>🔎</span><input type="search" id="va-q" placeholder="Buscar en todos los registros: nombre, usuario, correo, banco, tarjeta, CLABE, propiedad, notas, contraseña…" value="${vaEsc_(VA.q)}" oninput="vaSearch_(this.value)" autocomplete="off"><b id="va-q-n">${VA.q ? rows.length + ' resultado' + (rows.length === 1 ? '' : 's') : ''}</b>${VA.q ? `<button class="va-ib" title="Limpiar" onclick="VA.q='';vaRender_()">✕</button>` : ''}</div>
     <div class="va-bar">
       <button class="va-chip ${!VA.grupo || VA.q ? 'on' : ''}" onclick="vaSetGrupo_('')">Todos<b>${VA.records.length}</b></button>
@@ -61113,6 +61118,95 @@ window.vaDel_ = async function (id) {
   if (!confirm(`¿Eliminar "${r.titulo}"? Quedará registrado en la bitácora.`)) return;
   try { await vaApi_('/vault/delete', { method: 'POST', body: { id } }); await vaLoad_(); vaRender_(); vaToast_('🗑️ Eliminado'); }
   catch (e) { alert('No se pudo eliminar: ' + e.message); }
+};
+// ── Importar conexiones de internet pegando la tabla desde Google Sheets ──
+// Columnas: Propiedad | Tipo | Ubicación | Señal | Contraseña | # cuenta / tel | Notas.
+// Celdas combinadas llegan vacías: se heredan de la fila anterior. Una fila sin tipo
+// ni contraseña nueva es otra red (SSID) del mismo equipo.
+function vaProveedor_(ssid, equipo) {
+  const t = String(ssid || '').toLowerCase();
+  if (/infinitum/.test(t)) return 'Telmex Infinitum';
+  if (/totalplay/.test(t)) return 'Totalplay';
+  if (/izzi/.test(t)) return 'Izzi';
+  if (/mega/.test(t)) return 'Megacable';
+  if (/tp-?link|deco/.test(t)) return 'TP-Link';
+  if (/tenda/.test(t)) return 'Tenda';
+  if (/huawei/.test(t)) return 'Huawei';
+  if (/steren/.test(t)) return 'Steren';
+  return '';
+}
+function vaParseInternet_(txt) {
+  const rows = String(txt || '').replace(/\r/g, '').split('\n').map(l => l.split('\t').map(c => c.trim())).filter(c => c.some(Boolean));
+  const out = []; let cur = null, prop = '', tipo = '';
+  rows.forEach(c => {
+    if (/^propiedad$/i.test(c[0] || '') && /tipo/i.test(c[1] || '')) return; // encabezado
+    const [p, t, u, ssid, pass, cta, notas] = [c[0] || '', c[1] || '', c[2] || '', c[3] || '', c[4] || '', c[5] || '', c.slice(6).join(' ').trim()];
+    const newProp = p && p !== prop;
+    if (p) prop = p;
+    if (t) tipo = t;
+    const nuevo = !cur || newProp || !!t || (pass && pass !== cur.f.pass);
+    if (nuevo) {
+      cur = { tipo: 'internet', grupo: 'Conexiones de internet', f: { propiedad: prop, equipo: t || (newProp ? '' : tipo), ubicacion: u, redes: '', pass: pass, cuenta: cta, proveedor: '' }, notas: notas, extras: [] };
+      if (!t && newProp) tipo = '';
+      out.push(cur);
+    } else {
+      if (u && !cur.f.ubicacion) cur.f.ubicacion = u;
+      if (cta && cur.f.cuenta !== cta) cur.f.cuenta = cur.f.cuenta ? cur.f.cuenta + ' / ' + cta : cta;
+      if (notas) cur.notas = cur.notas ? cur.notas + '\n' + notas : notas;
+    }
+    if (ssid) cur.f.redes = cur.f.redes ? cur.f.redes + ', ' + ssid : ssid;
+  });
+  out.forEach(r => {
+    const eq = r.f.equipo ? r.f.equipo.charAt(0).toUpperCase() + r.f.equipo.slice(1) : 'Equipo';
+    r.f.equipo = r.f.equipo ? eq : '';
+    r.f.proveedor = vaProveedor_(r.f.redes, r.f.equipo);
+    r.titulo = `${r.f.propiedad || 'Sin propiedad'} · ${eq}${r.f.proveedor ? ' ' + r.f.proveedor : ''}`;
+    Object.keys(r.f).forEach(k => { if (!r.f[k]) delete r.f[k]; });
+  });
+  return out;
+}
+window.vaImportar_ = function () {
+  document.getElementById('va-modal')?.remove();
+  const m = document.createElement('div'); m.className = 'va-modal va'; m.id = 'va-modal';
+  m.innerHTML = `<div class="pn" style="max-width:860px">
+    <div class="hd">📥 Importar conexiones de internet<button class="va-btn sm" onclick="document.getElementById('va-modal').remove()">✕</button></div>
+    <div class="bd">
+      <div style="font-size:12.5px;color:#475569;line-height:1.55;margin-bottom:8px">En tu Google Sheet selecciona las filas de la tabla (puedes incluir el encabezado <b>Propiedad · Tipo · Ubicación · Señal · Contraseña · # cuenta / tel · Notas</b>), cópialas con <b>Ctrl/⌘ + C</b> y pégalas aquí. Las celdas combinadas se respetan y cada módem o router queda como un registro con todas sus redes.</div>
+      <textarea id="va-imp-txt" class="va-in" rows="7" placeholder="Pega aquí…" oninput="vaImpPreview_()" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+      <div id="va-imp-prev" style="margin-top:10px"></div>
+    </div>
+    <div class="ft"><button class="va-btn" onclick="document.getElementById('va-modal').remove()">Cancelar</button><button class="va-btn ok" id="va-imp-ok" onclick="vaImpGuardar_()" disabled>💾 Guardar</button></div></div>`;
+  document.body.appendChild(m);
+  setTimeout(() => document.getElementById('va-imp-txt')?.focus(), 50);
+};
+window.vaImpPreview_ = function () {
+  const recs = vaParseInternet_(document.getElementById('va-imp-txt').value);
+  VA._imp = recs;
+  const dup = r => VA.records.some(x => x.tipo === 'internet' && (x.f || {}).propiedad === r.f.propiedad && (x.f || {}).redes === r.f.redes);
+  const el = document.getElementById('va-imp-prev'), b = document.getElementById('va-imp-ok');
+  const nuevos = recs.filter(r => !dup(r));
+  b.disabled = !nuevos.length; b.textContent = `💾 Guardar ${nuevos.length} registro${nuevos.length === 1 ? '' : 's'}`;
+  el.innerHTML = recs.length ? `<div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;margin-bottom:6px">Vista previa · ${recs.length} equipos${recs.length - nuevos.length ? ` · ${recs.length - nuevos.length} ya existen (se omiten)` : ''}</div>
+    <div style="overflow:auto;max-height:300px;border:1px solid #e2e8f0;border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr>${['Propiedad', 'Equipo', 'Redes', 'Contraseña', '# cuenta / tel', 'Proveedor', 'Notas'].map(h => `<th style="position:sticky;top:0;background:#f8fafc;text-align:left;padding:6px 8px;font-size:10.5px;text-transform:uppercase;color:#475569">${h}</th>`).join('')}</tr></thead>
+    <tbody>${recs.map(r => `<tr style="${dup(r) ? 'opacity:.45' : ''}"><td style="padding:5px 8px;border-top:1px solid #f1f5f9;font-weight:700">${vaEsc_(r.f.propiedad || '')}</td><td style="padding:5px 8px;border-top:1px solid #f1f5f9">${vaEsc_(r.f.equipo || '')}</td><td style="padding:5px 8px;border-top:1px solid #f1f5f9">${vaEsc_(r.f.redes || '')}</td><td style="padding:5px 8px;border-top:1px solid #f1f5f9;font-family:ui-monospace,Menlo,monospace">${r.f.pass ? '••••••••' : '<span style="color:#dc2626">falta</span>'}</td><td style="padding:5px 8px;border-top:1px solid #f1f5f9">${vaEsc_(r.f.cuenta || '')}</td><td style="padding:5px 8px;border-top:1px solid #f1f5f9">${vaEsc_(r.f.proveedor || '')}</td><td style="padding:5px 8px;border-top:1px solid #f1f5f9;color:#64748b">${vaEsc_(r.notas || '')}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div style="font-size:12px;color:#94a3b8">Aún no hay filas reconocidas.</div>';
+};
+window.vaImpGuardar_ = async function () {
+  const dup = r => VA.records.some(x => x.tipo === 'internet' && (x.f || {}).propiedad === r.f.propiedad && (x.f || {}).redes === r.f.redes);
+  const recs = (VA._imp || []).filter(r => !dup(r));
+  const b = document.getElementById('va-imp-ok'); b.disabled = true;
+  let ok = 0;
+  for (const r of recs) {
+    b.textContent = `⏳ Guardando ${ok + 1} de ${recs.length}…`;
+    try { await vaApi_('/vault/save', { method: 'POST', body: { record: r } }); ok++; }
+    catch (e) { alert(`Se guardaron ${ok} de ${recs.length}. Error: ${e.message}`); break; }
+  }
+  document.getElementById('va-modal')?.remove();
+  VA._imp = null;
+  try { await vaLoad_(); } catch (_) {}
+  VA.q = ''; VA.grupo = 'Conexiones de internet'; vaRender_();
+  vaToast_(`📥 ${ok} conexiones importadas`);
 };
 window.vaBitacora_ = async function () {
   try { await vaLoad_(); } catch (_) { return; }
