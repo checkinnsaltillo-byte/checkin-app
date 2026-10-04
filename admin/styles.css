@@ -6684,7 +6684,8 @@ body.dark .user-greeting.gb .ug-logout{background:transparent}
 @media (max-width:1280px){
   .user-greeting.gb .gb-quick{order:3;flex:1 1 100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-top:2px}
   .gb-quick::-webkit-scrollbar{display:none}
-  .gb-left{flex:1 1 auto}
+  .gb-left{flex:1 1 0;min-width:0}
+  .gb-brand{flex:1 1 0}
 }
 @media (max-width:640px){
   .user-greeting.gb{padding:8px 10px;gap:8px}
