@@ -46377,6 +46377,7 @@ async function cfgAdminInit() {
 function cfgAdminRender() {
   const host = document.getElementById('cfg-view');
   if (!host) return;
+  if (CFG_ADMIN.tab === 'boveda') return vaRenderModule_(host);
   if (CFG_ADMIN.loading && !CFG_ADMIN.loaded) {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
@@ -60639,6 +60640,395 @@ try { navBuild_(); } catch (e) { console.warn('[nav] build', e.message); }
 
 // Inicio: contadores por grupo y fecha (también para sesiones sin sysApplyPermissions).
 try { sysRefreshMenuGroups_(); } catch (_) {}
+// ═══════════════════════════════════════════════════════════════════════
+// ║ Configuración admin › 🔐 Control de contraseñas y accesos (bóveda)   ║
+// ║ Cada ingreso pide un código por WhatsApp (server /vault/*). La sesión ║
+// ║ y los datos viven SOLO en memoria (nada en localStorage); al bloquear ║
+// ║ o vencer la sesión se borran de la página.                           ║
+// ═══════════════════════════════════════════════════════════════════════
+const VA_TIPOS = {
+  banco: { l: '🏦 Cuenta bancaria', c: '#7c3aed', g: 'Bancos', f: [
+    ['titular', 'Usuario / titular'], ['banco', 'Banco'], ['tarjeta', 'No. de tarjeta', 'p'], ['clabe', 'CLABE', 'p'], ['cuenta', 'Cuenta', 'p'],
+    ['nip', 'NIP', 's'], ['pass', 'Contraseña banca en línea / app', 's'] ] },
+  cuenta: { l: '🔑 Cuenta de plataforma o correo', c: '#ea580c', g: 'Plataformas', f: [
+    ['plataforma', 'Plataforma'], ['usuario', 'Usuario / correo'], ['pass', 'Contraseña', 's'], ['asignado', 'Asignado a'], ['url', 'Enlace de acceso'] ] },
+  servicio: { l: '⚡ Portal de servicio', c: '#0e7490', g: 'Servicios', f: [
+    ['servicio', 'Servicio'], ['propiedad', 'Propiedad / dirección'], ['medidor', 'Medidor / No. de cuenta'], ['usuario', 'Usuario / correo'], ['pass', 'Contraseña', 's'] ] },
+  dispositivo: { l: '📶 Dispositivo o red', c: '#1d4ed8', g: 'Dispositivos', f: [
+    ['dispositivo', 'Dispositivo'], ['ubicacion', 'Ubicación / propiedad'], ['usuario', 'Usuario / red'], ['pass', 'Contraseña / PIN', 's'], ['serie', 'Número de serie'] ] },
+  acceso: { l: '🚪 Clave de acceso físico', c: '#16a34a', g: 'Accesos físicos', f: [
+    ['lugar', 'Tipo (lavandería, gabinete, bodega…)'], ['propiedad', 'Propiedad'], ['clave', 'Clave', 's'] ] },
+  otro: { l: '📝 Otro', c: '#475569', g: 'Otros', f: [['usuario', 'Usuario'], ['pass', 'Contraseña', 's']] },
+};
+const VA_SUG = {
+  plataforma: ['Gmail', 'Airbnb', 'Breezeway', 'Leadsales', 'Stripe', 'Facturapi', 'Amazon', 'Lodgify', 'Booking'],
+  servicio: ['CFE', 'Naturgy', 'Agua (Aguas de Saltillo)', 'Totalplay', 'Telmex', 'Izzi'],
+  dispositivo: ['Módem', 'Router WiFi', 'Celular', 'Tablet', 'Cerradura inteligente'],
+  lugar: ['Lavandería', 'Gabinete', 'Bodega', 'Puerta principal', 'Caja de seguridad'],
+};
+window.VA = window.VA || { token: null, exp: 0, challenge: null, to: '', sid: '', busy: false, err: '', msg: '', records: [], log: [], q: '', grupo: '', reveal: new Set(), tick: null, cool: 0 };
+
+function vaEsc_(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function vaUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'admin'; }
+async function vaApi_(path, opts) {
+  opts = opts || {};
+  const h = { 'Content-Type': 'application/json' };
+  if (VA.token) h['X-Vault-Token'] = VA.token;
+  const r = await fetch(`${BACKEND}${path}`, { method: opts.method || 'GET', headers: h, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: 'no-store' });
+  let j = null; try { j = await r.json(); } catch (_) {}
+  if (j && j.token) { VA.token = j.token; VA.exp = j.exp; }
+  if (r.status === 401 && j && j.locked) { vaLock_('La sesión venció. Vuelve a pedir un código.'); throw new Error('Sesión vencida'); }
+  if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || `Error ${r.status}`);
+  return j;
+}
+function vaLock_(msg) {
+  VA.token = null; VA.exp = 0; VA.records = []; VA.log = []; VA.reveal = new Set(); VA.challenge = null; VA.msg = msg || '';
+  clearInterval(VA.tick); VA.tick = null;
+  document.getElementById('va-modal')?.remove();
+  vaRender_();
+}
+window.vaLockNow_ = () => vaLock_('Bóveda bloqueada.');
+
+function vaEnsureStyles_() {
+  if (document.getElementById('va-styles')) return;
+  const st = document.createElement('style'); st.id = 'va-styles';
+  st.textContent = `
+  .va{color:#0f172a;font-size:13px}
+  .va *{box-sizing:border-box}
+  .va-lock{max-width:440px;margin:30px auto;background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:28px 26px;text-align:center;box-shadow:0 18px 50px rgba(15,23,42,.10)}
+  .va-lock .ico{width:64px;height:64px;margin:0 auto 12px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;background:linear-gradient(135deg,#0b1730,#1e3a6e);box-shadow:0 8px 20px rgba(11,23,48,.3)}
+  .va-lock h3{margin:0 0 6px;font-size:18px;font-weight:900}
+  .va-lock p{margin:0 0 16px;color:#64748b;font-size:12.5px;line-height:1.5}
+  .va-code{width:100%;font-size:28px;letter-spacing:.5em;text-align:center;font-weight:900;padding:12px 8px 12px 20px;border:2px solid #cbd5e1;border-radius:14px;font-family:ui-monospace,Menlo,monospace}
+  .va-code:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 4px #e0e7ff}
+  .va-btn{border:1px solid #e2e8f0;background:#fff;color:#334155;border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .va-btn:hover{background:#f8fafc;border-color:#94a3b8}
+  .va-btn.pri{background:linear-gradient(120deg,#0b1730,#1e3a6e);border-color:#1e3a6e;color:#fff}
+  .va-btn.ok{background:#059669;border-color:#059669;color:#fff}
+  .va-btn.dan{color:#b91c1c;border-color:#fecaca}
+  .va-btn.sm{padding:5px 9px;font-size:11.5px;border-radius:8px}
+  .va-btn:disabled{opacity:.5;cursor:default}
+  .va-msg{margin-top:12px;font-size:12px;border-radius:10px;padding:8px 10px;text-align:left;line-height:1.5}
+  .va-msg.err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+  .va-msg.inf{background:#eff6ff;color:#1e3a8a;border:1px solid #bfdbfe}
+  .va-msg.warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+  .va-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:linear-gradient(120deg,#0b1730,#1e3a6e);color:#fff;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .va-top .t{font-weight:900;font-size:15px}
+  .va-top .s{font-size:11.5px;color:#cbd5e1}
+  .va-top .sp{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .va-top .va-btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);color:#fff}
+  .va-top .va-btn.ok{background:#10b981;border-color:#10b981}
+  .va-timer{font-family:ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:800}
+  .va-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .va-bar input{flex:1 1 240px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 11px;font-size:13px;font-family:inherit}
+  .va-chip{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;color:#334155;cursor:pointer;font-family:inherit}
+  .va-chip.on{background:#0b1730;color:#fff;border-color:#0b1730}
+  .va-chip b{color:#94a3b8;margin-left:4px}
+  .va-grp{margin-bottom:18px}
+  .va-grp-h{font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#0f172a;margin:0 2px 8px;display:flex;align-items:center;gap:8px}
+  .va-grp-h span{font-size:11px;color:#64748b;background:#f1f5f9;border-radius:999px;padding:1px 8px;letter-spacing:0}
+  .va-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+  .va-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+  .va-card-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:color-mix(in srgb,var(--c) 10%,#fff);border-bottom:1px solid color-mix(in srgb,var(--c) 25%,#fff)}
+  .va-card-h .n{font-weight:900;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .va-card-h .tp{font-size:10px;font-weight:800;color:var(--c);text-transform:uppercase;letter-spacing:.04em}
+  .va-pend{background:#dc2626;color:#fff;border-radius:6px;font-size:10px;font-weight:900;padding:2px 6px}
+  .va-row{display:grid;grid-template-columns:118px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid #f1f5f9}
+  .va-row .k{font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em}
+  .va-row .v{font-size:12.5px;font-weight:600;word-break:break-all}
+  .va-row .v.mono{font-family:ui-monospace,Menlo,monospace}
+  .va-row .a{display:flex;gap:2px}
+  .va-ib{border:0;background:transparent;cursor:pointer;width:26px;height:26px;border-radius:7px;font-size:13px}
+  .va-ib:hover{background:#f1f5f9}
+  .va-notes{padding:8px 12px;font-size:12px;color:#475569;white-space:pre-wrap;background:#fcfcfd}
+  .va-foot{display:flex;align-items:center;gap:6px;padding:7px 12px;font-size:10.5px;color:#94a3b8}
+  .va-foot .sp{margin-left:auto;display:flex;gap:4px}
+  .va-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:14px}
+  .va-modal .pn{background:#fff;border-radius:16px;width:100%;max-width:620px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+  .va-modal .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0;font-weight:900;font-size:15px}
+  .va-modal .bd{padding:14px 18px;overflow:auto;flex:1}
+  .va-modal .ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px}
+  .va-f{margin-bottom:10px}
+  .va-f label{display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .va-in{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit}
+  .va-in:focus{outline:none;border-color:#818cf8;box-shadow:0 0 0 3px #e0e7ff}
+  .va-g2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .va-sec{display:flex;gap:6px}
+  .va-sec .va-in{font-family:ui-monospace,Menlo,monospace}
+  .va-chk{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid #94a3b8;border-radius:5px;background:#fff;color:#fff;font-size:12px;font-weight:900;flex:none;cursor:pointer}
+  .va-chk.on{background:#4f46e5;border-color:#4f46e5}
+  .va-tipos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px}
+  .va-tipo{border:1.5px solid #e2e8f0;border-radius:10px;padding:8px;font-size:11.5px;font-weight:800;cursor:pointer;background:#fff;text-align:left;font-family:inherit}
+  .va-tipo.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 10%,#fff)}
+  @media (max-width:640px){
+    .va-g2{grid-template-columns:1fr}
+    .va-tipos{grid-template-columns:1fr 1fr}
+    .va-row{grid-template-columns:96px minmax(0,1fr) auto;padding:6px 10px}
+    .va-cards{grid-template-columns:1fr}
+    .va-lock{margin:10px auto;padding:22px 16px}
+  }`;
+  document.head.appendChild(st);
+}
+
+// ── Render principal ──────────────────────────────────────────────────
+function vaRenderModule_(host) {
+  vaEnsureStyles_();
+  host.innerHTML = '<div class="va" id="va-root"></div>';
+  vaRender_();
+}
+function vaRender_() {
+  const root = document.getElementById('va-root'); if (!root) return;
+  if (!VA.token || Date.now() > VA.exp) return vaRenderLock_(root);
+  vaRenderVault_(root);
+}
+function vaRenderLock_(root) {
+  const enviado = !!VA.challenge;
+  root.innerHTML = `<div class="va-lock">
+    <div class="ico">🔐</div>
+    <h3>Control de contraseñas y accesos</h3>
+    <p>Área protegida. Cada ingreso requiere un código de 6 dígitos que se envía por <b>WhatsApp</b> al número ${vaEsc_(VA.to || '•••• 3922')}. Ni el administrador puede entrar sin él.</p>
+    ${enviado ? `
+      <input id="va-code" class="va-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6);if(this.value.length===6)vaVerify_()">
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+        <button class="va-btn pri" onclick="vaVerify_()" ${VA.busy ? 'disabled' : ''}>${VA.busy ? '⏳ Verificando…' : '🔓 Entrar'}</button>
+        <button class="va-btn" id="va-resend" onclick="vaSendCode_()" ${VA.busy || VA.cool > Date.now() ? 'disabled' : ''}>📲 Reenviar código</button>
+      </div>` : `
+      <button class="va-btn pri" style="padding:12px 20px;font-size:14px" onclick="vaSendCode_()" ${VA.busy ? 'disabled' : ''}>${VA.busy ? '⏳ Enviando…' : '📲 Enviar código por WhatsApp'}</button>`}
+    ${VA.err ? `<div class="va-msg err">⚠️ ${vaEsc_(VA.err)}</div>` : ''}
+    ${VA.msg ? `<div class="va-msg ${/no pudo|no llegó/i.test(VA.msg) ? 'warn' : 'inf'}" id="va-msgbox">${VA.msg}</div>` : ''}
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:16px">🔒 Información cifrada (AES-256) · la sesión se cierra sola a los 15 min sin actividad · cada ingreso y consulta queda en la bitácora.</div>
+  </div>`;
+  const inp = document.getElementById('va-code'); if (inp) inp.focus();
+}
+window.vaSendCode_ = async function () {
+  if (VA.busy) return;
+  VA.busy = true; VA.err = ''; VA.msg = ''; vaRender_();
+  try {
+    const j = await vaApi_('/vault/code', { method: 'POST', body: { user: vaUser_() } });
+    VA.challenge = j.challenge; VA.to = j.to; VA.sid = j.sid || ''; VA.cool = Date.now() + 30000;
+    VA.msg = `✅ Código enviado por WhatsApp a ${vaEsc_(j.to)}. Vence en 5 minutos.`;
+    setTimeout(() => { const b = document.getElementById('va-resend'); if (b && !VA.busy) b.disabled = false; }, 30500);
+    if (VA.sid) vaCheckDelivery_(VA.sid, 0);
+  } catch (e) { VA.err = e.message; }
+  VA.busy = false; vaRender_();
+};
+// Si WhatsApp no entrega (p. ej. fuera de la ventana de 24 h), avisa cómo resolverlo.
+async function vaCheckDelivery_(sid, n) {
+  await new Promise(r => setTimeout(r, n ? 6000 : 4000));
+  if (VA.token || VA.sid !== sid) return;
+  try {
+    const j = await fetch(`${BACKEND}/vault/code-status?sid=${encodeURIComponent(sid)}`, { cache: 'no-store' }).then(r => r.json());
+    if (j && (j.status === 'failed' || j.status === 'undelivered')) {
+      VA.msg = `⚠️ WhatsApp no pudo entregar el código${j.errorCode ? ` (error ${j.errorCode})` : ''}. Si el error es 63016, WhatsApp solo permite mensajes libres dentro de las 24 h posteriores a un mensaje tuyo: <b>envía cualquier mensaje desde ese WhatsApp al número del sistema</b> y vuelve a pedir el código.`;
+      const box = document.getElementById('va-msgbox'); if (box) { box.className = 'va-msg warn'; box.innerHTML = VA.msg; } else vaRender_();
+    } else if (j && (j.status === 'queued' || j.status === 'sent' || j.status === 'accepted') && n < 2) vaCheckDelivery_(sid, n + 1);
+  } catch (_) {}
+}
+window.vaVerify_ = async function () {
+  const code = (document.getElementById('va-code') || {}).value || '';
+  if (code.length !== 6 || VA.busy) return;
+  VA.busy = true; VA.err = ''; vaRender_();
+  try {
+    await vaApi_('/vault/verify', { method: 'POST', body: { challenge: VA.challenge, code } });
+    VA.challenge = null; VA.msg = ''; VA.sid = '';
+    await vaLoad_();
+    clearInterval(VA.tick);
+    VA.tick = setInterval(vaTick_, 1000);
+  } catch (e) { VA.err = e.message; }
+  VA.busy = false; vaRender_();
+};
+async function vaLoad_() {
+  const j = await vaApi_('/vault/data');
+  VA.records = j.records || []; VA.log = j.log || [];
+}
+function vaTick_() {
+  if (!VA.token) return;
+  const ms = VA.exp - Date.now();
+  if (ms <= 0) return vaLock_('La sesión se cerró por inactividad.');
+  const el = document.getElementById('va-timer');
+  if (el) el.textContent = `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+  if (!document.getElementById('va-root')) vaLock_(''); // salió de la sección → se bloquea
+}
+
+// ── Bóveda abierta ────────────────────────────────────────────────────
+function vaMask_(v, kind) {
+  const s = String(v || ''); if (!s) return '';
+  if (kind === 'p') return '•••• ' + s.replace(/\s/g, '').slice(-4);
+  return '••••••••';
+}
+function vaGrupos_() {
+  const m = new Map();
+  VA.records.forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; m.set(g, (m.get(g) || 0) + 1); });
+  return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+}
+function vaFiltered_() {
+  const q = String(VA.q || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return VA.records.filter(r => {
+    const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g;
+    if (VA.grupo && g !== VA.grupo) return false;
+    if (!q) return true;
+    const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro;
+    // Busca solo en datos NO secretos.
+    const txt = [r.titulo, g, r.notas, ...T.f.filter(f => !f[2]).map(f => (r.f || {})[f[0]]), ...(r.extras || []).filter(x => !x.secret).map(x => x.k + ' ' + x.v)].join(' ');
+    return txt.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(q);
+  });
+}
+function vaRenderVault_(root) {
+  const grupos = vaGrupos_();
+  const rows = vaFiltered_();
+  const byG = new Map();
+  rows.forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; if (!byG.has(g)) byG.set(g, []); byG.get(g).push(r); });
+  const ms = VA.exp - Date.now();
+  root.innerHTML = `
+    <div class="va-top"><div><div class="t">🔓 Control de contraseñas y accesos</div><div class="s">${VA.records.length} registros · sesión de ${vaEsc_(vaUser_())} · se bloquea en <span class="va-timer" id="va-timer">${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}</span></div></div>
+      <div class="sp"><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button><button class="va-btn" onclick="vaBitacora_()">🕓 Bitácora</button><button class="va-btn" onclick="vaLockNow_()">🔒 Bloquear</button></div></div>
+    <div class="va-bar"><input type="search" placeholder="🔎 Buscar por nombre, banco, plataforma, propiedad…" value="${vaEsc_(VA.q)}" oninput="vaSearch_(this.value)">
+      <button class="va-chip ${!VA.grupo ? 'on' : ''}" onclick="vaSetGrupo_('')">Todos<b>${VA.records.length}</b></button>
+      ${grupos.map(([g, n]) => `<button class="va-chip ${VA.grupo === g ? 'on' : ''}" onclick="vaSetGrupo_(this.dataset.g)" data-g="${vaEsc_(g)}">${vaEsc_(g)}<b>${n}</b></button>`).join('')}</div>
+    <div id="va-list">${vaListHtml_(byG)}</div>`;
+}
+function vaListHtml_(byG) {
+  if (!VA.records.length) return `<div class="va-lock" style="max-width:520px"><div class="ico">🗂️</div><h3>La bóveda está vacía</h3><p>Da de alta tus cuentas bancarias, correos, plataformas, portales de servicios, dispositivos y claves de acceso físico.</p><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button></div>`;
+  if (!byG.size) return '<div style="text-align:center;padding:40px;color:#94a3b8">Sin coincidencias.</div>';
+  return Array.from(byG.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([g, list]) => `
+    <div class="va-grp"><div class="va-grp-h">${vaEsc_(g)} <span>${list.length}</span></div>
+    <div class="va-cards">${list.sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), 'es')).map(vaCardHtml_).join('')}</div></div>`).join('');
+}
+function vaCardHtml_(r) {
+  const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro, F = r.f || {};
+  const row = (key, label, kind, val) => {
+    if (val == null || String(val) === '') return '';
+    const id = `${r.id}|${key}`, shown = !kind || VA.reveal.has(id);
+    const isUrl = key === 'url' && /^https?:\/\//i.test(val);
+    return `<div class="va-row"><div class="k">${vaEsc_(label)}</div><div class="v ${kind ? 'mono' : ''}">${shown ? (isUrl ? `<a href="${vaEsc_(val)}" target="_blank" rel="noopener noreferrer">${vaEsc_(val)}</a>` : vaEsc_(val)) : vaMask_(val, kind)}</div>
+      <div class="a">${kind ? `<button class="va-ib" title="${shown ? 'Ocultar' : 'Mostrar'}" onclick="vaToggle_('${vaEsc_(r.id)}','${vaEsc_(key)}')">${shown ? '🙈' : '👁️'}</button>` : ''}<button class="va-ib" title="Copiar" onclick="vaCopy_('${vaEsc_(r.id)}','${vaEsc_(key)}')">📋</button></div></div>`;
+  };
+  const fecha = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  return `<div class="va-card" style="--c:${T.c}">
+    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}</div>
+    ${T.f.map(([k, l, kind]) => row(k, l, kind, F[k])).join('')}
+    ${(r.extras || []).map((x, i) => row('x' + i, x.k || 'Dato', x.secret ? 's' : '', x.v)).join('')}
+    ${r.notas ? `<div class="va-notes">📝 ${vaEsc_(r.notas)}</div>` : ''}
+    <div class="va-foot">${fecha ? `Editado ${vaEsc_(fecha)}${r.updatedBy ? ' · ' + vaEsc_(r.updatedBy) : ''}` : ''}<div class="sp"><button class="va-ib" title="Editar" onclick="vaEdit_('${vaEsc_(r.id)}')">✏️</button><button class="va-ib" title="Eliminar" onclick="vaDel_('${vaEsc_(r.id)}')">🗑️</button></div></div>
+  </div>`;
+}
+function vaVal_(r, key) {
+  if (key[0] === 'x' && /^x\d+$/.test(key)) { const x = (r.extras || [])[+key.slice(1)]; return x ? x.v : ''; }
+  return (r.f || {})[key];
+}
+function vaLabel_(r, key) {
+  if (/^x\d+$/.test(key)) { const x = (r.extras || [])[+key.slice(1)]; return x ? x.k : ''; }
+  const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro; const f = T.f.find(x => x[0] === key); return f ? f[1] : key;
+}
+let _vaSearchT = null;
+window.vaSearch_ = function (v) {
+  VA.q = v; clearTimeout(_vaSearchT);
+  _vaSearchT = setTimeout(() => {
+    const byG = new Map(); vaFiltered_().forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; if (!byG.has(g)) byG.set(g, []); byG.get(g).push(r); });
+    const el = document.getElementById('va-list'); if (el) el.innerHTML = vaListHtml_(byG);
+  }, 150);
+};
+window.vaSetGrupo_ = function (g) { VA.grupo = g; vaRender_(); };
+window.vaToggle_ = function (id, key) {
+  const k = `${id}|${key}`;
+  if (VA.reveal.has(k)) VA.reveal.delete(k);
+  else {
+    VA.reveal.add(k);
+    const r = VA.records.find(x => x.id === id);
+    if (r) vaApi_('/vault/log', { method: 'POST', body: { a: 'Vio dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
+    setTimeout(() => { if (VA.reveal.delete(k)) vaRefreshList_(); }, 30000); // se vuelve a ocultar solo
+  }
+  vaRefreshList_();
+};
+function vaRefreshList_() {
+  if (!document.getElementById('va-list')) return;
+  const byG = new Map(); vaFiltered_().forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; if (!byG.has(g)) byG.set(g, []); byG.get(g).push(r); });
+  document.getElementById('va-list').innerHTML = vaListHtml_(byG);
+}
+window.vaCopy_ = async function (id, key) {
+  const r = VA.records.find(x => x.id === id); if (!r) return;
+  const v = String(vaVal_(r, key) || '');
+  try { await navigator.clipboard.writeText(v); } catch (_) { const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  vaToast_('📋 Copiado');
+  vaApi_('/vault/log', { method: 'POST', body: { a: 'Copió dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
+};
+function vaToast_(t) {
+  const d = document.createElement('div');
+  d.textContent = t; d.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;font-weight:800;z-index:10050;box-shadow:0 8px 20px rgba(0,0,0,.25)';
+  document.body.appendChild(d); setTimeout(() => d.remove(), 1400);
+}
+
+// ── Alta / edición ────────────────────────────────────────────────────
+window.vaEdit_ = function (id) {
+  const r = id ? JSON.parse(JSON.stringify(VA.records.find(x => x.id === id) || {})) : { tipo: 'cuenta', titulo: '', grupo: '', f: {}, extras: [], notas: '', pendiente: false };
+  r.f = r.f || {}; r.extras = r.extras || [];
+  VA.draft = r;
+  vaModal_();
+};
+function vaModal_() {
+  const r = VA.draft, T = VA_TIPOS[r.tipo] || VA_TIPOS.otro;
+  document.getElementById('va-modal')?.remove();
+  const m = document.createElement('div'); m.className = 'va-modal va'; m.id = 'va-modal';
+  const grupos = Array.from(new Set(VA.records.map(x => x.grupo).filter(Boolean).concat(Object.values(VA_TIPOS).map(t => t.g)))).sort();
+  const inp = (k, label, kind, val, dl) => kind
+    ? `<div class="va-f"><label>${vaEsc_(label)}</label><div class="va-sec"><input class="va-in" type="password" autocomplete="new-password" value="${vaEsc_(val)}" oninput="VA.draft.f['${k}']=this.value" id="va-in-${k}"><button type="button" class="va-btn sm" onclick="const i=document.getElementById('va-in-${k}');i.type=i.type==='password'?'text':'password'" title="Mostrar">👁️</button>${kind === 's' && /pass/.test(k) ? `<button type="button" class="va-btn sm" title="Generar contraseña segura" onclick="vaGen_('${k}')">🎲</button>` : ''}</div></div>`
+    : `<div class="va-f"><label>${vaEsc_(label)}</label><input class="va-in" value="${vaEsc_(val)}" oninput="VA.draft.f['${k}']=this.value" ${dl ? `list="va-dl-${k}"` : ''}>${dl ? `<datalist id="va-dl-${k}">${dl.map(x => `<option value="${vaEsc_(x)}">`).join('')}</datalist>` : ''}</div>`;
+  m.innerHTML = `<div class="pn">
+    <div class="hd">${r.id ? '✏️ Editar registro' : '＋ Nuevo registro'}<button class="va-btn sm" onclick="document.getElementById('va-modal').remove()">✕</button></div>
+    <div class="bd">
+      <div class="va-tipos">${Object.entries(VA_TIPOS).map(([k, t]) => `<button type="button" class="va-tipo ${r.tipo === k ? 'on' : ''}" style="--c:${t.c}" onclick="vaSetTipo_('${k}')">${t.l}</button>`).join('')}</div>
+      <div class="va-g2">
+        <div class="va-f"><label>Nombre del registro *</label><input class="va-in" value="${vaEsc_(r.titulo)}" oninput="VA.draft.titulo=this.value" placeholder="Ej. Inbursa ACL · Gmail limpieza 1 · Módem Matamoros"></div>
+        <div class="va-f"><label>Categoría</label><input class="va-in" list="va-dl-grp" value="${vaEsc_(r.grupo || T.g)}" oninput="VA.draft.grupo=this.value"><datalist id="va-dl-grp">${grupos.map(g => `<option value="${vaEsc_(g)}">`).join('')}</datalist></div>
+        ${T.f.map(([k, l, kind]) => inp(k, l, kind, r.f[k], VA_SUG[k])).join('')}
+      </div>
+      <div class="va-f"><label>Datos adicionales</label>
+        ${r.extras.map((x, i) => `<div class="va-sec" style="margin-bottom:6px"><input class="va-in" style="flex:0 0 38%" value="${vaEsc_(x.k)}" placeholder="Campo" oninput="VA.draft.extras[${i}].k=this.value"><input class="va-in" type="${x.secret ? 'password' : 'text'}" autocomplete="new-password" value="${vaEsc_(x.v)}" placeholder="Valor" oninput="VA.draft.extras[${i}].v=this.value"><span class="va-chk ${x.secret ? 'on' : ''}" title="Dato secreto (se oculta)" onclick="VA.draft.extras[${i}].secret=!VA.draft.extras[${i}].secret;vaModal_()">${x.secret ? '✓' : ''}</span><span style="font-size:10px;color:#64748b;align-self:center">secreto</span><button type="button" class="va-btn sm" onclick="VA.draft.extras.splice(${i},1);vaModal_()">✕</button></div>`).join('')}
+        <button type="button" class="va-btn sm" onclick="VA.draft.extras.push({k:'',v:'',secret:false});vaModal_()">＋ Agregar dato</button></div>
+      <div class="va-f"><label>Notas</label><textarea class="va-in" rows="3" oninput="VA.draft.notas=this.value" placeholder="Ej. Verificación con celular… Solo la maneja ACL.">${vaEsc_(r.notas)}</textarea></div>
+      <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px" onclick="VA.draft.pendiente=!VA.draft.pendiente;vaModal_()"><span class="va-chk ${r.pendiente ? 'on' : ''}">${r.pendiente ? '✓' : ''}</span>Marcar como "falta completar"</div>
+    </div>
+    <div class="ft"><button class="va-btn" onclick="document.getElementById('va-modal').remove()">Cancelar</button><button class="va-btn ok" id="va-save" onclick="vaSave_()">💾 Guardar</button></div>
+  </div>`;
+  document.body.appendChild(m);
+}
+window.vaSetTipo_ = function (k) { VA.draft.tipo = k; if (!VA.draft.grupo || Object.values(VA_TIPOS).some(t => t.g === VA.draft.grupo)) VA.draft.grupo = VA_TIPOS[k].g; vaModal_(); };
+window.vaGen_ = function (k) {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#$%&*?@';
+  const b = new Uint32Array(16); crypto.getRandomValues(b);
+  const p = Array.from(b, x => A[x % A.length]).join('');
+  VA.draft.f[k] = p; const i = document.getElementById('va-in-' + k); if (i) { i.value = p; i.type = 'text'; }
+};
+window.vaSave_ = async function () {
+  const r = VA.draft;
+  if (!String(r.titulo || '').trim()) return alert('Escribe el nombre del registro.');
+  r.grupo = String(r.grupo || '').trim() || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g;
+  const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro;
+  Object.keys(r.f).forEach(k => { if (!T.f.some(f => f[0] === k) || r.f[k] === '') delete r.f[k]; });
+  r.extras = r.extras.filter(x => String(x.k || x.v || '').trim());
+  const b = document.getElementById('va-save'); if (b) { b.disabled = true; b.textContent = '⏳ Guardando…'; }
+  try {
+    await vaApi_('/vault/save', { method: 'POST', body: { record: r } });
+    document.getElementById('va-modal')?.remove();
+    await vaLoad_(); vaRender_(); vaToast_('💾 Guardado');
+  } catch (e) { alert('No se pudo guardar: ' + e.message); if (b) { b.disabled = false; b.textContent = '💾 Guardar'; } }
+};
+window.vaDel_ = async function (id) {
+  const r = VA.records.find(x => x.id === id); if (!r) return;
+  if (!confirm(`¿Eliminar "${r.titulo}"? Quedará registrado en la bitácora.`)) return;
+  try { await vaApi_('/vault/delete', { method: 'POST', body: { id } }); await vaLoad_(); vaRender_(); vaToast_('🗑️ Eliminado'); }
+  catch (e) { alert('No se pudo eliminar: ' + e.message); }
+};
+window.vaBitacora_ = async function () {
+  try { await vaLoad_(); } catch (_) { return; }
+  document.getElementById('va-modal')?.remove();
+  const m = document.createElement('div'); m.className = 'va-modal va'; m.id = 'va-modal';
+  m.innerHTML = `<div class="pn" style="max-width:760px"><div class="hd">🕓 Bitácora de accesos<button class="va-btn sm" onclick="document.getElementById('va-modal').remove()">✕</button></div>
+    <div class="bd">${VA.log.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${['Fecha', 'Usuario', 'Acción', 'Registro'].map(h => `<th style="text-align:left;padding:7px 8px;background:#f8fafc;font-size:10.5px;text-transform:uppercase;color:#475569">${h}</th>`).join('')}</tr></thead><tbody>
+      ${VA.log.map(l => `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;white-space:nowrap">${vaEsc_(new Date(l.ts).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-weight:700">${vaEsc_(l.u || '—')}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${vaEsc_(l.a)}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#64748b">${vaEsc_(l.t || '')}</td></tr>`).join('')}</tbody></table>` : '<div style="color:#94a3b8">Sin movimientos.</div>'}</div></div>`;
+  document.body.appendChild(m);
+};
+
 // ── Versión cargada (visible en la barra superior y en Console) ─────────
 (function () {
   try {
