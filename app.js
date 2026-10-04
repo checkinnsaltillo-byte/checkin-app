@@ -60786,31 +60786,41 @@ function vaRenderLock_(root) {
   root.innerHTML = `<div class="va-lock">
     <div class="ico">🔐</div>
     <h3>Control de contraseñas y accesos</h3>
-    <p>Área protegida. Cada ingreso requiere un código de 6 dígitos que se envía por <b>WhatsApp</b> a ${vaEsc_(VA.to || 'los números autorizados (•••• 3922 y •••• 9120)')}. Ni el administrador puede entrar sin él.</p>
+    <p>Área protegida. Cada ingreso requiere un código de 6 dígitos que se envía por <b>WhatsApp o SMS</b> a ${vaEsc_(VA.to || 'los números autorizados (•••• 3922 y •••• 9120)')}. Ni el administrador puede entrar sin él.</p>
     ${enviado ? `
       <input id="va-code" class="va-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6);if(this.value.length===6)vaVerify_()">
       <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
         <button class="va-btn pri" onclick="vaVerify_()" ${VA.busy ? 'disabled' : ''}>${VA.busy ? '⏳ Verificando…' : '🔓 Entrar'}</button>
-        <button class="va-btn" id="va-resend" onclick="vaSendCode_()" ${VA.busy || VA.cool > Date.now() ? 'disabled' : ''}>📲 Reenviar código</button>
+      </div>
+      <div style="font-size:11px;color:#64748b;margin:14px 0 6px">¿No llegó? Reenviar por:</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="va-btn va-resend" onclick="vaSendCode_('whatsapp')" ${VA.busy || VA.cool > Date.now() ? 'disabled' : ''}>🟢 WhatsApp</button>
+        <button class="va-btn va-resend" onclick="vaSendCode_('sms')" ${VA.busy || VA.cool > Date.now() ? 'disabled' : ''}>💬 SMS</button>
       </div>` : `
-      <button class="va-btn pri" style="padding:12px 20px;font-size:14px" onclick="vaSendCode_()" ${VA.busy ? 'disabled' : ''}>${VA.busy ? '⏳ Enviando…' : '📲 Enviar código por WhatsApp'}</button>`}
+      <div style="font-size:12px;font-weight:800;color:#334155;margin-bottom:8px">Enviar código por:</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="va-btn pri" style="padding:12px 20px;font-size:14px;background:linear-gradient(120deg,#15803d,#22c55e);border-color:#16a34a" onclick="vaSendCode_('whatsapp')" ${VA.busy ? 'disabled' : ''}>${VA.busy === 'whatsapp' ? '⏳ Enviando…' : '🟢 WhatsApp'}</button>
+        <button class="va-btn pri" style="padding:12px 20px;font-size:14px" onclick="vaSendCode_('sms')" ${VA.busy ? 'disabled' : ''}>${VA.busy === 'sms' ? '⏳ Enviando…' : '💬 SMS'}</button>
+      </div>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">WhatsApp solo llega si ese número escribió al sistema en las últimas 24 h. SMS llega siempre.</div>`}
     ${VA.err ? `<div class="va-msg err">⚠️ ${vaEsc_(VA.err)}</div>` : ''}
     ${VA.msg ? `<div class="va-msg ${/no pudo|no llegó/i.test(VA.msg) ? 'warn' : 'inf'}" id="va-msgbox">${VA.msg}</div>` : ''}
     <div style="font-size:10.5px;color:#94a3b8;margin-top:16px">🔒 Información cifrada (AES-256) · la sesión se cierra sola a los 15 min sin actividad · cada ingreso y consulta queda en la bitácora.</div>
   </div>`;
   const inp = document.getElementById('va-code'); if (inp) inp.focus();
 }
-window.vaSendCode_ = async function () {
+window.vaSendCode_ = async function (channel) {
   if (VA.busy) return;
-  VA.busy = true; VA.err = ''; VA.msg = ''; vaRender_();
+  channel = channel === 'sms' ? 'sms' : 'whatsapp';
+  VA.busy = channel; VA.err = ''; VA.msg = ''; vaRender_();
   try {
-    const j = await vaApi_('/vault/code', { method: 'POST', body: { user: vaUser_() } });
+    const j = await vaApi_('/vault/code', { method: 'POST', body: { user: vaUser_(), channel } });
     VA.challenge = j.challenge; VA.to = j.to; VA.cool = Date.now() + 30000;
     const sent = j.sent || [];
     VA.sid = sent.map(x => x.sid).filter(Boolean).join(',');
     const fallo = sent.filter(x => x.error).map(x => x.to);
-    VA.msg = `✅ Código enviado por WhatsApp a ${vaEsc_(j.to)}. Vence en 5 minutos.${fallo.length ? `<br>⚠️ No se pudo enviar a ${vaEsc_(fallo.join(', '))}.` : ''}`;
-    setTimeout(() => { const b = document.getElementById('va-resend'); if (b && !VA.busy) b.disabled = false; }, 30500);
+    VA.msg = `✅ Código enviado por ${channel === 'sms' ? 'SMS' : 'WhatsApp'} a ${vaEsc_(j.to)}. Vence en 5 minutos.${fallo.length ? `<br>⚠️ No se pudo enviar a ${vaEsc_(fallo.join(', '))}.` : ''}`;
+    setTimeout(() => { if (!VA.busy) document.querySelectorAll('.va-resend').forEach(b => { b.disabled = false; }); }, 30500);
     sent.filter(x => x.sid).forEach(x => vaCheckDelivery_(x.sid, 0, x.to));
   } catch (e) { VA.err = e.message; }
   VA.busy = false; vaRender_();
@@ -60822,7 +60832,9 @@ async function vaCheckDelivery_(sid, n, to) {
   try {
     const j = await fetch(`${BACKEND}/vault/code-status?sid=${encodeURIComponent(sid)}`, { cache: 'no-store' }).then(r => r.json());
     if (j && (j.status === 'failed' || j.status === 'undelivered')) {
-      VA.msg = `⚠️ WhatsApp no pudo entregar el código${to ? ` a ${vaEsc_(to)}` : ''}${j.errorCode ? ` (error ${j.errorCode})` : ''}. Si el error es 63016, WhatsApp solo permite mensajes libres dentro de las 24 h posteriores a un mensaje tuyo: <b>envía cualquier mensaje desde ese WhatsApp al número del sistema</b> y vuelve a pedir el código.`;
+      VA.msg = j.errorCode === 63016
+        ? `⚠️ WhatsApp no entregó el código${to ? ` a ${vaEsc_(to)}` : ''}: ese número no ha escrito al sistema en las últimas 24 h. <b>Usa el botón 💬 SMS</b> (en 30 s) o escribe primero al WhatsApp del sistema.`
+        : `⚠️ No se pudo entregar el código${to ? ` a ${vaEsc_(to)}` : ''}${j.errorCode ? ` (error ${j.errorCode})` : ''}. Intenta por el otro medio.`;
       const box = document.getElementById('va-msgbox'); if (box) { box.className = 'va-msg warn'; box.innerHTML = VA.msg; } else vaRender_();
     } else if (j && (j.status === 'queued' || j.status === 'sent' || j.status === 'accepted') && n < 2) vaCheckDelivery_(sid, n + 1, to);
   } catch (_) {}
