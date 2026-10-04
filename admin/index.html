@@ -178,7 +178,7 @@
         </li>
         <li class="nav-item" id="nav-item-personas"
             onclick="switchModule('personas');closeNavMenu()">
-          🏨 Huéspedes/Inquilinos
+          🏨 Directorio
         </li>
         <li class="nav-item" id="nav-item-pagos"
             onclick="switchModule('pagos');closeNavMenu()">
@@ -331,7 +331,7 @@
           <button type="button" class="home-card home-card-personas" onclick="switchModule('personas')">
             <div class="home-card-icon">🏨</div>
             <div class="home-card-body">
-              <h3 class="home-card-title">Huéspedes/Inquilinos</h3>
+              <h3 class="home-card-title">Directorio</h3>
               <p class="home-card-desc">Directorio de huéspedes (KPIs, contacto, datos fiscales, vehículo) y de inquilinos (perfiles y rentas).</p>
             </div>
             <div class="home-card-arrow">→</div>
@@ -1748,7 +1748,7 @@
     <!-- ══ MÓDULO: Huéspedes/Inquilinos (pestaña Huéspedes) ═════════════ -->
     <div id="module-personas" class="hidden" style="padding:20px 24px 60px">
       <!-- Cabecera compartida con módulo Inquilinos: título + tab switcher -->
-      <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🏨 Huéspedes/Inquilinos</div>
+      <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🏨 Directorio</div>
       <div id="hi-tabs-personas" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
         <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">👤 Huéspedes</button>
         <button type="button" onclick="switchModule('inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🏠 Inquilinos</button>
@@ -2635,7 +2635,7 @@
     <div id="module-inquilinos" class="hidden" style="padding:20px 24px 60px">
       <div style="max-width:1440px;margin:0 auto">
         <!-- Cabecera compartida con módulo Huéspedes: título + tab switcher -->
-        <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🏨 Huéspedes/Inquilinos</div>
+        <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🏨 Directorio</div>
         <div id="hi-tabs-inquilinos" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
           <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">👤 Huéspedes</button>
           <button type="button" onclick="switchModule('inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">🏠 Inquilinos</button>
@@ -2959,7 +2959,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1407"></script>
+  <script src="app.js?v=1408"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
