@@ -60719,6 +60719,11 @@ function vaEnsureStyles_() {
   .va-top .va-btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);color:#fff}
   .va-top .va-btn.ok{background:#10b981;border-color:#10b981}
   .va-timer{font-family:ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:800}
+  .va-search{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid #c7d2fe;border-radius:14px;padding:6px 8px 6px 14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(79,70,229,.08)}
+  .va-search:focus-within{border-color:#6366f1;box-shadow:0 0 0 4px #e0e7ff}
+  .va-search span{font-size:16px}
+  .va-search input{flex:1;border:0;outline:none;font-size:14px;padding:7px 0;font-family:inherit;min-width:0;background:transparent}
+  .va-search b{font-size:11.5px;color:#4f46e5;white-space:nowrap}
   .va-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
   .va-bar input{flex:1 1 240px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 11px;font-size:13px;font-family:inherit}
   .va-chip{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;color:#334155;cursor:pointer;font-family:inherit}
@@ -60880,16 +60885,28 @@ function vaGrupos_() {
   VA.records.forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; m.set(g, (m.get(g) || 0) + 1); });
   return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
 }
+function vaNorm_(t) { return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+// Búsqueda de texto libre en CUALQUIER campo de todos los registros (incluye datos
+// ocultos, datos adicionales, notas, asignados y quién editó/verificó). Varias palabras
+// = deben aparecer todas. Mientras hay búsqueda se ignora el filtro de categoría.
 function vaFiltered_() {
-  const q = String(VA.q || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const words = vaNorm_(VA.q).split(/\s+/).filter(Boolean);
+  VA._hits = {};
   return VA.records.filter(r => {
     const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g;
-    if (VA.grupo && g !== VA.grupo) return false;
-    if (!q) return true;
-    const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro;
-    // Busca solo en datos NO secretos.
-    const txt = [r.titulo, g, r.notas, ...T.f.filter(f => !f[2]).map(f => (r.f || {})[f[0]]), ...(r.extras || []).filter(x => !x.secret).map(x => x.k + ' ' + x.v)].join(' ');
-    return txt.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(q);
+    if (!words.length) return !VA.grupo || g === VA.grupo;
+    const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro, F = r.f || {};
+    const vis = [r.titulo, g, T.l, r.notas, r.updatedBy, r.verificadoPor, r.verificado ? 'verificada verificado' : 'sin verificar', r.pendiente ? 'falta completar pendiente' : ''];
+    const sec = [];
+    T.f.forEach(([k, l, kind]) => { const v = F[k]; if (v == null || v === '') return; vis.push(l); (kind ? sec : vis).push(kind ? [l, v] : v); });
+    (r.extras || []).forEach(x => { vis.push(x.k); if (x.secret) sec.push([x.k || 'Dato', x.v]); else vis.push(x.v); });
+    const visTxt = vaNorm_(vis.join(' ')), secTxt = sec.map(([, v]) => vaNorm_(String(v).replace(/\s/g, '') + ' ' + v));
+    const ok = words.every(w => visTxt.includes(w) || secTxt.some(t => t.includes(w)));
+    if (ok) {
+      const enOculto = sec.filter(([, v], i) => words.some(w => !visTxt.includes(w) && secTxt[i].includes(w))).map(([l]) => l);
+      if (enOculto.length) VA._hits[r.id] = enOculto;
+    }
+    return ok;
   });
 }
 function vaRenderVault_(root) {
@@ -60901,9 +60918,10 @@ function vaRenderVault_(root) {
   root.innerHTML = `
     <div class="va-top"><div><div class="t">🔓 Control de contraseñas y accesos</div><div class="s">${VA.records.length} registros · sesión de ${vaEsc_(vaUser_())} · se bloquea en <span class="va-timer" id="va-timer">${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}</span></div></div>
       <div class="sp"><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button><button class="va-btn" onclick="vaBitacora_()">🕓 Bitácora</button><button class="va-btn" onclick="vaLockNow_()">🔒 Bloquear</button></div></div>
-    <div class="va-bar"><input type="search" placeholder="🔎 Buscar por nombre, banco, plataforma, propiedad…" value="${vaEsc_(VA.q)}" oninput="vaSearch_(this.value)">
-      <button class="va-chip ${!VA.grupo ? 'on' : ''}" onclick="vaSetGrupo_('')">Todos<b>${VA.records.length}</b></button>
-      ${grupos.map(([g, n]) => `<button class="va-chip ${VA.grupo === g ? 'on' : ''}" onclick="vaSetGrupo_(this.dataset.g)" data-g="${vaEsc_(g)}">${vaEsc_(g)}<b>${n}</b></button>`).join('')}</div>
+    <div class="va-search"><span>🔎</span><input type="search" id="va-q" placeholder="Buscar en todos los registros: nombre, usuario, correo, banco, tarjeta, CLABE, propiedad, notas, contraseña…" value="${vaEsc_(VA.q)}" oninput="vaSearch_(this.value)" autocomplete="off"><b id="va-q-n">${VA.q ? rows.length + ' resultado' + (rows.length === 1 ? '' : 's') : ''}</b>${VA.q ? `<button class="va-ib" title="Limpiar" onclick="VA.q='';vaRender_()">✕</button>` : ''}</div>
+    <div class="va-bar">
+      <button class="va-chip ${!VA.grupo || VA.q ? 'on' : ''}" onclick="vaSetGrupo_('')">Todos<b>${VA.records.length}</b></button>
+      ${grupos.map(([g, n]) => `<button class="va-chip ${VA.grupo === g && !VA.q ? 'on' : ''}" onclick="vaSetGrupo_(this.dataset.g)" data-g="${vaEsc_(g)}">${vaEsc_(g)}<b>${n}</b></button>`).join('')}</div>
     <div id="va-list">${vaListHtml_(byG)}</div>`;
 }
 function vaListHtml_(byG) {
@@ -60926,6 +60944,7 @@ function vaCardHtml_(r) {
   return `<div class="va-card" style="--c:${T.c}">
     <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}
       <button type="button" class="va-ver ${r.verificado ? 'on' : ''}" onclick="vaVerifToggle_('${vaEsc_(r.id)}')" title="${r.verificado ? `Verificada por ${vaEsc_(r.verificadoPor || '—')} el ${vaEsc_(r.verificadoEn ? new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')} · clic para quitar` : 'Marcar información como verificada'}">${r.verificado ? '✓' : ''}</button></div>
+    ${VA.q && (VA._hits || {})[r.id] ? `<div style="padding:5px 12px;font-size:11px;font-weight:700;color:#92400e;background:#fffbeb;border-bottom:1px solid #fde68a">🔎 Coincide en dato oculto: ${vaEsc_(VA._hits[r.id].join(', '))}</div>` : ''}
     ${T.f.map(([k, l, kind]) => row(k, l, kind, F[k])).join('')}
     ${(r.extras || []).map((x, i) => row('x' + i, x.k || 'Dato', x.secret ? 's' : '', x.v)).join('')}
     ${r.notas ? `<div class="va-notes">📝 ${vaEsc_(r.notas)}</div>` : ''}
@@ -60946,9 +60965,11 @@ window.vaSearch_ = function (v) {
   _vaSearchT = setTimeout(() => {
     const byG = new Map(); vaFiltered_().forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; if (!byG.has(g)) byG.set(g, []); byG.get(g).push(r); });
     const el = document.getElementById('va-list'); if (el) el.innerHTML = vaListHtml_(byG);
+    const n = document.getElementById('va-q-n'); const tot = Array.from(byG.values()).reduce((a, l) => a + l.length, 0);
+    if (n) n.textContent = VA.q ? `${tot} resultado${tot === 1 ? '' : 's'}` : '';
   }, 150);
 };
-window.vaSetGrupo_ = function (g) { VA.grupo = g; vaRender_(); };
+window.vaSetGrupo_ = function (g) { VA.grupo = g; VA.q = ''; vaRender_(); };
 window.vaToggle_ = function (id, key) {
   const k = `${id}|${key}`;
   if (VA.reveal.has(k)) VA.reveal.delete(k);
