@@ -61196,12 +61196,11 @@ window.vaImpGuardar_ = async function () {
   const dup = r => VA.records.some(x => x.tipo === 'internet' && (x.f || {}).propiedad === r.f.propiedad && (x.f || {}).redes === r.f.redes);
   const recs = (VA._imp || []).filter(r => !dup(r));
   const b = document.getElementById('va-imp-ok'); b.disabled = true;
+  b.textContent = `⏳ Guardando ${recs.length}…`;
   let ok = 0;
-  for (const r of recs) {
-    b.textContent = `⏳ Guardando ${ok + 1} de ${recs.length}…`;
-    try { await vaApi_('/vault/save', { method: 'POST', body: { record: r } }); ok++; }
-    catch (e) { alert(`Se guardaron ${ok} de ${recs.length}. Error: ${e.message}`); break; }
-  }
+  // Una sola escritura para todo el lote (evita el límite de Cloud Storage).
+  try { const j = await vaApi_('/vault/save-many', { method: 'POST', body: { records: recs, origen: 'Conexiones de internet (Sheets)' } }); ok = (j.ids || []).length; }
+  catch (e) { alert(`No se pudo importar: ${e.message}`); b.disabled = false; b.textContent = `💾 Guardar ${recs.length} registros`; return; }
   document.getElementById('va-modal')?.remove();
   VA._imp = null;
   try { await vaLoad_(); } catch (_) {}
