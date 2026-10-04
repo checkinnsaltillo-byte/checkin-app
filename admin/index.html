@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión inmobiliaria | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=158">
+  <link rel="stylesheet" href="styles.css?v=159">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -256,38 +256,32 @@
       .sys-bnav-menu .ci-text{display:none}
       .sys-bnav-menu{overflow:visible}
     </style>
-    <div id="user-greeting" class="user-greeting hidden">
-      <div class="ug-left">
+    <div id="user-greeting" class="user-greeting gb hidden">
+      <div class="gb-left">
         <button type="button" class="ug-hamburger" onclick="toggleNavMenu()" aria-label="Abrir menú lateral" title="Menú">☰</button>
-        <span class="ug-hello">👋 Hola, <strong id="ug-name"></strong></span>
-        <span id="ug-version" title="Versión del sistema cargada en este navegador" style="margin-left:8px;font-size:10.5px;font-weight:800;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px"></span>
+        <div class="gb-brand" onclick="switchModule('home')" title="Ir al inicio">
+          <div class="gb-eyebrow">Check Inn · Saltillo</div>
+          <div class="gb-title">Sistema de gestión inmobiliaria</div>
+          <div class="gb-meta"><span class="ug-hello">👋 Hola, <strong id="ug-name"></strong></span><span class="gb-dot">·</span><span id="hm-date" class="gb-date"></span><span id="ug-version" title="Versión del sistema cargada en este navegador" class="gb-ver"></span></div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex:none">
+      <div class="hm-quick gb-quick" aria-label="Acceso directo">
+        <span class="gb-quick-l">⚡</span>
+              <button type="button" class="hm-q" data-mod="efectivo" onclick="bnEfectivoOpenFromHome()"><span>💵</span>Efectivo</button>
+              <button type="button" class="hm-q" data-mod="pagos" onclick="switchModule('pagos')"><span>💳</span>Pagos</button>
+              <button type="button" class="hm-q" data-mod="bot-chats" onclick="switchModule('bot-chats')"><span>🤖</span>Chats bot</button>
+              <button type="button" class="hm-q" data-mod="tareas" onclick="switchModule('tareas')"><span>🗓️</span>Tareas programadas</button>
+              <button type="button" class="hm-q" data-mod="guias" onclick="switchModule('guias')"><span>📖</span>Guías de bienvenida</button>
+      </div>
+      <div class="gb-right">
         <button type="button" id="ug-panel-btn" class="ug-panel" onclick="switchModule('panel-control')" title="Ir al Panel de control">📊<span class="ug-panel-txt"> Panel de control</span></button>
-        <button type="button" class="ug-logout" onclick="sysLogout()">Cerrar sesión</button>
+        <button type="button" class="ug-logout" onclick="sysLogout()" title="Cerrar sesión">🚪<span class="ug-logout-txt"> Cerrar sesión</span></button>
       </div>
     </div>
 
     <!-- ══ MÓDULO: Home (pantalla de bienvenida con cards de módulos) ══ -->
     <div id="module-home" class="hidden">
       <div class="hm">
-        <div class="hm-top">
-          <div class="hm-brand">
-            <div class="hm-eyebrow">Check Inn · Saltillo</div>
-            <h1 class="hm-title">Sistema de gestión inmobiliaria</h1>
-            <div class="hm-date" id="hm-date"></div>
-          </div>
-          <div class="hm-quick">
-            <div class="hm-quick-l">⚡ Acceso directo</div>
-            <div class="hm-quick-b">
-              <button type="button" class="hm-q" data-mod="efectivo" onclick="bnEfectivoOpenFromHome()"><span>💵</span>Efectivo</button>
-              <button type="button" class="hm-q" data-mod="pagos" onclick="switchModule('pagos')"><span>💳</span>Pagos</button>
-              <button type="button" class="hm-q" data-mod="bot-chats" onclick="switchModule('bot-chats')"><span>🤖</span>Chats bot</button>
-              <button type="button" class="hm-q" data-mod="tareas" onclick="switchModule('tareas')"><span>🗓️</span>Tareas programadas</button>
-              <button type="button" class="hm-q" data-mod="guias" onclick="switchModule('guias')"><span>📖</span>Guías de bienvenida</button>
-            </div>
-          </div>
-        </div>
         <div class="hm-grid">
           <section class="hm-sec" data-g="op" style="--hc:#0e7490">
             <header class="hm-sec-h"><span class="hm-letter">A</span><span class="hm-sec-t">Operación</span><span class="hm-sec-n"></span></header>
@@ -2817,7 +2811,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1414"></script>
+  <script src="app.js?v=1415"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

@@ -6651,3 +6651,47 @@ body.dark .nav-group{color:#94a3b8}
 body.dark .nav-secs>ul,body.dark .nav-subs{border-color:#334155}
 body.dark .nav-sec-row{color:#cbd5e1}
 body.dark .nav-sec-row:hover,body.dark .nav-subsec:hover{background:#1e293b;color:#fff}
+
+/* ═══════════ Barra global unificada (saludo + marca + accesos directos + acciones) ═══════════ */
+.user-greeting.gb{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;border-bottom:0;color:#fff;font-size:12px;
+  background:radial-gradient(900px 220px at 0% 0%,rgba(56,189,248,.16),transparent 60%),linear-gradient(120deg,#0b1730 0%,#13284d 55%,#1e3a6e 100%);
+  box-shadow:0 4px 18px rgba(11,23,48,.22);position:relative;z-index:50}
+.user-greeting.gb.hidden{display:none}
+.gb-left{display:flex;align-items:center;gap:12px;min-width:0;flex:0 1 auto}
+.user-greeting.gb .ug-hamburger{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:#fff;width:36px;height:34px}
+.user-greeting.gb .ug-hamburger:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45)}
+.gb-brand{min-width:0;cursor:pointer;line-height:1.2}
+.gb-eyebrow{font-size:9.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#93c5fd}
+.gb-title{font-size:16px;font-weight:900;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gb-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#cbd5e1;white-space:nowrap;min-width:0;margin-top:1px}
+.user-greeting.gb .ug-hello{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.user-greeting.gb .ug-hello strong{color:#fff}
+.gb-dot{opacity:.5}
+.user-greeting.gb #ug-version{margin-left:4px !important;font-size:10px;font-weight:800;color:#bfdbfe;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:0 7px}
+.gb-quick{display:flex;align-items:center;gap:6px;flex:1 1 auto;justify-content:flex-end;min-width:0}
+.gb-quick-l{font-size:13px;color:#fcd34d;margin-right:2px}
+.user-greeting.gb .hm-q{padding:5px 11px;font-size:11.5px}
+.gb-right{display:flex;align-items:center;gap:8px;flex:none}
+.user-greeting.gb .ug-panel{background:linear-gradient(120deg,#4f46e5,#6366f1);border-color:#6366f1;padding:7px 12px;font-size:12px;box-shadow:0 2px 8px rgba(79,70,229,.35)}
+.user-greeting.gb .ug-logout{background:transparent;border:1px solid rgba(255,255,255,.3);color:#e2e8f0;padding:7px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+.user-greeting.gb .ug-logout:hover{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.5)}
+body.dark .user-greeting.gb{background:linear-gradient(120deg,#0b1730 0%,#13284d 55%,#1e3a6e 100%);border:0;color:#fff}
+body.dark .user-greeting.gb .ug-hello strong{color:#fff}
+body.dark .user-greeting.gb .ug-logout{background:transparent}
+.hm{padding-top:16px}
+@media (max-width:1280px){
+  .gb-quick{order:3;flex:1 1 100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-top:2px}
+  .gb-quick::-webkit-scrollbar{display:none}
+  .gb-left{flex:1 1 auto}
+}
+@media (max-width:640px){
+  .user-greeting.gb{padding:8px 10px;gap:8px}
+  .gb-left{gap:8px}
+  .gb-eyebrow,.gb-dot,.gb-date{display:none}
+  .gb-title{font-size:13.5px}
+  .gb-meta{font-size:11px}
+  .user-greeting.gb .ug-panel{padding:6px 9px;font-size:15px;line-height:1}
+  .user-greeting.gb .ug-logout{padding:6px 9px;font-size:15px;line-height:1}
+  .ug-logout-txt{display:none}
+  .user-greeting.gb .hm-q{padding:5px 10px;font-size:11px}
+}
