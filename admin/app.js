@@ -60786,7 +60786,7 @@ function vaRenderLock_(root) {
   root.innerHTML = `<div class="va-lock">
     <div class="ico">🔐</div>
     <h3>Control de contraseñas y accesos</h3>
-    <p>Área protegida. Cada ingreso requiere un código de 6 dígitos que se envía por <b>WhatsApp</b> al número ${vaEsc_(VA.to || '•••• 3922')}. Ni el administrador puede entrar sin él.</p>
+    <p>Área protegida. Cada ingreso requiere un código de 6 dígitos que se envía por <b>WhatsApp</b> a ${vaEsc_(VA.to || 'los números autorizados (•••• 3922 y •••• 9120)')}. Ni el administrador puede entrar sin él.</p>
     ${enviado ? `
       <input id="va-code" class="va-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6);if(this.value.length===6)vaVerify_()">
       <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
@@ -60805,23 +60805,26 @@ window.vaSendCode_ = async function () {
   VA.busy = true; VA.err = ''; VA.msg = ''; vaRender_();
   try {
     const j = await vaApi_('/vault/code', { method: 'POST', body: { user: vaUser_() } });
-    VA.challenge = j.challenge; VA.to = j.to; VA.sid = j.sid || ''; VA.cool = Date.now() + 30000;
-    VA.msg = `✅ Código enviado por WhatsApp a ${vaEsc_(j.to)}. Vence en 5 minutos.`;
+    VA.challenge = j.challenge; VA.to = j.to; VA.cool = Date.now() + 30000;
+    const sent = j.sent || [];
+    VA.sid = sent.map(x => x.sid).filter(Boolean).join(',');
+    const fallo = sent.filter(x => x.error).map(x => x.to);
+    VA.msg = `✅ Código enviado por WhatsApp a ${vaEsc_(j.to)}. Vence en 5 minutos.${fallo.length ? `<br>⚠️ No se pudo enviar a ${vaEsc_(fallo.join(', '))}.` : ''}`;
     setTimeout(() => { const b = document.getElementById('va-resend'); if (b && !VA.busy) b.disabled = false; }, 30500);
-    if (VA.sid) vaCheckDelivery_(VA.sid, 0);
+    sent.filter(x => x.sid).forEach(x => vaCheckDelivery_(x.sid, 0, x.to));
   } catch (e) { VA.err = e.message; }
   VA.busy = false; vaRender_();
 };
 // Si WhatsApp no entrega (p. ej. fuera de la ventana de 24 h), avisa cómo resolverlo.
-async function vaCheckDelivery_(sid, n) {
+async function vaCheckDelivery_(sid, n, to) {
   await new Promise(r => setTimeout(r, n ? 6000 : 4000));
-  if (VA.token || VA.sid !== sid) return;
+  if (VA.token || !String(VA.sid).split(',').includes(sid)) return;
   try {
     const j = await fetch(`${BACKEND}/vault/code-status?sid=${encodeURIComponent(sid)}`, { cache: 'no-store' }).then(r => r.json());
     if (j && (j.status === 'failed' || j.status === 'undelivered')) {
-      VA.msg = `⚠️ WhatsApp no pudo entregar el código${j.errorCode ? ` (error ${j.errorCode})` : ''}. Si el error es 63016, WhatsApp solo permite mensajes libres dentro de las 24 h posteriores a un mensaje tuyo: <b>envía cualquier mensaje desde ese WhatsApp al número del sistema</b> y vuelve a pedir el código.`;
+      VA.msg = `⚠️ WhatsApp no pudo entregar el código${to ? ` a ${vaEsc_(to)}` : ''}${j.errorCode ? ` (error ${j.errorCode})` : ''}. Si el error es 63016, WhatsApp solo permite mensajes libres dentro de las 24 h posteriores a un mensaje tuyo: <b>envía cualquier mensaje desde ese WhatsApp al número del sistema</b> y vuelve a pedir el código.`;
       const box = document.getElementById('va-msgbox'); if (box) { box.className = 'va-msg warn'; box.innerHTML = VA.msg; } else vaRender_();
-    } else if (j && (j.status === 'queued' || j.status === 'sent' || j.status === 'accepted') && n < 2) vaCheckDelivery_(sid, n + 1);
+    } else if (j && (j.status === 'queued' || j.status === 'sent' || j.status === 'accepted') && n < 2) vaCheckDelivery_(sid, n + 1, to);
   } catch (_) {}
 }
 window.vaVerify_ = async function () {
