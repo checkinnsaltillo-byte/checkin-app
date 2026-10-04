@@ -347,6 +347,7 @@ const SYS_MODULE_PERMS = {
 // Se guardan como lista de claves en la columna sys_modulos de la hoja Personal.
 const SYS_MODULE_LIST = [
   ['panel-control',    '📊 Panel de control'],
+  ['procesos',         '📘 Documentación de procesos'],
   ['registros',        '📚 Registros contables'],
   ['tickets',          '🎫 Tickets'],
   ['lodgify',          '🌐 Gestión de reservas'],
@@ -389,7 +390,7 @@ function sysApplyPermissions(user) {
     });
   } else {
     // Usuario legado de sys_users (grupos por número romano).
-    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control']);
+    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control', 'procesos']);
     if (user && user.modulos) {
       for (const k in SYS_MODULE_PERMS) {
         if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -9098,7 +9099,7 @@ const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
-  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control',
+  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos',
 ]);
 function _bootModuleFromHash_() {
   const h = (location.hash || '').replace(/^#/, '').trim();
@@ -9141,7 +9142,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9303,6 +9304,10 @@ function switchModule(mod) {
   }
   if (mod === "panel-control") {
     if (typeof panelControlInit === 'function') panelControlInit();
+  }
+  if (mod === "procesos") {
+    const host = document.getElementById('procesos-host');
+    if (host && typeof dpRenderModule_ === 'function') dpRenderModule_(host);
   }
   if (mod === "pagos") {
     if (typeof pagosInit === 'function') pagosInit();
@@ -46350,7 +46355,6 @@ async function cfgAdminInit() {
 function cfgAdminRender() {
   const host = document.getElementById('cfg-view');
   if (!host) return;
-  if (CFG_ADMIN.tab === 'procesos') return dpRenderModule_(host);
   if (CFG_ADMIN.loading && !CFG_ADMIN.loaded) {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
@@ -57434,8 +57438,7 @@ window.tarAbrirProceso = function (id) {
   if (typeof DP === 'undefined') return;
   if (TAR_STATE.panel) tarClosePanel(true);
   DP.view = 'ficha'; DP.selId = id; DP.sec = 'general'; DP.edit = false; DP.draft = null; DP.isNew = false;
-  switchModule('config-admin');
-  if (typeof cfgSetTab === 'function') cfgSetTab('procesos');
+  switchModule('procesos');
 };
 // Abre "Nueva tarea" con datos precargados (p. ej. desde un proceso).
 window.tarOpenPanelPrefill = function (pre) {
@@ -58124,7 +58127,7 @@ window.tarClasifSave = async function () {
     tarCloseClasif();
     tarRender();
     if (TAR_STATE.panel) tarPanelRender_();
-    // Mismo catálogo en Documentación de procesos (Configuración admin).
+    // Mismo catálogo en el módulo Documentación de procesos.
     if (typeof dpRender_ === 'function' && document.getElementById('dp-root')) dpRender_();
   } catch (e) { alert('Error: ' + e.message); }
 };
@@ -58916,7 +58919,7 @@ window.pcDrawer = function (tipo) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDrawer(); });
 
 // ═══════════════════════════════════════════════════════════════════════
-// ║ Configuración admin › 📘 Documentación de procesos                    ║
+// ║ Módulo 📘 Documentación de procesos (key: procesos)                  ║
 // ║ Catálogo + ficha (general, diagrama, procedimiento, checklist, roles, ║
 // ║ insumos, documentos, excepciones, KPIs, versiones, capacitación,      ║
 // ║ historial). Hojas: Procesos (Data_json con la ficha) y               ║

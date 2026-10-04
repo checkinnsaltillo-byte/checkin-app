@@ -205,6 +205,10 @@
             onclick="switchModule('panel-control');closeNavMenu()">
           📊 Panel de control
         </li>
+        <li class="nav-item" id="nav-item-procesos"
+            onclick="switchModule('procesos');closeNavMenu()">
+          📘 Documentación de procesos
+        </li>
         <li class="nav-item" id="nav-item-tareas"
             onclick="switchModule('tareas');closeNavMenu()">
           🗓️ Tareas programadas
@@ -373,6 +377,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Panel de control</h3>
               <p class="home-card-desc">Vista ejecutiva: finanzas, ocupación, cobranza, rentas, operación y personal.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-procesos" onclick="switchModule('procesos')">
+            <div class="home-card-icon">📘</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Documentación de procesos</h3>
+              <p class="home-card-desc">Catálogo de procesos: procedimiento, diagrama, checklist, roles, versiones y capacitación.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -2107,6 +2119,9 @@
     <!-- ═══════════════ MÓDULO PANEL DE CONTROL (dashboard ejecutivo) ═══════════════ -->
     <div id="module-panel-control" class="hidden" style="padding:20px 24px 60px"></div>
 
+    <!-- ═══════════════ MÓDULO DOCUMENTACIÓN DE PROCESOS ═══════════════ -->
+    <div id="module-procesos" class="hidden" style="padding:20px 24px 60px"><div id="procesos-host" style="max-width:1600px;margin:0 auto"></div></div>
+
     <!-- ═══════════════ MÓDULO PROGRAMACIÓN DE TAREAS RECURRENTES ═══════════════ -->
     <div id="module-tareas" class="hidden" style="padding:20px 24px 60px"></div>
 
@@ -2729,7 +2744,6 @@
           <button type="button" class="rh-tab active" data-cfg-tab="templates" onclick="cfgSetTab('templates')">💬 Templates de mensajes programados</button>
           <button type="button" class="rh-tab" data-cfg-tab="sysprompts" onclick="cfgSetTab('sysprompts')">🧠 Sys Prompts</button>
           <button type="button" class="rh-tab" data-cfg-tab="prompts" onclick="cfgSetTab('prompts')">📋 Prompts (procesos)</button>
-          <button type="button" class="rh-tab" data-cfg-tab="procesos" onclick="cfgSetTab('procesos')">📘 Documentación de procesos</button>
         </div>
         <div id="cfg-view" class="rh-view">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
@@ -2959,7 +2973,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1409"></script>
+  <script src="app.js?v=1410"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
