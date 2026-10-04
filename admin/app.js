@@ -60995,7 +60995,7 @@ function vaModal_() {
       <div class="va-g2">
         <div class="va-f"><label>Nombre del registro *</label><input class="va-in" value="${vaEsc_(r.titulo)}" oninput="VA.draft.titulo=this.value" placeholder="Ej. Inbursa ACL · Gmail limpieza 1 · Módem Matamoros"></div>
         <div class="va-f"><label>Categoría</label><input class="va-in" list="va-dl-grp" value="${vaEsc_(r.grupo || T.g)}" oninput="VA.draft.grupo=this.value"><datalist id="va-dl-grp">${grupos.map(g => `<option value="${vaEsc_(g)}">`).join('')}</datalist></div>
-        ${T.f.map(([k, l, kind]) => inp(k, l, kind, r.f[k], VA_SUG[k])).join('')}
+        ${T.f.map(([k, l, kind]) => k === 'asignado' ? vaPersonasHtml_(k, l, r.f[k]) : inp(k, l, kind, r.f[k], VA_SUG[k])).join('')}
       </div>
       <div class="va-f"><label>Datos adicionales</label>
         ${r.extras.map((x, i) => `<div class="va-sec" style="margin-bottom:6px"><input class="va-in" style="flex:0 0 38%" value="${vaEsc_(x.k)}" placeholder="Campo" oninput="VA.draft.extras[${i}].k=this.value"><input class="va-in" type="${x.secret ? 'password' : 'text'}" autocomplete="new-password" value="${vaEsc_(x.v)}" placeholder="Valor" oninput="VA.draft.extras[${i}].v=this.value"><span class="va-chk ${x.secret ? 'on' : ''}" title="Dato secreto (se oculta)" onclick="VA.draft.extras[${i}].secret=!VA.draft.extras[${i}].secret;vaModal_()">${x.secret ? '✓' : ''}</span><span style="font-size:10px;color:#64748b;align-self:center">secreto</span><button type="button" class="va-btn sm" onclick="VA.draft.extras.splice(${i},1);vaModal_()">✕</button></div>`).join('')}
@@ -61007,6 +61007,39 @@ function vaModal_() {
   </div>`;
   document.body.appendChild(m);
 }
+// "Asignado a": personal activo (hoja Personal) con selección múltiple. Marcar NO
+// re-renderiza la ventana: solo cambia la palomita (se guarda separado por comas).
+function vaPersonasHtml_(k, label, val) {
+  const sel = String(val || '').split(',').map(x => x.trim()).filter(Boolean);
+  const nombres = (typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []).slice();
+  sel.forEach(n => { if (!nombres.includes(n)) nombres.push(n); });
+  if (!nombres.length && typeof incLoadPersonal === 'function' && !VA._persLoading) {
+    VA._persLoading = true;
+    incLoadPersonal().then(() => { VA._persLoading = false; if (document.getElementById('va-modal')) vaModal_(); }).catch(() => { VA._persLoading = false; });
+  }
+  return `<div class="va-f" style="grid-column:1/-1"><label>${vaEsc_(label)} <span id="va-asig-n" style="color:#4f46e5">${sel.length ? '· ' + sel.length : ''}</span></label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:190px;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;padding:6px">
+      ${nombres.length ? nombres.map(n => { const on = sel.includes(n); return `<div data-n="${vaEsc_(n)}" onclick="vaAsigToggle_(this,'${k}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;border:1.5px solid ${on ? '#c7d2fe' : 'transparent'};background:${on ? '#eef2ff' : '#fff'}"><span class="va-chk ${on ? 'on' : ''}">${on ? '✓' : ''}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${vaEsc_(n)}</span></div>`; }).join('') : '<div style="font-size:12px;color:#94a3b8;padding:6px">⏳ Cargando personal…</div>'}
+    </div>
+    <input class="va-in" style="margin-top:6px" placeholder="＋ Agregar a alguien que no está en la lista y presionar Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();vaAsigAdd_(this,'${k}')}"></div>`;
+}
+window.vaAsigToggle_ = function (el, k) {
+  const n = el.dataset.n;
+  const cur = String(VA.draft.f[k] || '').split(',').map(x => x.trim()).filter(Boolean);
+  const i = cur.indexOf(n); if (i >= 0) cur.splice(i, 1); else cur.push(n);
+  VA.draft.f[k] = cur.join(', ');
+  const on = cur.includes(n), c = el.querySelector('.va-chk');
+  c.classList.toggle('on', on); c.textContent = on ? '✓' : '';
+  el.style.borderColor = on ? '#c7d2fe' : 'transparent'; el.style.background = on ? '#eef2ff' : '#fff';
+  const cnt = document.getElementById('va-asig-n'); if (cnt) cnt.textContent = cur.length ? '· ' + cur.length : '';
+};
+window.vaAsigAdd_ = function (inp, k) {
+  const v = inp.value.trim(); if (!v) return;
+  const cur = String(VA.draft.f[k] || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!cur.includes(v)) cur.push(v);
+  VA.draft.f[k] = cur.join(', ');
+  vaModal_();
+};
 window.vaSetTipo_ = function (k) { VA.draft.tipo = k; if (!VA.draft.grupo || Object.values(VA_TIPOS).some(t => t.g === VA.draft.grupo)) VA.draft.grupo = VA_TIPOS[k].g; vaModal_(); };
 window.vaGen_ = function (k) {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#$%&*?@';
