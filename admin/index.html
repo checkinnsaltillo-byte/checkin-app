@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión inmobiliaria | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=154">
+  <link rel="stylesheet" href="styles.css?v=155">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -123,7 +123,7 @@
     <div id="nav-overlay" class="nav-overlay hidden" onclick="closeNavMenu()"></div>
     <nav id="nav-sidebar" class="nav-sidebar">
       <div class="nav-sidebar-header">
-        <span class="nav-sidebar-title">Menú</span>
+        <span class="nav-sidebar-title">Check Inn · Menú</span>
         <button class="nav-close-btn" onclick="closeNavMenu()">✕</button>
       </div>
       <ul class="nav-menu">
@@ -131,9 +131,51 @@
             onclick="switchModule('home');closeNavMenu()">
           🏠 Inicio
         </li>
+        <li class="nav-group" data-g="op" style="--hc:#0e7490"><span class="ng-l">A</span>Operación</li>
+        <li class="nav-item" id="nav-item-tareas"
+            onclick="switchModule('tareas');closeNavMenu()">
+          🗓️ Tareas programadas
+        </li>
+        <li class="nav-item" id="nav-item-procesos"
+            onclick="switchModule('procesos');closeNavMenu()">
+          📘 Documentación de procesos
+        </li>
+        <li class="nav-item" id="nav-item-breezeway"
+            onclick="switchModule('breezeway');closeNavMenu()">
+          🧹 Breezeway
+        </li>
+        <li class="nav-item" id="nav-item-incidencias"
+            onclick="switchModule('incidencias');closeNavMenu()">
+          🚨 Incidencias
+        </li>
+        <li class="nav-item" id="nav-item-reportes-tecnicos"
+            onclick="switchModule('reportes-tecnicos');closeNavMenu()">
+          🛠️ Reportes técnicos
+        </li>
+        <li class="nav-item" id="nav-item-inventarios"
+            onclick="switchModule('inventarios');closeNavMenu()">
+          📦 Inventarios
+        </li>
+        <li class="nav-item" id="nav-item-llaves"
+            onclick="switchModule('llaves');closeNavMenu()">
+          🔑 Llaves
+        </li>
+        <li class="nav-item" id="nav-item-tuya"
+            onclick="switchModule('tuya');closeNavMenu()">
+          📡 Dispositivos
+        </li>
+        <li class="nav-item" id="nav-item-objetos"
+            onclick="switchModule('objetos');closeNavMenu()">
+          🧳 Objetos olvidados
+        </li>
+        <li class="nav-item" id="nav-item-rh"
+            onclick="switchModule('rh');closeNavMenu()">
+          👥 Recursos Humanos
+        </li>
+        <li class="nav-group" data-g="fin" style="--hc:#047857"><span class="ng-l">B</span>Finanzas</li>
         <li class="nav-item active" id="nav-item-registros"
             onclick="switchModule('registros');closeNavMenu()">
-          📚 Registros contables
+          🏦 Registros contables
         </li>
         <li class="nav-sub-item"
             onclick="switchModule('registros');bn_setCat('pc');closeNavMenu()">
@@ -157,7 +199,7 @@
         </li>
         <li class="nav-item" id="nav-item-tickets"
             onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
-          🎫 Tickets
+          🧾 Tickets
         </li>
         <li class="nav-sub-item"
             onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
@@ -167,10 +209,14 @@
             onclick="switchModule('tickets');switchSection('captura');closeNavMenu()">
           📸 &nbsp;Captura de tickets
         </li>
-        <!-- "Información de huéspedes" oculto temporalmente -->
-        <li class="nav-item hidden" id="nav-item-huespedes"
-            onclick="switchModule('huespedes');closeNavMenu()">
-          🏨 Información de huéspedes
+        <li class="nav-item" id="nav-item-pagos"
+            onclick="switchModule('pagos');closeNavMenu()">
+          💳 Pagos
+        </li>
+        <li class="nav-group" data-g="res" style="--hc:#1d4ed8"><span class="ng-l">C</span>Reservas</li>
+        <li class="nav-item" id="nav-item-reservas-nueva"
+            onclick="switchModule('reservas-nueva');closeNavMenu()">
+          🛎️ Reservas
         </li>
         <li class="nav-item" id="nav-item-lodgify"
             onclick="switchModule('lodgify');closeNavMenu()">
@@ -180,83 +226,42 @@
             onclick="switchModule('personas');closeNavMenu()">
           📇 Directorio
         </li>
-        <li class="nav-item" id="nav-item-pagos"
-            onclick="switchModule('pagos');closeNavMenu()">
-          💰 Pagos
+        <li class="nav-item" id="nav-item-bot-chats"
+            onclick="switchModule('bot-chats');closeNavMenu()">
+          🤖 Chats bot
+        </li>
+        <li class="nav-item" id="nav-item-guias"
+            onclick="switchModule('guias');closeNavMenu()">
+          📖 Guías de Bienvenida
+        </li>
+        <!-- "Información de huéspedes" oculto temporalmente -->
+        <li class="nav-item hidden" id="nav-item-huespedes"
+            onclick="switchModule('huespedes');closeNavMenu()">
+          🏨 Información de huéspedes
         </li>
         <!-- "Reservas - detalles" oculto temporalmente -->
         <li class="nav-item hidden" id="nav-item-reservas-detalles"
             onclick="switchModule('reservas-detalles');closeNavMenu()">
           📒 Reservas - detalles
         </li>
-        <li class="nav-item" id="nav-item-breezeway"
-            onclick="switchModule('breezeway');closeNavMenu()">
-          🧹 Breezeway
-        </li>
-        <li class="nav-item" id="nav-item-incidencias"
-            onclick="switchModule('incidencias');closeNavMenu()">
-          🚨 Incidencias
-        </li>
-        <li class="nav-item" id="nav-item-reportes-tecnicos"
-            onclick="switchModule('reportes-tecnicos');closeNavMenu()">
-          🛠 Reportes técnicos
-        </li>
-        <li class="nav-item" id="nav-item-panel-control"
-            onclick="switchModule('panel-control');closeNavMenu()">
-          📊 Panel de control
-        </li>
-        <li class="nav-item" id="nav-item-procesos"
-            onclick="switchModule('procesos');closeNavMenu()">
-          📘 Documentación de procesos
-        </li>
-        <li class="nav-item" id="nav-item-tareas"
-            onclick="switchModule('tareas');closeNavMenu()">
-          🗓️ Tareas programadas
-        </li>
-        <li class="nav-item" id="nav-item-objetos"
-            onclick="switchModule('objetos');closeNavMenu()">
-          🧳 Objetos olvidados
-        </li>
-        <li class="nav-item" id="nav-item-ocupacion"
-            onclick="switchModule('ocupacion');closeNavMenu()">
-          📅 Ocupación
-        </li>
-        <li class="nav-item" id="nav-item-rh"
-            onclick="switchModule('rh');closeNavMenu()">
-          👥 Recursos Humanos
-        </li>
         <!-- Inquilinos ahora es una pestaña dentro de "Huéspedes/Inquilinos" -->
         <li class="nav-item hidden" id="nav-item-inquilinos"
             onclick="switchModule('inquilinos');closeNavMenu()">
           🏠 Inquilinos
         </li>
-        <li class="nav-item" id="nav-item-inventarios"
-            onclick="switchModule('inventarios');closeNavMenu()">
-          📦 Inventarios
+        <li class="nav-group" data-g="rep" style="--hc:#6d28d9"><span class="ng-l">D</span>Reportes</li>
+        <li class="nav-item" id="nav-item-panel-control"
+            onclick="switchModule('panel-control');closeNavMenu()">
+          📊 Panel de control
         </li>
-        <li class="nav-item" id="nav-item-tuya"
-            onclick="switchModule('tuya');closeNavMenu()">
-          🛰️ Dispositivos
+        <li class="nav-item" id="nav-item-ocupacion"
+            onclick="switchModule('ocupacion');closeNavMenu()">
+          📅 Ocupación
         </li>
-        <li class="nav-item" id="nav-item-guias"
-            onclick="switchModule('guias');closeNavMenu()">
-          📖 Guías de Bienvenida
-        </li>
-        <li class="nav-item" id="nav-item-llaves"
-            onclick="switchModule('llaves');closeNavMenu()">
-          🔑 Llaves
-        </li>
+        <li class="nav-group" data-g="cfg" style="--hc:#b45309"><span class="ng-l">E</span>Configuración admin</li>
         <li class="nav-item" id="nav-item-config-admin"
             onclick="switchModule('config-admin');closeNavMenu()">
           ⚙️ Configuración Admin
-        </li>
-        <li class="nav-item" id="nav-item-bot-chats"
-            onclick="switchModule('bot-chats');closeNavMenu()">
-          🤖 Chats bot
-        </li>
-        <li class="nav-item" id="nav-item-reservas-nueva"
-            onclick="switchModule('reservas-nueva');closeNavMenu()">
-          🏨 Reservas
         </li>
       </ul>
       <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
@@ -293,206 +298,73 @@
 
     <!-- ══ MÓDULO: Home (pantalla de bienvenida con cards de módulos) ══ -->
     <div id="module-home" class="hidden">
-      <div class="home-wrap">
-        <div class="home-hero">
-          <div class="home-hero-eyebrow">Bienvenido</div>
-          <h1 class="home-hero-title">Sistema de gestión inmobiliaria</h1>
-          <p class="home-hero-sub">Selecciona un módulo para comenzar</p>
+      <div class="hm">
+        <div class="hm-top">
+          <div class="hm-brand">
+            <div class="hm-eyebrow">Check Inn · Saltillo</div>
+            <h1 class="hm-title">Sistema de gestión inmobiliaria</h1>
+            <div class="hm-date" id="hm-date"></div>
+          </div>
+          <div class="hm-quick">
+            <div class="hm-quick-l">⚡ Acceso directo</div>
+            <div class="hm-quick-b">
+              <button type="button" class="hm-q" data-mod="efectivo" onclick="bnEfectivoOpenFromHome()"><span>💵</span>Efectivo</button>
+              <button type="button" class="hm-q" data-mod="pagos" onclick="switchModule('pagos')"><span>💳</span>Pagos</button>
+              <button type="button" class="hm-q" data-mod="bot-chats" onclick="switchModule('bot-chats')"><span>🤖</span>Chats bot</button>
+              <button type="button" class="hm-q" data-mod="tareas" onclick="switchModule('tareas')"><span>🗓️</span>Tareas programadas</button>
+              <button type="button" class="hm-q" data-mod="guias" onclick="switchModule('guias')"><span>📖</span>Guías de bienvenida</button>
+            </div>
+          </div>
         </div>
-        <div class="home-grid">
-          <button type="button" class="home-card home-card-registros" onclick="switchModule('registros')">
-            <div class="home-card-icon">📚</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Registros contables</h3>
-              <p class="home-card-desc">Movimientos bancarios, clasificación, indicadores y planeación.</p>
+        <div class="hm-grid">
+          <section class="hm-sec" data-g="op" style="--hc:#0e7490">
+            <header class="hm-sec-h"><span class="hm-letter">A</span><span class="hm-sec-t">Operación</span><span class="hm-sec-n"></span></header>
+            <div class="hm-tiles">
+              <button type="button" class="hm-tile home-card-tareas" onclick="switchModule('tareas')"><span class="hm-ico">🗓️</span><span class="hm-tx"><b>Tareas programadas</b><small>Asignación y seguimiento de tareas al personal</small></span></button>
+              <button type="button" class="hm-tile home-card-procesos" onclick="switchModule('procesos')"><span class="hm-ico">📘</span><span class="hm-tx"><b>Documentación de procesos</b><small>Procedimientos, checklists, roles y versiones</small></span></button>
+              <button type="button" class="hm-tile home-card-breezeway" onclick="switchModule('breezeway')"><span class="hm-ico">🧹</span><span class="hm-tx"><b>Breezeway</b><small>Limpieza, mantenimiento e inspecciones</small></span></button>
+              <button type="button" class="hm-tile home-card-incidencias" onclick="switchModule('incidencias')"><span class="hm-ico">🚨</span><span class="hm-tx"><b>Incidencias</b><small>Reportes con evidencia fotográfica</small></span></button>
+              <button type="button" class="hm-tile home-card-reportes-tecnicos" onclick="switchModule('reportes-tecnicos')"><span class="hm-ico">🛠️</span><span class="hm-tx"><b>Reportes técnicos</b><small>Bitácora técnica y refacciones</small></span></button>
+              <button type="button" class="hm-tile home-card-inventarios" onclick="switchModule('inventarios')"><span class="hm-ico">📦</span><span class="hm-tx"><b>Inventarios</b><small>Stock, órdenes de compra y reposición</small></span></button>
+              <button type="button" class="hm-tile home-card-llaves" onclick="switchModule('llaves')"><span class="hm-ico">🔑</span><span class="hm-tx"><b>Llaves</b><small>Llaves y códigos por alojamiento</small></span></button>
+              <button type="button" class="hm-tile home-card-tuya" onclick="switchModule('tuya')"><span class="hm-ico">📡</span><span class="hm-tx"><b>Dispositivos</b><small>Sensores Smart Life en tiempo real</small></span></button>
+              <button type="button" class="hm-tile home-card-objetos" onclick="switchModule('objetos')"><span class="hm-ico">🧳</span><span class="hm-tx"><b>Objetos olvidados</b><small>Registro y devolución de objetos</small></span></button>
+              <button type="button" class="hm-tile home-card-rh" onclick="switchModule('rh')"><span class="hm-ico">👥</span><span class="hm-tx"><b>Recursos Humanos</b><small>Expediente, asistencia y nómina</small></span></button>
             </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-efectivo" onclick="bnEfectivoOpenFromHome()">
-            <div class="home-card-icon">💵</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Efectivo</h3>
-              <p class="home-card-desc">Captura manual de movimientos en efectivo — clasificación automática e inserción a BANCOS.</p>
+          </section>
+          <section class="hm-sec" data-g="fin" style="--hc:#047857">
+            <header class="hm-sec-h"><span class="hm-letter">B</span><span class="hm-sec-t">Finanzas</span><span class="hm-sec-n"></span></header>
+            <div class="hm-tiles">
+              <button type="button" class="hm-tile home-card-registros" onclick="switchModule('registros')"><span class="hm-ico">🏦</span><span class="hm-tx"><b>Registros contables</b><small>Movimientos bancarios, clasificación y planeación</small></span></button>
+              <button type="button" class="hm-tile home-card-efectivo" onclick="bnEfectivoOpenFromHome()"><span class="hm-ico">💵</span><span class="hm-tx"><b>Efectivo</b><small>Captura de movimientos en efectivo</small></span></button>
+              <button type="button" class="hm-tile home-card-tickets" onclick="switchModule('tickets');switchSection('capturados')"><span class="hm-ico">🧾</span><span class="hm-tx"><b>Tickets</b><small>Captura y OCR de comprobantes de gasto</small></span></button>
+              <button type="button" class="hm-tile home-card-pagos" onclick="switchModule('pagos')"><span class="hm-ico">💳</span><span class="hm-tx"><b>Pagos</b><small>Cobros por reserva, saldos y reembolsos</small></span></button>
             </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-tickets" onclick="switchModule('tickets');switchSection('capturados')">
-            <div class="home-card-icon">🎫</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Tickets</h3>
-              <p class="home-card-desc">Captura, OCR y gestión de tickets y comprobantes de gasto.</p>
+          </section>
+          <section class="hm-sec" data-g="res" style="--hc:#1d4ed8">
+            <header class="hm-sec-h"><span class="hm-letter">C</span><span class="hm-sec-t">Reservas</span><span class="hm-sec-n"></span></header>
+            <div class="hm-tiles">
+              <button type="button" class="hm-tile home-card-reservas-nueva" onclick="switchModule('reservas-nueva')"><span class="hm-ico">🛎️</span><span class="hm-tx"><b>Reservas</b><small>Disponibilidad, cotización y checkout</small></span></button>
+              <button type="button" class="hm-tile home-card-lodgify" onclick="switchModule('lodgify')"><span class="hm-ico">🌐</span><span class="hm-tx"><b>Gestión de reservas</b><small>Reservaciones, facturación y cobros</small></span></button>
+              <button type="button" class="hm-tile home-card-ocupacion" onclick="switchModule('calendario')"><span class="hm-ico">📆</span><span class="hm-tx"><b>Calendario</b><small>Calendario mensual de reservas</small></span></button>
+              <button type="button" class="hm-tile home-card-personas" onclick="switchModule('personas')"><span class="hm-ico">📇</span><span class="hm-tx"><b>Directorio</b><small>Huéspedes e inquilinos</small></span></button>
+              <button type="button" class="hm-tile home-card-bot-chats" onclick="switchModule('bot-chats')"><span class="hm-ico">🤖</span><span class="hm-tx"><b>Chats bot</b><small>Conversaciones WhatsApp del bot IA</small></span></button>
+              <button type="button" class="hm-tile home-card-guias" onclick="switchModule('guias')"><span class="hm-ico">📖</span><span class="hm-tx"><b>Guías de bienvenida</b><small>Guía digital por alojamiento</small></span></button>
             </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-lodgify" onclick="switchModule('lodgify')">
-            <div class="home-card-icon">🌐</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Gestión de reservas</h3>
-              <p class="home-card-desc">Reservaciones Lodgify, huéspedes, facturación y cobros.</p>
+          </section>
+          <section class="hm-sec" data-g="rep" style="--hc:#6d28d9">
+            <header class="hm-sec-h"><span class="hm-letter">D</span><span class="hm-sec-t">Reportes</span><span class="hm-sec-n"></span></header>
+            <div class="hm-tiles">
+              <button type="button" class="hm-tile home-card-panel-control" onclick="switchModule('panel-control')"><span class="hm-ico">📊</span><span class="hm-tx"><b>Panel de control</b><small>Vista ejecutiva del negocio</small></span></button>
+              <button type="button" class="hm-tile home-card-ocupacion" onclick="switchModule('dashboard')"><span class="hm-ico">📈</span><span class="hm-tx"><b>Dashboard de ocupación</b><small>Indicadores y gráficas por alojamiento</small></span></button>
             </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-personas" onclick="switchModule('personas')">
-            <div class="home-card-icon">📇</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Directorio</h3>
-              <p class="home-card-desc">Directorio de huéspedes (KPIs, contacto, datos fiscales, vehículo) y de inquilinos (perfiles y rentas).</p>
+          </section>
+          <section class="hm-sec" data-g="cfg" style="--hc:#b45309">
+            <header class="hm-sec-h"><span class="hm-letter">E</span><span class="hm-sec-t">Configuración admin</span><span class="hm-sec-n"></span></header>
+            <div class="hm-tiles">
+              <button type="button" class="hm-tile home-card-config-admin" onclick="switchModule('config-admin')"><span class="hm-ico">⚙️</span><span class="hm-tx"><b>Configuración Admin</b><small>Templates, prompts y ajustes globales</small></span></button>
             </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-pagos" onclick="switchModule('pagos')">
-            <div class="home-card-icon">💰</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Pagos</h3>
-              <p class="home-card-desc">Status de cobros por reserva (Stripe/manual): pagado, pendiente, parcial, reembolsos.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-breezeway" onclick="switchModule('breezeway')">
-            <div class="home-card-icon">🧹</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Breezeway</h3>
-              <p class="home-card-desc">Tareas operativas de limpieza, mantenimiento e inspecciones.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-incidencias" onclick="switchModule('incidencias')">
-            <div class="home-card-icon">🚨</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Incidencias</h3>
-              <p class="home-card-desc">Reportes de limpieza y mantenimiento con evidencia fotográfica.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-reportes-tecnicos" onclick="switchModule('reportes-tecnicos')">
-            <div class="home-card-icon">🛠</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Reportes técnicos</h3>
-              <p class="home-card-desc">Bitácora de trabajo técnico, mantenimiento y refacciones.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-panel-control" onclick="switchModule('panel-control')">
-            <div class="home-card-icon">📊</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Panel de control</h3>
-              <p class="home-card-desc">Vista ejecutiva: finanzas, ocupación, cobranza, rentas, operación y personal.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-procesos" onclick="switchModule('procesos')">
-            <div class="home-card-icon">📘</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Documentación de procesos</h3>
-              <p class="home-card-desc">Catálogo de procesos: procedimiento, diagrama, checklist, roles, versiones y capacitación.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-tareas" onclick="switchModule('tareas')">
-            <div class="home-card-icon">🗓️</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Tareas programadas</h3>
-              <p class="home-card-desc">Asigna tareas de la operación al personal con su recurrencia y prioridad.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-objetos" onclick="switchModule('objetos')">
-            <div class="home-card-icon">🧳</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Objetos olvidados</h3>
-              <p class="home-card-desc">Registro y devolución de objetos encontrados en los alojamientos.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('dashboard')">
-            <div class="home-card-icon">📊</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Dashboard</h3>
-              <p class="home-card-desc">Indicadores y gráficas de ocupación por alojamiento.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('calendario')">
-            <div class="home-card-icon">🗓️</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Calendario</h3>
-              <p class="home-card-desc">Calendario mensual de reservas Lodgify centrado en hoy.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-rh" onclick="switchModule('rh')">
-            <div class="home-card-icon">👥</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Recursos Humanos</h3>
-              <p class="home-card-desc">Expediente, asistencia, ausencias y compensaciones del personal.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <!-- Home-card de Inquilinos removida — ahora vive dentro de "Huéspedes/Inquilinos" -->
-          <button type="button" class="home-card home-card-inquilinos hidden" onclick="switchModule('inquilinos')" style="display:none">
-            <div class="home-card-icon">🏠</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Inquilinos</h3>
-              <p class="home-card-desc">Perfiles, contratos y pagos mensuales de inquilinos de renta a largo plazo.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-inventarios" onclick="switchModule('inventarios')">
-            <div class="home-card-icon">📦</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Inventarios</h3>
-              <p class="home-card-desc">Control de productos, stock por ubicación, órdenes de compra y alertas de reposición.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-tuya" onclick="switchModule('tuya')">
-            <div class="home-card-icon">🛰️</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Dispositivos</h3>
-              <p class="home-card-desc">Sensores de puerta, humo y otros dispositivos Smart Life en tiempo real con historial.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-guias" onclick="switchModule('guias')">
-            <div class="home-card-icon">📖</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Guías de Bienvenida</h3>
-              <p class="home-card-desc">Información, reglas, servicios y guía local por alojamiento — la guía digital que ve el huésped.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-llaves" onclick="switchModule('llaves')">
-            <div class="home-card-icon">🔑</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Llaves</h3>
-              <p class="home-card-desc">Control de llaves y códigos por alojamiento — puerta, caja de seguridad y responsables.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-config-admin" onclick="switchModule('config-admin')">
-            <div class="home-card-icon">⚙️</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Configuración Admin</h3>
-              <p class="home-card-desc">Templates de mensajes programados y otros ajustes globales del sistema.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-bot-chats" onclick="switchModule('bot-chats')">
-            <div class="home-card-icon">🤖</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Chats bot</h3>
-              <p class="home-card-desc">Conversaciones WhatsApp del bot IA — monitorea, toma control y responde manualmente.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
-          <button type="button" class="home-card home-card-reservas-nueva" onclick="switchModule('reservas-nueva')">
-            <div class="home-card-icon">🏨</div>
-            <div class="home-card-body">
-              <h3 class="home-card-title">Reservas</h3>
-              <p class="home-card-desc">Buscar disponibilidad y cotizar estancias — con mapa interactivo y checkout directo.</p>
-            </div>
-            <div class="home-card-arrow">→</div>
-          </button>
+          </section>
         </div>
       </div>
     </div><!-- /module-home -->
@@ -2973,7 +2845,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1410"></script>
+  <script src="app.js?v=1411"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

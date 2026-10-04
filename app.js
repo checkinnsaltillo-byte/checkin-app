@@ -403,7 +403,7 @@ function sysApplyPermissions(user) {
     if (key === 'home') return;
     if (!allowed.has(key)) el.style.display = 'none';
   });
-  document.querySelectorAll('button.home-card').forEach(btn => {
+  document.querySelectorAll('button.home-card, button.hm-tile').forEach(btn => {
     for (const cls of btn.classList) {
       if (cls === 'home-card') continue;
       if (cls.startsWith('home-card-')) {
@@ -412,11 +412,31 @@ function sysApplyPermissions(user) {
       }
     }
   });
+  // Accesos directos del Inicio + ocultar grupos (A–E) sin módulos visibles.
+  document.querySelectorAll('.hm-q[data-mod]').forEach(b => { if (!allowed.has(b.dataset.mod)) b.style.display = 'none'; });
+  sysRefreshMenuGroups_();
   const pcBtn = document.getElementById('ug-panel-btn');
   if (pcBtn) pcBtn.style.display = allowed.has('panel-control') ? '' : 'none';
   const greet = document.getElementById('user-greeting');
   const nm    = document.getElementById('ug-name');
   if (greet && nm && user) { nm.textContent = user.Nombre || ''; greet.classList.remove('hidden'); }
+}
+function sysRefreshMenuGroups_() {
+  const vis = el => el.style.display !== 'none' && !el.classList.contains('hidden');
+  document.querySelectorAll('.hm-sec').forEach(sec => {
+    const n = Array.from(sec.querySelectorAll('.hm-tile')).filter(vis).length;
+    sec.style.display = n ? '' : 'none';
+    const c = sec.querySelector('.hm-sec-n'); if (c) c.textContent = n;
+  });
+  const q = document.querySelector('.hm-quick');
+  if (q) q.style.display = Array.from(q.querySelectorAll('.hm-q')).some(vis) ? '' : 'none';
+  document.querySelectorAll('.nav-menu .nav-group').forEach(g => {
+    let el = g.nextElementSibling, any = false;
+    while (el && !el.classList.contains('nav-group')) { if (el.classList.contains('nav-item') && vis(el)) { any = true; break; } el = el.nextElementSibling; }
+    g.style.display = any ? '' : 'none';
+  });
+  const d = document.getElementById('hm-date');
+  if (d) d.textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 window.sysLogout = function () {
   try { localStorage.removeItem('sys_user'); } catch(_) {}
@@ -60323,6 +60343,8 @@ window.dpImprimir_ = function () {
   w.document.close();
 };
 
+// Inicio: contadores por grupo y fecha (también para sesiones sin sysApplyPermissions).
+try { sysRefreshMenuGroups_(); } catch (_) {}
 // ── Versión cargada (visible en la barra superior y en Console) ─────────
 (function () {
   try {
