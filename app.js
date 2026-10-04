@@ -60732,6 +60732,10 @@ function vaEnsureStyles_() {
   .va-card-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:color-mix(in srgb,var(--c) 10%,#fff);border-bottom:1px solid color-mix(in srgb,var(--c) 25%,#fff)}
   .va-card-h .n{font-weight:900;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .va-card-h .tp{font-size:10px;font-weight:800;color:var(--c);text-transform:uppercase;letter-spacing:.04em}
+  .va-ver{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid #cbd5e1;background:#fff;color:#fff;font-size:14px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background .15s,border-color .15s,transform .08s}
+  .va-ver:hover{border-color:#22c55e}
+  .va-ver:active{transform:scale(.92)}
+  .va-ver.on{background:#16a34a;border-color:#16a34a;box-shadow:0 0 0 3px #dcfce7}
   .va-pend{background:#dc2626;color:#fff;border-radius:6px;font-size:10px;font-weight:900;padding:2px 6px}
   .va-row{display:grid;grid-template-columns:118px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid #f1f5f9}
   .va-row .k{font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em}
@@ -60920,11 +60924,12 @@ function vaCardHtml_(r) {
   };
   const fecha = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
   return `<div class="va-card" style="--c:${T.c}">
-    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}</div>
+    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}
+      <button type="button" class="va-ver ${r.verificado ? 'on' : ''}" onclick="vaVerifToggle_('${vaEsc_(r.id)}')" title="${r.verificado ? `Verificada por ${vaEsc_(r.verificadoPor || '—')} el ${vaEsc_(r.verificadoEn ? new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')} · clic para quitar` : 'Marcar información como verificada'}">${r.verificado ? '✓' : ''}</button></div>
     ${T.f.map(([k, l, kind]) => row(k, l, kind, F[k])).join('')}
     ${(r.extras || []).map((x, i) => row('x' + i, x.k || 'Dato', x.secret ? 's' : '', x.v)).join('')}
     ${r.notas ? `<div class="va-notes">📝 ${vaEsc_(r.notas)}</div>` : ''}
-    <div class="va-foot">${fecha ? `Editado ${vaEsc_(fecha)}${r.updatedBy ? ' · ' + vaEsc_(r.updatedBy) : ''}` : ''}<div class="sp"><button class="va-ib" title="Editar" onclick="vaEdit_('${vaEsc_(r.id)}')">✏️</button><button class="va-ib" title="Eliminar" onclick="vaDel_('${vaEsc_(r.id)}')">🗑️</button></div></div>
+    <div class="va-foot">${r.verificado ? `<span style="color:#15803d;font-weight:800">✓ Verificada${r.verificadoEn ? ' ' + vaEsc_(new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })) : ''}${r.verificadoPor ? ' · ' + vaEsc_(r.verificadoPor) : ''}</span>` : '<span style="color:#b45309;font-weight:700">Sin verificar</span>'}<span style="opacity:.6">·</span>${fecha ? `Editado ${vaEsc_(fecha)}${r.updatedBy ? ' · ' + vaEsc_(r.updatedBy) : ''}` : ''}<div class="sp"><button class="va-ib" title="Editar" onclick="vaEdit_('${vaEsc_(r.id)}')">✏️</button><button class="va-ib" title="Eliminar" onclick="vaDel_('${vaEsc_(r.id)}')">🗑️</button></div></div>
   </div>`;
 }
 function vaVal_(r, key) {
@@ -61001,7 +61006,10 @@ function vaModal_() {
         ${r.extras.map((x, i) => `<div class="va-sec" style="margin-bottom:6px"><input class="va-in" style="flex:0 0 38%" value="${vaEsc_(x.k)}" placeholder="Campo" oninput="VA.draft.extras[${i}].k=this.value"><input class="va-in" type="${x.secret ? 'password' : 'text'}" autocomplete="new-password" value="${vaEsc_(x.v)}" placeholder="Valor" oninput="VA.draft.extras[${i}].v=this.value"><span class="va-chk ${x.secret ? 'on' : ''}" title="Dato secreto (se oculta)" onclick="VA.draft.extras[${i}].secret=!VA.draft.extras[${i}].secret;vaModal_()">${x.secret ? '✓' : ''}</span><span style="font-size:10px;color:#64748b;align-self:center">secreto</span><button type="button" class="va-btn sm" onclick="VA.draft.extras.splice(${i},1);vaModal_()">✕</button></div>`).join('')}
         <button type="button" class="va-btn sm" onclick="VA.draft.extras.push({k:'',v:'',secret:false});vaModal_()">＋ Agregar dato</button></div>
       <div class="va-f"><label>Notas</label><textarea class="va-in" rows="3" oninput="VA.draft.notas=this.value" placeholder="Ej. Verificación con celular… Solo la maneja ACL.">${vaEsc_(r.notas)}</textarea></div>
-      <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px" onclick="VA.draft.pendiente=!VA.draft.pendiente;vaModal_()"><span class="va-chk ${r.pendiente ? 'on' : ''}">${r.pendiente ? '✓' : ''}</span>Marcar como "falta completar"</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px" onclick="VA.draft.pendiente=!VA.draft.pendiente;vaModal_()"><span class="va-chk ${r.pendiente ? 'on' : ''}">${r.pendiente ? '✓' : ''}</span>Marcar como "falta completar"</div>
+        <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px" onclick="vaVerifDraft_()"><span class="va-ver ${r.verificado ? 'on' : ''}" style="pointer-events:none">${r.verificado ? '✓' : ''}</span>Información verificada${r.verificado && r.verificadoPor ? `<span style="font-weight:600;color:#64748b;font-size:11.5px">· ${vaEsc_(r.verificadoPor)}${r.verificadoEn ? ', ' + vaEsc_(new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })) : ''}</span>` : ''}</div>
+      </div>
     </div>
     <div class="ft"><button class="va-btn" onclick="document.getElementById('va-modal').remove()">Cancelar</button><button class="va-btn ok" id="va-save" onclick="vaSave_()">💾 Guardar</button></div>
   </div>`;
@@ -61039,6 +61047,24 @@ window.vaAsigAdd_ = function (inp, k) {
   if (!cur.includes(v)) cur.push(v);
   VA.draft.f[k] = cur.join(', ');
   vaModal_();
+};
+window.vaVerifDraft_ = function () {
+  const r = VA.draft; r.verificado = !r.verificado;
+  if (r.verificado) { r.verificadoPor = vaUser_(); r.verificadoEn = new Date().toISOString(); } else { delete r.verificadoPor; delete r.verificadoEn; }
+  vaModal_();
+};
+// Botón circular de la card: marca/desmarca y guarda al instante.
+window.vaVerifToggle_ = async function (id) {
+  const r0 = VA.records.find(x => x.id === id); if (!r0) return;
+  const r = JSON.parse(JSON.stringify(r0));
+  r.verificado = !r.verificado;
+  if (r.verificado) { r.verificadoPor = vaUser_(); r.verificadoEn = new Date().toISOString(); } else { delete r.verificadoPor; delete r.verificadoEn; }
+  Object.assign(r0, r); vaRefreshList_();
+  try {
+    await vaApi_('/vault/save', { method: 'POST', body: { record: r } });
+    vaApi_('/vault/log', { method: 'POST', body: { a: r.verificado ? 'Verificó información' : 'Quitó verificación', r: id, t: r.titulo } }).catch(() => {});
+    await vaLoad_(); vaRefreshList_(); vaToast_(r.verificado ? '✓ Verificada' : 'Verificación retirada');
+  } catch (e) { alert('No se pudo guardar: ' + e.message); try { await vaLoad_(); vaRefreshList_(); } catch (_) {} }
 };
 window.vaSetTipo_ = function (k) { VA.draft.tipo = k; if (!VA.draft.grupo || Object.values(VA_TIPOS).some(t => t.g === VA.draft.grupo)) VA.draft.grupo = VA_TIPOS[k].g; vaModal_(); };
 window.vaGen_ = function (k) {
