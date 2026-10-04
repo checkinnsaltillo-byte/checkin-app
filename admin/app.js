@@ -435,6 +435,7 @@ function sysRefreshMenuGroups_() {
     while (el && !el.classList.contains('nav-group')) { if (el.classList.contains('nav-item') && vis(el)) { any = true; break; } el = el.nextElementSibling; }
     g.style.display = any ? '' : 'none';
   });
+  try { if (typeof navSyncActive_ === 'function') navSyncActive_(); } catch (_) {}
   const d = document.getElementById('hm-date');
   if (d) { const t = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); d.textContent = t.charAt(0).toUpperCase() + t.slice(1); }
 }
@@ -9167,6 +9168,7 @@ function switchModule(mod) {
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
   });
+  try { if (typeof navSyncActive_ === 'function') navSyncActive_(); } catch (_) {}
   if (mod === 'dashboard' || mod === 'calendario') {
     setTimeout(() => { try { dashApplyMode(mod); } catch(_) {} }, 50);
   }
@@ -60342,6 +60344,200 @@ window.dpImprimir_ = function () {
     ${secs}<script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
   w.document.close();
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║ Menú lateral dinámico: módulo → secciones → sub-secciones             ║
+// ║ Escritorio: se despliega al pasar el cursor. Táctil: con la flecha ›. ║
+// ║ El módulo activo queda desplegado. NAV_TREE define qué abre cada uno. ║
+// ═══════════════════════════════════════════════════════════════════════
+// go(): se ejecuta DESPUÉS de switchModule(mod) (con `delay` ms si el init del
+// módulo re-renderiza y pisaría la pestaña elegida).
+function navAfter_(ms, fn) { return () => setTimeout(() => { try { fn(); } catch (e) { console.warn('[nav]', e.message); } }, ms); }
+const NAV_TREE = {
+  tareas: [
+    { t: '📝 Registro de tareas', go: () => tarSetSection('registro'), subs: [
+      { t: '▦ Cards', go: () => { tarSetSection('registro'); tarSetView('cards'); } },
+      { t: '☰ Tabla', go: () => { tarSetSection('registro'); tarSetView('tabla'); } },
+    ] },
+    { t: '📅 Calendario', go: () => tarSetSection('calendario'), subs: [
+      { t: '🗂️ Resumen de tareas', go: () => { tarSetSection('calendario'); tarSetCalView('resumen'); } },
+      { t: '📌 Pendientes del día', go: () => { tarSetSection('calendario'); tarSetCalView('dia'); } },
+      { t: '🗓️ Pendientes de la semana', go: () => { tarSetSection('calendario'); tarSetCalView('semana'); } },
+      { t: '📆 Pendientes del mes', go: () => { tarSetSection('calendario'); tarSetCalView('mes'); } },
+    ] },
+  ],
+  procesos: [
+    { t: '📚 Catálogo de procesos', go: () => { if (window.DP && DP.view !== 'catalogo') dpVolver_(); } },
+    { t: '＋ Nuevo proceso', go: () => dpNuevo_() },
+  ],
+  breezeway: [
+    { t: '📋 Lista de tasks', go: () => bzwSetView('list') },
+    { t: '📅 Calendario', go: () => { bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
+  ],
+  'reportes-tecnicos': [
+    { t: '🗂️ Por estado', go: () => rtSetView_('estado') },
+    { t: '📅 Por día', go: () => rtSetView_('dia') },
+    { t: '🗓️ Calendario', go: () => rtSetView_('calendario') },
+    { t: '📁 Proyectos', go: () => rtSetView_('proyectos') },
+  ],
+  inventarios: [
+    { t: '📍 Stock por ubicación', go: () => invSetTab('stock') },
+    { t: '📋 Productos', go: () => invSetTab('productos') },
+    { t: '🛒 Órdenes de compra', go: () => invSetTab('ordenes') },
+  ],
+  llaves: [
+    { t: '▦ Cards', go: () => llavesSetView('cards') },
+    { t: '☰ Tabla', go: () => llavesSetView('table') },
+  ],
+  tuya: [
+    { t: '📊 Cards por dispositivo', go: () => tuyaSetView('cards') },
+    { t: '📡 Monitor global', go: () => tuyaSetView('global') },
+  ],
+  rh: [
+    { t: '🕐 Control de asistencias', go: () => rhSetSection('asistencias') },
+    { t: '💵 Nómina', go: () => rhSetSection('nomina'), subs: [
+      { t: '📊 Resumen semanal', go: () => { rhSetSection('nomina'); rhSetTab('resumen_semanal'); } },
+    ] },
+    { t: '📋 Pago de obligaciones', go: () => rhSetSection('obligaciones'), subs: [
+      { t: '💵 Pagos de nómina', go: () => { rhSetSection('obligaciones'); rhObligacionesSetSubTab('nomina'); } },
+      { t: '📋 Pagos de obligaciones', go: () => { rhSetSection('obligaciones'); rhObligacionesSetSubTab('obligaciones'); } },
+    ] },
+    { t: '👥 Documentación del personal', go: () => rhSetSection('documentacion') },
+  ],
+  registros: [
+    { t: '🏷️ Por clasificar', go: () => bn_setCat('pc'), subs: [
+      ['📋 Todos', 'PC'], ['💰 Ingresos', 'PC_I'], ['💸 Egresos', 'PC_E'], ['📈 Activos', 'PC_AC'], ['📋 Pasivos', 'PC_PA'], ['💼 Capital', 'PC_CA'], ['🗄 Archivados', 'PC_ARCH'],
+    ].map(([t, k]) => ({ t, go: () => { bn_setCat('pc'); bn_setTipo(k); } })) },
+    { t: '📊 Cuentas', go: () => bn_setCat('reg'), subs: [
+      ['📋 Todos', 'T'], ['💰 Ingresos', 'I'], ['💸 Egresos', 'E'], ['📈 Activos', 'AC'], ['📋 Pasivos', 'PA'], ['💼 Capital', 'CA'],
+    ].map(([t, k]) => ({ t, go: () => { bn_setCat('reg'); bn_setTipo(k); } })) },
+    { t: '📐 Planeación', go: () => bn_setCat('pres'), subs: [
+      ['⚠️ Alertas', 'A'], ['🧮 Análisis por partida', 'AP'], ['💰 Presupuesto', 'PR'],
+    ].map(([t, k]) => ({ t, go: () => { bn_setCat('pres'); bn_setTipo(k); } })) },
+    { t: '📈 Indicadores', go: () => { bn_setCat('ind'); bn_setTipo('F'); } },
+    { t: '📥 Carga de datos', go: () => bnCargaDatosOpen(), subs: [
+      { t: '💵 Registros de efectivo', go: () => bnEfectivoOpenFromHome() },
+      { t: '📂 Subir archivos bancarios', go: () => { bnCargaDatosOpen(); setTimeout(() => bnCargaDatosSetTab('archivos'), 60); } },
+    ] },
+  ],
+  tickets: [
+    { t: '📋 Tickets capturados', go: () => switchSection('capturados') },
+    { t: '📸 Captura de tickets', go: () => switchSection('captura') },
+  ],
+  lodgify: [
+    { t: '🧾 Cards', go: () => lgSetViewMode('cards') },
+    { t: '🗂️ 4 columnas', go: () => lgSetViewMode('kanban') },
+    { t: '📊 Tabla', go: () => lgSetViewMode('table') },
+    { t: '📂 Detalles', go: () => lgSetViewMode('detail') },
+    { t: '📋 Lista', go: () => lgSetViewMode('list') },
+  ],
+  personas: [
+    { t: '👤 Huéspedes', go: () => {}, subs: [
+      { t: '📇 Cards', go: () => personasSetView('cards') },
+      { t: '📋 Tabla', go: () => personasSetView('tabla') },
+    ] },
+    { t: '🏠 Inquilinos', mod: 'inquilinos', go: () => inqSetTab('rentas'), subs: [
+      { t: '💵 Rentas · tabla', go: () => { inqSetTab('rentas'); inqSetRentasView('tabla'); } },
+      { t: '🗓️ Rentas · vista mensual', go: () => { inqSetTab('rentas'); inqSetRentasView('heatmap'); } },
+      { t: '👥 Perfiles', go: () => inqSetTab('perfiles') },
+    ] },
+  ],
+  'bot-chats': [
+    { t: '📂 Clasificado', go: () => botcSetSidebarView_('clasificado') },
+    { t: '🕐 Cronológico', go: () => botcSetSidebarView_('cronologico') },
+  ],
+  guias: [
+    ['📶 WiFi', 'wifi'], ['🔑 Check-in', 'check-in'], ['🚪 Acceso', 'acceso'], ['📋 Reglas', 'rules'], ['♻️ Residuos', 'waste'], ['💎 Servicios', 'services'], ['🗺️ Guía local', 'guide'],
+  ].map(([t, k]) => ({ t, go: () => guiasSetTab(k) })),
+  ocupacion: [
+    { t: '📊 Dashboard', mod: 'dashboard', go: () => dashSetSub('indicadores'), subs: [
+      { t: '📊 Indicadores', go: () => dashSetSub('indicadores') },
+      { t: '📈 Gráficas', go: () => dashSetSub('graficas') },
+    ] },
+    { t: '📆 Calendario de reservas', mod: 'calendario', go: () => {} },
+  ],
+  'config-admin': [
+    { t: '💬 Templates de mensajes', go: () => cfgSetTab('templates') },
+    { t: '🧠 Sys Prompts', go: () => cfgSetTab('sysprompts') },
+    { t: '📋 Prompts (procesos)', go: () => cfgSetTab('prompts') },
+  ],
+};
+
+
+const NAV_HOVER = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+function navBuild_() {
+  const menu = document.querySelector('#nav-sidebar .nav-menu');
+  if (!menu || menu.dataset.built) return;
+  menu.dataset.built = '1';
+  menu.querySelectorAll('.nav-sub-item').forEach(li => li.remove()); // sub-items estáticos → los genera el árbol
+  Object.keys(NAV_TREE).forEach(mod => {
+    const item = document.getElementById('nav-item-' + mod);
+    const secs = NAV_TREE[mod];
+    if (!item || !secs || !secs.length) return;
+    item.classList.add('has-secs');
+    const car = document.createElement('span');
+    car.className = 'nav-car'; car.textContent = '›'; car.title = 'Ver secciones';
+    car.onclick = ev => { ev.stopPropagation(); navToggle_(mod); };
+    item.appendChild(car);
+    const box = document.createElement('li');
+    box.className = 'nav-secs'; box.dataset.for = mod;
+    box.innerHTML = `<ul>${secs.map((s, i) => `
+      <li class="nav-sec ${s.subs && s.subs.length ? 'has-subs' : ''}" data-i="${i}">
+        <div class="nav-sec-row" onclick="navRun_('${mod}',${i})"><span>${s.t}</span>${s.subs && s.subs.length ? `<span class="nav-car2" onclick="event.stopPropagation();navToggleSec_(this)">›</span>` : ''}</div>
+        ${s.subs && s.subs.length ? `<ul class="nav-subs">${s.subs.map((u, j) => `<li class="nav-subsec" onclick="navRun_('${mod}',${i},${j})">${u.t}</li>`).join('')}</ul>` : ''}
+      </li>`).join('')}</ul>`;
+    item.after(box);
+    if (NAV_HOVER) {
+      let t = null;
+      const enter = () => { clearTimeout(t); navOpen_(mod, true); };
+      const leave = () => { clearTimeout(t); t = setTimeout(() => { if (!item.classList.contains('active') && !item.classList.contains('pinned')) navOpen_(mod, false); }, 220); };
+      item.addEventListener('mouseenter', enter); item.addEventListener('mouseleave', leave);
+      box.addEventListener('mouseenter', enter); box.addEventListener('mouseleave', leave);
+      box.querySelectorAll('.nav-sec.has-subs').forEach(sec => {
+        sec.addEventListener('mouseenter', () => sec.classList.add('open'));
+        sec.addEventListener('mouseleave', () => sec.classList.remove('open'));
+      });
+    } else {
+      // Táctil: tocar el nombre de un módulo con secciones las despliega (no navega);
+      // la primera sección abre el módulo.
+      item.addEventListener('click', ev => {
+        if (ev.target.closest('.nav-car')) return;
+        if (!item.classList.contains('open')) { ev.stopImmediatePropagation(); ev.preventDefault(); navToggle_(mod); }
+      }, true);
+    }
+  });
+  navSyncActive_();
+}
+function navOpen_(mod, on) {
+  const item = document.getElementById('nav-item-' + mod);
+  const box = document.querySelector(`.nav-secs[data-for="${mod}"]`);
+  if (!item || !box) return;
+  if (on && item.style.display === 'none') return;
+  item.classList.toggle('open', on); box.classList.toggle('open', on);
+}
+window.navToggle_ = function (mod) {
+  const item = document.getElementById('nav-item-' + mod); if (!item) return;
+  const on = !item.classList.contains('open');
+  item.classList.toggle('pinned', on);
+  navOpen_(mod, on);
+};
+window.navToggleSec_ = function (el) { el.closest('.nav-sec').classList.toggle('open'); };
+window.navRun_ = function (mod, i, j) {
+  const s = NAV_TREE[mod][i]; const x = j == null ? s : s.subs[j];
+  try { switchModule(s.mod || mod); } catch (e) { console.warn(e); }
+  try { (x.go || s.go || (() => {}))(); } catch (e) { console.warn('[nav]', e.message); }
+  closeNavMenu();
+};
+// Despliega el módulo activo (y pliega los demás que no estén fijados).
+function navSyncActive_() {
+  document.querySelectorAll('#nav-sidebar .nav-item.has-secs').forEach(item => {
+    const mod = item.id.replace('nav-item-', '');
+    const box = document.querySelector(`.nav-secs[data-for="${mod}"]`);
+    if (box) box.style.display = item.style.display === 'none' ? 'none' : '';
+    navOpen_(mod, item.classList.contains('active') || item.classList.contains('pinned'));
+  });
+}
+try { navBuild_(); } catch (e) { console.warn('[nav] build', e.message); }
 
 // Inicio: contadores por grupo y fecha (también para sesiones sin sysApplyPermissions).
 try { sysRefreshMenuGroups_(); } catch (_) {}

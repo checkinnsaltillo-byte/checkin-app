@@ -6629,3 +6629,25 @@ body.dark .hm-ico{background:color-mix(in srgb,var(--hc) 28%,#0f172a);box-shadow
 .nav-menu .nav-item{padding:8px 16px 8px 18px;font-size:13px;font-weight:700}
 .nav-menu .nav-sub-item{padding:6px 16px 6px 40px;font-size:12px}
 body.dark .nav-group{color:#94a3b8}
+
+/* Menú lateral dinámico: módulo › secciones › sub-secciones */
+.nav-menu .nav-item.has-secs{display:flex;align-items:center;gap:6px}
+.nav-car{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;color:#94a3b8;font-size:17px;font-weight:900;transition:transform .2s,background .15s,color .15s;flex:none}
+.nav-car:hover{background:rgba(15,23,42,.06);color:#0f172a}
+.nav-item.open .nav-car{transform:rotate(90deg);color:#1e3a6e}
+.nav-secs{list-style:none;display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease}
+.nav-secs.open{grid-template-rows:1fr}
+.nav-secs>ul{overflow:hidden;list-style:none;margin:0 10px 0 26px;padding:0;border-left:2px solid #e2e8f0}
+.nav-secs.open>ul{padding:2px 0 6px}
+.nav-sec-row{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;border-radius:0 8px 8px 0;transition:background .12s,color .12s}
+.nav-sec-row:hover{background:#eef2ff;color:#1e3a8a}
+.nav-car2{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;color:#94a3b8;font-weight:900;transition:transform .2s;flex:none}
+.nav-sec.open .nav-car2{transform:rotate(90deg);color:#1e3a8a}
+.nav-subs{list-style:none;margin:0 0 2px 14px;padding:0;border-left:2px dashed #e2e8f0;display:none}
+.nav-sec.open .nav-subs{display:block}
+.nav-subsec{padding:5px 8px 5px 12px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;border-radius:0 7px 7px 0}
+.nav-subsec:hover{background:#f1f5f9;color:#0f172a}
+@media (hover:none){ .nav-car{width:34px;height:30px} .nav-car2{width:30px;height:26px} .nav-sec-row,.nav-subsec{padding-top:8px;padding-bottom:8px} }
+body.dark .nav-secs>ul,body.dark .nav-subs{border-color:#334155}
+body.dark .nav-sec-row{color:#cbd5e1}
+body.dark .nav-sec-row:hover,body.dark .nav-subsec:hover{background:#1e293b;color:#fff}
