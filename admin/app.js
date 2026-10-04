@@ -58219,6 +58219,23 @@ function pcEnsureStyles_() {
   .pc-more{position:absolute;right:12px;top:12px;font-size:10px;font-weight:800;color:#a5b4fc;opacity:0;transition:opacity .2s}
   .pc-kpi:hover .pc-more{opacity:1}
   .pc-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+  .pc-grp{margin-bottom:22px;padding-top:14px;border-top:3px solid var(--hc)}
+  .pc-grp-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .pc-grp-l{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--hc);color:#fff;font-size:14px;font-weight:900}
+  .pc-grp-t{font-size:15px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#0f172a}
+  .pc-grp-s{font-size:12px;color:#64748b;font-weight:600}
+  .pc-grp .pc-kpis:empty{display:none}
+  .pc-grp .pc-kpis{margin-bottom:14px}
+  .pc-rep tr.g td{background:#f8fafc;font-size:10.5px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em}
+  .pc-sys{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+  .pc-sys-i{border:1px solid var(--pc-line);border-radius:12px;padding:10px 12px;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s}
+  .pc-sys-i:hover{border-color:#fcd34d;box-shadow:0 4px 14px rgba(180,83,9,.1)}
+  .pc-sys-i .t{font-size:13px;font-weight:800;color:#0f172a}
+  .pc-sys-i .d{font-size:11px;color:#64748b;margin:2px 0 8px}
+  .pc-sys-i .f{display:flex;align-items:center;gap:8px}
+  .pc-sys-i .st{font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px}
+  .pc-sys-i .ms{font-size:11px;color:#94a3b8;font-weight:700}
+  .pc-sys-i .e{font-size:10.5px;color:#b91c1c;margin-top:6px;word-break:break-word}
   .pc-card{background:var(--pc-card);border:1px solid var(--pc-line);border-radius:18px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);animation:pcUp .5s both;min-width:0}
   .pc-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
   .pc-card-t{font-size:13px;font-weight:900;color:var(--pc-ink);display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.05em}
@@ -58648,24 +58665,37 @@ function pcRenderShell_() {
         </div>
       </div>
     </div>
-    <div class="pc-kpis" id="pc-kpis"></div>
-    <div class="pc-grid">
-      <div class="pc-card s8" id="pc-sec-fin"></div>
-      <div class="pc-card s4" id="pc-sec-pres"></div>
-      <div class="pc-card s7" id="pc-sec-ocup"></div>
-      <div class="pc-card s5" id="pc-sec-ocup12"></div>
-      <div class="pc-card s6" id="pc-sec-cob"></div>
-      <div class="pc-card s6" id="pc-sec-rentas"></div>
+    <div id="pc-kpis" hidden></div>
+    ${pcGrp_('op', 'A', 'Operación', '#0e7490', 'Pendientes, personal y dispositivos', `
       <div class="pc-card s8" id="pc-sec-op"></div>
       <div class="pc-card s4" id="pc-sec-rh"></div>
-      <div class="pc-card s12" id="pc-sec-disp"></div>
-    </div>
+      <div class="pc-card s12" id="pc-sec-disp"></div>`)}
+    ${pcGrp_('fin', 'B', 'Finanzas', '#047857', 'Ingresos, egresos, presupuesto y cobranza', `
+      <div class="pc-card s8" id="pc-sec-fin"></div>
+      <div class="pc-card s4" id="pc-sec-pres"></div>
+      <div class="pc-card s12" id="pc-sec-cob"></div>`)}
+    ${pcGrp_('res', 'C', 'Reservas', '#1d4ed8', 'Ocupación, hospedaje e inquilinos', `
+      <div class="pc-card s7" id="pc-sec-ocup"></div>
+      <div class="pc-card s5" id="pc-sec-ocup12"></div>
+      <div class="pc-card s12" id="pc-sec-rentas"></div>`)}
+    ${pcGrp_('rep', 'D', 'Reportes', '#6d28d9', 'Comparativo del mes', `
+      <div class="pc-card s12" id="pc-sec-rep"></div>`)}
+    ${pcGrp_('cfg', 'E', 'Configuración admin', '#b45309', 'Estado de las fuentes de datos', `
+      <div class="pc-card s12" id="pc-sec-sys"></div>`)}
   </div>
   <div id="pc-drawer"><div class="bd" onclick="pcCloseDrawer()"></div><div class="pn" id="pc-drawer-pn"></div></div>`;
   pcRenderKpis_();
   ['fin', 'ocup', 'cob', 'rentas', 'op', 'rh', 'disp'].forEach(pcRenderSection_);
 }
 
+// Bloque de sección (mismas 5 clasificaciones y colores del menú general).
+function pcGrp_(k, L, T, C, sub, cards) {
+  return `<section class="pc-grp" data-g="${k}" style="--hc:${C}">
+    <header class="pc-grp-h"><span class="pc-grp-l">${L}</span><span class="pc-grp-t">${T}</span><span class="pc-grp-s">${sub}</span></header>
+    <div class="pc-kpis" id="pc-kpis-${k}"></div>
+    <div class="pc-grid">${cards}</div>
+  </section>`;
+}
 function pcKpi_(o) {
   return `<div class="pc-kpi" style="--acc:${o.acc};--accbg:${o.accbg};animation-delay:${o.delay || 0}s" onclick="${o.onclick}">
     <span class="pc-more">ver detalle →</span>
@@ -58706,7 +58736,72 @@ function pcRenderKpis_() {
     const crit = op.inc.criticas.length + op.rt.criticos.length;
     k.push(pcKpi_({ ico: '🛠️', label: 'Pendientes operativos', acc: '#e11d48', accbg: '#ffe4e6', value: pcFmtN(abiertos), sub: `${crit ? `<span class="pc-delta down">${crit} alta/crítica</span>` : '<span class="pc-delta up">sin críticos</span>'} incidencias + reportes`, onclick: "pcDrawer('operacion')", delay: .28 }));
   } else k.push(pcKpi_({ ico: '⏳', label: 'Pendientes operativos', acc: '#cbd5e1', accbg: '#f1f5f9', loading: true, value: '', onclick: '' }));
-  el.innerHTML = k.join('');
+  // k: 0-2 Ingresos/Egresos/Utilidad · 3-4 Ocupación/Ingreso hospedaje · 5 Por cobrar · 6 Rentas · 7 Pendientes
+  const put = (g, idx) => { const c = document.getElementById('pc-kpis-' + g); if (c) c.innerHTML = idx.map(i => k[i] || '').join(''); };
+  put('op', [7]); put('fin', [0, 1, 2, 5]); put('res', [3, 4, 6]);
+  pcRenderReporte_(); pcRenderSys_();
+}
+// D) Reportes — comparativo: mes vs mes anterior vs mismo mes del año anterior.
+function pcRenderReporte_() {
+  const el = document.getElementById('pc-sec-rep'); if (!el) return;
+  const ym = PC.ym, prev = pcYmShift(ym, -1), ly = pcYmShift(ym, -12);
+  const finOk = !!PC.finRecs, ocOk = typeof OCUP_STATE !== 'undefined' && OCUP_STATE.bookingsLoaded && !PC.loading.ocup;
+  const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
+  const rows = [];
+  const G = t => rows.push({ g: t });
+  const add = (t, fn, fmt, menorMejor) => { try { rows.push({ t, v: [fn(ym), fn(prev), fn(ly)], fmt, menorMejor }); } catch (_) {} };
+  if (finOk) {
+    G('💹 Finanzas');
+    add('Ingresos', m => pcFinMonth_(m).I, pcFmt$);
+    add('Egresos', m => pcFinMonth_(m).E, pcFmt$, true);
+    add('Utilidad', m => pcFinMonth_(m).U, pcFmt$);
+    add('Margen neto', m => pcFinMonth_(m).M, v => pcPct(v, 1));
+  }
+  if (ocOk) {
+    G('🏨 Hospedaje');
+    const oc = m => { const o = pcOcupMonth_(m); return o.tot ? o : null; };
+    add('Ocupación', m => { const o = oc(m); return o ? o.pct : NaN; }, v => pcPct(v, 1));
+    add('Noches ocupadas', m => { const o = oc(m); return o ? o.occ : NaN; }, pcFmtN);
+    add('Reservas', m => { const o = oc(m); return o ? o.res : NaN; }, pcFmtN);
+    add('Ingreso hospedaje', m => { const o = oc(m); return o ? o.rev : NaN; }, pcFmt$);
+    add('Tarifa promedio por noche', m => { const o = oc(m); return o ? o.adr : NaN; }, pcFmt$);
+  }
+  if (cobOk) { G('🧾 Cobranza'); add('Por cobrar (reservas)', m => pcCobMonth_(m).pend, pcFmt$, true); add('Cobrado', m => pcCobMonth_(m).cob, pcFmt$); }
+  if (!PC.loading.op) { G('🛠️ Operación'); add('Incidencias registradas en el mes', m => pcOpMonth_(m).inc.mes.length, pcFmtN, true); }
+  const head = `<div class="pc-card-h"><div class="pc-card-t">📑 Comparativo · ${pcYmLabel(ym)} <small>· contra mes anterior y mismo mes del año anterior</small></div></div>`;
+  if (!rows.length) { el.innerHTML = head + pcSkel_(160); return; }
+  const fmtV = (r, v) => (v == null || !isFinite(v)) ? '<span style="color:#cbd5e1">—</span>' : r.fmt(v);
+  const dlt = (r, a, b) => {
+    if (!isFinite(a) || !isFinite(b) || b === 0) return '<span style="color:#cbd5e1">—</span>';
+    const d = (a - b) / Math.abs(b), bueno = r.menorMejor ? d <= 0 : d >= 0;
+    return `<span class="pc-delta ${Math.abs(d) < 0.005 ? '' : bueno ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(1)}%</span>`;
+  };
+  el.innerHTML = head + `<div class="pc-tblwrap"><table class="pc-tbl pc-rep"><thead><tr><th>Indicador</th><th class="r">${pcYmLabel(ym, true)}</th><th class="r">${pcYmLabel(prev, true)}</th><th class="r">Δ mensual</th><th class="r">${pcYmLabel(ly, true)}</th><th class="r">Δ anual</th></tr></thead><tbody>
+    ${rows.map(r => r.g ? `<tr class="g"><td colspan="6">${r.g}</td></tr>` : `<tr><td data-l="Indicador" style="font-weight:700">${r.t}</td><td data-l="${pcYmLabel(ym, true)}" class="r" style="font-weight:800">${fmtV(r, r.v[0])}</td><td data-l="${pcYmLabel(prev, true)}" class="r">${fmtV(r, r.v[1])}</td><td data-l="Δ mensual" class="r">${dlt(r, r.v[0], r.v[1])}</td><td data-l="${pcYmLabel(ly, true)}" class="r">${fmtV(r, r.v[2])}</td><td data-l="Δ anual" class="r">${dlt(r, r.v[0], r.v[2])}</td></tr>`).join('')}
+  </tbody></table></div><div style="font-size:10.5px;color:#94a3b8;margin-top:8px">▲▼ en verde = mejora · en rojo = empeora (en egresos, por cobrar e incidencias, bajar es mejorar). "—" = sin datos de ese mes.</div>`;
+}
+// E) Configuración admin — de dónde sale cada número y si cargó bien.
+function pcRenderSys_() {
+  const el = document.getElementById('pc-sec-sys'); if (!el) return;
+  const F = [
+    ['fin', '🏦 Registros contables', 'Ingresos, egresos, utilidad y presupuesto', 'registros'],
+    ['ocup', '🏨 Reservas (Lodgify)', 'Ocupación e ingreso de hospedaje', 'lodgify'],
+    ['cob', '💳 Pagos', 'Cobranza, tickets y extensiones', 'pagos'],
+    ['rentas', '🏠 Inquilinos', 'Rentas y pagos de inquilinos', 'personas'],
+    ['op', '🚨 Operación', 'Incidencias, reportes técnicos y tareas', 'incidencias'],
+    ['rh', '👥 Recursos Humanos', 'Asistencia y nómina', 'rh'],
+    ['disp', '📡 Dispositivos', 'Sensores Smart Life', 'tuya'],
+  ];
+  const ok = F.filter(([k]) => !PC.loading[k] && !PC.err[k]).length;
+  const ver = (document.querySelector('script[src*="app.js"]') || {}).src || '';
+  const v = (ver.match(/v=(\d+)/) || [])[1] || '—';
+  el.innerHTML = `<div class="pc-card-h"><div class="pc-card-t">🛡️ Fuentes de datos <small>· ${ok}/${F.length} al día · sistema v${v} · actualizado ${PC.updatedAt ? PC.updatedAt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}</small></div><button class="pc-link" onclick="pcReload()">🔄 Recargar todo</button></div>
+    <div class="pc-sys">${F.map(([k, t, d, mod]) => {
+      const st = PC.loading[k] ? ['⏳', 'Cargando…', '#64748b', '#f1f5f9'] : PC.err[k] ? ['⚠️', 'Error', '#b91c1c', '#fee2e2'] : ['✅', 'Al día', '#166534', '#dcfce7'];
+      return `<div class="pc-sys-i" onclick="pcGo('${mod}')" title="${pcEsc(PC.err[k] || 'Abrir módulo')}"><div class="t">${t}</div><div class="d">${d}</div>
+        <div class="f"><span class="st" style="color:${st[2]};background:${st[3]}">${st[0]} ${st[1]}</span>${PC.t[k] != null && !PC.loading[k] ? `<span class="ms">${(PC.t[k] / 1000).toFixed(1)} s</span>` : ''}</div>
+        ${PC.err[k] ? `<div class="e">${pcEsc(String(PC.err[k]).slice(0, 90))}</div>` : ''}</div>`;
+    }).join('')}</div>`;
 }
 
 function pcRenderSection_(key) {
