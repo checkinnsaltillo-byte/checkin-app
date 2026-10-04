@@ -350,7 +350,7 @@ const SYS_MODULE_LIST = [
   ['registros',        '📚 Registros contables'],
   ['tickets',          '🎫 Tickets'],
   ['lodgify',          '🌐 Gestión de reservas'],
-  ['personas',         '🏨 Directorio'],
+  ['personas',         '📇 Directorio'],
   ['pagos',            '💰 Pagos'],
   ['breezeway',        '🧹 Breezeway'],
   ['incidencias',      '🚨 Incidencias'],
