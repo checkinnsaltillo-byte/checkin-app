@@ -436,7 +436,7 @@ function sysRefreshMenuGroups_() {
     g.style.display = any ? '' : 'none';
   });
   const d = document.getElementById('hm-date');
-  if (d) d.textContent = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  if (d) { const t = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); d.textContent = t.charAt(0).toUpperCase() + t.slice(1); }
 }
 window.sysLogout = function () {
   try { localStorage.removeItem('sys_user'); } catch(_) {}
