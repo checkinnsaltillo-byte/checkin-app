@@ -58768,7 +58768,10 @@ function pcRenderReporte_() {
   }
   if (cobOk) { G('🧾 Cobranza'); add('Por cobrar (reservas)', m => pcCobMonth_(m).pend, pcFmt$, true); add('Cobrado', m => pcCobMonth_(m).cob, pcFmt$); }
   if (!PC.loading.op) { G('🛠️ Operación'); add('Incidencias registradas en el mes', m => pcOpMonth_(m).inc.mes.length, pcFmtN, true); }
-  const head = `<div class="pc-card-h"><div class="pc-card-t">📑 Comparativo · ${pcYmLabel(ym)} <small>· contra mes anterior y mismo mes del año anterior</small></div></div>`;
+  const hoyD = new Date(), enCurso = ym === pcYm(hoyD.getFullYear(), hoyD.getMonth());
+  const diasMes = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0).getDate();
+  const head = `<div class="pc-card-h"><div class="pc-card-t">📑 Comparativo · ${pcYmLabel(ym)} <small>· contra mes anterior y mismo mes del año anterior</small></div></div>`
+    + (enCurso ? `<div style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:7px 10px;margin-bottom:10px">📍 Mes en curso: van <b>${hoyD.getDate()} de ${diasMes} días</b>. Se compara contra meses completos, así que las bajas son normales hasta el cierre. Usa ‹ para ver un mes cerrado.</div>` : '');
   if (!rows.length) { el.innerHTML = head + pcSkel_(160); return; }
   const fmtV = (r, v) => (v == null || !isFinite(v)) ? '<span style="color:#cbd5e1">—</span>' : r.fmt(v);
   const dlt = (r, a, b) => {
