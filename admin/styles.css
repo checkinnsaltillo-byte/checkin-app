@@ -6698,3 +6698,16 @@ body.dark .user-greeting.gb .ug-logout{background:transparent}
   .ug-logout-txt{display:none}
   .user-greeting.gb .hm-q{padding:5px 10px;font-size:11px}
 }
+
+/* ═══════════ Ancho homologado: todo el sistema a lo ancho de la pantalla ═══════════
+   Misma orilla izquierda/derecha (--gx) para la barra global y el contenido de
+   cada módulo; sin topes de ancho en los contenedores de página. Los paneles
+   laterales y modales conservan su propio ancho. */
+:root{--gx:18px}
+@media (max-width:640px){:root{--gx:10px}}
+body{padding-left:0 !important;padding-right:0 !important;padding-top:0 !important}
+#app-root,.page-shell{max-width:none !important;width:100% !important;margin:0 !important}
+.user-greeting.gb{padding-left:var(--gx) !important;padding-right:var(--gx) !important;border-radius:0 !important;margin:0 !important}
+[id^="module-"][style*="padding:20px 24px"]{padding-left:var(--gx) !important;padding-right:var(--gx) !important}
+[id^="module-"] > div[style*="max-width:1440px"],[id^="module-"] > div[style*="max-width:1600px"],#pagos-root,#procesos-host,.hm,.pc-wrap{max-width:none !important}
+.hm{padding-left:var(--gx) !important;padding-right:var(--gx) !important}
