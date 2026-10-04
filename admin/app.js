@@ -57204,11 +57204,19 @@ async function tarLoad_() {
       let c = null;
       try { c = cfg ? JSON.parse(cfg.Clasificaciones_json || 'null') : null; } catch (_) {}
       TAR_STATE.clasif = (c && typeof c === 'object') ? c : JSON.parse(JSON.stringify(TAR_DEFAULT_CLASIF));
+      let ob = null;
+      try { ob = cfg ? JSON.parse(cfg.Objetivos_json || 'null') : null; } catch (_) {}
+      TAR_STATE.objetivos = Array.isArray(ob) ? ob : TAR_DEFAULT_OBJETIVOS.slice();
     }
-    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, ocur: TAR_STATE.ocur })); } catch (_) {}
+    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, objetivos: TAR_STATE.objetivos, ocur: TAR_STATE.ocur })); } catch (_) {}
   } catch (e) {
     console.warn('[tareas] carga:', e.message);
   }
+}
+const TAR_DEFAULT_OBJETIVOS = ['Operación', 'Información oportuna', 'Definición de estrategia'];
+function tarObjetivos_() {
+  if (!Array.isArray(TAR_STATE.objetivos)) TAR_STATE.objetivos = TAR_DEFAULT_OBJETIVOS.slice();
+  return TAR_STATE.objetivos;
 }
 function tarClasif_() {
   if (!TAR_STATE.clasif) TAR_STATE.clasif = JSON.parse(JSON.stringify(TAR_DEFAULT_CLASIF));
@@ -57236,7 +57244,7 @@ window.tareasInit = async function () {
   if (!TAR_STATE.loaded) {
     try {
       const c = JSON.parse(localStorage.getItem(TAR_LOCAL_KEY) || 'null');
-      if (c) { TAR_STATE.list = c.list || []; TAR_STATE.clasif = c.clasif || null; TAR_STATE.ocur = c.ocur || []; tarIndexOcur_(); }
+      if (c) { TAR_STATE.list = c.list || []; TAR_STATE.clasif = c.clasif || null; TAR_STATE.objetivos = c.objetivos || null; TAR_STATE.ocur = c.ocur || []; tarIndexOcur_(); }
     } catch (_) {}
   }
   tarRender();
@@ -57639,7 +57647,7 @@ async function tarSaveRow_(payload) {
   const res = await fetch(`${BACKEND}/tareas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload }) });
   const j = await res.json();
   if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo guardar');
-  try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, ocur: TAR_STATE.ocur })); } catch (_) {}
+  try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, objetivos: TAR_STATE.objetivos, ocur: TAR_STATE.ocur })); } catch (_) {}
   return j;
 }
 
@@ -57668,7 +57676,7 @@ async function tarSaveOcur_(id, iso, patch) {
   const cur = tarOcur_(id, iso);
   if (cur && j.id) cur.ID = j.id;
   if (TAR_STATE.hist) hist.forEach(h => TAR_STATE.hist.unshift({ Tarea_ID: id, Fecha: iso, Timestamp: tarNowTxt_(), ...h }));
-  try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, ocur: TAR_STATE.ocur })); } catch (_) {}
+  try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, objetivos: TAR_STATE.objetivos, ocur: TAR_STATE.ocur })); } catch (_) {}
 }
 function tarNowTxt_() { const d = new Date(); return `${tarIso_(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 async function tarHistAdd_(rows) {
@@ -57980,7 +57988,7 @@ window.tarSavePanel = async function () {
     const prev = TAR_STATE.list.find(x => x.ID === id);
     if (prev) { Object.assign(prev, row); delete prev._prog; }
     else { row.Timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19); TAR_STATE.list.unshift(row); }
-    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, ocur: TAR_STATE.ocur })); } catch (_) {}
+    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, objetivos: TAR_STATE.objetivos, ocur: TAR_STATE.ocur })); } catch (_) {}
     tarClosePanel(true);
     tarRender();
   } catch (e) {
@@ -58004,6 +58012,7 @@ window.tarDelete = async function () {
 // ── Administrador de clasificaciones ───────────────────────────────────
 window.tarOpenClasifManager = function () {
   TAR_STATE._clasifDraft = JSON.parse(JSON.stringify(tarClasif_()));
+  TAR_STATE._objDraft = tarObjetivos_().slice();
   let m = document.getElementById('tar-clasif-modal');
   if (!m) {
     m = document.createElement('div');
@@ -58023,7 +58032,7 @@ function tarClasifRender_() {
   m.innerHTML = `
     <div style="background:#fff;border-radius:14px;width:100%;max-width:620px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.3)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0">
-        <div style="font-size:15px;font-weight:900;color:#0f172a">⚙️ Clasificaciones y sub-clasificaciones</div>
+        <div style="font-size:15px;font-weight:900;color:#0f172a">⚙️ Clasificaciones, sub-clasificaciones y objetivos de negocio</div>
         <button type="button" onclick="tarCloseClasif()" style="width:32px;height:32px;border:none;background:#f1f5f9;border-radius:8px;font-weight:900;cursor:pointer">✕</button>
       </div>
       <div style="flex:1;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
@@ -58042,6 +58051,15 @@ function tarClasifRender_() {
         <div style="display:flex;gap:6px;align-items:center">
           <input type="text" id="tar-clasif-new" placeholder="Nueva clasificación" onkeydown="if(event.key==='Enter')tarClasifAdd()" style="${inp};flex:1">
           <button type="button" onclick="tarClasifAdd()" style="all:unset;cursor:pointer;padding:8px 12px;border-radius:8px;background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:800">＋ Agregar clasificación</button>
+        </div>
+        <div style="border-top:2px dashed #e2e8f0;margin-top:6px;padding-top:14px">
+          <div style="font-size:14px;font-weight:900;color:#0f172a;margin-bottom:2px">🎯 Objetivo de negocio</div>
+          <div style="font-size:11.5px;color:#64748b;margin-bottom:10px">Opciones para indicar para qué es importante un proceso (Documentación de procesos › Insumos y resultados).</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+            ${(TAR_STATE._objDraft || []).map((o, oi) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:#dcfce7;border:1px solid #86efac;font-size:11.5px;font-weight:700;color:#166534">${esc(o)}<button type="button" onclick="tarObjDel(${oi})" style="all:unset;cursor:pointer;color:#b91c1c;font-weight:900">✕</button></span>`).join('')}
+            <input type="text" id="tar-obj-new" placeholder="Nuevo objetivo de negocio" onkeydown="if(event.key==='Enter')tarObjAdd()" style="${inp};width:200px">
+            <button type="button" onclick="tarObjAdd()" style="all:unset;cursor:pointer;padding:6px 10px;border-radius:8px;background:#f0fdf4;color:#166534;font-size:12px;font-weight:800">＋</button>
+          </div>
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc">
@@ -58076,20 +58094,38 @@ window.tarSubDel = function (ci, si) {
   TAR_STATE._clasifDraft[k].splice(si, 1);
   tarClasifRender_();
 };
+window.tarObjAdd = function () {
+  const v = String(document.getElementById('tar-obj-new')?.value || '').trim();
+  if (!v) return;
+  if (!TAR_STATE._objDraft.includes(v)) TAR_STATE._objDraft.push(v);
+  tarClasifRender_();
+  setTimeout(() => document.getElementById('tar-obj-new')?.focus(), 0);
+};
+window.tarObjDel = function (oi) {
+  const o = TAR_STATE._objDraft[oi];
+  const usados = (typeof DP !== 'undefined' ? DP.list : []).filter(p => (p.d.objetivos || []).includes(o)).length;
+  if (usados && !confirm(`¿Quitar "${o}"?\n\n${usados} proceso(s) lo tienen marcado; lo conservarán.`)) return;
+  TAR_STATE._objDraft.splice(oi, 1);
+  tarClasifRender_();
+};
 window.tarClasifSave = async function () {
   const C = TAR_STATE._clasifDraft;
+  const OB = TAR_STATE._objDraft || tarObjetivos_();
   try {
     const res = await fetch(`${BACKEND}/tareas/config`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload: { ID: 'CATALOGO', Clasificaciones_json: JSON.stringify(C) } }),
+      body: JSON.stringify({ payload: { ID: 'CATALOGO', Clasificaciones_json: JSON.stringify(C), Objetivos_json: JSON.stringify(OB) } }),
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
     TAR_STATE.clasif = C;
-    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, ocur: TAR_STATE.ocur })); } catch (_) {}
+    TAR_STATE.objetivos = OB;
+    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif, objetivos: TAR_STATE.objetivos, ocur: TAR_STATE.ocur })); } catch (_) {}
     tarCloseClasif();
     tarRender();
     if (TAR_STATE.panel) tarPanelRender_();
+    // Mismo catálogo en Documentación de procesos (Configuración admin).
+    if (typeof dpRender_ === 'function' && document.getElementById('dp-root')) dpRender_();
   } catch (e) { alert('Error: ' + e.message); }
 };
 
@@ -58900,8 +58936,8 @@ const DP_DOC_ICO = { 'Manual': '📕', 'Fotografía': '🖼️', 'Video': '🎬'
 const DP_SEV = ['Baja', 'Media', 'Alta', 'Crítica'];
 const DP_SECS = [
   ['general', 'ℹ️', 'Información general'],
-  ['diagrama', '🔀', 'Diagrama'],
   ['pasos', '🪜', 'Procedimiento'],
+  ['diagrama', '🔀', 'Diagrama'],
   ['checklist', '☑️', 'Checklist'],
   ['roles', '👥', 'Roles y RACI'],
   ['insumos', '🔄', 'Insumos y resultados'],
@@ -58932,7 +58968,7 @@ const DP_KPI_PRESETS = {
 window.DP = window.DP || {
   list: [], hist: [], loaded: false, loading: false, err: '',
   view: 'catalogo', selId: null, sec: 'general', edit: false, draft: null, isNew: false,
-  f: { q: '', area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false },
+  f: { q: '', clasif: '', sub: '', obj: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false },
   run: null, saving: false,
 };
 
@@ -58949,7 +58985,7 @@ function dpFmtD_(s) {
 function dpUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'admin'; }
 function dpEmptyData_() {
   return {
-    diagrama: [], pasos: [], checklists: [], roles: { ejecuta: '', supervisa: '', autoriza: '' }, raciRoles: [],
+    diagrama: [], pasos: [], pasosMismo: false, pasosResp: [], objetivos: [], checklists: [], roles: { ejecuta: '', supervisa: '', autoriza: '' }, raciRoles: [],
     insumos: { entradas: [], proceso: '', salidas: [], depende: [], alimenta: [] },
     docs: [], excepciones: [], kpis: [], versiones: [],
     capac: { audiencia: [], requerida: true, personas: {} },
@@ -58964,9 +59000,10 @@ function dpParse_(r) {
   d.insumos = Object.assign({ entradas: [], proceso: '', salidas: [], depende: [], alimenta: [] }, d.insumos || {});
   d.capac = Object.assign({ audiencia: [], requerida: true, personas: {} }, d.capac || {});
   const o = { d };
-  ['ID', 'Codigo', 'Nombre', 'Area', 'Responsable', 'Frecuencia', 'Frecuencia_detalle', 'Prioridad', 'Estatus', 'Version',
+  ['ID', 'Codigo', 'Nombre', 'Area', 'Clasificacion', 'Subclasificacion', 'Responsable', 'Frecuencia', 'Frecuencia_detalle', 'Prioridad', 'Estatus', 'Version',
     'Ultima_actualizacion', 'Proxima_revision', 'Importancia', 'Objetivo', 'Alcance', 'Creado_por', 'Timestamp', 'Updated_at']
     .forEach(k => { o[k] = dpClean_(r[k]); });
+  if (!o.Clasificacion) o.Clasificacion = o.Area || '';
   if (!o.Version) o.Version = '1.0';
   if (!o.Estatus) o.Estatus = 'Borrador';
   return o;
@@ -58974,8 +59011,22 @@ function dpParse_(r) {
 function dpById_(id) { return DP.list.find(p => p.ID === id) || null; }
 function dpByCode_(c) { return DP.list.find(p => p.Codigo === c) || null; }
 function dpVencida_(p) { return p.Estatus !== 'Obsoleto' && p.Proxima_revision && p.Proxima_revision < dpHoy_(); }
+function dpPref_(c) {
+  if (DP_AREA_PREF[c]) return DP_AREA_PREF[c];
+  const t = String(c || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z]/g, '').toUpperCase();
+  return t.slice(0, 3) || 'PRC';
+}
+function dpClasifCat_() { return (typeof tarClasif_ === 'function') ? tarClasif_() : {}; }
+function dpObjetivosCat_() { return (typeof tarObjetivos_ === 'function') ? tarObjetivos_() : ['Operación', 'Información oportuna', 'Definición de estrategia']; }
+function dpClasifTxt_(p) { return [p.Clasificacion, p.Subclasificacion].filter(Boolean).join(' › '); }
+// Puestos (columna "Puesto" de la hoja Personal) y nombres de personal activo.
+function dpPuestos_() {
+  const rows = (typeof INC_STATE !== 'undefined' && INC_STATE.personalRows) || [];
+  return Array.from(new Set(rows.filter(r => !r.Estado || String(r.Estado).toLowerCase() === 'activo').map(r => String(r.Puesto || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+}
+function dpSplit_(v) { return Array.isArray(v) ? v.slice() : String(v || '').split(',').map(x => x.trim()).filter(Boolean); }
 function dpNextCode_(area, exceptId) {
-  const pref = DP_AREA_PREF[area] || 'PRC';
+  const pref = dpPref_(area);
   let max = 0;
   DP.list.forEach(p => { if (p.ID === exceptId) return; const m = String(p.Codigo || '').match(new RegExp('^' + pref + '-(\\d+)$')); if (m) max = Math.max(max, +m[1]); });
   return `${pref}-${String(max + 1).padStart(3, '0')}`;
@@ -59007,7 +59058,7 @@ function dpSecFilled_(p, k) {
 }
 function dpSearchText_(p) {
   const d = p.d;
-  return [p.Codigo, p.Nombre, p.Area, p.Responsable, p.Objetivo, p.Alcance, p.Frecuencia_detalle,
+  return [p.Codigo, p.Nombre, p.Clasificacion, p.Subclasificacion, (p.d.objetivos || []).join(' '), p.Responsable, p.Objetivo, p.Alcance, p.Frecuencia_detalle,
     d.pasos.map(s => s.actividad + ' ' + s.responsable).join(' '),
     d.checklists.map(c => c.titulo + ' ' + (c.items || []).join(' ')).join(' '),
     d.excepciones.map(e => e.situacion + ' ' + (e.pasos || []).join(' ')).join(' '),
@@ -59050,7 +59101,7 @@ async function dpLoad_(force) {
 }
 function dpToRow_(p) {
   return {
-    ID: p.ID || '', Codigo: p.Codigo, Nombre: p.Nombre, Area: p.Area, Responsable: p.Responsable,
+    ID: p.ID || '', Codigo: p.Codigo, Nombre: p.Nombre, Area: p.Clasificacion || '', Clasificacion: p.Clasificacion || '', Subclasificacion: p.Subclasificacion || '', Responsable: p.Responsable,
     Frecuencia: p.Frecuencia, Frecuencia_detalle: p.Frecuencia_detalle, Prioridad: p.Prioridad, Estatus: p.Estatus,
     Version: "'" + (p.Version || '1.0'), Ultima_actualizacion: p.Ultima_actualizacion ? "'" + p.Ultima_actualizacion : '',
     Proxima_revision: p.Proxima_revision ? "'" + p.Proxima_revision : '', Importancia: p.Importancia,
@@ -59152,6 +59203,19 @@ function dpEnsureStyles_() {
   .dp-nav button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:9px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;font-family:inherit}
   .dp-nav button:hover{background:#f1f5f9}
   .dp-nav button.on{background:var(--dp-acc2);color:#3730a3}
+  .dp-nav .num,.dp-num{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-size:10.5px;font-weight:900;flex:none}
+  .dp-nav button.on .num{background:#4f46e5;color:#fff}
+  .dp-num{width:24px;height:24px;font-size:12px;background:#4f46e5;color:#fff}
+  .dp-ms-btn{width:100%;min-height:36px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;text-align:left;border:1px solid #cbd5e1;border-radius:8px;padding:5px 30px 5px 8px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E") no-repeat right 10px center;font-size:12.5px;font-family:inherit;color:var(--dp-ink);cursor:pointer}
+  .dp-ms-btn .tg{background:#eef2ff;color:#3730a3;border-radius:999px;padding:2px 8px;font-size:11.5px;font-weight:700}
+  .dp-ms-btn .ph{color:#94a3b8}
+  .dp-ms-pop{position:fixed;z-index:10050;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.18);padding:6px;max-height:320px;overflow:auto;font-size:12.5px;color:#0f172a}
+  .dp-ms-pop .g{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:8px 8px 4px}
+  .dp-ms-pop .o{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}
+  .dp-ms-pop .o:hover{background:#f1f5f9}
+  .dp-ms-pop input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:12.5px;font-family:inherit;margin-top:4px}
+  .dp-help{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:#334155;margin-bottom:12px}
+  .dp-help summary{cursor:pointer;font-weight:800;color:#3730a3}
   .dp-nav .dot{margin-left:auto;width:7px;height:7px;border-radius:50%;background:#e2e8f0;flex:none}
   .dp-nav .dot.f{background:#22c55e}
   .dp-sec{background:#fff;border:1px solid var(--dp-line);border-radius:14px;padding:16px;min-width:0}
@@ -59259,6 +59323,10 @@ function dpEnsureStyles_() {
 // ── Render principal ──────────────────────────────────────────────────
 function dpRenderModule_(host) {
   dpEnsureStyles_();
+  if (typeof TAR_STATE !== 'undefined' && !TAR_STATE.loaded) {
+    if (!TAR_STATE.clasif) { try { const c = JSON.parse(localStorage.getItem(TAR_LOCAL_KEY) || 'null'); if (c) { TAR_STATE.clasif = c.clasif || null; TAR_STATE.objetivos = c.objetivos || null; if (!TAR_STATE.list.length) TAR_STATE.list = c.list || []; } } catch (_) {} }
+    if (!DP._tarLoading) { DP._tarLoading = true; tarLoad_().finally(() => { DP._tarLoading = false; if (!DP.edit) dpRender_(); }); }
+  }
   host.innerHTML = `<div class="dp" id="dp-root"></div>`;
   if (!DP.loaded && !DP.loading) dpLoad_();
   else dpRender_();
@@ -59277,7 +59345,9 @@ function dpRender_() {
 function dpFiltered_() {
   const f = DP.f, q = dpNorm_(f.q).split(/\s+/).filter(Boolean);
   return DP.list.filter(p => {
-    if (f.area && p.Area !== f.area) return false;
+    if (f.clasif && p.Clasificacion !== f.clasif) return false;
+    if (f.sub && p.Subclasificacion !== f.sub) return false;
+    if (f.obj && !(p.d.objetivos || []).includes(f.obj)) return false;
     if (f.estatus && p.Estatus !== f.estatus) return false;
     if (f.frec && p.Frecuencia !== f.frec) return false;
     if (f.prio && p.Prioridad !== f.prio) return false;
@@ -59297,7 +59367,7 @@ function dpRenderCatalogo_(root) {
   const opts = (arr, sel, ph) => `<option value="">${ph}</option>` + arr.map(a => `<option ${a === sel ? 'selected' : ''}>${dpEsc_(a)}</option>`).join('');
   const rows = dpFiltered_();
   const errBanner = DP.err ? `<div class="dp-banner ${L.length ? 'warn' : 'err'}">⚠️ No se pudo leer la hoja <b>Procesos</b>: ${dpEsc_(DP.err)}.${/acci|action|unknown|desconoc/i.test(DP.err) ? ' Falta publicar la nueva versión del Apps Script.' : ''} ${L.length ? 'Se muestra la última copia guardada en este navegador.' : ''} <button class="dp-btn sm" onclick="dpLoad_(true)">Reintentar</button></div>` : '';
-  const filtActive = f.q || f.area || f.estatus || f.frec || f.prio || f.imp || f.vencidas;
+  const filtActive = f.q || f.clasif || f.sub || f.obj || f.estatus || f.frec || f.prio || f.imp || f.vencidas;
   root.innerHTML = `
     <div class="dp-top">
       <div>
@@ -59305,6 +59375,7 @@ function dpRenderCatalogo_(root) {
         <p>Documenta, ejecuta, supervisa y mejora cada proceso de Check Inn: procedimiento, checklist, roles, excepciones, indicadores, versiones y capacitación.</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" onclick="tarOpenClasifManager()" style="padding:8px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">⚙️ Clasificaciones</button>
         <button class="dp-btn" onclick="dpLoad_(true)" ${DP.loading ? 'disabled' : ''}>${DP.loading ? '⏳ Cargando…' : '🔄 Actualizar'}</button>
         <button class="dp-btn pri" onclick="dpNuevo_()">＋ Nuevo proceso</button>
       </div>
@@ -59320,7 +59391,9 @@ function dpRenderCatalogo_(root) {
     </div>
     <div class="dp-filt">
       <input id="dp-q" type="search" placeholder="🔎 Buscar por palabra clave (nombre, código, pasos, checklist…)" value="${dpEsc_(f.q)}" oninput="dpSearch_(this.value)">
-      <select onchange="dpFiltSet_('area',this.value)">${opts(DP_AREAS, f.area, 'Todas las áreas')}</select>
+      <select onchange="dpFiltSet_('clasif',this.value)">${opts(Object.keys(dpClasifCat_()), f.clasif, 'Todas las clasificaciones')}</select>
+      ${f.clasif && (dpClasifCat_()[f.clasif] || []).length ? `<select onchange="dpFiltSet_('sub',this.value)">${opts(dpClasifCat_()[f.clasif], f.sub, 'Todas las sub-clasificaciones')}</select>` : ''}
+      <select onchange="dpFiltSet_('obj',this.value)">${opts(dpObjetivosCat_(), f.obj, 'Todo objetivo de negocio')}</select>
       <select onchange="dpFiltSet_('estatus',this.value)">${opts(DP_ESTATUS, f.estatus, 'Todos los estatus')}</select>
       <select onchange="dpFiltSet_('frec',this.value)">${opts(DP_FRECS, f.frec, 'Toda frecuencia')}</select>
       <select onchange="dpFiltSet_('prio',this.value)">${opts(DP_PRIOS, f.prio, 'Toda prioridad')}</select>
@@ -59343,7 +59416,7 @@ function dpCatList_(rows) {
     return `<tr class="click" onclick="dpAbrir_('${dpEsc_(p.ID)}')">
       <td data-l="Código"><span class="dp-code">${dpEsc_(p.Codigo || '—')}</span></td>
       <td data-l="Proceso" style="font-weight:800;min-width:200px">${dpEsc_(p.Nombre || '(sin nombre)')}</td>
-      <td data-l="Área" style="white-space:nowrap">${DP_AREA_ICO[p.Area] || ''} ${dpEsc_(p.Area || '—')}</td>
+      <td data-l="Clasificación">${DP_AREA_ICO[p.Clasificacion] || ''} ${dpEsc_(p.Clasificacion || '—')}${p.Subclasificacion ? `<div class="dp-mut" style="font-size:11px">${dpEsc_(p.Subclasificacion)}</div>` : ''}</td>
       <td data-l="Responsable">${dpEsc_(p.Responsable || '—')}</td>
       <td data-l="Frecuencia">${dpEsc_(p.Frecuencia || '—')}${p.Frecuencia_detalle ? `<div class="dp-mut" style="font-size:11px">${dpEsc_(p.Frecuencia_detalle)}</div>` : ''}</td>
       <td data-l="Prioridad">${dpLvPill_(p.Prioridad)}</td>
@@ -59355,7 +59428,7 @@ function dpCatList_(rows) {
     </tr>`;
   }).join('');
   return `<div class="dp-card" style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr>
-    <th>Código</th><th>Proceso</th><th>Área</th><th>Responsable</th><th>Frecuencia</th><th>Prioridad</th><th>Estatus</th><th>Versión</th><th>Últ. actualización</th><th>Próx. revisión</th><th>Importancia</th>
+    <th>Código</th><th>Proceso</th><th>Clasificación</th><th>Responsable</th><th>Frecuencia</th><th>Prioridad</th><th>Estatus</th><th>Versión</th><th>Últ. actualización</th><th>Próx. revisión</th><th>Importancia</th>
     </tr></thead><tbody>${tr}</tbody></table></div>
     <div class="dp-mut" style="font-size:11.5px;margin:8px 4px">${rows.length} de ${DP.list.length} procesos · hoy ${dpFmtD_(hoy)}</div>`;
 }
@@ -59366,11 +59439,12 @@ window.dpSearch_ = function (v) {
   _dpSearchT = setTimeout(() => { const el = document.getElementById('dp-cat-list'); if (el) el.innerHTML = dpCatList_(dpFiltered_()); }, 120);
 };
 window.dpFiltSet_ = function (k, v, solo) {
-  if (solo) { DP.f = { q: DP.f.q, area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false }; if (DP.f[k] === v) v = ''; }
+  if (solo) { DP.f = { q: DP.f.q, clasif: '', sub: '', obj: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false }; if (DP.f[k] === v) v = ''; }
+  if (k === 'clasif') DP.f.sub = '';
   DP.f[k] = v; dpRender_();
 };
-window.dpFiltVencidas_ = function () { const on = !DP.f.vencidas; DP.f = { q: DP.f.q, area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: on }; dpRender_(); };
-window.dpFiltReset_ = function () { DP.f = { q: '', area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false }; dpRender_(); };
+window.dpFiltVencidas_ = function () { const on = !DP.f.vencidas; DP.f = { q: DP.f.q, clasif: '', sub: '', obj: '', estatus: '', frec: '', prio: '', imp: '', vencidas: on }; dpRender_(); };
+window.dpFiltReset_ = function () { DP.f = { q: '', clasif: '', sub: '', obj: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false }; dpRender_(); };
 
 // ── Abrir / nuevo / ejemplo ───────────────────────────────────────────
 window.dpAbrir_ = function (id) {
@@ -59384,9 +59458,9 @@ window.dpVolver_ = function () {
 };
 function dpScrollTop_() { const r = document.getElementById('dp-root'); if (r && r.getBoundingClientRect().top < 0) r.scrollIntoView({ block: 'start' }); }
 window.dpNuevo_ = function () {
-  const area = DP.f.area || 'Operación';
+  const area = DP.f.clasif || Object.keys(dpClasifCat_())[0] || '';
   DP.draft = {
-    ID: '', Codigo: dpNextCode_(area), Nombre: '', Area: area, Responsable: '', Frecuencia: 'Por evento', Frecuencia_detalle: '',
+    ID: '', Codigo: dpNextCode_(area), Nombre: '', Clasificacion: area, Subclasificacion: DP.f.sub || '', Responsable: '', Frecuencia: 'Por evento', Frecuencia_detalle: '',
     Prioridad: 'Media', Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Proxima_revision: '', Importancia: 'Media',
     Objetivo: '', Alcance: '', Creado_por: dpUser_(), d: dpEmptyData_(),
   };
@@ -59395,7 +59469,7 @@ window.dpNuevo_ = function () {
 };
 window.dpCrearEjemplo_ = async function () {
   const p = {
-    ID: '', Codigo: 'LIM-001', Nombre: 'Preparación de departamento para llegada de huésped', Area: 'Limpieza',
+    ID: '', Codigo: 'LIM-001', Nombre: 'Preparación de departamento para llegada de huésped', Clasificacion: 'Limpieza', Subclasificacion: '',
     Responsable: 'Supervisor de limpieza', Frecuencia: 'Por evento', Frecuencia_detalle: 'Por cada salida', Prioridad: 'Alta',
     Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Proxima_revision: '', Importancia: 'Crítica',
     Objetivo: 'Garantizar que el departamento esté completamente preparado antes de la llegada del siguiente huésped.',
@@ -59458,11 +59532,11 @@ function dpRenderFicha_(root) {
       <button class="dp-btn" onclick="dpImprimir_()">🖨️ Imprimir / PDF</button>
       <button class="dp-btn" onclick="dpDuplicar_()">📄 Duplicar</button>
       <button class="dp-btn" onclick="dpEliminar_()">🗑️ Eliminar</button>`;
-  const nav = DP_SECS.map(([k, ico, t]) => `<button type="button" class="${DP.sec === k ? 'on' : ''}" onclick="dpSec_('${k}')">${ico} ${t}<span class="dot ${dpSecFilled_(p, k) ? 'f' : ''}"></span></button>`).join('');
+  const nav = DP_SECS.map(([k, ico, t], i) => `<button type="button" class="${DP.sec === k ? 'on' : ''}" onclick="dpSec_('${k}')"><span class="num">${i + 1}</span>${ico} ${t}<span class="dot ${dpSecFilled_(p, k) ? 'f' : ''}"></span></button>`).join('');
   root.innerHTML = `
     <div style="margin-bottom:10px"><button class="dp-btn sm" onclick="dpVolver_()">← Catálogo de procesos</button></div>
     <div class="dp-head">
-      <div class="row1"><span class="dp-code">${dpEsc_(p.Codigo || 'NUEVO')}</span>${dpStPill_(p.Estatus)}<span>v${dpEsc_(p.Version)}</span><span>· ${DP_AREA_ICO[p.Area] || ''} ${dpEsc_(p.Area || '')}</span>${ed ? '<span class="dp-pill" style="background:#fde68a;color:#78350f">✏️ Editando</span>' : ''}</div>
+      <div class="row1"><span class="dp-code">${dpEsc_(p.Codigo || 'NUEVO')}</span>${dpStPill_(p.Estatus)}<span>v${dpEsc_(p.Version)}</span><span>· ${DP_AREA_ICO[p.Clasificacion] || ''} ${dpEsc_(dpClasifTxt_(p))}</span>${ed ? '<span class="dp-pill" style="background:#fde68a;color:#78350f">✏️ Editando</span>' : ''}</div>
       <h3>${dpEsc_(p.Nombre || (DP.isNew ? 'Nuevo proceso' : '(sin nombre)'))}</h3>
       <div class="meta"><span>👤 ${dpEsc_(p.Responsable || 'Sin responsable')}</span><span>🔁 ${dpEsc_(p.Frecuencia || '—')}${p.Frecuencia_detalle ? ' · ' + dpEsc_(p.Frecuencia_detalle) : ''}</span><span>🗓️ Actualizado ${dpFmtD_(p.Ultima_actualizacion)}</span><span${v ? ' style="color:#fecaca;font-weight:800"' : ''}>⏰ Revisión ${dpFmtD_(p.Proxima_revision)}${v ? ' (vencida)' : ''}</span></div>
       <div class="acts">${acts}</div>
@@ -59481,21 +59555,26 @@ window.dpSec_ = function (k) {
   const nav = document.querySelector('.dp-nav button.on');
   if (nav && window.innerWidth <= 900) nav.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
 };
-function dpRefreshSec_() { const s = document.getElementById('dp-sec'); if (s) s.innerHTML = dpSecHtml_(dpCur_(), DP.sec, DP.edit); dpRefreshDots_(); }
+function dpRefreshSec_() { if (document.getElementById('dp-ms-pop') && !dpRefreshSec_._in) { dpRefreshSec_._in = true; dpMsClose_(); dpRefreshSec_._in = false; } const s = document.getElementById('dp-sec'); if (s) s.innerHTML = dpSecHtml_(dpCur_(), DP.sec, DP.edit); dpRefreshDots_(); }
 function dpRefreshDots_() { const p = dpCur_(); document.querySelectorAll('.dp-nav .dot').forEach((d, i) => d.classList.toggle('f', dpSecFilled_(p, DP_SECS[i][0]))); }
 function dpSecHtml_(p, k, ed) {
-  const [, ico, t] = DP_SECS.find(s => s[0] === k) || DP_SECS[0];
+  const idx = Math.max(0, DP_SECS.findIndex(s => s[0] === k));
+  const [, ico, t] = DP_SECS[idx];
   const body = ({
     general: dpSecGeneral_, diagrama: dpSecDiagrama_, pasos: dpSecPasos_, checklist: dpSecChecklist_, roles: dpSecRoles_,
     insumos: dpSecInsumos_, docs: dpSecDocs_, excepciones: dpSecExc_, kpis: dpSecKpis_, versiones: dpSecVersiones_,
     capac: dpSecCapac_, historial: dpSecHist_,
   }[k] || dpSecGeneral_)(p, ed);
-  return `<h4>${ico} ${t}${body.tools ? `<span class="sp">${body.tools}</span>` : ''}</h4>${body.html}`;
+  return `<h4><span class="dp-num">${idx + 1}</span>${ico} ${t}${body.tools ? `<span class="sp">${body.tools}</span>` : ''}</h4>${body.html}`;
 }
 // Setters de borrador (no re-renderizan para no perder el foco)
 window.dpSet_ = function (k, v) {
   DP.draft[k] = v;
-  if (k === 'Area' && DP.isNew) { DP.draft.Codigo = dpNextCode_(v); const c = document.getElementById('dp-f-codigo'); if (c) c.value = DP.draft.Codigo; }
+  if (k === 'Clasificacion') {
+    DP.draft.Subclasificacion = '';
+    if (DP.isNew) DP.draft.Codigo = dpNextCode_(v);
+    dpRefreshSec_(); return;
+  }
   dpRefreshDots_();
 };
 window.dpSetD_ = function (path, v) {
@@ -59507,13 +59586,91 @@ window.dpSetD_ = function (path, v) {
 function dpLines_(s) { return String(s || '').split('\n').map(x => x.trim()).filter(Boolean); }
 const dpOpt_ = (arr, sel) => arr.map(a => `<option ${a === sel ? 'selected' : ''}>${dpEsc_(a)}</option>`).join('');
 
+// ── Multi-selección (puestos / personas) ──────────────────────────────
+// Marcar una opción NO re-renderiza la lista: solo cambia su ✓ y la etiqueta del botón.
+function dpMsGet_(key) {
+  if (key === 'Responsable') return dpSplit_(DP.draft.Responsable);
+  let o = DP.draft.d; const parts = key.split('.');
+  for (let i = 0; i < parts.length; i++) { if (o == null) return []; o = o[parts[i]]; }
+  return dpSplit_(o);
+}
+function dpMsSet_(key, arr) {
+  if (key === 'Responsable') { DP.draft.Responsable = arr.join(', '); return; }
+  const parts = key.split('.'); let o = DP.draft.d;
+  for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  const last = parts[parts.length - 1];
+  o[last] = (Array.isArray(o[last]) || key === 'raciRoles' || key === 'pasosResp') ? arr : arr.join(', ');
+}
+function dpMsLabel_(key, ph) {
+  const v = dpMsGet_(key);
+  return v.length ? v.map(x => `<span class="tg">${dpEsc_(x)}</span>`).join('') : `<span class="ph">${dpEsc_(ph || 'Seleccionar…')}</span>`;
+}
+function dpMS_(key, kind, ph) {
+  return `<button type="button" class="dp-ms-btn" data-ms="${dpEsc_(key)}" data-kind="${kind}" data-ph="${dpEsc_(ph || '')}" onclick="dpMsOpen_(this)">${dpMsLabel_(key, ph)}</button>`;
+}
+function dpMsClose_() {
+  const pop = document.getElementById('dp-ms-pop'); if (!pop) return;
+  const key = pop.dataset.key; pop.remove();
+  document.removeEventListener('mousedown', dpMsOutside_, true);
+  window.removeEventListener('scroll', dpMsScroll_, true);
+  if (key === 'raciRoles' || key === 'pasosResp') dpRefreshSec_(); else dpRefreshDots_();
+}
+function dpMsOutside_(e) { const pop = document.getElementById('dp-ms-pop'); if (pop && !pop.contains(e.target) && !(e.target.closest && e.target.closest('.dp-ms-btn[data-ms="' + pop.dataset.key + '"]'))) dpMsClose_(); }
+function dpMsScroll_(e) { const pop = document.getElementById('dp-ms-pop'); if (pop && !pop.contains(e.target)) dpMsClose_(); }
+function dpMsFill_(pop) {
+  const key = pop.dataset.key, kind = pop.dataset.kind;
+  const sel = dpMsGet_(key);
+  const puestos = dpPuestos_();
+  const personas = kind === 'pp' && typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : [];
+  const otros = sel.filter(x => !puestos.includes(x) && !personas.includes(x));
+  const opt = v => { const on = sel.includes(v); return `<div class="o" data-v="${dpEsc_(v)}"><span class="dp-chk ${on ? 'on' : ''}">${on ? '✓' : ''}</span><span>${dpEsc_(v)}</span></div>`; };
+  const grp = (t, a) => a.length ? `<div class="g">${t}</div>${a.map(opt).join('')}` : '';
+  pop.innerHTML = (puestos.length || personas.length ? '' : '<div class="g">⏳ Cargando personal…</div>')
+    + grp('Puestos (hoja Personal)', puestos) + grp('Personas', personas) + grp('Otros', otros)
+    + `<input type="text" placeholder="＋ Agregar otro y presionar Enter">`;
+  pop.querySelectorAll('.o').forEach(el => el.onclick = () => {
+    const v = el.dataset.v, cur = dpMsGet_(key), i = cur.indexOf(v);
+    if (i >= 0) cur.splice(i, 1); else cur.push(v);
+    dpMsSet_(key, cur);
+    const c = el.querySelector('.dp-chk'), on = cur.includes(v); c.classList.toggle('on', on); c.textContent = on ? '✓' : '';
+    const b = document.querySelector('.dp-ms-btn[data-ms="' + key + '"]'); if (b) b.innerHTML = dpMsLabel_(key, b.dataset.ph);
+  });
+  const inp = pop.querySelector('input');
+  inp.onkeydown = ev => {
+    if (ev.key === 'Escape') return dpMsClose_();
+    if (ev.key !== 'Enter') return;
+    const v = inp.value.trim(); if (!v) return;
+    const cur = dpMsGet_(key); if (!cur.includes(v)) cur.push(v); dpMsSet_(key, cur);
+    const b = document.querySelector('.dp-ms-btn[data-ms="' + key + '"]'); if (b) b.innerHTML = dpMsLabel_(key, b.dataset.ph);
+    dpMsFill_(pop); pop.querySelector('input').focus();
+  };
+}
+window.dpMsOpen_ = function (btn) {
+  const was = document.getElementById('dp-ms-pop');
+  if (was && was.dataset.key === btn.dataset.ms) return dpMsClose_();
+  if (was) dpMsClose_();
+  const pop = document.createElement('div');
+  pop.id = 'dp-ms-pop'; pop.className = 'dp-ms-pop';
+  pop.dataset.key = btn.dataset.ms; pop.dataset.kind = btn.dataset.kind;
+  document.body.appendChild(pop);
+  dpMsFill_(pop);
+  const r = btn.getBoundingClientRect();
+  const w = Math.min(Math.max(r.width, 240), window.innerWidth - 16);
+  pop.style.width = w + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  const below = window.innerHeight - r.bottom;
+  if (below < 260 && r.top > below) { pop.style.bottom = (window.innerHeight - r.top + 4) + 'px'; pop.style.maxHeight = Math.min(320, r.top - 12) + 'px'; }
+  else { pop.style.top = (r.bottom + 4) + 'px'; pop.style.maxHeight = Math.min(320, below - 12) + 'px'; }
+  setTimeout(() => { document.addEventListener('mousedown', dpMsOutside_, true); window.addEventListener('scroll', dpMsScroll_, true); }, 0);
+};
+
 // ── Sección: Información general ─────────────────────────────────────
 function dpSecGeneral_(p, ed) {
   if (!ed) {
     const f = (l, v) => `<div class="dp-f"><label>${l}</label><div class="v">${v}</div></div>`;
     return { html: `
       <div class="dp-grid">
-        ${f('Nombre', dpEsc_(p.Nombre || '—'))}${f('Código', `<span class="dp-code">${dpEsc_(p.Codigo)}</span>`)}${f('Área', `${DP_AREA_ICO[p.Area] || ''} ${dpEsc_(p.Area || '—')}`)}
+        ${f('Nombre', dpEsc_(p.Nombre || '—'))}${f('Código', `<span class="dp-code">${dpEsc_(p.Codigo)}</span>`)}${f('Clasificación', `${DP_AREA_ICO[p.Clasificacion] || ''} ${dpEsc_(p.Clasificacion || '—')}`)}${f('Sub-clasificación', dpEsc_(p.Subclasificacion || '—'))}
         ${f('Responsable', dpEsc_(p.Responsable || '—'))}${f('Frecuencia', dpEsc_(p.Frecuencia || '—') + (p.Frecuencia_detalle ? ` · <span class="dp-mut">${dpEsc_(p.Frecuencia_detalle)}</span>` : ''))}${f('Prioridad', dpLvPill_(p.Prioridad))}
         ${f('Estatus', dpStPill_(p.Estatus))}${f('Versión', 'v' + dpEsc_(p.Version))}${f('Nivel de importancia', dpLvPill_(p.Importancia))}
         ${f('Última actualización', dpFmtD_(p.Ultima_actualizacion))}${f('Próxima revisión', `<span class="${dpVencida_(p) ? 'dp-venc' : ''}">${dpFmtD_(p.Proxima_revision)}</span>`)}${f('Creado por', dpEsc_(p.Creado_por || '—'))}
@@ -59526,10 +59683,13 @@ function dpSecGeneral_(p, ed) {
   return { html: `
     <datalist id="dp-dl-pers">${nombres.map(n => `<option value="${dpEsc_(n)}">`).join('')}${['Supervisor de limpieza', 'Coordinador de operaciones', 'Gerente', 'Recepción', 'Administración', 'Mantenimiento'].map(n => `<option value="${n}">`).join('')}</datalist>
     <div class="dp-grid">
+      <div style="grid-column:1/-1;display:flex;justify-content:flex-end;margin-bottom:-4px"><button type="button" onclick="tarOpenClasifManager()" style="padding:6px 10px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;font-weight:800;font-size:11.5px;cursor:pointer">⚙️ Clasificaciones</button></div>
       ${fi('Nombre del proceso *', `<input class="dp-in" value="${dpEsc_(p.Nombre)}" oninput="dpSet_('Nombre',this.value)" placeholder="Ej. Preparación de departamento para llegada de huésped">`, true)}
       ${fi('Código', `<input id="dp-f-codigo" class="dp-in" value="${dpEsc_(p.Codigo)}" oninput="dpSet_('Codigo',this.value.toUpperCase())" style="font-family:ui-monospace,Menlo,monospace;font-weight:800">`)}
-      ${fi('Área', `<select class="dp-sel" onchange="dpSet_('Area',this.value)">${dpOpt_(DP_AREAS, p.Area)}</select>`)}
-      ${fi('Responsable', `<input class="dp-in" list="dp-dl-pers" value="${dpEsc_(p.Responsable)}" oninput="dpSet_('Responsable',this.value)" placeholder="Puesto o persona">`)}
+      ${(() => { const C = dpClasifCat_(); const ks = Object.keys(C); if (p.Clasificacion && !ks.includes(p.Clasificacion)) ks.push(p.Clasificacion); const subs = (C[p.Clasificacion] || []).slice(); if (p.Subclasificacion && !subs.includes(p.Subclasificacion)) subs.push(p.Subclasificacion);
+        return fi('Clasificación de tarea', `<select class="dp-sel" onchange="dpSet_('Clasificacion',this.value)"><option value=""></option>${dpOpt_(ks, p.Clasificacion)}</select>`)
+          + fi('Sub-clasificación', `<select class="dp-sel" onchange="dpSet_('Subclasificacion',this.value)" ${p.Clasificacion ? '' : 'disabled'}><option value=""></option>${dpOpt_(subs, p.Subclasificacion)}</select>`); })()}
+      ${fi('Responsable(s)', dpMS_('Responsable', 'pp', 'Puestos o personas'))}
       ${fi('Frecuencia', `<select class="dp-sel" onchange="dpSet_('Frecuencia',this.value)">${dpOpt_(DP_FRECS, p.Frecuencia)}</select>`)}
       ${fi('Detalle de frecuencia', `<input class="dp-in" value="${dpEsc_(p.Frecuencia_detalle)}" oninput="dpSet_('Frecuencia_detalle',this.value)" placeholder="Ej. Por cada salida">`)}
       ${fi('Prioridad', `<select class="dp-sel" onchange="dpSet_('Prioridad',this.value)">${dpOpt_(DP_PRIOS, p.Prioridad)}</select>`)}
@@ -59651,17 +59811,19 @@ function dpSecPasos_(p, ed) {
   const P = p.d.pasos;
   const tot = P.reduce((a, s) => a + (parseFloat(s.tiempo) || 0), 0);
   const totTxt = tot ? `⏱️ Tiempo total estimado: <b>${tot} min</b>${tot >= 60 ? ` (${Math.floor(tot / 60)} h ${tot % 60} min)` : ''}` : '';
+  const mismo = !!p.d.pasosMismo;
   if (!ed) {
     if (!P.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">🪜</div>Sin procedimiento. Es la parte central del proceso: agrégalo desde <b>✏️ Editar</b>.</div>` };
-    return { html: `<div style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr><th>#</th><th>Actividad</th><th>Responsable</th><th>Tiempo</th><th>Evidencia</th></tr></thead><tbody>
-      ${P.map((s, i) => `<tr><td data-l="#" style="font-weight:900;color:#6366f1">${i + 1}</td><td data-l="Actividad" style="font-weight:700">${dpEsc_(s.actividad)}</td><td data-l="Responsable">${dpEsc_(s.responsable || '—')}</td><td data-l="Tiempo" style="white-space:nowrap">${s.tiempo ? dpEsc_(s.tiempo) + ' min' : '—'}</td><td data-l="Evidencia">${s.evidencia && s.evidencia !== '—' ? `<span class="dp-pill" style="background:#eef2ff;color:#3730a3">${dpEsc_(s.evidencia)}</span>` : '<span class="dp-mut">—</span>'}</td></tr>`).join('')}
+    return { html: `${mismo ? `<div class="dp-help" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="dp-chk on">✓</span><b>Todos los pasos los realiza(n):</b> ${dpSplit_(p.d.pasosResp).map(x => `<span class="dp-pill" style="background:#eef2ff;color:#3730a3">${dpEsc_(x)}</span>`).join(' ') || '<span class="dp-mut">sin asignar</span>'}</div>` : ''}
+      <div style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr><th>#</th><th>Actividad</th>${mismo ? '' : '<th>Responsable</th>'}<th>Tiempo</th><th>Evidencia</th></tr></thead><tbody>
+      ${P.map((s, i) => `<tr><td data-l="#" style="font-weight:900;color:#6366f1">${i + 1}</td><td data-l="Actividad" style="font-weight:700">${dpEsc_(s.actividad)}</td>${mismo ? '' : `<td data-l="Responsable">${dpEsc_(s.responsable || '—')}</td>`}<td data-l="Tiempo" style="white-space:nowrap">${s.tiempo ? dpEsc_(s.tiempo) + ' min' : '—'}</td><td data-l="Evidencia">${s.evidencia && s.evidencia !== '—' ? `<span class="dp-pill" style="background:#eef2ff;color:#3730a3">${dpEsc_(s.evidencia)}</span>` : '<span class="dp-mut">—</span>'}</td></tr>`).join('')}
       </tbody></table></div><div style="margin-top:10px;font-size:12.5px">${totTxt}</div>${dpTareasVinc_(p)}` };
   }
   const rows = P.map((s, i) => `
-    <div class="dp-row-ed" style="grid-template-columns:26px minmax(0,1fr) 160px 90px 140px auto">
+    <div class="dp-row-ed" style="grid-template-columns:26px minmax(0,1fr) ${mismo ? '' : '200px '}90px 140px auto">
       <b class="dp-mut">${i + 1}</b>
       <input class="dp-in" value="${dpEsc_(s.actividad)}" oninput="dpSetD_('pasos.${i}.actividad',this.value)" placeholder="Actividad">
-      <input class="dp-in" list="dp-dl-pers" value="${dpEsc_(s.responsable)}" oninput="dpSetD_('pasos.${i}.responsable',this.value)" placeholder="Responsable">
+      ${mismo ? '' : dpMS_('pasos.' + i + '.responsable', 'pp', 'Responsable')}
       <input class="dp-in" type="number" min="0" value="${dpEsc_(s.tiempo)}" oninput="dpSetD_('pasos.${i}.tiempo',this.value)" placeholder="min">
       <select class="dp-sel" onchange="dpSetD_('pasos.${i}.evidencia',this.value)">${dpOpt_(DP_EVID, s.evidencia || '—')}</select>
       <div class="dp-mini"><button onclick="dpArrMove_('pasos',${i},-1)">↑</button><button onclick="dpArrMove_('pasos',${i},1)">↓</button><button onclick="dpArrDel_('pasos',${i})">✕</button></div>
@@ -59669,8 +59831,11 @@ function dpSecPasos_(p, ed) {
   const nombres = (typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
   return {
     tools: `<button class="dp-btn sm" onclick="dpArrAdd_('pasos',{actividad:'',responsable:'',tiempo:'',evidencia:'—'})">＋ Paso</button>`,
-    html: `<datalist id="dp-dl-pers">${nombres.map(n => `<option value="${dpEsc_(n)}">`).join('')}</datalist>
-      <div class="dp-hint" style="margin:-4px 0 10px">Actividad · Responsable · Tiempo (minutos) · Evidencia requerida.</div>
+    html: `<div class="dp-help" style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:800" onclick="dpSetD_('pasosMismo',!DP.draft.d.pasosMismo);dpRefreshSec_()"><span class="dp-chk ${mismo ? 'on' : ''}">${mismo ? '✓' : ''}</span>Todos los pasos los realiza(n) la(s) misma(s) persona(s)</div>
+        ${mismo ? `<div>${dpMS_('pasosResp', 'pp', 'Elige puestos o personas para todos los pasos')}</div>` : ''}
+      </div>
+      <div class="dp-hint" style="margin:-4px 0 10px">Actividad · ${mismo ? '' : 'Responsable · '}Tiempo (minutos) · Evidencia requerida.</div>
       ${rows || '<div class="dp-mut" style="padding:8px 0">Sin pasos todavía.</div>'}<div style="margin-top:8px;font-size:12.5px">${totTxt}</div>`,
   };
 }
@@ -59702,7 +59867,6 @@ window.dpIrTarea_ = function (id) {
 };
 window.dpCrearTarea_ = function () {
   const p = dpById_(DP.selId); if (!p) return;
-  const clasifTar = (typeof tarClasif_ === 'function') ? Object.keys(tarClasif_()) : [];
   const prio = p.Importancia === 'Crítica' ? 'Crítico' : ({ Alta: 'Alto', Media: 'Medio', Baja: 'Bajo' }[p.Prioridad] || 'Medio');
   const nat = p.Frecuencia === 'Por evento' ? 'Único' : 'Recurrente';
   const prog = p.Frecuencia === 'Diario' ? { tipo: 'semanal', dias_semana: [0, 1, 2, 3, 4, 5, 6] }
@@ -59710,12 +59874,13 @@ window.dpCrearTarea_ = function () {
   // Personal ya capacitado en el proceso → preseleccionado.
   const ps = (p.d.capac && p.d.capac.personas) || {};
   const capacitados = Object.keys(ps).filter(n => ps[n] && ps[n].debe && ps[n].fecha);
-  const pasos = p.d.pasos.map((s, i) => `${i + 1}. ${s.actividad}${s.responsable ? ' (' + s.responsable + ')' : ''}${s.tiempo ? ' · ' + s.tiempo + ' min' : ''}${s.evidencia && s.evidencia !== '—' ? ' · evidencia: ' + s.evidencia : ''}`);
+  const respTodos = p.d.pasosMismo ? dpSplit_(p.d.pasosResp).join(', ') : '';
+  const pasos = (respTodos ? [`Todos los pasos: ${respTodos}`] : []).concat(p.d.pasos.map((s, i) => `${i + 1}. ${s.actividad}${!respTodos && s.responsable ? ' (' + s.responsable + ')' : ''}${s.tiempo ? ' · ' + s.tiempo + ' min' : ''}${s.evidencia && s.evidencia !== '—' ? ' · evidencia: ' + s.evidencia : ''}`));
   const cl = p.d.checklists.filter(c => (c.items || []).length).map(c => `${c.titulo || 'Checklist'}: ${c.items.join(', ')}`);
   const coment = [`Procedimiento ${p.Codigo} v${p.Version}${p.Objetivo ? ' — ' + p.Objetivo : ''}`].concat(pasos.length ? ['', ...pasos] : [], cl.length ? ['', ...cl] : []).join('\n');
   const pre = {
     Nombre: `${p.Codigo} · ${p.Nombre}`,
-    Clasificacion: clasifTar.includes(p.Area) ? p.Area : '',
+    Clasificacion: p.Clasificacion || '', Subclasificacion: p.Subclasificacion || '',
     Prioridad: prio, Naturaleza: nat, Comentarios: coment,
     Origen: 'Proceso', Proceso_ID: p.ID, Proceso_Codigo: p.Codigo, Proceso_Nombre: p.Nombre, Proceso_Version: p.Version,
     _prog: prog, _personal: capacitados,
@@ -59776,7 +59941,7 @@ window.dpRunGuardar_ = function () {
 function dpSecRoles_(p, ed) {
   const R = p.d.roles, roles = p.d.raciRoles, P = p.d.pasos;
   const flow = `<div class="dp-flow">
-    ${[['ejecuta', '🛠️ Ejecuta'], ['supervisa', '👀 Supervisa'], ['autoriza', '✅ Autoriza']].map(([k, l], i) => `${i ? '<div class="arr">→</div>' : ''}<div class="box"><div class="dp-lbl">${l}</div>${ed ? `<input class="dp-in" value="${dpEsc_(R[k])}" oninput="dpSetD_('roles.${k}',this.value)" placeholder="Puesto">` : `<div style="font-weight:800;font-size:14px">${dpEsc_(R[k] || '—')}</div>`}</div>`).join('')}
+    ${[['ejecuta', '🛠️ Ejecuta'], ['supervisa', '👀 Supervisa'], ['autoriza', '✅ Autoriza']].map(([k, l], i) => `${i ? '<div class="arr">→</div>' : ''}<div class="box"><div class="dp-lbl">${l}</div>${ed ? dpMS_('roles.' + k, 'pu', 'Elige puesto(s)') : `<div style="font-weight:800;font-size:14px">${dpEsc_(R[k] || '—')}</div>`}</div>`).join('')}
   </div>`;
   const legend = `<div class="dp-chips" style="margin:8px 0 10px;font-size:11.5px;color:#475569;gap:12px"><span><span class="dp-rc R" style="width:20px;height:20px">R</span> Responsible · ejecuta</span><span><span class="dp-rc A" style="width:20px;height:20px">A</span> Accountable · responsable final</span><span><span class="dp-rc C" style="width:20px;height:20px">C</span> Consulted · se consulta</span><span><span class="dp-rc I" style="width:20px;height:20px">I</span> Informed · se informa</span></div>`;
   let raci = '';
@@ -59787,9 +59952,19 @@ function dpSecRoles_(p, ed) {
   } else {
     raci = `<div class="dp-mut" style="font-size:12.5px">${!P.length ? 'La matriz RACI se arma sobre las actividades del procedimiento (aún no hay pasos).' : 'Define los roles de la matriz para asignar R / A / C / I a cada actividad.'}</div>`;
   }
-  return { html: `${flow}
+  const ayuda = `<details class="dp-help" ${p.d.raciRoles.length ? '' : 'open'}><summary>¿Cómo funciona esta sección? · ¿Qué es RACI?</summary>
+    <div style="margin-top:8px"><b>1. Ejecuta → Supervisa → Autoriza</b> resume quién hace el proceso, quién lo revisa y quién da el visto bueno final. Se eligen de los <b>puestos</b> de la hoja Personal (columna "Puesto").</div>
+    <div style="margin-top:6px"><b>2. Matriz RACI</b> baja ese detalle a <b>cada paso del procedimiento</b>. Es una herramienta común para que no haya dudas de quién hace qué. Cada letra significa:</div>
+    <ul style="margin:6px 0 0;padding-left:18px">
+      <li><b>R · Responsable</b> (Responsible): quien realiza el paso.</li>
+      <li><b>A · Aprobador</b> (Accountable): quien responde por el resultado y lo aprueba. Idealmente solo uno por paso.</li>
+      <li><b>C · Consultado</b> (Consulted): a quien se le pide opinión antes o durante el paso.</li>
+      <li><b>I · Informado</b> (Informed): a quien solo se le avisa cuando el paso termina.</li>
+    </ul>
+    <div style="margin-top:6px">Ejemplo: en "Liberar departamento", el Supervisor es <b>R</b>, el Gerente es <b>A</b> y Recepción es <b>I</b>.</div></details>`;
+  return { html: `${ayuda}${flow}
     <div style="margin-top:18px"><div class="dp-lbl">Matriz RACI</div>
-    ${ed ? `<div class="dp-f" style="margin-bottom:10px"><label>Roles de la matriz (uno por renglón)</label><textarea class="dp-ta" style="min-height:80px" onchange="dpSetD_('raciRoles',dpLines_(this.value));dpRefreshSec_()">${dpEsc_(roles.join('\n'))}</textarea></div>` : ''}
+    ${ed ? `<div class="dp-f" style="margin-bottom:10px"><label>Puestos que aparecen como columnas de la matriz</label>${dpMS_('raciRoles', 'pu', 'Elige puestos')}</div>` : ''}
     ${legend}${raci}</div>` };
 }
 window.dpRaciCycle_ = function (i, r) {
@@ -59813,7 +59988,8 @@ function dpSecInsumos_(p, ed) {
       <div class="dp-grid" style="margin-top:16px;grid-template-columns:repeat(3,minmax(0,1fr))">
         <div class="dp-f"><label>⬅️ Depende de</label>${chipsCodes(I.depende || [])}</div>
         <div class="dp-f"><label>➡️ Alimenta a</label>${chipsCodes(I.alimenta || [])}</div>
-        <div class="dp-f"><label>🔗 Procesos que dependen de éste</label>${chipsCodes(reverse)}</div></div>` };
+        <div class="dp-f"><label>🔗 Procesos que dependen de éste</label>${chipsCodes(reverse)}</div></div>
+      <div class="dp-f" style="margin-top:16px"><label>🎯 Objetivo de negocio · este proceso es importante para</label>${(p.d.objetivos || []).length ? `<div class="dp-chips">${p.d.objetivos.map(o => `<span class="dp-chip" style="cursor:default;background:#dcfce7;color:#166534">✓ ${dpEsc_(o)}</span>`).join('')}</div>` : '<span class="dp-mut">Sin definir</span>'}</div>` };
   }
   const multi = (k) => `<div class="dp-chips">${otros.map(x => { const on = (I[k] || []).includes(x.Codigo); return `<span class="dp-chip" style="${on ? 'background:#4f46e5;color:#fff' : ''}" onclick="dpDepToggle_('${k}','${dpEsc_(x.Codigo)}')">${on ? '✓ ' : ''}${dpEsc_(x.Codigo)}</span>`; }).join('') || '<span class="dp-mut">No hay otros procesos.</span>'}</div>`;
   return { html: `<div class="dp-grid">
@@ -59822,8 +59998,16 @@ function dpSecInsumos_(p, ed) {
       <div class="dp-f"><label>📤 Salidas (una por renglón)</label><textarea class="dp-ta" style="min-height:120px" oninput="dpSetD_('insumos.salidas',dpLines_(this.value))">${dpEsc_(I.salidas.join('\n'))}</textarea></div>
     </div>
     <div class="dp-f" style="margin-top:14px"><label>⬅️ Depende de</label>${multi('depende')}</div>
-    <div class="dp-f" style="margin-top:12px"><label>➡️ Alimenta a</label>${multi('alimenta')}</div>` };
+    <div class="dp-f" style="margin-top:12px"><label>➡️ Alimenta a</label>${multi('alimenta')}</div>
+    <div class="dp-f" style="margin-top:16px"><label style="display:flex;align-items:center;gap:8px">🎯 Objetivo de negocio · este proceso es importante para <button type="button" onclick="tarOpenClasifManager()" style="all:unset;cursor:pointer;color:#4f46e5;font-size:11px;text-transform:none;letter-spacing:0">⚙️ editar lista</button></label>
+      <div style="display:flex;flex-direction:column;gap:2px">${(() => { const cat = dpObjetivosCat_().slice(); (p.d.objetivos || []).forEach(o => { if (!cat.includes(o)) cat.push(o); }); return cat.map(o => { const on = (p.d.objetivos || []).includes(o); return `<div class="dp-cl"><div class="it" onclick="dpObjToggle_(this,'${dpEsc_(o).replace(/'/g, "\\'")}')"><span class="dp-chk ${on ? 'on' : ''}">${on ? '✓' : ''}</span><span>${dpEsc_(o)}</span></div></div>`; }).join(''); })()}</div></div>` };
 }
+window.dpObjToggle_ = function (el, o) {
+  const A = DP.draft.d.objetivos = DP.draft.d.objetivos || [];
+  const i = A.indexOf(o); if (i >= 0) A.splice(i, 1); else A.push(o);
+  const c = el.querySelector('.dp-chk'); const on = A.includes(o); c.classList.toggle('on', on); c.textContent = on ? '✓' : '';
+  dpRefreshDots_();
+};
 window.dpDepToggle_ = function (k, c) {
   const A = DP.draft.d.insumos[k] = DP.draft.d.insumos[k] || [];
   const i = A.indexOf(c); if (i >= 0) A.splice(i, 1); else A.push(c); dpRefreshSec_();
@@ -59917,7 +60101,7 @@ function dpSecKpis_(p, ed) {
   };
 }
 window.dpKpiSugeridos_ = function () {
-  const pre = DP_KPI_PRESETS[DP.draft.Area] || DP_KPI_PRESETS['Operación'];
+  const pre = DP_KPI_PRESETS[DP.draft.Clasificacion] || DP_KPI_PRESETS['Operación'];
   const have = new Set(DP.draft.d.kpis.map(k => k.nombre));
   pre.forEach(k => { if (!have.has(k[0])) DP.draft.d.kpis.push({ nombre: k[0], unidad: k[1], sentido: k[2], meta: k[3], actual: '', frecuencia: 'Mensual' }); });
   dpRefreshSec_();
@@ -59993,7 +60177,7 @@ window.dpCancelar_ = function () {
 function dpCambios_(a, b) {
   const lbl = { general: 'información general', diagrama: 'diagrama', pasos: 'procedimiento', checklist: 'checklist', roles: 'roles/RACI', insumos: 'insumos y resultados', docs: 'documentos', excepciones: 'excepciones', kpis: 'indicadores', capac: 'capacitación' };
   const out = [];
-  const gen = ['Codigo', 'Nombre', 'Area', 'Responsable', 'Frecuencia', 'Frecuencia_detalle', 'Prioridad', 'Estatus', 'Proxima_revision', 'Importancia', 'Objetivo', 'Alcance'];
+  const gen = ['Codigo', 'Nombre', 'Clasificacion', 'Subclasificacion', 'Responsable', 'Frecuencia', 'Frecuencia_detalle', 'Prioridad', 'Estatus', 'Proxima_revision', 'Importancia', 'Objetivo', 'Alcance'];
   if (gen.some(k => (a[k] || '') !== (b[k] || ''))) out.push('general');
   const J = x => JSON.stringify(x);
   if (J(a.d.diagrama) !== J(b.d.diagrama)) out.push('diagrama');
@@ -60001,7 +60185,8 @@ function dpCambios_(a, b) {
   if (J(strip(a.d.pasos)) !== J(strip(b.d.pasos))) out.push('pasos');
   if (J(a.d.checklists) !== J(b.d.checklists)) out.push('checklist');
   if (J(a.d.roles) !== J(b.d.roles) || J(a.d.raciRoles) !== J(b.d.raciRoles) || J(a.d.pasos.filter(s => s.raci && Object.values(s.raci).some(Boolean)).map(s => s.raci)) !== J(b.d.pasos.filter(s => s.raci && Object.values(s.raci).some(Boolean)).map(s => s.raci))) out.push('roles');
-  if (J(a.d.insumos) !== J(b.d.insumos)) out.push('insumos');
+  if (J(a.d.insumos) !== J(b.d.insumos) || J(a.d.objetivos || []) !== J(b.d.objetivos || [])) out.push('insumos');
+  if (!!a.d.pasosMismo !== !!b.d.pasosMismo || J(a.d.pasosResp || []) !== J(b.d.pasosResp || [])) out.push('pasos');
   if (J(a.d.docs) !== J(b.d.docs)) out.push('docs');
   if (J(a.d.excepciones) !== J(b.d.excepciones)) out.push('excepciones');
   if (J(a.d.kpis) !== J(b.d.kpis)) out.push('kpis');
@@ -60101,7 +60286,7 @@ window.dpAprobar_ = function () {
 window.dpDuplicar_ = function () {
   const p = dpById_(DP.selId); if (!p) return;
   const c = JSON.parse(JSON.stringify(p));
-  Object.assign(c, { ID: '', Codigo: dpNextCode_(c.Area), Nombre: c.Nombre + ' (copia)', Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Creado_por: dpUser_() });
+  Object.assign(c, { ID: '', Codigo: dpNextCode_(c.Clasificacion), Nombre: c.Nombre + ' (copia)', Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Creado_por: dpUser_() });
   c.d.versiones = []; c.d.capac.personas = {};
   DP.draft = c; DP.isNew = true; DP.edit = true; DP.selId = null; DP.sec = 'general';
   dpRender_(); dpScrollTop_();
@@ -60130,7 +60315,7 @@ window.dpImprimir_ = function () {
   if (!w) return alert('Permite ventanas emergentes para imprimir.');
   const css = document.getElementById('dp-styles').textContent;
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${dpEsc_(p.Codigo)} · ${dpEsc_(p.Nombre)}</title><style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;background:#fff}${css}</style></head><body class="dp">
-    <div class="dp-head" style="-webkit-print-color-adjust:exact;print-color-adjust:exact"><div class="row1"><span class="dp-code">${dpEsc_(p.Codigo)}</span>${dpStPill_(p.Estatus)}<span>v${dpEsc_(p.Version)}</span><span>· ${dpEsc_(p.Area)}</span></div><h3>${dpEsc_(p.Nombre)}</h3><div class="meta"><span>Responsable: ${dpEsc_(p.Responsable || '—')}</span><span>Actualizado ${dpFmtD_(p.Ultima_actualizacion)}</span><span>Impreso ${dpFmtD_(dpHoy_())}</span></div></div>
+    <div class="dp-head" style="-webkit-print-color-adjust:exact;print-color-adjust:exact"><div class="row1"><span class="dp-code">${dpEsc_(p.Codigo)}</span>${dpStPill_(p.Estatus)}<span>v${dpEsc_(p.Version)}</span><span>· ${dpEsc_(dpClasifTxt_(p))}</span></div><h3>${dpEsc_(p.Nombre)}</h3><div class="meta"><span>Responsable: ${dpEsc_(p.Responsable || '—')}</span><span>Actualizado ${dpFmtD_(p.Ultima_actualizacion)}</span><span>Impreso ${dpFmtD_(dpHoy_())}</span></div></div>
     ${secs}<script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
   w.document.close();
 };
