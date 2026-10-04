@@ -6605,6 +6605,8 @@ input.bn-efe-chk[type="checkbox"], input.bn-up-chk[type="checkbox"]:checked::aft
   .hm-quick-b::-webkit-scrollbar{display:none}
   .hm-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   .hm-tile{flex-direction:column;align-items:flex-start;gap:6px;padding:9px}
+  .hm-tx{width:100%;max-width:100%}
+  .hm-tx b{white-space:normal;line-height:1.25}
   .hm-tx small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .hm-sec{padding:10px}
 }
