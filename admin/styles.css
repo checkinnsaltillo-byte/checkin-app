@@ -6713,8 +6713,8 @@ body{padding-left:0 !important;padding-right:0 !important;padding-top:0 !importa
 .hm{padding-left:var(--gx) !important;padding-right:var(--gx) !important}
 
 /* ═══════════ Inicio v2: 5 columnas iguales (A–E), listas compactas ═══════════ */
-.hm-grid{grid-template-columns:repeat(auto-fit,minmax(215px,1fr)) !important;gap:12px !important;align-items:stretch !important}
-.hm-sec,.hm-sec[data-g]{grid-column:auto !important;grid-row:auto !important;align-self:stretch !important;padding:0 !important;overflow:hidden;border-top:0 !important;border-radius:14px !important}
+.hm-grid{grid-template-columns:repeat(auto-fit,minmax(215px,1fr)) !important;gap:12px !important;align-items:start !important}
+.hm-sec,.hm-sec[data-g]{grid-column:auto !important;grid-row:auto !important;align-self:start !important;padding:0 !important;overflow:hidden;border-top:0 !important;border-radius:14px !important}
 .hm-sec-h{padding:11px 14px !important;margin:0;background:var(--hc);color:#fff}
 .hm-sec-h .hm-letter{background:rgba(255,255,255,.22) !important;color:#fff}
 .hm-sec-h .hm-sec-t{color:#fff !important;font-size:12px}
