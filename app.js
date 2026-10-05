@@ -58353,6 +58353,7 @@ function pcEnsureStyles_() {
   .pc-ring>div{width:92px;height:92px;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center}
   .pc-ring b{font-size:22px;font-weight:900;color:var(--pc-ink);line-height:1}
   .pc-ring small{font-size:10px;font-weight:800;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.05em}
+  @media (max-width:700px){ .pc-ext-grid{grid-template-columns:repeat(2,1fr)!important} }
   .pc-stat{background:#f8fafc;border:1px solid var(--pc-line);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s}
   .pc-stat:hover{background:#eef2ff}
   .pc-stat .l{font-size:10px;font-weight:900;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.06em}
@@ -58620,7 +58621,10 @@ function pcCobMonth_(ym) {
   const list = (PAGOS_STATE.bookings || []).filter(b => _pagosDateIso(b.DateArrival).startsWith(ym));
   let fact = 0, cob = 0, pend = 0;
   const pendientes = [], tickets = { req: 0, emit: 0, pend: [] }, ext = [], alertas = [];
+  const dias = (a, b) => (a && b) ? Math.max(0, Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 864e5)) : 0;
+  const ex = { noches: 0, nochesTot: 0, monto: 0, conMonto: 0 };
   list.forEach(b => {
+    ex.nochesTot += dias(_pagosDateIso(b.DateArrival), _pagosDateIso(b.DateDeparture));
     fact += Number(b.TotalAmount) || 0;
     const p = Number(b.AmountPaid) || 0, d = Number(b.AmountDue) || 0;
     if (p > 0) cob += p;
@@ -58628,9 +58632,14 @@ function pcCobMonth_(ym) {
     const tk = _pagosTicket(b), req = /s[ií]/i.test(String(_pagosReqFactura(b) || ''));
     if (req || tk) { tickets.req++; if (tk) tickets.emit++; else tickets.pend.push(b); }
     const e = _pagosExt(b);
-    if (e) { ext.push(b); if (_pagosAlertaExt(b, e, tk)) alertas.push(b); }
+    if (e) {
+      ext.push(b); if (_pagosAlertaExt(b, e, tk)) alertas.push(b);
+      ex.noches += dias(e.antes, e.nueva || _pagosDateIso(b.DateDeparture));
+      const dif = e.totalAntes != null ? (Number(b.TotalAmount) || 0) - e.totalAntes : null;
+      if (dif != null && dif > 0) { ex.monto += dif; ex.conMonto++; }
+    }
   });
-  return { n: list.length, fact, cob, pend, pendientes, tickets, ext, alertas, list };
+  return { n: list.length, fact, cob, pend, pendientes, tickets, ext, alertas, list, ex };
 }
 
 // 4) RENTAS DE INQUILINOS — mismas reglas de la Vista mensual de pagos.
@@ -59161,6 +59170,14 @@ function pcRenderSection_(key) {
       <div class="pc-bar" style="height:14px;margin-top:6px"><span data-w="${(pctCob * 100).toFixed(1)}%" style="background:linear-gradient(90deg,#22c55e,#16a34a)"></span></div>
       <div style="margin-top:14px;display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em"><span>Tickets de auto-facturación</span><span style="color:#0f172a">${c.tickets.emit} / ${c.tickets.req} emitidos</span></div>
       <div class="pc-bar" style="height:14px;margin-top:6px;cursor:pointer" onclick="pcDrawer('tickets')"><span data-w="${(pctTk * 100).toFixed(1)}%" style="background:linear-gradient(90deg,#86efac,#16a34a)"></span></div>
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em"><span>⏩ Extensiones de estancia</span><span style="font-weight:700;text-transform:none;letter-spacing:0">huéspedes que pidieron quedarse más noches</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px" class="pc-ext-grid">
+        <div class="pc-stat" onclick="pcDrawer('extensiones')" style="background:#fffbeb;border-color:#fde68a"><div class="l">Reservas extendidas</div><div class="v" style="color:#92400e">${c.ext.length}</div><div style="font-size:11px;color:#64748b"><b style="color:#92400e">${pcPct(c.n ? c.ext.length / c.n : 0)}</b> de ${c.n} reservas</div></div>
+        <div class="pc-stat" onclick="pcDrawer('extensiones')" style="background:#fffbeb;border-color:#fde68a"><div class="l">Noches extra</div><div class="v" style="color:#92400e">${pcFmtN(c.ex.noches)}</div><div style="font-size:11px;color:#64748b">${pcPct(c.ex.nochesTot ? c.ex.noches / c.ex.nochesTot : 0)} de ${pcFmtN(c.ex.nochesTot)} noches</div></div>
+        <div class="pc-stat" onclick="pcDrawer('extensiones')" style="background:#fffbeb;border-color:#fde68a"><div class="l">Promedio por extensión</div><div class="v" style="color:#92400e">${c.ext.length ? (c.ex.noches / c.ext.length).toFixed(1) : '0'}</div><div style="font-size:11px;color:#64748b">noches adicionales</div></div>
+        <div class="pc-stat" onclick="pcDrawer('extensiones')" style="background:#fffbeb;border-color:#fde68a"><div class="l">Ingreso adicional</div><div class="v" style="color:#166534">${pcFmt$(c.ex.monto)}</div><div style="font-size:11px;color:#64748b">${c.ex.conMonto < c.ext.length ? `${c.ex.conMonto} de ${c.ext.length} con monto previo` : 'por noches extra'}</div></div>
+      </div>
+      <div class="pc-bar" style="height:10px;margin-top:8px;cursor:pointer" title="% de reservas del mes que pidieron extensión" onclick="pcDrawer('extensiones')"><span data-w="${(c.n ? c.ext.length / c.n * 100 : 0).toFixed(1)}%" style="background:linear-gradient(90deg,#fcd34d,#d97706)"></span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <span class="pc-chip" style="background:#fee2e2;color:#991b1b;cursor:pointer" onclick="pcDrawer('tickets')">🧾 ${c.tickets.pend.length} tickets pendientes</span>
         <span class="pc-chip" style="background:#fef3c7;color:#92400e;cursor:pointer" onclick="pcDrawer('extensiones')">⏩ ${c.ext.length} extensiones</span>
@@ -59283,7 +59300,7 @@ window.pcDrawer = function (tipo) {
     html = hdr(tit, `${lista.length} reservas`, 'pagos') +
       `<div class="pc-dbody">${tbl([{ t: 'Reserva' }, { t: 'Huésped' }, { t: 'Alojamiento' }, { t: 'Fechas' }, { t: 'Total', r: 1 }, { t: tipo === 'extensiones' ? 'Ticket' : 'Saldo', r: 1 }], lista.map(b => {
         const tk = _pagosTicket(b), e = _pagosExt(b), al = e ? _pagosAlertaExt(b, e, tk) : '';
-        return `<tr><td><a href="#" onclick="event.preventDefault();pagosOpenReserva('${pcEsc(String(b.Id))}')" style="color:#1d4ed8;font-weight:800">${pcEsc(b.Id)}</a></td><td>${pcEsc(b.GuestName || '')}</td><td>${pcEsc(_pagosAlojName(b))}</td><td style="white-space:nowrap">${_pagosFmtFecha(_pagosDateIso(b.DateArrival))} → ${_pagosFmtFecha(_pagosDateIso(b.DateDeparture))}${e ? `<br><span class="pc-chip" style="background:#fef3c7;color:#92400e">antes ${_pagosFmtFecha(e.antes)}</span>` : ''}</td><td class="r">${pcFmt$(b.TotalAmount, 2)}</td><td class="r">${tipo === 'extensiones' ? (tk ? `Folio #${pcEsc(tk.folio)}${al ? '<br><span class="pc-chip" style="background:#fee2e2;color:#991b1b">⚠️ re-emitir</span>' : ''}` : '—') : `<b style="color:#9a3412">${pcFmt$(b.AmountDue, 2)}</b>`}</td></tr>`;
+        return `<tr><td><a href="#" onclick="event.preventDefault();pagosOpenReserva('${pcEsc(String(b.Id))}')" style="color:#1d4ed8;font-weight:800">${pcEsc(b.Id)}</a></td><td>${pcEsc(b.GuestName || '')}</td><td>${pcEsc(_pagosAlojName(b))}</td><td style="white-space:nowrap">${_pagosFmtFecha(_pagosDateIso(b.DateArrival))} → ${_pagosFmtFecha(_pagosDateIso(b.DateDeparture))}${e ? `<br><span class="pc-chip" style="background:#fef3c7;color:#92400e">antes ${_pagosFmtFecha(e.antes)} · +${Math.max(0, Math.round((Date.parse((e.nueva || _pagosDateIso(b.DateDeparture)) + 'T12:00:00') - Date.parse(e.antes + 'T12:00:00')) / 864e5))} noches</span>` : ''}</td><td class="r">${pcFmt$(b.TotalAmount, 2)}</td><td class="r">${tipo === 'extensiones' ? (tk ? `Folio #${pcEsc(tk.folio)}${al ? '<br><span class="pc-chip" style="background:#fee2e2;color:#991b1b">⚠️ re-emitir</span>' : ''}` : '—') : `<b style="color:#9a3412">${pcFmt$(b.AmountDue, 2)}</b>`}</td></tr>`;
       }))}</div>`;
   } else if (tipo === 'rentas') {
     const r = pcRentasYear_(ym);
