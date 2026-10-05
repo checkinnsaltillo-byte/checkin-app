@@ -58243,6 +58243,27 @@ function pcEnsureStyles_() {
   .pc-grp-s{font-size:12px;color:#64748b;font-weight:600}
   .pc-grp .pc-kpis:empty{display:none}
   .pc-grp .pc-kpis{margin-bottom:14px}
+  .pc-rp{display:flex;flex-direction:column;gap:14px}
+  .pc-rp-g{border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;background:#fff}
+  .pc-rp-gh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(90deg,color-mix(in srgb,var(--gc) 14%,#fff),#fff);border-bottom:1px solid #eef2f7;font-size:13px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gc)}
+  .pc-rp-gh span{margin-left:auto;font-size:10.5px;color:#94a3b8;letter-spacing:.02em;font-weight:700;text-transform:none}
+  .pc-rp-ts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1px;background:#eef2f7}
+  .pc-rp-t{background:#fff;padding:12px 14px 8px;position:relative;display:flex;flex-direction:column;gap:6px}
+  .pc-rp-t::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--ac)}
+  .pc-rp-l{font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em}
+  .pc-rp-v{font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+  .pc-rp-chs{display:flex;gap:5px;flex-wrap:wrap}
+  .pc-rp-ch{font-size:11px;font-weight:900;border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .pc-rp-ch i{font-style:normal;font-weight:700;opacity:.75}
+  .pc-rp-ch.up{background:#dcfce7;color:#166534}.pc-rp-ch.down{background:#fee2e2;color:#991b1b}
+  .pc-rp-ch.eq{background:#f1f5f9;color:#475569}.pc-rp-ch.na{background:#f8fafc;color:#94a3b8}
+  .pc-rp-bars{display:flex;flex-direction:column;gap:3px;margin-top:2px}
+  .pc-rp-bar{display:grid;grid-template-columns:44px 1fr auto;gap:6px;align-items:center;font-size:10.5px;color:#64748b}
+  .pc-rp-bar>div{height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden}
+  .pc-rp-bar>div i{display:block;height:100%;border-radius:99px}
+  .pc-rp-bar b{font-weight:800;color:#334155;font-variant-numeric:tabular-nums;min-width:60px;text-align:right}
+  .pc-rp-sp{height:28px;margin-top:2px}
+  .pc-rp-sp .pc-spark{width:100%;height:28px;display:block}
   .pc-rep tr.g td{background:#f8fafc;font-size:10.5px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em}
   .pc-sys{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
   .pc-sys-i{border:1px solid var(--pc-line);border-radius:12px;padding:10px 12px;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s}
@@ -58828,16 +58849,22 @@ function pcRenderReporte_() {
   const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
   const rows = [];
   const G = t => rows.push({ g: t });
-  const add = (t, fn, fmt, menorMejor) => { try { rows.push({ t, v: [fn(ym), fn(prev), fn(ly)], fmt, menorMejor }); } catch (_) {} };
+  let cur = null;
+  const add = (t, fn, fmt, menorMejor, zeroNull) => { try {
+    const val = m => { const x = fn(m); return zeroNull && x === 0 ? NaN : x; };
+    rows.push({ t, g: cur, v: [val(ym), val(prev), val(ly)], fmt, menorMejor,
+      s: pcLast12(ym).map(m => { try { const x = fn(m); return isFinite(x) ? x : 0; } catch (_) { return 0; } }) });
+  } catch (_) {} };
+  const G0 = G; const Gx = t => { cur = t; G0(t); };
   if (finOk) {
-    G('💹 Finanzas');
-    add('Ingresos', m => pcFinMonth_(m).I, pcFmt$);
-    add('Egresos', m => pcFinMonth_(m).E, pcFmt$, true);
-    add('Utilidad', m => pcFinMonth_(m).U, pcFmt$);
+    Gx('💹 Finanzas');
+    add('Ingresos', m => pcFinMonth_(m).I, pcFmt$, false, true);
+    add('Egresos', m => pcFinMonth_(m).E, pcFmt$, true, true);
+    add('Utilidad', m => pcFinMonth_(m).U, pcFmt$, false, true);
     add('Margen neto', m => pcFinMonth_(m).M, v => pcPct(v, 1));
   }
   if (ocOk) {
-    G('🏨 Hospedaje');
+    Gx('🏨 Hospedaje');
     const oc = m => { const o = pcOcupMonth_(m); return o.tot ? o : null; };
     add('Ocupación', m => { const o = oc(m); return o ? o.pct : NaN; }, v => pcPct(v, 1));
     add('Noches ocupadas', m => { const o = oc(m); return o ? o.occ : NaN; }, pcFmtN);
@@ -58845,8 +58872,8 @@ function pcRenderReporte_() {
     add('Ingreso hospedaje', m => { const o = oc(m); return o ? o.rev : NaN; }, pcFmt$);
     add('Tarifa promedio por noche', m => { const o = oc(m); return o ? o.adr : NaN; }, pcFmt$);
   }
-  if (cobOk) { G('🧾 Cobranza'); add('Por cobrar (reservas)', m => pcCobMonth_(m).pend, pcFmt$, true); add('Cobrado', m => pcCobMonth_(m).cob, pcFmt$); }
-  if (!PC.loading.op) { G('🛠️ Operación'); add('Incidencias registradas en el mes', m => pcOpMonth_(m).inc.mes.length, pcFmtN, true); }
+  if (cobOk) { Gx('🧾 Cobranza'); add('Por cobrar (reservas)', m => pcCobMonth_(m).pend, pcFmt$, true); add('Cobrado', m => pcCobMonth_(m).cob, pcFmt$); }
+  if (!PC.loading.op) { Gx('🛠️ Operación'); add('Incidencias registradas en el mes', m => pcOpMonth_(m).inc.mes.length, pcFmtN, true); }
   const hoyD = new Date(), enCurso = ym === pcYm(hoyD.getFullYear(), hoyD.getMonth());
   const diasMes = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0).getDate();
   const head = `<div class="pc-card-h"><div class="pc-card-t">📑 Comparativo · ${pcYmLabel(ym)} <small>· contra mes anterior y mismo mes del año anterior</small></div></div>`
@@ -58858,9 +58885,37 @@ function pcRenderReporte_() {
     const d = (a - b) / Math.abs(b), bueno = r.menorMejor ? d <= 0 : d >= 0;
     return `<span class="pc-delta ${Math.abs(d) < 0.005 ? '' : bueno ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(1)}%</span>`;
   };
-  el.innerHTML = head + `<div class="pc-tblwrap"><table class="pc-tbl pc-rep"><thead><tr><th>Indicador</th><th class="r">${pcYmLabel(ym, true)}</th><th class="r">${pcYmLabel(prev, true)}</th><th class="r">Δ mensual</th><th class="r">${pcYmLabel(ly, true)}</th><th class="r">Δ anual</th></tr></thead><tbody>
-    ${rows.map(r => r.g ? `<tr class="g"><td colspan="6">${r.g}</td></tr>` : `<tr><td data-l="Indicador" style="font-weight:700">${r.t}</td><td data-l="${pcYmLabel(ym, true)}" class="r" style="font-weight:800">${fmtV(r, r.v[0])}</td><td data-l="${pcYmLabel(prev, true)}" class="r">${fmtV(r, r.v[1])}</td><td data-l="Δ mensual" class="r">${dlt(r, r.v[0], r.v[1])}</td><td data-l="${pcYmLabel(ly, true)}" class="r">${fmtV(r, r.v[2])}</td><td data-l="Δ anual" class="r">${dlt(r, r.v[0], r.v[2])}</td></tr>`).join('')}
-  </tbody></table></div><div style="font-size:10.5px;color:#94a3b8;margin-top:8px">▲▼ en verde = mejora · en rojo = empeora (en egresos, por cobrar e incidencias, bajar es mejorar). "—" = sin datos de ese mes.</div>`;
+  const GC = { '💹 Finanzas': '#047857', '🏨 Hospedaje': '#1d4ed8', '🧾 Cobranza': '#ea580c', '🛠️ Operación': '#0e7490' };
+  const L0 = pcYmLabel(ym, true), L1 = pcYmLabel(prev, true), L2 = pcYmLabel(ly, true);
+  const delta = (r, a, b) => {
+    if (!isFinite(a) || !isFinite(b) || b === 0) return null;
+    const d = (a - b) / Math.abs(b);
+    return { d, cls: Math.abs(d) < 0.005 ? 'eq' : ((r.menorMejor ? d <= 0 : d >= 0) ? 'up' : 'down') };
+  };
+  const chip = (dl, lbl) => dl
+    ? `<span class="pc-rp-ch ${dl.cls}">${dl.d >= 0 ? '▲' : '▼'} ${Math.abs(dl.d * 100).toFixed(1)}% <i>vs ${lbl}</i></span>`
+    : `<span class="pc-rp-ch na">— <i>vs ${lbl}</i></span>`;
+  const tile = r => {
+    const dm = delta(r, r.v[0], r.v[1]), da = delta(r, r.v[0], r.v[2]);
+    const ac = !dm ? '#94a3b8' : dm.cls === 'up' ? '#16a34a' : dm.cls === 'down' ? '#dc2626' : '#64748b';
+    const nums = r.v.map(x => isFinite(x) ? Math.abs(x) : 0), mx = Math.max(...nums) || 1;
+    const bar = (i, lbl, col) => `<div class="pc-rp-bar"><span>${lbl}</span><div><i style="width:${Math.max(2, nums[i] / mx * 100)}%;background:${col}"></i></div><b>${fmtV(r, r.v[i])}</b></div>`;
+    return `<div class="pc-rp-t" style="--ac:${ac}">
+      <div class="pc-rp-l">${r.t}</div>
+      <div class="pc-rp-v">${fmtV(r, r.v[0])}</div>
+      <div class="pc-rp-chs">${chip(dm, L1)}${chip(da, L2)}</div>
+      <div class="pc-rp-bars">${bar(0, L0, ac)}${bar(1, L1, '#cbd5e1')}${bar(2, L2, '#e2e8f0')}</div>
+      <div class="pc-rp-sp" title="Últimos 12 meses">${pcSpark_(r.s, ac)}</div>
+    </div>`;
+  };
+  const grupos = [];
+  rows.forEach(r => { if (!r.t) grupos.push({ g: r.g, items: [] }); else if (grupos.length) grupos[grupos.length - 1].items.push(r); });
+  el.innerHTML = head + `<div class="pc-rp">${grupos.filter(g => g.items.length).map(g => `
+    <div class="pc-rp-g" style="--gc:${GC[g.g] || '#475569'}">
+      <div class="pc-rp-gh">${g.g}<span>${L0} · vs ${L1} · vs ${L2}</span></div>
+      <div class="pc-rp-ts">${g.items.map(tile).join('')}</div>
+    </div>`).join('')}</div>
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:10px">▲▼ verde = mejora · rojo = empeora (en egresos, por cobrar e incidencias, bajar es mejorar) · barras: mes actual vs mes anterior vs mismo mes del año pasado · línea: últimos 12 meses · "—" = sin datos.</div>`;
 }
 // E) Configuración admin — de dónde sale cada número y si cargó bien.
 function pcRenderSys_() {
