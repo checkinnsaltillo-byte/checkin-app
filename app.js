@@ -60765,7 +60765,7 @@ function vaEnsureStyles_() {
   .va-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
   .va-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.05)}
   .va-card-h{display:flex;align-items:center;gap:8px;padding:9px 12px;background:color-mix(in srgb,var(--c) 10%,#fff);border-bottom:1px solid color-mix(in srgb,var(--c) 25%,#fff)}
-  .va-card-h .n{font-weight:900;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .va-card-h .n{font-weight:900;font-size:13.5px;flex:1;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
   .va-card-h .tp{font-size:10px;font-weight:800;color:var(--c);text-transform:uppercase;letter-spacing:.04em}
   .va-ver{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid #cbd5e1;background:#fff;color:#fff;font-size:14px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:background .15s,border-color .15s,transform .08s}
   .va-ver:hover{border-color:#22c55e}
