@@ -58227,7 +58227,7 @@ function pcEnsureStyles_() {
   .pc-band-h{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
   .pc-band-k{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#9a3412}
   .pc-band-mes .pc-band-k{color:#3730a3}
-  .pc-band-t{font-size:20px;font-weight:900;color:#0f172a;text-transform:capitalize;line-height:1.15}
+  .pc-band-t{font-size:20px;font-weight:900;color:#0f172a;line-height:1.15}
   .pc-band-n{font-size:12px;color:#64748b;flex:1;min-width:200px}
   .pc-band-sticky{position:sticky;top:0;z-index:5;background:rgba(238,242,255,.94);backdrop-filter:blur(6px);margin:-14px -14px 12px;padding:12px 14px;border-radius:20px 20px 0 0;border-bottom:1px solid #c7d2fe}
   .pc-band-mes .pc-mnav{background:#1e1b4b}
@@ -58731,7 +58731,7 @@ function pcRenderShell_() {
     </div>
     <div id="pc-kpis" hidden></div>
     <section class="pc-band pc-band-hoy">
-      <header class="pc-band-h"><div><div class="pc-band-k">📍 Hoy</div><div class="pc-band-t">${hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+      <header class="pc-band-h"><div><div class="pc-band-k">📍 Hoy</div><div class="pc-band-t">${(t => t.charAt(0).toUpperCase() + t.slice(1))(hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }))}</div></div>
         <div class="pc-band-n">Lo que pasa hoy y esta semana. <b>No cambia</b> con el mes seleccionado.</div></header>
       <div class="pc-kpis" id="pc-kpis-hoy"></div>
       <div class="pc-grid">
