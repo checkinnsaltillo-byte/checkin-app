@@ -56845,6 +56845,41 @@ const TAR_DEFAULT_CLASIF = {
   'Recursos humanos': [], 'Servicios': [], 'Limpieza': [],
   'Mantenimiento': [], 'Inventarios': [], 'Proveedores': [],
 };
+// ── Medidor de prioridad (barra segmentada con aguja) ─────────────────
+// Se usa en las cards de Tareas programadas y de Pendientes del día.
+// pick: plantilla de onclick con %K → nivel (ej. "pzSetPrio_('ID',%K)"); sin pick es solo lectura.
+const PRIO_METER = [['Bajo', '#2563eb'], ['Medio', '#eab308'], ['Alto', '#ea580c'], ['Crítico', '#dc2626']];
+(function () {
+  if (document.getElementById('prio-meter-css')) return;
+  const st = document.createElement('style'); st.id = 'prio-meter-css';
+  st.textContent = `
+  .pm{position:relative;display:inline-flex;flex-direction:column;align-items:stretch;flex:none;padding-top:13px;width:var(--pmw,148px);vertical-align:middle}
+  .pm-trk{display:flex;gap:2px;padding:2px;border-radius:999px;background:#e5e7eb;box-shadow:inset 0 1px 2px rgba(15,23,42,.12)}
+  .pm-s{all:unset;flex:1;min-width:0;height:var(--pmh,14px);display:flex;align-items:center;justify-content:center;background:var(--c);opacity:.22;font-size:7.5px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#fff;white-space:nowrap;overflow:hidden;transition:opacity .15s,transform .15s;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+  .pm-s:first-child{border-radius:999px 3px 3px 999px}
+  .pm-s:last-child{border-radius:3px 999px 999px 3px}
+  .pm-s.on{opacity:1;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)}
+  .pm.pick .pm-s{cursor:pointer}
+  .pm.pick .pm-s:hover{opacity:.75}
+  .pm.pick .pm-s.on:hover{opacity:1}
+  .pm-ndl{position:absolute;top:0;width:0;height:0;transform:translateX(-50%);transition:left .2s}
+  .pm-ndl:before{content:'';position:absolute;left:-5px;top:0;width:10px;height:10px;border-radius:50%;background:#1f2937;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .pm-ndl:after{content:'';position:absolute;left:-3px;top:6px;border-left:3px solid transparent;border-right:3px solid transparent;border-top:9px solid #1f2937}
+  .pm.sm{--pmw:96px;--pmh:7px;padding-top:9px}
+  .pm.sm .pm-s{font-size:0}
+  .pm.sm .pm-ndl:before{width:7px;height:7px;left:-3.5px}
+  .pm.sm .pm-ndl:after{left:-2px;top:4px;border-left-width:2px;border-right-width:2px;border-top-width:6px}`;
+  document.head.appendChild(st);
+})();
+function prioMeter_(nivel, opts) {
+  opts = opts || {};
+  let i = PRIO_METER.findIndex(([k]) => k === nivel); if (i < 0) i = 1;
+  const segs = PRIO_METER.map(([k, c], j) => opts.pick
+    ? `<button type="button" class="pm-s ${j === i ? 'on' : ''}" style="--c:${c}" title="Prioridad ${k}" onclick="event.stopPropagation();${opts.pick.replace('%K', `'${k}'`)}">${k}</button>`
+    : `<span class="pm-s ${j === i ? 'on' : ''}" style="--c:${c}">${k}</span>`).join('');
+  return `<span class="pm ${opts.sm ? 'sm' : ''} ${opts.pick ? 'pick' : ''}" title="Prioridad: ${PRIO_METER[i][0]}${opts.pick ? ' · clic en un nivel para cambiarla' : ''}" ${opts.w ? `style="--pmw:${opts.w}px"` : ''}>
+    <span class="pm-ndl" style="left:${((i + 0.5) / 4 * 100).toFixed(1)}%"></span><span class="pm-trk">${segs}</span></span>`;
+}
 const TAR_PRIORIDADES = [
   { k: 'Bajo',    fg: '#475569', bg: '#f1f5f9', bd: '#cbd5e1', w: 1 },
   { k: 'Medio',   fg: '#1d4ed8', bg: '#dbeafe', bd: '#93c5fd', w: 2 },
@@ -57010,7 +57045,7 @@ function tarChip_(txt, fg, bg, bd) {
 }
 // Con `estadoOcur` (vista calendario) muestra el estado de ESE día; sin él,
 // la vigencia de la tarea.
-function tarChipsHtml_(r, estadoOcur) {
+function tarChipsHtml_(r, estadoOcur, sinPrio) {
   const est = estadoOcur
     ? (TAR_ESTADOS.find(e => e.k === estadoOcur) || TAR_ESTADOS[0])
     : TAR_VIGENCIAS.find(v => v.k === tarVigencia_(r));
@@ -57018,7 +57053,7 @@ function tarChipsHtml_(r, estadoOcur) {
   return [
     tarEsRec_(r) ? tarChip_('📌 Recordatorio', '#92400e', '#fef3c7', '#fde68a') : tarChip_('📋 Tarea programada', '#5b21b6', '#ede9fe', '#ddd6fe'),
     tarChip_(est.k, est.fg, est.bg, est.bd),
-    pri ? tarChip_((pri.k === 'Crítico' ? '🔥 ' : '') + pri.k, pri.fg, pri.bg, pri.bd) : '',
+    pri && !sinPrio ? tarChip_((pri.k === 'Crítico' ? '🔥 ' : '') + pri.k, pri.fg, pri.bg, pri.bd) : '',
     r.Clasificacion ? tarChip_(r.Clasificacion, '#5b21b6', '#ede9fe', '#c4b5fd') : '',
     r.Subclasificacion ? tarChip_(r.Subclasificacion, '#0f766e', '#ccfbf1', '#5eead4') : '',
     r.Proceso_Codigo ? tarChip_('📘 ' + r.Proceso_Codigo, '#3730a3', '#e0e7ff', '#a5b4fc') : '',
@@ -57263,7 +57298,7 @@ function tarCardHtml_(r, opts) {
   return `
     <div ${drag} onclick="tarOpenPanel('${esc(r.ID)}','${fecha}')" style="cursor:pointer;background:#fff;border:1px solid ${vencida ? '#fca5a5' : '#e2e8f0'};border-left:4px solid ${accent};border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,23,42,.05);display:flex;flex-direction:column;gap:6px;transition:box-shadow .15s"
          onmouseover="this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(15,23,42,.05)'">
-      <div style="display:flex;flex-wrap:wrap;gap:4px">${tarChipsHtml_(r, estadoOcur)}</div>
+      <div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px">${tarChipsHtml_(r, estadoOcur, true)}</div>${prioMeter_(r.Prioridad, { w: 128 })}</div>
       <div style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.3">${esc(r.Nombre || '(sin nombre)')}</div>
       <div style="font-size:11.5px;color:${vencida ? '#b91c1c' : '#475569'};line-height:1.45">
         <div style="color:#475569">👥 ${pers.length ? esc(pers.join(', ')) : '<span style="color:#94a3b8">Sin personal asignado</span>'}</div>
@@ -57475,7 +57510,8 @@ function tarMiniHtml_(r, iso) {
   return `<div onclick="tarOpenPanel('${esc(r.ID)}','${iso}')" title="${esc(r.Nombre)}${pers.length ? ' · ' + esc(pers.join(', ')) : ''}"
     style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-left:3px solid ${accent};border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:3px">
     <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${tarEsRec_(r) ? '📌 ' : ''}${esc(r.Nombre || '')}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:3px">${tarChip_(est.k, est.fg, est.bg, est.bd)}${pri ? tarChip_(pri.k, pri.fg, pri.bg, pri.bd) : ''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px">${tarChip_(est.k, est.fg, est.bg, est.bd)}</div>
+    ${prioMeter_(r.Prioridad, { sm: true })}
     ${pers.length ? `<div style="font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(pers.join(', '))}</div>` : ''}
   </div>`;
 }
@@ -58212,6 +58248,7 @@ function pcEnsureStyles_() {
   .pz-kind{display:inline-block;font-size:9.5px;font-weight:900;border-radius:999px;padding:1px 7px;margin-right:2px;vertical-align:1px;text-decoration:none!important;white-space:nowrap}
   .pz-kind.rec{color:#92400e;background:#fef3c7;border:1px solid #fde68a}
   .pz-kind.tar{color:#5b21b6;background:#ede9fe;border:1px solid #ddd6fe}
+  .pz-top{display:flex;align-items:flex-end;gap:6px;margin-bottom:3px}
   .pz-dot.big{width:20px;height:20px;margin:0 6px}
   .pz-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start}
   .pz-col{background:var(--cbg);border:1px solid #e2e8f0;border-top:3px solid var(--c);border-radius:12px;padding:8px;min-height:120px;transition:box-shadow .12s,background .12s}
@@ -58913,8 +58950,8 @@ function pzRender_() {
     const clas = r.Clasificacion ? `${r.Clasificacion}${r.Subclasificacion ? ' › ' + r.Subclasificacion : ''}` : 'sin clasificación';
     const by = e === 'pendiente' ? `${rec ? 'Recordatorio' : 'Tarea programada'} · ${clas}` : `${PZ_COLS.find(c => c.k === e).l} · ${x.por || '—'}${x.at ? ' · ' + pzHora_(x.at) : ''}`;
     return `<div class="pz-it pz-st-${e}" style="--pz:${p.c}" draggable="${tmp ? 'false' : 'true'}" data-id="${id}" ondragstart="pzDragStart_(event)" ondragend="pzDragEnd_(event)">
-      ${rec ? pzDot_(x.prio, `pzCiclarPrio_('${id}')`) : `<span class="pz-dot ro" style="--pz:${p.c}" title="Prioridad: ${p.l} (se cambia en la tarea)"></span>`}
-      <div class="pz-tx"><div class="pz-t" title="Abrir ${rec ? 'el recordatorio' : 'la tarea'}" onclick="pzAbrirTarea_('${id}')">${rec ? '<span class="pz-kind rec">📌 Recordatorio</span>' : '<span class="pz-kind tar">📋 Tarea</span>'} ${pcEsc(r.Nombre || '')}</div>
+      <div class="pz-tx"><div class="pz-top">${rec ? '<span class="pz-kind rec">📌 Recordatorio</span>' : '<span class="pz-kind tar">📋 Tarea</span>'}<span style="flex:1"></span>${prioMeter_(PZ_PRIO_TAR[x.prio], rec && !tmp ? { pick: `pzSetPrio_('${id}',%K)`, w: 132 } : { w: 132 })}</div>
+        <div class="pz-t" title="Abrir ${rec ? 'el recordatorio' : 'la tarea'}" onclick="pzAbrirTarea_('${id}')">${pcEsc(r.Nombre || '')}</div>
         <div class="pz-meta">${rec ? pzAsigHtml_(per, `pzAsignar_('${id}', this)`) : per.map(n => `<span class="pz-who" style="cursor:default">👤 ${pcEsc(n)}</span>`).join('')}${tags}</div>
         <div class="pz-by">${tmp ? '⏳ Guardando…' : pcEsc(by)}</div>
         ${tmp ? '' : `<div class="pz-mv"><select class="pz-sel" style="--c:${PZ_COLS.find(c => c.k === e).c}" title="Cambiar estado" onmousedown="event.stopPropagation()" onchange="pzEstado_('${id}',this.value)">${PZ_COLS.map(c => `<option value="${c.k}" ${c.k === e ? 'selected' : ''}>${c.ico} ${c.l}</option>`).join('')}</select>${rec ? `<button class="pz-trash" title="Eliminar recordatorio" onclick="pzBorrar_('${id}')">🗑️ Eliminar</button>` : ''}</div>`}</div></div>`;
@@ -58923,7 +58960,7 @@ function pzRender_() {
   const head = `<div class="pc-card-h"><div class="pc-card-t">📌 Pendientes del día <small style="text-transform:none;letter-spacing:0;font-weight:700;color:#64748b">· 📌 recordatorios y 📋 tareas programadas de hoy · arrastra las tarjetas entre columnas</small></div>
     ${ok ? `<span class="pc-chip" style="background:${abiertos ? '#fef3c7' : '#dcfce7'};color:${abiertos ? '#92400e' : '#166534'}">${abiertos} abiertos</span>` : ''}</div>`;
   const add = `<div class="pz-add">
-      ${pzDot_(d.prioridad, 'pzDraftPrio_(this)', true)}
+      ${prioMeter_(PZ_PRIO_TAR[d.prioridad], { pick: 'pzDraftPrioSet_(%K)', w: 170 })}
       <input id="pz-new" class="pz-in" maxlength="300" placeholder="Nuevo recordatorio y presiona Enter… (ej. Llamar al plomero del depa 3)" value="${pcEsc(d.texto)}" oninput="PZ.draft.texto=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();pzAgregar_()}">
       <button class="pz-ab ${d.asignados.length ? 'on' : ''}" title="Asignar a alguien" onclick="pzAsignar_(null, this)">👤 ${d.asignados.length ? pcEsc(d.asignados.join(', ')) : 'Asignar'}</button>
       <button class="pz-ab go" onclick="pzAgregar_()">＋ Agregar</button></div>`;
@@ -58992,6 +59029,11 @@ window.pzAgregar_ = async function () {
     if (typeof tarRender === 'function') tarRender(); else pzRender_();
   } catch (e) { TAR_STATE.list = TAR_STATE.list.filter(x => x !== tmp); PZ.draft.texto = t; pzRender_(); alert('No se pudo agregar: ' + e.message); }
 };
+window.pzSetPrio_ = function (id, nivel) {
+  const r = tarRowById_(id); if (!r || /^tmp/.test(id) || !tarEsRec_(r) || r.Prioridad === nivel) return;
+  pzRowSave_(id, { Prioridad: nivel }, { Prioridad: 'Prioridad' });
+};
+window.pzDraftPrioSet_ = function (nivel) { PZ.draft.prioridad = PZ_TAR_PRIO[nivel] || 'media'; pzRender_(); };
 window.pzCiclarPrio_ = function (id) {
   const r = tarRowById_(id); if (!r || /^tmp/.test(id) || !tarEsRec_(r)) return;
   pzRowSave_(id, { Prioridad: PZ_PRIO_TAR[PZ_CICLO[PZ_TAR_PRIO[r.Prioridad] || 'media']] }, { Prioridad: 'Prioridad' });
