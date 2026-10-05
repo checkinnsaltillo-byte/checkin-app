@@ -60686,12 +60686,35 @@ async function vaApi_(path, opts) {
   if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || `Error ${r.status}`);
   return j;
 }
+function vaSes_() { return !!VA.token && Date.now() < VA.exp; }
+function vaRestr_(r) { return r.restringido !== false; } // registros previos sin bandera = restringidos
 function vaLock_(msg) {
-  VA.token = null; VA.exp = 0; VA.records = []; VA.log = []; VA.reveal = new Set(); VA.challenge = null; VA.msg = msg || '';
+  VA.token = null; VA.exp = 0; VA.records = []; VA.log = []; VA.reveal = new Set(); VA.challenge = null; VA.msg = ''; VA.pending = null;
   clearInterval(VA.tick); VA.tick = null;
   document.getElementById('va-modal')?.remove();
-  vaRender_();
+  document.getElementById('va-otp')?.remove();
+  if (msg && document.getElementById('va-root')) vaToast_(msg);
+  if (document.getElementById('va-root')) { vaRender_(); vaLoadPublic_(); }
 }
+// Sin código: registros no restringidos completos; restringidos sin datos sensibles.
+async function vaLoadPublic_() {
+  VA.loadingPub = true; vaRender_();
+  try {
+    const r = await fetch(`${BACKEND}/vault/list`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j || !j.ok) throw new Error((j && j.error) || 'Error');
+    if (!vaSes_()) VA.records = j.records || [];
+    VA.errPub = '';
+  } catch (e) { VA.errPub = e.message; }
+  VA.loadingPub = false; vaRender_();
+}
+// Pide el código (ventanita) y luego ejecuta la acción.
+function vaRequire_(fn) {
+  if (vaSes_()) return fn();
+  VA.pending = fn; VA.challenge = null; VA.err = ''; VA.msg = '';
+  vaOtpRender_();
+}
+window.vaUnlock_ = () => vaRequire_(() => {});
 window.vaLockNow_ = () => vaLock_('Bóveda bloqueada.');
 
 function vaEnsureStyles_() {
@@ -60789,18 +60812,24 @@ function vaRenderModule_(host) {
   vaEnsureStyles_();
   host.innerHTML = '<div class="va" id="va-root"></div>';
   vaRender_();
+  if (!vaSes_()) vaLoadPublic_();
 }
 function vaRender_() {
   const root = document.getElementById('va-root'); if (!root) return;
-  if (!VA.token || Date.now() > VA.exp) return vaRenderLock_(root);
+  if (!VA.records.length && VA.loadingPub) { root.innerHTML = '<div style="text-align:center;padding:50px;color:#94a3b8">⏳ Cargando registros…</div>'; return; }
+  if (!VA.records.length && VA.errPub && !vaSes_()) { root.innerHTML = `<div class="va-lock"><div class="ico">⚠️</div><h3>No se pudo cargar</h3><p>${vaEsc_(VA.errPub)}</p><button class="va-btn pri" onclick="vaLoadPublic_()">Reintentar</button></div>`; return; }
   vaRenderVault_(root);
 }
-function vaRenderLock_(root) {
+// Ventanita de código (WhatsApp / SMS) — se abre al ver un dato restringido o al hacer cambios.
+function vaOtpRender_() {
+  let m = document.getElementById('va-otp');
+  if (!m) { m = document.createElement('div'); m.id = 'va-otp'; m.className = 'va-modal va'; m.onclick = e => { if (e.target === m) vaOtpClose_(); }; document.body.appendChild(m); }
   const enviado = !!VA.challenge;
-  root.innerHTML = `<div class="va-lock">
+  m.innerHTML = `<div class="va-lock" style="margin:0;position:relative">
+    <button class="va-btn sm" style="position:absolute;top:10px;right:10px" onclick="vaOtpClose_()">✕</button>
     <div class="ico">🔐</div>
     <h3>Control de contraseñas y accesos</h3>
-    <p>Área protegida. Cada ingreso requiere un código de 6 dígitos que se envía por <b>WhatsApp o SMS</b> a ${vaEsc_(VA.to || 'los números autorizados (•••• 3922 y •••• 9120)')}. Ni el administrador puede entrar sin él.</p>
+    <p>Área protegida. Para ver información restringida o hacer cambios se requiere un código de 6 dígitos que se envía por <b>WhatsApp o SMS</b> a ${vaEsc_(VA.to || 'los números autorizados (•••• 3922 y •••• 9120)')}. Ni el administrador puede entrar sin él.</p>
     ${enviado ? `
       <input id="va-code" class="va-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6);if(this.value.length===6)vaVerify_()">
       <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
@@ -60819,14 +60848,15 @@ function vaRenderLock_(root) {
       <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">WhatsApp solo llega si ese número escribió al sistema en las últimas 24 h. SMS llega siempre.</div>`}
     ${VA.err ? `<div class="va-msg err">⚠️ ${vaEsc_(VA.err)}</div>` : ''}
     ${VA.msg ? `<div class="va-msg ${/no pudo|no llegó/i.test(VA.msg) ? 'warn' : 'inf'}" id="va-msgbox">${VA.msg}</div>` : ''}
-    <div style="font-size:10.5px;color:#94a3b8;margin-top:16px">🔒 Información cifrada (AES-256) · la sesión se cierra sola a los 15 min sin actividad · cada ingreso y consulta queda en la bitácora.</div>
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:16px">🔒 Información cifrada (AES-256) · la sesión dura 15 min sin actividad · cada ingreso y consulta queda en la bitácora.</div>
   </div>`;
   const inp = document.getElementById('va-code'); if (inp) inp.focus();
 }
+window.vaOtpClose_ = function () { document.getElementById('va-otp')?.remove(); VA.pending = null; VA.challenge = null; VA.err = ''; VA.msg = ''; };
 window.vaSendCode_ = async function (channel) {
   if (VA.busy) return;
   channel = channel === 'sms' ? 'sms' : 'whatsapp';
-  VA.busy = channel; VA.err = ''; VA.msg = ''; vaRender_();
+  VA.busy = channel; VA.err = ''; VA.msg = ''; vaOtpRender_();
   try {
     const j = await vaApi_('/vault/code', { method: 'POST', body: { user: vaUser_(), channel } });
     VA.challenge = j.challenge; VA.to = j.to; VA.cool = Date.now() + 30000;
@@ -60837,7 +60867,7 @@ window.vaSendCode_ = async function (channel) {
     setTimeout(() => { if (!VA.busy) document.querySelectorAll('.va-resend').forEach(b => { b.disabled = false; }); }, 30500);
     sent.filter(x => x.sid).forEach(x => vaCheckDelivery_(x.sid, 0, x.to));
   } catch (e) { VA.err = e.message; }
-  VA.busy = false; vaRender_();
+  VA.busy = false; vaOtpRender_();
 };
 // Si WhatsApp no entrega (p. ej. fuera de la ventana de 24 h), avisa cómo resolverlo.
 async function vaCheckDelivery_(sid, n, to) {
@@ -60849,22 +60879,28 @@ async function vaCheckDelivery_(sid, n, to) {
       VA.msg = j.errorCode === 63016
         ? `⚠️ WhatsApp no entregó el código${to ? ` a ${vaEsc_(to)}` : ''}: ese número no ha escrito al sistema en las últimas 24 h. <b>Usa el botón 💬 SMS</b> (en 30 s) o escribe primero al WhatsApp del sistema.`
         : `⚠️ No se pudo entregar el código${to ? ` a ${vaEsc_(to)}` : ''}${j.errorCode ? ` (error ${j.errorCode})` : ''}. Intenta por el otro medio.`;
-      const box = document.getElementById('va-msgbox'); if (box) { box.className = 'va-msg warn'; box.innerHTML = VA.msg; } else vaRender_();
+      const box = document.getElementById('va-msgbox'); if (box) { box.className = 'va-msg warn'; box.innerHTML = VA.msg; } else if (document.getElementById('va-otp')) vaOtpRender_();
     } else if (j && (j.status === 'queued' || j.status === 'sent' || j.status === 'accepted') && n < 2) vaCheckDelivery_(sid, n + 1, to);
   } catch (_) {}
 }
 window.vaVerify_ = async function () {
   const code = (document.getElementById('va-code') || {}).value || '';
   if (code.length !== 6 || VA.busy) return;
-  VA.busy = true; VA.err = ''; vaRender_();
+  VA.busy = true; VA.err = ''; vaOtpRender_();
   try {
     await vaApi_('/vault/verify', { method: 'POST', body: { challenge: VA.challenge, code } });
     VA.challenge = null; VA.msg = ''; VA.sid = '';
     await vaLoad_();
     clearInterval(VA.tick);
     VA.tick = setInterval(vaTick_, 1000);
+    VA.busy = false;
+    document.getElementById('va-otp')?.remove();
+    vaRender_();
+    const fn = VA.pending; VA.pending = null;
+    if (fn) { try { await fn(); } catch (e) { console.warn('[vault]', e.message); } }
+    return;
   } catch (e) { VA.err = e.message; }
-  VA.busy = false; vaRender_();
+  VA.busy = false; vaOtpRender_();
 };
 async function vaLoad_() {
   const j = await vaApi_('/vault/data');
@@ -60873,7 +60909,7 @@ async function vaLoad_() {
 function vaTick_() {
   if (!VA.token) return;
   const ms = VA.exp - Date.now();
-  if (ms <= 0) return vaLock_('La sesión se cerró por inactividad.');
+  if (ms <= 0) return vaLock_('🔒 La sesión terminó: los datos restringidos se ocultaron de nuevo.');
   const el = document.getElementById('va-timer');
   if (el) el.textContent = `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
   if (!document.getElementById('va-root')) vaLock_(''); // salió de la sección → se bloquea
@@ -60921,8 +60957,8 @@ function vaRenderVault_(root) {
   rows.forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; if (!byG.has(g)) byG.set(g, []); byG.get(g).push(r); });
   const ms = VA.exp - Date.now();
   root.innerHTML = `
-    <div class="va-top"><div><div class="t">🔓 Control de contraseñas y accesos</div><div class="s">${VA.records.length} registros · sesión de ${vaEsc_(vaUser_())} · se bloquea en <span class="va-timer" id="va-timer">${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}</span></div></div>
-      <div class="sp"><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button><button class="va-btn" onclick="vaImportar_()">📥 Importar desde Sheets</button><button class="va-btn" onclick="vaBitacora_()">🕓 Bitácora</button><button class="va-btn" onclick="vaLockNow_()">🔒 Bloquear</button></div></div>
+    <div class="va-top"><div><div class="t">${vaSes_() ? '🔓' : '🔐'} Control de contraseñas y accesos</div><div class="s">${VA.records.length} registros · ${VA.records.filter(vaRestr_).length} restringidos · ${vaSes_() ? `sesión con código de ${vaEsc_(vaUser_())} · se bloquea en <span class="va-timer" id="va-timer">${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}</span>` : 'los datos restringidos están ocultos'}</div></div>
+      <div class="sp"><button class="va-btn ok" onclick="vaEdit_()">＋ Nuevo registro</button><button class="va-btn" onclick="vaImportar_()">📥 Importar desde Sheets</button><button class="va-btn" onclick="vaBitacora_()">🕓 Bitácora</button>${vaSes_() ? '<button class="va-btn" onclick="vaLockNow_()">🔒 Bloquear</button>' : '<button class="va-btn" onclick="vaUnlock_()">🔓 Desbloquear</button>'}</div></div>
     <div class="va-search"><span>🔎</span><input type="search" id="va-q" placeholder="Buscar en todos los registros: nombre, usuario, correo, banco, tarjeta, CLABE, propiedad, notas, contraseña…" value="${vaEsc_(VA.q)}" oninput="vaSearch_(this.value)" autocomplete="off"><b id="va-q-n">${VA.q ? rows.length + ' resultado' + (rows.length === 1 ? '' : 's') : ''}</b>${VA.q ? `<button class="va-ib" title="Limpiar" onclick="VA.q='';vaRender_()">✕</button>` : ''}</div>
     <div class="va-bar">
       <button class="va-chip ${!VA.grupo || VA.q ? 'on' : ''}" onclick="vaSetGrupo_('')">Todos<b>${VA.records.length}</b></button>
@@ -60938,16 +60974,20 @@ function vaListHtml_(byG) {
 }
 function vaCardHtml_(r) {
   const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro, F = r.f || {};
+  const restr = vaRestr_(r), masked = r._masked || {};
   const row = (key, label, kind, val) => {
-    if (val == null || String(val) === '') return '';
-    const id = `${r.id}|${key}`, shown = !kind || VA.reveal.has(id);
+    const enc = kind && restr && !vaSes_() && masked[key];   // restringido sin código: el servidor no lo envió
+    if (!enc && (val == null || String(val) === '')) return '';
+    const oculto = kind && restr;                             // no restringido → se muestra tal cual
+    const id = `${r.id}|${key}`, shown = !oculto || (vaSes_() && VA.reveal.has(id));
     const isUrl = key === 'url' && /^https?:\/\//i.test(val);
-    return `<div class="va-row"><div class="k">${vaEsc_(label)}</div><div class="v ${kind ? 'mono' : ''}">${shown ? (isUrl ? `<a href="${vaEsc_(val)}" target="_blank" rel="noopener noreferrer">${vaEsc_(val)}</a>` : vaEsc_(val)) : vaMask_(val, kind)}</div>
-      <div class="a">${kind ? `<button class="va-ib" title="${shown ? 'Ocultar' : 'Mostrar'}" onclick="vaToggle_('${vaEsc_(r.id)}','${vaEsc_(key)}')">${shown ? '🙈' : '👁️'}</button>` : ''}<button class="va-ib" title="Copiar" onclick="vaCopy_('${vaEsc_(r.id)}','${vaEsc_(key)}')">📋</button></div></div>`;
+    const txt = enc ? masked[key] : shown ? (isUrl ? `<a href="${vaEsc_(val)}" target="_blank" rel="noopener noreferrer">${vaEsc_(val)}</a>` : vaEsc_(val)) : vaMask_(val, kind);
+    return `<div class="va-row"><div class="k">${vaEsc_(label)}</div><div class="v ${kind ? 'mono' : ''}">${txt}</div>
+      <div class="a">${oculto ? `<button class="va-ib" title="${shown ? 'Ocultar' : enc ? 'Ver (pide código)' : 'Mostrar'}" onclick="vaToggle_('${vaEsc_(r.id)}','${vaEsc_(key)}')">${shown ? '🙈' : '👁️'}</button>` : ''}<button class="va-ib" title="Copiar" onclick="vaCopy_('${vaEsc_(r.id)}','${vaEsc_(key)}')">📋</button></div></div>`;
   };
   const fecha = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
   return `<div class="va-card" style="--c:${T.c}">
-    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}
+    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}${restr ? ' <span title="Información restringida: pide código" style="background:#0b1730;color:#fff;border-radius:5px;padding:0 5px;font-size:9.5px">🔒 RESTRINGIDO</span>' : ''}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}
       <button type="button" class="va-ver ${r.verificado ? 'on' : ''}" onclick="vaVerifToggle_('${vaEsc_(r.id)}')" title="${r.verificado ? `Verificada por ${vaEsc_(r.verificadoPor || '—')} el ${vaEsc_(r.verificadoEn ? new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')} · clic para quitar` : 'Marcar información como verificada'}">${r.verificado ? '✓' : ''}</button></div>
     ${VA.q && (VA._hits || {})[r.id] ? `<div style="padding:5px 12px;font-size:11px;font-weight:700;color:#92400e;background:#fffbeb;border-bottom:1px solid #fde68a">🔎 Coincide en dato oculto: ${vaEsc_(VA._hits[r.id].join(', '))}</div>` : ''}
     ${T.f.map(([k, l, kind]) => row(k, l, kind, F[k])).join('')}
@@ -60976,6 +61016,8 @@ window.vaSearch_ = function (v) {
 };
 window.vaSetGrupo_ = function (g) { VA.grupo = g; VA.q = ''; vaRender_(); };
 window.vaToggle_ = function (id, key) {
+  const r0 = VA.records.find(x => x.id === id);
+  if (r0 && vaRestr_(r0) && !vaSes_()) return vaRequire_(() => { VA.reveal.add(`${id}|${key}`); vaToggleAfter_(id, key); });
   const k = `${id}|${key}`;
   if (VA.reveal.has(k)) VA.reveal.delete(k);
   else {
@@ -60986,13 +61028,20 @@ window.vaToggle_ = function (id, key) {
   }
   vaRefreshList_();
 };
+function vaToggleAfter_(id, key) {
+  const r = VA.records.find(x => x.id === id);
+  if (r) vaApi_('/vault/log', { method: 'POST', body: { a: 'Vio dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
+  setTimeout(() => { if (VA.reveal.delete(`${id}|${key}`)) vaRefreshList_(); }, 30000);
+  vaRefreshList_();
+}
 function vaRefreshList_() {
   if (!document.getElementById('va-list')) return;
   const byG = new Map(); vaFiltered_().forEach(r => { const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g; if (!byG.has(g)) byG.set(g, []); byG.get(g).push(r); });
   document.getElementById('va-list').innerHTML = vaListHtml_(byG);
 }
 window.vaCopy_ = async function (id, key) {
-  const r = VA.records.find(x => x.id === id); if (!r) return;
+  let r = VA.records.find(x => x.id === id); if (!r) return;
+  if (vaRestr_(r) && !vaSes_() && (r._masked || {})[key]) return vaRequire_(() => vaCopy_(id, key));
   const v = String(vaVal_(r, key) || '');
   try { await navigator.clipboard.writeText(v); } catch (_) { const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
   vaToast_('📋 Copiado');
@@ -61006,7 +61055,9 @@ function vaToast_(t) {
 
 // ── Alta / edición ────────────────────────────────────────────────────
 window.vaEdit_ = function (id) {
-  const r = id ? JSON.parse(JSON.stringify(VA.records.find(x => x.id === id) || {})) : { tipo: 'cuenta', titulo: '', grupo: '', f: {}, extras: [], notas: '', pendiente: false };
+  if (!vaSes_()) return vaRequire_(() => vaEdit_(id));
+  const r = id ? JSON.parse(JSON.stringify(VA.records.find(x => x.id === id) || {})) : { tipo: 'cuenta', titulo: '', grupo: '', f: {}, extras: [], notas: '', pendiente: false, restringido: false };
+  r.restringido = vaRestr_(r);
   r.f = r.f || {}; r.extras = r.extras || [];
   VA.draft = r;
   vaModal_();
@@ -61032,6 +61083,11 @@ function vaModal_() {
         ${r.extras.map((x, i) => `<div class="va-sec" style="margin-bottom:6px"><input class="va-in" style="flex:0 0 38%" value="${vaEsc_(x.k)}" placeholder="Campo" oninput="VA.draft.extras[${i}].k=this.value"><input class="va-in" type="${x.secret ? 'password' : 'text'}" autocomplete="new-password" value="${vaEsc_(x.v)}" placeholder="Valor" oninput="VA.draft.extras[${i}].v=this.value"><span class="va-chk ${x.secret ? 'on' : ''}" title="Dato secreto (se oculta)" onclick="VA.draft.extras[${i}].secret=!VA.draft.extras[${i}].secret;vaModal_()">${x.secret ? '✓' : ''}</span><span style="font-size:10px;color:#64748b;align-self:center">secreto</span><button type="button" class="va-btn sm" onclick="VA.draft.extras.splice(${i},1);vaModal_()">✕</button></div>`).join('')}
         <button type="button" class="va-btn sm" onclick="VA.draft.extras.push({k:'',v:'',secret:false});vaModal_()">＋ Agregar dato</button></div>
       <div class="va-f"><label>Notas</label><textarea class="va-in" rows="3" oninput="VA.draft.notas=this.value" placeholder="Ej. Verificación con celular… Solo la maneja ACL.">${vaEsc_(r.notas)}</textarea></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;border:1.5px solid ${r.restringido ? '#1e3a6e' : '#e2e8f0'};background:${r.restringido ? '#eef2ff' : '#fff'};border-radius:12px;padding:10px 12px;margin-bottom:12px" onclick="VA.draft.restringido=!VA.draft.restringido;vaModal_()">
+        <span class="va-chk ${r.restringido ? 'on' : ''}" style="margin-top:1px">${r.restringido ? '✓' : ''}</span>
+        <div><div style="font-weight:900;font-size:13px">🔒 Ocultar información (restringido)</div>
+        <div style="font-size:11.5px;color:#64748b;margin-top:2px">${r.restringido ? 'Contraseñas, NIP, PIN, claves y tarjetas quedan ocultos; para verlos se pide el código por WhatsApp o SMS.' : 'Sin marcar: toda la información de este registro se muestra a cualquiera que entre a la sección, sin código.'}</div></div>
+      </div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
         <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px" onclick="VA.draft.pendiente=!VA.draft.pendiente;vaModal_()"><span class="va-chk ${r.pendiente ? 'on' : ''}">${r.pendiente ? '✓' : ''}</span>Marcar como "falta completar"</div>
         <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px" onclick="vaVerifDraft_()"><span class="va-ver ${r.verificado ? 'on' : ''}" style="pointer-events:none">${r.verificado ? '✓' : ''}</span>Información verificada${r.verificado && r.verificadoPor ? `<span style="font-weight:600;color:#64748b;font-size:11.5px">· ${vaEsc_(r.verificadoPor)}${r.verificadoEn ? ', ' + vaEsc_(new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })) : ''}</span>` : ''}</div>
@@ -61081,6 +61137,7 @@ window.vaVerifDraft_ = function () {
 };
 // Botón circular de la card: marca/desmarca y guarda al instante.
 window.vaVerifToggle_ = async function (id) {
+  if (!vaSes_()) return vaRequire_(() => vaVerifToggle_(id));
   const r0 = VA.records.find(x => x.id === id); if (!r0) return;
   const r = JSON.parse(JSON.stringify(r0));
   r.verificado = !r.verificado;
@@ -61103,6 +61160,7 @@ window.vaSave_ = async function () {
   const r = VA.draft;
   if (!String(r.titulo || '').trim()) return alert('Escribe el nombre del registro.');
   r.grupo = String(r.grupo || '').trim() || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g;
+  r.restringido = !!r.restringido; delete r._masked;
   const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro;
   Object.keys(r.f).forEach(k => { if (!T.f.some(f => f[0] === k) || r.f[k] === '') delete r.f[k]; });
   r.extras = r.extras.filter(x => String(x.k || x.v || '').trim());
@@ -61114,6 +61172,7 @@ window.vaSave_ = async function () {
   } catch (e) { alert('No se pudo guardar: ' + e.message); if (b) { b.disabled = false; b.textContent = '💾 Guardar'; } }
 };
 window.vaDel_ = async function (id) {
+  if (!vaSes_()) return vaRequire_(() => vaDel_(id));
   const r = VA.records.find(x => x.id === id); if (!r) return;
   if (!confirm(`¿Eliminar "${r.titulo}"? Quedará registrado en la bitácora.`)) return;
   try { await vaApi_('/vault/delete', { method: 'POST', body: { id } }); await vaLoad_(); vaRender_(); vaToast_('🗑️ Eliminado'); }
@@ -61166,6 +61225,8 @@ function vaParseInternet_(txt) {
   return out;
 }
 window.vaImportar_ = function () {
+  if (!vaSes_()) return vaRequire_(() => vaImportar_());
+  VA.impRestr = true;
   document.getElementById('va-modal')?.remove();
   const m = document.createElement('div'); m.className = 'va-modal va'; m.id = 'va-modal';
   m.innerHTML = `<div class="pn" style="max-width:860px">
@@ -61173,6 +61234,7 @@ window.vaImportar_ = function () {
     <div class="bd">
       <div style="font-size:12.5px;color:#475569;line-height:1.55;margin-bottom:8px">En tu Google Sheet selecciona las filas de la tabla (puedes incluir el encabezado <b>Propiedad · Tipo · Ubicación · Señal · Contraseña · # cuenta / tel · Notas</b>), cópialas con <b>Ctrl/⌘ + C</b> y pégalas aquí. Las celdas combinadas se respetan y cada módem o router queda como un registro con todas sus redes.</div>
       <textarea id="va-imp-txt" class="va-in" rows="7" placeholder="Pega aquí…" oninput="vaImpPreview_()" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700;font-size:12.5px;margin-top:8px" onclick="VA.impRestr=!VA.impRestr;const c=this.querySelector('.va-chk');c.classList.toggle('on',VA.impRestr);c.textContent=VA.impRestr?'✓':''"><span class="va-chk ${VA.impRestr !== false ? 'on' : ''}">${VA.impRestr !== false ? '✓' : ''}</span>🔒 Ocultar las contraseñas de estos registros (restringidos)</div>
       <div id="va-imp-prev" style="margin-top:10px"></div>
     </div>
     <div class="ft"><button class="va-btn" onclick="document.getElementById('va-modal').remove()">Cancelar</button><button class="va-btn ok" id="va-imp-ok" onclick="vaImpGuardar_()" disabled>💾 Guardar</button></div></div>`;
@@ -61199,6 +61261,7 @@ window.vaImpGuardar_ = async function () {
   b.textContent = `⏳ Guardando ${recs.length}…`;
   let ok = 0;
   // Una sola escritura para todo el lote (evita el límite de Cloud Storage).
+  recs.forEach(r => { r.restringido = VA.impRestr !== false; });
   try { const j = await vaApi_('/vault/save-many', { method: 'POST', body: { records: recs, origen: 'Conexiones de internet (Sheets)' } }); ok = (j.ids || []).length; }
   catch (e) { alert(`No se pudo importar: ${e.message}`); b.disabled = false; b.textContent = `💾 Guardar ${recs.length} registros`; return; }
   document.getElementById('va-modal')?.remove();
@@ -61208,6 +61271,7 @@ window.vaImpGuardar_ = async function () {
   vaToast_(`📥 ${ok} conexiones importadas`);
 };
 window.vaBitacora_ = async function () {
+  if (!vaSes_()) return vaRequire_(() => vaBitacora_());
   try { await vaLoad_(); } catch (_) { return; }
   document.getElementById('va-modal')?.remove();
   const m = document.createElement('div'); m.className = 'va-modal va'; m.id = 'va-modal';
