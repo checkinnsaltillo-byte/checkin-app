@@ -58126,6 +58126,40 @@ function pcEnsureStyles_() {
   .pc-ring b{font-size:22px;font-weight:900;color:var(--pc-ink);line-height:1}
   .pc-ring small{font-size:10px;font-weight:800;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.05em}
   @media (max-width:700px){ .pc-ext-grid{grid-template-columns:repeat(2,1fr)!important} }
+  .pz-card{background:#fffef7!important;border-color:#e7e0c4!important;background-image:radial-gradient(#ece6cc 1px,transparent 1px)!important;background-size:18px 18px!important}
+  .pz-add{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px;margin-bottom:10px}
+  .pz-in{flex:1;min-width:200px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fff;width:100%;box-sizing:border-box}
+  .pz-add .pz-in{width:auto}
+  .pz-seg{display:inline-flex;border:1px solid #e2e8f0;border-radius:9px;overflow:hidden}
+  .pz-seg button{all:unset;cursor:pointer;padding:7px 11px;font-size:11.5px;font-weight:800;color:#64748b;border-right:1px solid #e2e8f0}
+  .pz-seg button:last-child{border-right:0}
+  .pz-seg button.on{background:var(--pz);color:#fff}
+  .pz-go{all:unset;cursor:pointer;background:#0f172a;color:#fff;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:800;white-space:nowrap}
+  .pz-dwho{display:flex;gap:4px;flex-wrap:wrap}
+  .pz-list{display:flex;flex-direction:column;gap:6px}
+  .pz-it{display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid var(--pz);border-radius:10px;padding:9px 10px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .pz-it.done{opacity:.6;border-left-color:#cbd5e1}
+  .pz-it.done .pz-t{text-decoration:line-through;color:#64748b}
+  .pz-ck{flex:none;width:22px;height:22px;border:2px solid #94a3b8;border-radius:6px;background:#fff;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;cursor:pointer;margin-top:1px}
+  .pz-ck.on{background:#16a34a;border-color:#16a34a}
+  .pz-ck.sm{width:18px;height:18px;font-size:12px;border-radius:5px;margin:0}
+  .pz-pr{all:unset;cursor:pointer;flex:none;font-size:10.5px;font-weight:900;padding:3px 9px;border-radius:999px;border:1px solid;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+  .pz-tx{flex:1;min-width:0}
+  .pz-t{font-size:13.5px;font-weight:700;color:#0f172a;line-height:1.35;cursor:text;word-wrap:break-word}
+  .pz-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px}
+  .pz-who{font-size:11px;font-weight:800;color:#3730a3;background:#eef2ff;border-radius:999px;padding:2px 8px;cursor:pointer;white-space:nowrap}
+  .pz-who.none{color:#64748b;background:#f1f5f9}
+  .pz-old{font-size:10.5px;font-weight:800;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 8px}
+  .pz-by{font-size:10.5px;color:#94a3b8}
+  .pz-del{all:unset;cursor:pointer;color:#cbd5e1;font-size:18px;line-height:1;padding:0 4px}
+  .pz-del:hover{color:#dc2626}
+  .pz-empty{font-size:12.5px;color:#64748b;text-align:center;padding:14px;background:#fff;border:1px dashed #e2e8f0;border-radius:10px}
+  .pz-pop{position:fixed;z-index:10050;width:280px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 14px 34px rgba(15,23,42,.2);padding:10px}
+  .pz-plist{max-height:220px;overflow:auto;margin-top:6px}
+  .pz-opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;color:#334155}
+  .pz-opt:hover{background:#f8fafc}
+  .pz-opt.on{background:#eef2ff}
+  @media (max-width:700px){ .pz-add .pz-in{min-width:100%} .pz-go{flex:1;text-align:center} }
   .pc-stat{background:#f8fafc;border:1px solid var(--pc-line);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s}
   .pc-stat:hover{background:#eef2ff}
   .pc-stat .l{font-size:10px;font-weight:900;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.06em}
@@ -58543,6 +58577,7 @@ function pcRenderShell_() {
         <div class="pc-band-n">Lo que pasa hoy y esta semana. <b>No cambia</b> con el mes seleccionado.</div></header>
       <div class="pc-kpis" id="pc-kpis-hoy"></div>
       <div class="pc-grid">
+        <div class="pc-card s12 pz-card" id="pc-sec-pizarra"></div>
         <div class="pc-card s12" id="pc-sec-movs"></div>
         <div class="pc-card s7" id="pc-sec-asist"></div>
         <div class="pc-card s5" id="pc-sec-ophoy"></div>
@@ -58625,7 +58660,7 @@ function pcRenderKpis_() {
   // k: 0-2 Ingresos/Egresos/Utilidad · 3-4 Ocupación/Ingreso hospedaje · 5 Por cobrar · 6 Rentas · 7 Pendientes
   const put = (g, idx) => { const c = document.getElementById('pc-kpis-' + g); if (c) c.innerHTML = idx.map(i => k[i] || '').join(''); };
   put('op', []); put('fin', [0, 1, 2, 5]); put('res', [3, 4, 6]);
-  pcRenderMovs_(); pcRenderOpHoy_(); pcRenderReemitir_(); pcRenderAsist_(); pcRenderHoyKpis_(k[7]); pcRenderReporte_();
+  pcRenderMovs_(); pcRenderOpHoy_(); pcRenderReemitir_(); pzRender_(); pzLoad_(); pcRenderAsist_(); pcRenderHoyKpis_(k[7]); pcRenderReporte_();
 }
 // C) Movimientos del día: salen hoy · entran hoy · entran mañana, con relevancia del
 // huésped (clasificación Oro/Plata/Bronce/Recurrente), estancias largas y saldo pendiente.
@@ -58725,6 +58760,162 @@ function pcRenderOpHoy_() {
       <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${crit.map(c => `<div class="pc-row" style="padding:6px 8px;background:#fff1f2;border:1px solid #fecdd3" onclick="pcDrawer('operacion')"><span class="pc-chip" style="background:#dc2626;color:#fff">${pcEsc(c.n)}</span><span style="font-size:12px;font-weight:700;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.t}: ${pcEsc(c.txt)}</span><span style="font-size:10.5px;color:#94a3b8">${pcEsc(c.f || '')}</span></div>`).join('')}</div>`
     : '<div style="margin-top:12px;font-size:12px;color:#16a34a;font-weight:800">✅ Sin pendientes de prioridad alta o crítica</div>'}`;
 }
+// HOY · PIZARRA — recordatorios rápidos del día (NO son tareas programadas).
+// Compartida entre usuarios (servidor: /pizarra/*). Solo vive en el panel.
+window.PZ = window.PZ || { items: null, err: '', ts: 0, verHechos: false, draft: { texto: '', prioridad: 'media', asignados: [] } };
+const PZ_PRIO = { alta: { l: 'Alta', c: '#b91c1c', bg: '#fee2e2', bd: '#fca5a5', o: 0 }, media: { l: 'Media', c: '#b45309', bg: '#fef3c7', bd: '#fcd34d', o: 1 }, baja: { l: 'Baja', c: '#166534', bg: '#dcfce7', bd: '#86efac', o: 2 } };
+function pzHoy_() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function pzUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : ''; }
+async function pzApi_(path, body) {
+  const r = await fetch(`${BACKEND}${path}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || `Error ${r.status}`);
+  return j;
+}
+async function pzLoad_(force) {
+  if (!force && PZ.items && Date.now() - PZ.ts < 20000) return;
+  try { const j = await pzApi_('/pizarra/list'); PZ.items = j.items || []; PZ.err = ''; PZ.ts = Date.now(); }
+  catch (e) { PZ.err = e.message; if (!PZ.items) PZ.items = null; }
+  pzRender_();
+}
+// Refresco cada minuto mientras el panel esté a la vista (otros usuarios marcan/agregan).
+if (!window.__pzTimer) window.__pzTimer = setInterval(() => {
+  const el = document.getElementById('pc-sec-pizarra');
+  if (el && el.offsetParent && document.visibilityState === 'visible' && !document.querySelector('.pz-pop') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#pc-sec-pizarra'))) pzLoad_(true);
+}, 60000);
+function pzNombres_() {
+  const n = (typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
+  if (!n.length && typeof incLoadPersonal === 'function' && !PZ._persLoading) {
+    PZ._persLoading = true; incLoadPersonal().then(() => { PZ._persLoading = false; const b = document.querySelector('.pz-pop .pz-plist'); if (b) pzPopFill_(b); }).catch(() => { PZ._persLoading = false; });
+  }
+  return n;
+}
+function pzFmtDia_(iso) { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]}-${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+m[2] - 1]}` : ''; }
+function pzHora_(iso) { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' }); }
+function pzAsigHtml_(arr, onclick) {
+  return arr && arr.length ? arr.map(n => `<span class="pz-who" onclick="${onclick}">👤 ${pcEsc(n)}</span>`).join('') : `<span class="pz-who none" onclick="${onclick}">＋ Asignar</span>`;
+}
+function pzRender_() {
+  const el = document.getElementById('pc-sec-pizarra'); if (!el) return;
+  const hoy = pzHoy_(), L = PZ.items || [];
+  const pend = L.filter(x => !x.hecho).sort((a, b) => (PZ_PRIO[a.prioridad] || PZ_PRIO.media).o - (PZ_PRIO[b.prioridad] || PZ_PRIO.media).o || String(a.fecha || '').localeCompare(String(b.fecha || '')) || String(a.creadoAt).localeCompare(String(b.creadoAt)));
+  const hechosHoy = L.filter(x => x.hecho && pzHoyLocal_(x.hechoAt) === hoy).sort((a, b) => String(b.hechoAt).localeCompare(String(a.hechoAt)));
+  const hechosAnt = L.filter(x => x.hecho && !hechosHoy.includes(x)).sort((a, b) => String(b.hechoAt).localeCompare(String(a.hechoAt)));
+  const d = PZ.draft;
+  const row = x => {
+    const p = PZ_PRIO[x.prioridad] || PZ_PRIO.media, id = pcEsc(x.id);
+    const atras = !x.hecho && x.fecha && x.fecha < hoy;
+    return `<div class="pz-it ${x.hecho ? 'done' : ''}" style="--pz:${p.c}">
+      <span class="pz-ck ${x.hecho ? 'on' : ''}" title="${x.hecho ? 'Marcar como pendiente' : 'Marcar como hecho'}" onclick="pzToggle_('${id}')">${x.hecho ? '✓' : ''}</span>
+      <button class="pz-pr" style="color:${p.c};background:${p.bg};border-color:${p.bd}" title="Cambiar urgencia" onclick="pzCiclarPrio_('${id}')">${p.l}</button>
+      <div class="pz-tx"><div class="pz-t" title="Clic para editar" onclick="pzEditar_('${id}', this)">${pcEsc(x.texto)}</div>
+        <div class="pz-meta">${pzAsigHtml_(x.asignados, `pzAsignar_('${id}', this)`)}
+          ${atras ? `<span class="pz-old">⏳ desde ${pzFmtDia_(x.fecha)}</span>` : ''}
+          <span class="pz-by">${x.hecho ? `✓ ${pcEsc(x.hechoPor || '')} · ${pzHora_(x.hechoAt)}` : `${pcEsc(x.creadoPor || '')}${x.creadoAt ? ' · ' + pzHora_(x.creadoAt) : ''}`}</span></div></div>
+      <button class="pz-del" title="Borrar" onclick="pzBorrar_('${id}')">×</button></div>`;
+  };
+  const head = `<div class="pc-card-h"><div class="pc-card-t">📌 Pizarra del día <small style="text-transform:none;letter-spacing:0;font-weight:700;color:#64748b">· recordatorios rápidos, no son tareas programadas</small></div>
+    <div style="display:flex;gap:6px;align-items:center">${PZ.items ? `<span class="pc-chip" style="background:${pend.length ? '#fef3c7' : '#dcfce7'};color:${pend.length ? '#92400e' : '#166534'}">${pend.length} pendiente${pend.length === 1 ? '' : 's'}</span>${hechosHoy.length ? `<span class="pc-chip" style="background:#f1f5f9;color:#475569">✓ ${hechosHoy.length} hecho${hechosHoy.length === 1 ? '' : 's'} hoy</span>` : ''}` : ''}</div></div>`;
+  const add = `<div class="pz-add">
+      <input id="pz-new" class="pz-in" maxlength="500" placeholder="Escribe un recordatorio y presiona Enter… (ej. Llamar al plomero del depa 3)" value="${pcEsc(d.texto)}" oninput="PZ.draft.texto=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();pzAgregar_()}">
+      <div class="pz-seg">${['alta', 'media', 'baja'].map(k => `<button class="${d.prioridad === k ? 'on' : ''}" style="--pz:${PZ_PRIO[k].c}" onclick="PZ.draft.prioridad='${k}';this.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===this))">${PZ_PRIO[k].l}</button>`).join('')}</div>
+      <div class="pz-dwho">${pzAsigHtml_(d.asignados, 'pzAsignar_(null, this)')}</div>
+      <button class="pz-go" onclick="pzAgregar_()">＋ Agregar</button></div>`;
+  let body;
+  if (!PZ.items) body = PZ.err ? `<div style="font-size:12px;color:#991b1b">⚠️ ${pcEsc(PZ.err)} <button class="pc-link" onclick="pzLoad_(true)">Reintentar</button></div>` : pcSkel_(80);
+  else body = `<div class="pz-list">${pend.length ? pend.map(row).join('') : '<div class="pz-empty">✨ Sin pendientes en la pizarra</div>'}${hechosHoy.map(row).join('')}</div>
+    ${hechosAnt.length ? `<div style="margin-top:8px"><button class="pc-link" onclick="PZ.verHechos=!PZ.verHechos;pzRender_()">${PZ.verHechos ? '▾ Ocultar' : '▸ Ver'} hechos de días anteriores (${hechosAnt.length})</button>${PZ.verHechos ? `<div class="pz-list" style="margin-top:6px">${hechosAnt.map(row).join('')}</div>` : ''}</div>` : ''}`;
+  const foc = document.activeElement && document.activeElement.id === 'pz-new';
+  el.innerHTML = head + add + body;
+  if (foc) { const i = document.getElementById('pz-new'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+}
+function pzHoyLocal_(iso) { const t = new Date(iso); if (isNaN(t)) return ''; return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; }
+async function pzGuardar_(item, local) {
+  const prev = JSON.parse(JSON.stringify(PZ.items || []));
+  if (local) { local(); pzRender_(); }
+  try { const j = await pzApi_('/pizarra/save', { item, user: pzUser_() }); const i = PZ.items.findIndex(x => x.id === j.item.id); if (i >= 0) PZ.items[i] = j.item; else PZ.items.push(j.item); PZ.ts = Date.now(); pzRender_(); return j.item; }
+  catch (e) { PZ.items = prev; pzRender_(); alert('No se pudo guardar en la pizarra: ' + e.message); }
+}
+window.pzAgregar_ = async function () {
+  const d = PZ.draft, t = String(d.texto || '').trim(); if (!t) { const i = document.getElementById('pz-new'); if (i) i.focus(); return; }
+  if (!PZ.items) PZ.items = [];
+  PZ.draft = { texto: '', prioridad: d.prioridad, asignados: [] };
+  const tmp = { id: 'tmp' + Date.now(), texto: t, prioridad: d.prioridad, asignados: d.asignados, fecha: pzHoy_(), hecho: false, creadoPor: pzUser_(), creadoAt: new Date().toISOString() };
+  PZ.items.push(tmp); pzRender_(); const i = document.getElementById('pz-new'); if (i) i.focus();
+  try { const j = await pzApi_('/pizarra/save', { item: { texto: t, prioridad: d.prioridad, asignados: d.asignados, fecha: pzHoy_() }, user: pzUser_() }); const k = PZ.items.findIndex(x => x.id === tmp.id); if (k >= 0) PZ.items[k] = j.item; pzRender_(); }
+  catch (e) { PZ.items = PZ.items.filter(x => x.id !== tmp.id); PZ.draft.texto = t; pzRender_(); alert('No se pudo agregar: ' + e.message); }
+};
+window.pzToggle_ = function (id) {
+  const x = (PZ.items || []).find(y => y.id === id); if (!x || /^tmp/.test(id)) return;
+  const v = !x.hecho; pzGuardar_({ id, hecho: v }, () => { x.hecho = v; x.hechoPor = v ? pzUser_() : ''; x.hechoAt = v ? new Date().toISOString() : ''; });
+};
+window.pzCiclarPrio_ = function (id) {
+  const x = (PZ.items || []).find(y => y.id === id); if (!x || /^tmp/.test(id)) return;
+  const v = { alta: 'media', media: 'baja', baja: 'alta' }[x.prioridad] || 'alta';
+  pzGuardar_({ id, prioridad: v }, () => { x.prioridad = v; });
+};
+window.pzBorrar_ = function (id) {
+  const x = (PZ.items || []).find(y => y.id === id); if (!x || /^tmp/.test(id)) return;
+  if (!confirm(`¿Borrar "${x.texto}" de la pizarra?`)) return;
+  const prev = PZ.items.slice(); PZ.items = PZ.items.filter(y => y.id !== id); pzRender_();
+  pzApi_('/pizarra/delete', { id }).catch(e => { PZ.items = prev; pzRender_(); alert('No se pudo borrar: ' + e.message); });
+};
+window.pzEditar_ = function (id, el) {
+  const x = (PZ.items || []).find(y => y.id === id); if (!x || /^tmp/.test(id) || el.querySelector('input')) return;
+  el.innerHTML = `<input class="pz-in" style="padding:4px 8px" maxlength="500" value="${pcEsc(x.texto)}">`;
+  const i = el.querySelector('input'); i.focus(); i.select();
+  let done = false;
+  const fin = ok => { if (done) return; done = true; const v = i.value.trim(); if (ok && v && v !== x.texto) pzGuardar_({ id, texto: v }, () => { x.texto = v; }); else pzRender_(); };
+  i.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); fin(true); } if (e.key === 'Escape') fin(false); };
+  i.onblur = () => fin(true);
+  i.onclick = e => e.stopPropagation();
+};
+// Popup de personal (selección múltiple). Marcar NO re-renderiza la lista.
+window.pzAsignar_ = function (id, anchor) {
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  const x = id ? (PZ.items || []).find(y => y.id === id) : null; if (id && (!x || /^tmp/.test(id))) return;
+  PZ._pop = { id, sel: new Set((x ? x.asignados : PZ.draft.asignados) || []) };
+  const pop = document.createElement('div'); pop.className = 'pz-pop';
+  pop.innerHTML = `<input class="pz-in" placeholder="🔎 Buscar o escribir un nombre…" oninput="pzPopFill_(this.parentNode.querySelector('.pz-plist'), this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();pzPopAdd_(this)}">
+    <div class="pz-plist"></div>
+    <div style="display:flex;justify-content:space-between;gap:6px;margin-top:8px"><button class="pc-link" style="color:#64748b" onclick="PZ._pop.sel.clear();pzPopFill_(this.closest('.pz-pop').querySelector('.pz-plist'))">Quitar todos</button><button class="pz-go" style="padding:6px 14px" onclick="pzPopOk_()">Listo</button></div>`;
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect(), w = 280;
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)) + 'px';
+  pop.style.top = (r.bottom + 6 + 330 > window.innerHeight ? Math.max(8, r.top - 336) : r.bottom + 6) + 'px';
+  pzPopFill_(pop.querySelector('.pz-plist'));
+  pop.querySelector('input').focus();
+  setTimeout(() => { PZ._popOut = e => { if (!pop.contains(e.target)) pzPopOk_(); }; document.addEventListener('mousedown', PZ._popOut); }, 0);
+};
+window.pzPopFill_ = function (box, q) {
+  if (!box || !PZ._pop) return;
+  const sel = PZ._pop.sel, t = String(q || '').toLowerCase();
+  const nombres = pzNombres_().slice(); sel.forEach(n => { if (!nombres.includes(n)) nombres.unshift(n); });
+  const L = nombres.filter(n => !t || n.toLowerCase().includes(t));
+  box.innerHTML = L.length ? L.map(n => `<div class="pz-opt ${sel.has(n) ? 'on' : ''}" data-n="${pcEsc(n)}" onclick="pzPopToggle_(this)"><span class="pz-ck sm ${sel.has(n) ? 'on' : ''}">${sel.has(n) ? '✓' : ''}</span>${pcEsc(n)}</div>`).join('')
+    : `<div style="font-size:12px;color:#94a3b8;padding:6px">${PZ._persLoading ? '⏳ Cargando personal…' : (t ? 'Enter para agregar "' + pcEsc(q) + '"' : 'Sin personal')}</div>`;
+};
+window.pzPopToggle_ = function (el) {
+  const n = el.dataset.n, sel = PZ._pop.sel, on = !sel.has(n);
+  if (on) sel.add(n); else sel.delete(n);
+  el.classList.toggle('on', on); const c = el.querySelector('.pz-ck'); c.classList.toggle('on', on); c.textContent = on ? '✓' : '';
+};
+window.pzPopAdd_ = function (inp) {
+  const v = inp.value.trim(); if (!v) return;
+  const m = pzNombres_().find(n => n.toLowerCase().includes(v.toLowerCase()));
+  PZ._pop.sel.add(m || v); inp.value = ''; pzPopFill_(inp.parentNode.querySelector('.pz-plist'));
+};
+window.pzPopOk_ = function () {
+  const st = PZ._pop; document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  if (PZ._popOut) { document.removeEventListener('mousedown', PZ._popOut); PZ._popOut = null; }
+  if (!st) return; PZ._pop = null;
+  const arr = Array.from(st.sel);
+  if (!st.id) { PZ.draft.asignados = arr; pzRender_(); return; }
+  const x = (PZ.items || []).find(y => y.id === st.id); if (!x) return;
+  if (JSON.stringify(arr) === JSON.stringify(x.asignados || [])) return;
+  pzGuardar_({ id: st.id, asignados: arr }, () => { x.asignados = arr; });
+};
+
 // HOY · Reservas extendidas cuyo ticket ya emitido quedó por debajo del total → re-emitir.
 // Todas las fechas (no depende del mes elegido): es un pendiente por atender.
 function pcReemitirList_() {
