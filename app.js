@@ -58135,6 +58135,11 @@ function pcEnsureStyles_() {
   .pz-ab.go{background:#0f172a;color:#fff;border-color:#0f172a}
   .pz-dot{all:unset;cursor:pointer;flex:none;width:14px;height:14px;border-radius:50%;background:var(--pz);box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--pz);margin:3px 3px 0;transition:transform .12s}
   .pz-dot:hover{transform:scale(1.2)}
+  .pz-dot.ro{cursor:default}
+  .pz-dot.ro:hover{transform:none}
+  .pz-kind{display:inline-block;font-size:9.5px;font-weight:900;border-radius:999px;padding:1px 7px;margin-right:2px;vertical-align:1px;text-decoration:none!important;white-space:nowrap}
+  .pz-kind.rec{color:#92400e;background:#fef3c7;border:1px solid #fde68a}
+  .pz-kind.tar{color:#5b21b6;background:#ede9fe;border:1px solid #ddd6fe}
   .pz-dot.big{width:20px;height:20px;margin:0 6px}
   .pz-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start}
   .pz-col{background:var(--cbg);border:1px solid #e2e8f0;border-top:3px solid var(--c);border-radius:12px;padding:8px;min-height:120px;transition:box-shadow .12s,background .12s}
@@ -58755,6 +58760,7 @@ function pcRenderHoyKpis_(kPend) {
 }
 // HOY · Operación en este momento (abiertos y tareas de hoy).
 function pcRenderOpHoy_() {
+  if (typeof pzRender_ === 'function') pzRender_();
   const el = document.getElementById('pc-sec-ophoy'); if (!el) return;
   const head = `<div class="pc-card-h"><div class="pc-card-t">🛠️ Operación ahora <small>· pendientes abiertos y tareas de hoy</small></div></div>`;
   if (PC.loading.op) { el.innerHTML = head + pcSkel_(220); return; }
@@ -58775,9 +58781,13 @@ function pcRenderOpHoy_() {
 // HOY · PIZARRA — recordatorios rápidos del día (NO son tareas programadas).
 // Compartida entre usuarios (servidor: /pizarra/*). Solo vive en el panel.
 window.PZ = window.PZ || { items: null, err: '', ts: 0, verHechos: false, draft: { texto: '', prioridad: 'media', asignados: [] } };
-const PZ_PRIO = { critica: { l: 'Crítica', c: '#dc2626', o: 0 }, alta: { l: 'Alta', c: '#ea580c', o: 1 }, media: { l: 'Media', c: '#eab308', o: 2 }, baja: { l: 'Baja', c: '#2563eb', o: 3 } };
+const PZ_PRIO = { critica: { l: 'Crítico', c: '#dc2626', o: 0 }, alta: { l: 'Alto', c: '#ea580c', o: 1 }, media: { l: 'Medio', c: '#eab308', o: 2 }, baja: { l: 'Bajo', c: '#2563eb', o: 3 } };
+// Prioridad de Tareas programadas (Bajo/Medio/Alto/Crítico) → misma escala y colores que la pizarra.
+const PZ_TAR_PRIO = { 'Bajo': 'baja', 'Medio': 'media', 'Alto': 'alta', 'Crítico': 'critica' };
+const PZ_TAR_EST = { 'Pendiente': 'pendiente', 'En proceso': 'proceso', 'Resuelto': 'resuelto', 'Cancelado': 'cancelado' };
+const PZ_EST_TAR = { pendiente: 'Pendiente', proceso: 'En proceso', resuelto: 'Resuelto', cancelado: 'Cancelado' };
 const PZ_CICLO = { baja: 'media', media: 'alta', alta: 'critica', critica: 'baja' };
-function pzDot_(k, onclick, big) { const p = PZ_PRIO[k] || PZ_PRIO.media; return `<button class="pz-dot${big ? ' big' : ''}" style="--pz:${p.c}" title="Urgencia: ${p.l} · clic para cambiar (Baja → Media → Alta → Crítica)" onclick="${onclick}"></button>`; }
+function pzDot_(k, onclick, big) { const p = PZ_PRIO[k] || PZ_PRIO.media; return `<button class="pz-dot${big ? ' big' : ''}" style="--pz:${p.c}" title="Prioridad: ${p.l} · clic para cambiar (Bajo → Medio → Alto → Crítico)" onclick="${onclick}"></button>`; }
 function pzHoy_() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function pzUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : ''; }
 async function pzApi_(path, body) {
@@ -58826,9 +58836,29 @@ function pzRender_() {
     const e = pzEst_(x), cerr = e === 'resuelto' || e === 'cancelado';
     (cols[e] || cols.pendiente)[cerr && pzHoyLocal_(pzEstAt_(x)) !== hoy ? 'ant' : 'hoy'].push(x);
   });
+  // Tareas programadas de hoy (misma columna según el estado de su ocurrencia del día).
+  const tarOk = typeof tarDelDia_ === 'function' && typeof TAR_STATE !== 'undefined' && TAR_STATE.loaded;
+  if (tarOk) tarDelDia_(hoy).forEach(r => {
+    const oc = tarOcur_(r.ID, hoy) || {};
+    const e = PZ_TAR_EST[oc.Estado || 'Pendiente'] || 'pendiente';
+    cols[e].hoy.push({ _tar: r, id: 'T:' + r.ID, prioridad: PZ_TAR_PRIO[r.Prioridad] || 'media', texto: r.Nombre, creadoAt: r.Created_at || '', estadoAt: oc.Updated_at || '', estadoPor: oc.Atendido_por || '' });
+  });
   ['pendiente', 'proceso'].forEach(k => cols[k].hoy.sort(byPrio));
   ['resuelto', 'cancelado'].forEach(k => { cols[k].hoy.sort((a, b) => pzEstAt_(b).localeCompare(pzEstAt_(a))); cols[k].ant.sort((a, b) => pzEstAt_(b).localeCompare(pzEstAt_(a))); });
+  const tarCard = (x, e) => {
+    const r = x._tar, p = PZ_PRIO[x.prioridad] || PZ_PRIO.media, id = pcEsc(x.id), tid = pcEsc(r.ID);
+    const per = String(r.Personal || '').split(',').map(n => n.trim()).filter(Boolean);
+    const lim = String(r.Fecha_limite || '') === 'Sí';
+    const by = e === 'pendiente' ? `Tarea programada · ${r.Clasificacion || 'sin clasificación'}${r.Subclasificacion ? ' › ' + r.Subclasificacion : ''}` : `${PZ_COLS.find(c => c.k === e).l} · ${x.estadoPor || '—'}${x.estadoAt ? ' · ' + pzHora_(x.estadoAt) : ''}`;
+    return `<div class="pz-it pz-tar pz-st-${e}" style="--pz:${p.c}" draggable="true" data-id="${id}" ondragstart="pzDragStart_(event)" ondragend="pzDragEnd_(event)">
+      <span class="pz-dot ro" style="--pz:${p.c}" title="Prioridad: ${p.l} (se cambia en Tareas programadas)"></span>
+      <div class="pz-tx"><div class="pz-t" title="Abrir la tarea" onclick="pzAbrirTarea_('${tid}')"><span class="pz-kind tar">📋 Tarea</span> ${pcEsc(r.Nombre || '')}</div>
+        <div class="pz-meta">${per.map(n => `<span class="pz-who" style="cursor:default">👤 ${pcEsc(n)}</span>`).join('')}${lim ? '<span class="pz-old">⏳ Fecha límite</span>' : ''}${r.Origen === 'Bot WhatsApp' ? '<span class="pz-old" style="color:#5b21b6;background:#ede9fe">🤖 Bot</span>' : ''}</div>
+        <div class="pz-by">${pcEsc(by)}</div>
+        <div class="pz-mv">${PZ_COLS.filter(c => c.k !== e).map(c => `<button title="Mover a ${c.l}" style="--c:${c.c}" onclick="pzEstado_('${id}','${c.k}')">${c.ico} ${c.l}</button>`).join('')}</div></div></div>`;
+  };
   const card = x => {
+    if (x._tar) return tarCard(x, PZ_COLS.find(c => cols[c.k].hoy.includes(x)).k);
     const p = PZ_PRIO[x.prioridad] || PZ_PRIO.media, id = pcEsc(x.id), e = pzEst_(x), abierto = e === 'pendiente' || e === 'proceso';
     const tags = [abierto && x.fecha && x.fecha < hoy ? `<span class="pz-old">⏳ desde ${pzFmtDia_(x.fecha)}</span>` : '',
       abierto && x.fecha && x.fecha > hoy ? `<span class="pz-old" style="color:#1e40af;background:#dbeafe">📅 ${pzFmtDia_(x.fecha)}</span>` : '',
@@ -58836,14 +58866,14 @@ function pzRender_() {
     const by = e === 'pendiente' ? `Anotó ${x.creadoPor || '—'}${x.creadoAt ? ' · ' + pzHora_(x.creadoAt) : ''}` : `${PZ_COLS.find(c => c.k === e).l} · ${x.estadoPor || x.hechoPor || '—'} · ${pzHora_(pzEstAt_(x))}`;
     return `<div class="pz-it pz-st-${e}" style="--pz:${p.c}" draggable="true" data-id="${id}" ondragstart="pzDragStart_(event)" ondragend="pzDragEnd_(event)">
       ${pzDot_(x.prioridad, `pzCiclarPrio_('${id}')`)}
-      <div class="pz-tx"><div class="pz-t" title="Clic para editar" onclick="pzEditar_('${id}', this)">${pcEsc(x.texto)}</div>
+      <div class="pz-tx"><div class="pz-t" title="Clic para editar" onclick="pzEditar_('${id}', this)"><span class="pz-kind rec">📌 Recordatorio</span> ${pcEsc(x.texto)}</div>
         <div class="pz-meta">${pzAsigHtml_(x.asignados, `pzAsignar_('${id}', this)`)}${tags}</div>
         <div class="pz-by">${pcEsc(by)}</div>
         <div class="pz-mv">${PZ_COLS.filter(c => c.k !== e).map(c => `<button title="Mover a ${c.l}" style="--c:${c.c}" onclick="pzEstado_('${id}','${c.k}')">${c.ico} ${c.l}</button>`).join('')}</div></div>
       <button class="pz-del" title="Borrar" onclick="pzBorrar_('${id}')">×</button></div>`;
   };
   const tot = { p: cols.pendiente.hoy.length, e: cols.proceso.hoy.length };
-  const head = `<div class="pc-card-h"><div class="pc-card-t">📌 Pizarra del día <small style="text-transform:none;letter-spacing:0;font-weight:700;color:#64748b">· recordatorios rápidos, no son tareas programadas · arrastra las tarjetas entre columnas</small></div>
+  const head = `<div class="pc-card-h"><div class="pc-card-t">📌 Pendientes del día <small style="text-transform:none;letter-spacing:0;font-weight:700;color:#64748b">· 📌 recordatorios y 📋 tareas programadas de hoy · arrastra las tarjetas entre columnas</small></div>
     ${PZ.items ? `<span class="pc-chip" style="background:${tot.p + tot.e ? '#fef3c7' : '#dcfce7'};color:${tot.p + tot.e ? '#92400e' : '#166534'}">${tot.p + tot.e} abiertos</span>` : ''}</div>`;
   const add = `<div class="pz-add">
       ${pzDot_(d.prioridad, 'pzDraftPrio_(this)', true)}
@@ -58863,7 +58893,18 @@ function pzRender_() {
   el.innerHTML = head + add + body;
   if (foc) { const i = document.getElementById('pz-new'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
+window.pzAbrirTarea_ = function (id) {
+  pcGo('tareas');
+  let n = 0; const t = setInterval(() => { const m = document.getElementById('module-tareas'); if ((m && !m.classList.contains('hidden') && m.children.length) || ++n > 40) { clearInterval(t); if (typeof tarOpenPanel === 'function') tarOpenPanel(id, pzHoy_()); } }, 150);
+};
 window.pzEstado_ = function (id, est) {
+  if (/^T:/.test(id)) {
+    const tid = id.slice(2), hoy = pzHoy_(), E = PZ_EST_TAR[est];
+    if (!E || tarOcurEstado_(tid, hoy) === E) return;
+    const p = tarSaveOcur_(tid, hoy, { Estado: E }); pzRender_();
+    p.then(() => pzRender_()).catch(e => { alert('No se pudo cambiar la tarea: ' + e.message); if (typeof tarLoad_ === 'function') tarLoad_().then(pzRender_).catch(() => {}); });
+    return;
+  }
   const x = (PZ.items || []).find(y => y.id === id); if (!x || /^tmp/.test(id) || pzEst_(x) === est) return;
   pzGuardar_({ id, estado: est }, () => { const u = pzUser_(), now = new Date().toISOString(); x.estado = est; x.estadoPor = u; x.estadoAt = now; x.hecho = est === 'resuelto'; x.hechoPor = x.hecho ? u : ''; x.hechoAt = x.hecho ? now : ''; });
 };
@@ -58873,7 +58914,7 @@ window.pzDragOver_ = function (ev) { ev.preventDefault(); ev.dataTransfer.dropEf
 window.pzDrop_ = function (ev) { ev.preventDefault(); const col = ev.currentTarget; col.classList.remove('over'); const id = ev.dataTransfer.getData('text/plain'); if (id) pzEstado_(id, col.dataset.est); };
 window.pzDraftPrio_ = function (btn) {
   PZ.draft.prioridad = PZ_CICLO[PZ.draft.prioridad] || 'media';
-  const p = PZ_PRIO[PZ.draft.prioridad]; btn.style.setProperty('--pz', p.c); btn.title = `Urgencia: ${p.l} · clic para cambiar (Baja → Media → Alta → Crítica)`;
+  const p = PZ_PRIO[PZ.draft.prioridad]; btn.style.setProperty('--pz', p.c); btn.title = `Prioridad: ${p.l} · clic para cambiar (Bajo → Medio → Alto → Crítico)`;
 };
 function pzHoyLocal_(iso) { const t = new Date(iso); if (isNaN(t)) return ''; return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; }
 async function pzGuardar_(item, local) {
