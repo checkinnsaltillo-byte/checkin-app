@@ -58243,12 +58243,14 @@ function pcEnsureStyles_() {
   .pc-grp-s{font-size:12px;color:#64748b;font-weight:600}
   .pc-grp .pc-kpis:empty{display:none}
   .pc-grp .pc-kpis{margin-bottom:14px}
-  .pc-rp{display:flex;flex-direction:column;gap:14px}
+  .pc-rp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .pc-rp-g.w{grid-column:1 / -1}
+  @media (max-width:900px){ .pc-rp{grid-template-columns:minmax(0,1fr)} }
   .pc-rp-g{border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;background:#fff}
   .pc-rp-gh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:linear-gradient(90deg,color-mix(in srgb,var(--gc) 14%,#fff),#fff);border-bottom:1px solid #eef2f7;font-size:13px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--gc)}
   .pc-rp-gh span{margin-left:auto;font-size:10.5px;color:#94a3b8;letter-spacing:.02em;font-weight:700;text-transform:none}
-  .pc-rp-ts{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1px;background:#eef2f7}
-  .pc-rp-t{background:#fff;padding:12px 14px 8px;position:relative;display:flex;flex-direction:column;gap:6px}
+  .pc-rp-ts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .pc-rp-t{background:#fff;padding:12px 14px 8px;box-shadow:1px 0 0 #eef2f7,0 1px 0 #eef2f7;position:relative;display:flex;flex-direction:column;gap:6px}
   .pc-rp-t::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--ac)}
   .pc-rp-l{font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em}
   .pc-rp-v{font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -58911,7 +58913,7 @@ function pcRenderReporte_() {
   const grupos = [];
   rows.forEach(r => { if (!r.t) grupos.push({ g: r.g, items: [] }); else if (grupos.length) grupos[grupos.length - 1].items.push(r); });
   el.innerHTML = head + `<div class="pc-rp">${grupos.filter(g => g.items.length).map(g => `
-    <div class="pc-rp-g" style="--gc:${GC[g.g] || '#475569'}">
+    <div class="pc-rp-g ${g.items.length >= 3 ? 'w' : ''}" style="--gc:${GC[g.g] || '#475569'}">
       <div class="pc-rp-gh">${g.g}<span>${L0} · vs ${L1} · vs ${L2}</span></div>
       <div class="pc-rp-ts">${g.items.map(tile).join('')}</div>
     </div>`).join('')}</div>
