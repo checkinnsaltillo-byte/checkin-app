@@ -61596,6 +61596,7 @@ const SN_LIBS = [
 ];
 // Fuentes con TTF estático (necesario para PDF vectorial). [regular, bold, italic, boldItalic]
 const SN_FONTS = {
+  'Carlito': ['carlito/Carlito-Regular.ttf', 'carlito/Carlito-Bold.ttf', 'carlito/Carlito-Italic.ttf', 'carlito/Carlito-BoldItalic.ttf'],
   'Poppins': ['poppins/Poppins-Regular.ttf', 'poppins/Poppins-Bold.ttf', 'poppins/Poppins-Italic.ttf', 'poppins/Poppins-BoldItalic.ttf'],
   'Lato': ['lato/Lato-Regular.ttf', 'lato/Lato-Bold.ttf', 'lato/Lato-Italic.ttf', 'lato/Lato-BoldItalic.ttf'],
   'Kanit': ['kanit/Kanit-Regular.ttf', 'kanit/Kanit-Bold.ttf', 'kanit/Kanit-Italic.ttf', 'kanit/Kanit-BoldItalic.ttf'],
@@ -61621,7 +61622,7 @@ async function snEnsureLibs_() {
   for (const u of SN_LIBS) await snLoadScript_(u);
   if (!document.getElementById('sn-gfonts')) {
     const l = document.createElement('link'); l.id = 'sn-gfonts'; l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Lato:ital,wght@0,400;0,700;1,400;1,700&family=Kanit:ital,wght@0,400;0,700;1,400;1,700&family=Didact+Gothic&family=Questrial&family=Anton&display=swap';
+    l.href = 'https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Lato:ital,wght@0,400;0,700;1,400;1,700&family=Kanit:ital,wght@0,400;0,700;1,400;1,700&family=Didact+Gothic&family=Questrial&family=Anton&display=swap';
     document.head.appendChild(l);
   }
   try { await Promise.all(Object.keys(SN_FONTS).flatMap(f => [document.fonts.load(`16px "${f}"`), document.fonts.load(`bold 16px "${f}"`)])); } catch (_) {}
