@@ -423,6 +423,7 @@ function sysApplyPermissions(user) {
 }
 function sysRefreshMenuGroups_() {
   const vis = el => el.style.display !== 'none' && !el.classList.contains('hidden');
+  document.querySelectorAll('.hm-tile').forEach(t => { const d = t.querySelector('small'); if (d && !t.title) t.title = d.textContent; });
   document.querySelectorAll('.hm-sec').forEach(sec => {
     const n = Array.from(sec.querySelectorAll('.hm-tile')).filter(vis).length;
     sec.style.display = n ? '' : 'none';
