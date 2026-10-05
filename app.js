@@ -61607,6 +61607,58 @@ const SN_FONTS = {
   'Anton': ['anton/Anton-Regular.ttf'],
 };
 const SN_FONT_CDN = 'https://storage.googleapis.com/check-in-493804-senaletica/fonts/';
+// Formatos comunes de señalética / impresos (pulgadas, vertical). o:'h' = horizontal por defecto.
+const SN_SIZES = [
+  { k: 'carta', n: 'Carta', w: 8.5, h: 11, d: '21.6 × 27.9 cm · impresora de casa/oficina' },
+  { k: 'mcarta', n: 'Media carta', w: 5.5, h: 8.5, d: '14 × 21.6 cm · avisos pequeños' },
+  { k: 'dcarta', n: 'Doble carta (tabloide)', w: 11, h: 17, d: '27.9 × 43.2 cm · avisos grandes' },
+  { k: 'oficio', n: 'Oficio (México)', w: 8.5, h: 13.39, d: '21.6 × 34 cm' },
+  { k: 'a5', n: 'A5', w: 5.83, h: 8.27, d: '14.8 × 21 cm' },
+  { k: 'a4', n: 'A4', w: 8.27, h: 11.69, d: '21 × 29.7 cm · estándar internacional' },
+  { k: 'a3', n: 'A3', w: 11.69, h: 16.54, d: '29.7 × 42 cm' },
+  { k: 'poster1824', n: 'Póster 18 × 24 in', w: 18, h: 24, d: '45.7 × 61 cm' },
+  { k: 'poster5070', n: 'Póster 50 × 70 cm', w: 19.69, h: 27.56, d: 'imprenta / lona' },
+  { k: 'poster2436', n: 'Póster 24 × 36 in', w: 24, h: 36, d: '61 × 91.4 cm · gran formato' },
+  { k: 'tarjeta', n: 'Tarjeta de presentación', w: 2, h: 3.5, o: 'h', d: '9 × 5 cm' },
+  { k: 'postal', n: 'Tarjeta postal', w: 4, h: 6, d: '10 × 15 cm · bienvenida / WiFi' },
+  { k: 'puerta', n: 'Colgante de puerta', w: 4.25, h: 11, d: '10.8 × 28 cm · "no molestar"' },
+  { k: 'placa', n: 'Placa / letrero de puerta', w: 3, h: 8, o: 'h', d: '20 × 7.6 cm · baño, cocina, cuarto' },
+  { k: 'cuadrado', n: 'Cuadrado', w: 8, h: 8, d: '20.3 × 20.3 cm · stickers, redes' },
+  { k: 'kit', n: 'Kit Check Inn (original)', w: 7.5, h: 10, d: '19 × 25.4 cm · igual a las señales actuales' },
+];
+function snSizeLbl_(d) {
+  const f = SN_SIZES.find(z => z.k === d.fmt) || SN_SIZES.find(z => (Math.abs(z.w - d.w) < .02 && Math.abs(z.h - d.h) < .02) || (Math.abs(z.w - d.h) < .02 && Math.abs(z.h - d.w) < .02));
+  return `${f ? f.n + ' · ' : ''}${+(+d.w).toFixed(2)} × ${+(+d.h).toFixed(2)} in`;
+}
+// Factor para escalar plantillas pensadas para 7.5 × 10 in.
+function snK_(d) { return Math.min(d.w, d.h) / 7.5; }
+function snFooterEls_(W, H) {
+  const k = snK_({ w: W, h: H }), fh = 1.14 * k;
+  return [{ t: 'rect', x: 0, y: H - fh, w: W, h: fh, fill: '$amarillo' }, { t: 'image', x: 0.25 * k, y: H - 1.05 * k, w: 0.66 * k, h: 0.96 * k, src: '$logo', nat: [676, 980] },
+    { t: 'text', x: 1 * k, y: H - 1.05 * k, w: W - 1.2 * k, h: 0.9 * k, anchor: 'middle', wrap: true, pad: [0.05 * k, 0, 0.05 * k, 0], paras: [{ align: 'left', runs: [{ text: '{{marca}}', size: Math.round(40 * k * 10) / 10, color: '#000000', font: '$fTitulo' }] }, { align: 'left', runs: [{ text: '{{web}}', size: Math.round(14 * k * 10) / 10, color: '#000000', font: '$fTitulo' }] }] }];
+}
+// Selector de formato reutilizable (nueva señal y Crear con IA).
+function snSizePicker_(st, onchg) {
+  SN._szCb = onchg;
+  const cur = SN_SIZES.find(z => z.k === st.fmt) || SN_SIZES[0];
+  return `<div class="sn-szgrid">${SN_SIZES.map(z => `<button class="sn-sz ${z.k === st.fmt ? 'on' : ''}" onclick="snSizePick_('${z.k}')" title="${snEsc_(z.d)}">
+      <span class="pv"><i style="width:${Math.round(30 * Math.min(z.w, z.h) / Math.max(z.w, z.h))}px;height:30px;${z.o === 'h' ? 'transform:rotate(90deg)' : ''}"></i></span>
+      <b>${snEsc_(z.n)}</b><small>${snEsc_(z.d)}</small></button>`).join('')}
+      <button class="sn-sz ${st.fmt === 'custom' ? 'on' : ''}" onclick="snSizePick_('custom')"><span class="pv"><i style="width:22px;height:30px;border-style:dashed"></i></span><b>Personalizado</b><small>tú defines el tamaño</small></button></div>
+    <div class="sn-row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:11px;font-weight:800;color:#64748b">Orientación</span>
+      <button class="sn-tg ${st.ori === 'v' ? 'on' : ''}" style="padding:0 10px" onclick="snSizeOri_('v')">▯ Vertical</button><button class="sn-tg ${st.ori === 'h' ? 'on' : ''}" style="padding:0 10px" onclick="snSizeOri_('h')">▭ Horizontal</button>
+      ${st.fmt === 'custom' ? `<span style="font-size:11px;font-weight:800;color:#64748b;margin-left:8px">Ancho</span><input class="sn-in" type="number" step="0.5" min="1" max="120" style="width:74px" value="${st.cw}" onchange="SN._sz.cw=+this.value"><span style="font-size:11px;font-weight:800;color:#64748b">Alto</span><input class="sn-in" type="number" step="0.5" min="1" max="120" style="width:74px" value="${st.ch}" onchange="SN._sz.ch=+this.value"><select class="sn-in" style="width:70px" onchange="SN._sz.cu=this.value"><option value="cm" ${st.cu === 'cm' ? 'selected' : ''}>cm</option><option value="in" ${st.cu === 'in' ? 'selected' : ''}>in</option></select>` : `<span style="font-size:11.5px;color:#475569;margin-left:6px">${snEsc_(cur.n)}</span>`}
+    </div>`;
+}
+window.snSizePick_ = function (k) { const st = SN._sz; st.fmt = k; const z = SN_SIZES.find(x => x.k === k); if (z) st.ori = z.o || 'v'; SN._szCb && SN._szCb(); };
+window.snSizeOri_ = function (o) { SN._sz.ori = o; SN._szCb && SN._szCb(); };
+function snSizeDims_(st) {
+  let w, h;
+  if (st.fmt === 'custom') { const f = st.cu === 'cm' ? 1 / 2.54 : 1; w = Math.max(1, Math.min(120, (+st.cw || 20) * f)); h = Math.max(1, Math.min(120, (+st.ch || 28) * f)); w = Math.round(w * 100) / 100; h = Math.round(h * 100) / 100; if ((st.ori === 'h') !== (w > h)) [w, h] = [h, w]; return { w, h, fmt: 'custom' }; }
+  const z = SN_SIZES.find(x => x.k === st.fmt) || SN_SIZES[0]; w = z.w; h = z.h; if (st.ori === 'h') [w, h] = [h, w];
+  return { w, h, fmt: z.k };
+}
 const SN_COLOR_LBL = { amarillo: 'Amarillo', rojo: 'Rojo', azul: 'Azul', azul2: 'Azul 2', verde: 'Verde' };
 
 window.SN = window.SN || { data: null, base: '', loading: false, err: '', view: 'galeria', cat: '', q: '', thumbs: {}, sel: new Set(), cur: null, canvas: null, zoom: 1, undo: [], redo: [], dirty: false, saving: false };
@@ -61680,6 +61732,13 @@ function snQrPath_(data, size) {
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) { const x = (c + 1) * m, y = (r + 1) * m; d += `M${x.toFixed(3)} ${y.toFixed(3)}h${m.toFixed(3)}v${m.toFixed(3)}h-${m.toFixed(3)}z`; }
   return d;
 }
+// Ícono de línea (Lucide, viewBox 24): grupo con una caja invisible de 24×24 para que el tamaño no dependa del trazo.
+async function snIconObj_(e, common) {
+  const P = SN_PX, col = snColor_(e.color) || '#000000', ic = (SN.icons || {})[e.name];
+  const objs = ic ? await new Promise(ok => fabric.loadSVGFromString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${col}" stroke-width="${e.sw || 2}" stroke-linecap="round" stroke-linejoin="round">${ic.svg.replace(/currentColor/g, col)}</svg>`, r => ok(r || []))) : [];
+  const box = new fabric.Rect({ left: 0, top: 0, width: 24, height: 24, fill: ic ? 'transparent' : '#f1f5f9', strokeWidth: 0, stroke: null });
+  return new fabric.Group([box, ...objs.filter(Boolean)], { ...common, strokeUniform: false, scaleX: e.w * P / 24, scaleY: e.h * P / 24 });
+}
 function snLoadImg_(url) { return new Promise(ok => fabric.Image.fromURL(url, img => ok(img), { crossOrigin: 'anonymous' })); }
 async function snToFabric_(e) {
   const P = SN_PX, cx = (e.x + e.w / 2) * P, cy = (e.y + e.h / 2) * P;
@@ -61706,6 +61765,8 @@ async function snToFabric_(e) {
       img.set({ ...common, cropX: nw * c[0], cropY: nh * c[1], width: cw, height: ch, scaleX: e.w * P / cw, scaleY: e.h * P / ch });
       o = img;
     }
+  } else if (e.t === 'icon') {
+    o = await snIconObj_(e, common);
   } else if (e.t === 'text') {
     const paras = e.paras || [];
     const text = paras.map(p => p.runs.map(r => snTxt_(r.text)).join('')).join('\n');
@@ -61774,6 +61835,7 @@ function snFromFabric_(o) {
     e.w = o.width * o.scaleX / P; e.h = o.height * o.scaleY / P; e.x = c.x / P - e.w / 2; e.y = c.y / P - e.h / 2;
   }
   if (e.t === 'qr') { e.fill = o.snFill || e.fill; }
+  if (e.t === 'icon') { e.w = 24 * o.scaleX / P; e.h = 24 * o.scaleY / P; e.x = c.x / P - e.w / 2; e.y = c.y / P - e.h / 2; }
   return e;
 }
 function snSceneFromCanvas_() {
@@ -61830,6 +61892,35 @@ function snEnsureStyles_() {
   .sn-modal .hd{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e2e8f0;font-weight:900;font-size:15px}
   .sn-modal .bd{padding:14px 18px;overflow:auto}
   .sn-modal .ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px}
+  .sn-szgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+  .sn-sz{border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:8px;cursor:pointer;display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;column-gap:8px;text-align:left;font-family:inherit;align-items:center}
+  .sn-sz .pv{grid-row:1/3;display:flex;align-items:center;justify-content:center;height:34px}
+  .sn-sz .pv i{display:block;border:2px solid #94a3b8;border-radius:2px;background:#f8fafc}
+  .sn-sz b{font-size:11.5px;color:#0f172a;line-height:1.2}
+  .sn-sz small{font-size:9.5px;color:#64748b;line-height:1.2}
+  .sn-sz:hover{border-color:#94a3b8}
+  .sn-sz.on{border-color:#4f46e5;background:#eef2ff;box-shadow:0 0 0 2px #c7d2fe}
+  .sn-sz.on .pv i{border-color:#4f46e5;background:#c7d2fe}
+  .sn-szlbl{font-size:11.5px;font-weight:800;color:#475569;background:#f1f5f9;border-radius:8px;padding:6px 9px;white-space:nowrap}
+  .sn-exh{font-size:10.5px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 6px}
+  .sn-exg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+  .sn-exo{border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:9px 10px;cursor:pointer;text-align:left;font-family:inherit;display:flex;flex-direction:column;gap:3px}
+  .sn-exo b{font-size:12.5px;color:#0f172a}
+  .sn-exo small{font-size:10.5px;color:#64748b;line-height:1.3}
+  .sn-exo.on{border-color:#059669;background:#ecfdf5;box-shadow:0 0 0 2px #a7f3d0}
+  .sn-icgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px}
+  .sn-icgrid button{border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:10px 4px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;font-family:inherit}
+  .sn-icgrid button:hover{border-color:#4f46e5;background:#eef2ff}
+  .sn-icgrid svg{width:30px;height:30px}
+  .sn-icgrid span{font-size:10px;color:#475569;line-height:1.15;text-align:center}
+  .sn-ia-btn{background:linear-gradient(120deg,#6d28d9,#db2777);color:#fff;border-color:#a21caf}
+  .sn-ia-btn:hover{background:linear-gradient(120deg,#5b21b6,#be185d)}
+  .sn-opt{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;user-select:none}
+  .sn-ck{width:18px;height:18px;border:2px solid #94a3b8;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;background:#fff}
+  .sn-ck.on{background:#4f46e5;border-color:#4f46e5}
+  .sn-ia-wait{margin-top:12px;padding:12px;border-radius:10px;background:#f5f3ff;color:#5b21b6;font-size:13px}
+  .sn-ia-wait span{font-size:11.5px;color:#7c3aed}
+  .sn-ia-err{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fef2f2;color:#991b1b;font-size:12.5px;font-weight:700}
   @media (max-width:1000px){ .sn-ed{grid-template-columns:1fr;height:auto} .sn-tools{display:flex;flex-wrap:wrap;gap:4px}.sn-tools button{width:auto}.sn-tools .h{width:100%} }`;
   document.head.appendChild(st);
 }
@@ -61840,7 +61931,10 @@ window.senaleticaInit = async function () {
   snEnsureStyles_();
   if (SN.view === 'editor' && SN.canvas) return; // mantiene el editor abierto
   host.innerHTML = '<div class="sn" id="sn-root"><div style="padding:40px;text-align:center;color:#94a3b8">⏳ Cargando editor de señalética…<div id="sn-paso" style="font-size:11.5px;margin-top:6px"></div></div></div>';
-  const datos = SN.data ? Promise.resolve() : snApi_('/senal/data').then(j => { SN.base = j.base; SN.data = { marca: j.marca || {}, disenos: j.disenos || [] }; }).catch(e => { SN.err = e.message; });
+  const datos = Promise.all([
+    SN.data ? null : snApi_('/senal/data').then(j => { SN.base = j.base; SN.data = { marca: j.marca || {}, disenos: j.disenos || [] }; }).catch(e => { SN.err = e.message; }),
+    SN.icons ? null : snApi_('/senal/icons').then(j => { SN.icons = j.iconos || {}; }).catch(e => { console.warn('[señalética] íconos:', e.message); }),
+  ]);
   try { await snEnsureLibs_(); }
   catch (e) { const r = document.getElementById('sn-root'); if (r) r.innerHTML = `<div class="sn-top"><h2>🪧 Señalética</h2></div><div style="padding:20px;border:1px solid #fecaca;background:#fef2f2;border-radius:12px;color:#991b1b">⚠️ ${snEsc_(e.message)}<div style="margin-top:10px"><button class="sn-btn" onclick="senaleticaInit()">🔄 Reintentar</button></div></div>`; return; }
   snPaso_('Cargando señales…');
@@ -61860,7 +61954,8 @@ function snRender_() {
     <div class="sn-top"><div style="flex:1;min-width:220px"><h2>🪧 Señalética</h2><p>Kit editable de señales para impresión · ${ds.length} diseños · PDF vectorial</p></div>
       <button class="sn-btn" onclick="snMarcaOpen_()">🎨 Kit de marca</button>
       <button class="sn-btn" onclick="snNuevo_()">＋ Nueva señal</button>
-      <button class="sn-btn pri" onclick="snExportSel_()" ${SN.sel.size ? '' : 'disabled'}>🖨️ PDF de ${SN.sel.size || 0} seleccionada${SN.sel.size === 1 ? '' : 's'}</button></div>
+      <button class="sn-btn sn-ia-btn" onclick="snIaOpen_()">✨ Crear con IA</button>
+      <button class="sn-btn pri" onclick="snExportSel_()" ${SN.sel.size ? '' : 'disabled'}>⬇️ Exportar ${SN.sel.size || 0} seleccionada${SN.sel.size === 1 ? '' : 's'}</button></div>
     <div class="sn-chips"><input class="sn-in" style="max-width:260px" placeholder="🔎 Buscar señal…" value="${snEsc_(SN.q)}" oninput="SN.q=this.value;snRender_();this.focus();this.setSelectionRange(this.value.length,this.value.length)">
       <button class="sn-chip ${!SN.cat ? 'on' : ''}" onclick="SN.cat='';snRender_()">Todas</button>
       ${cats.map(c => `<button class="sn-chip ${SN.cat === c ? 'on' : ''}" data-c="${snEsc_(c)}" onclick="SN.cat=this.dataset.c;snRender_()">${snEsc_(c)}</button>`).join('')}
@@ -61898,16 +61993,25 @@ window.snOpen_ = async function (id) {
   snRenderEditor_();
 };
 window.snNuevo_ = function () {
-  const m = snM_();
-  SN.cur = { id: '', nombre: 'Nueva señal', cat: SN.cat || 'Sin categoría', w: 7.5, h: 10, els: [
-    { t: 'rect', x: 0, y: 8.86, w: 7.5, h: 1.14, fill: '$amarillo' },
-    { t: 'image', x: 0.25, y: 8.95, w: 0.66, h: 0.96, src: '$logo', nat: [676, 980] },
-    { t: 'text', x: 1.0, y: 8.95, w: 6.2, h: 0.9, anchor: 'middle', wrap: true, pad: [0.05, 0.02, 0.05, 0.02], paras: [
-      { align: 'left', runs: [{ text: '{{marca}}', size: 40, bold: false, color: '#000000', font: '$fTitulo' }] },
-      { align: 'left', runs: [{ text: '{{web}}', size: 14, color: '#000000', font: '$fTitulo' }] }] },
-    { t: 'text', x: 0.5, y: 3.5, w: 6.5, h: 2, anchor: 'middle', wrap: true, pad: [0, 0, 0, 0], paras: [{ align: 'center', runs: [{ text: 'TEXTO DE LA SEÑAL', size: 60, bold: true, color: '$rojo', font: '$fTitulo' }] }] },
+  SN._sz = SN._sz || { fmt: 'carta', ori: 'v', cw: 20, ch: 28, cu: 'cm' };
+  SN._nv = SN._nv || { pie: true };
+  const el = document.createElement('div'); el.className = 'sn-modal sn'; el.id = 'sn-modal-nv';
+  const draw = () => { el.innerHTML = `<div class="pn" style="max-width:760px"><div class="hd">＋ Nueva señal · elige el formato <button class="sn-btn sm" onclick="document.getElementById('sn-modal-nv').remove()">✕</button></div>
+    <div class="bd">${snSizePicker_(SN._sz, draw)}
+      <div style="margin-top:12px"><span class="sn-opt" onclick="SN._nv.pie=!SN._nv.pie;this.querySelector('.sn-ck').classList.toggle('on',SN._nv.pie);this.querySelector('.sn-ck').textContent=SN._nv.pie?'✓':''"><span class="sn-ck ${SN._nv.pie ? 'on' : ''}">${SN._nv.pie ? '✓' : ''}</span>Incluir pie con logo y web</span></div></div>
+    <div class="ft"><button class="sn-btn" onclick="document.getElementById('sn-modal-nv').remove()">Cancelar</button><button class="sn-btn sn-ia-btn" onclick="document.getElementById('sn-modal-nv').remove();snIaOpen_()">✨ Mejor créala con IA</button><button class="sn-btn ok" onclick="snNuevoCrear_()">Crear en blanco</button></div></div>`; };
+  draw(); document.body.appendChild(el);
+};
+window.snNuevoCrear_ = function () {
+  const { w, h, fmt } = snSizeDims_(SN._sz), k = snK_({ w, h }), pie = SN._nv.pie;
+  const fh = pie ? 1.14 * k : 0;
+  SN.cur = { id: '', nombre: 'Nueva señal', cat: SN.cat || 'Sin categoría', w, h, fmt, els: [
+    ...(pie ? snFooterEls_(w, h) : []),
+    { t: 'text', x: 0.5 * k, y: (h - fh) / 2 - 1 * k, w: w - 1 * k, h: 2 * k, anchor: 'middle', wrap: true, pad: [0, 0, 0, 0], paras: [{ align: 'center', runs: [{ text: 'TEXTO DE LA SEÑAL', size: Math.round(60 * k), bold: true, color: '$rojo', font: '$fTitulo' }] }] },
   ] };
-  void m; SN.view = 'editor'; SN.undo = []; SN.redo = []; SN.dirty = true;
+  const m = document.getElementById('sn-modal-nv'); if (m) m.remove();
+  if (SN.canvas) { SN.canvas.dispose(); SN.canvas = null; }
+  SN.view = 'editor'; SN.undo = []; SN.redo = []; SN.dirty = true;
   snRenderEditor_();
 };
 function snRenderEditor_() {
@@ -61918,13 +62022,14 @@ function snRenderEditor_() {
     <div class="sn-top">
       <button class="sn-btn sm" onclick="snVolver_()">← Galería</button>
       <input class="sn-in" style="max-width:280px;font-weight:800" value="${snEsc_(d.nombre)}" oninput="SN.cur.nombre=this.value;SN.dirty=true">
+      <span class="sn-szlbl" title="Formato de la hoja">📐 ${snEsc_(snSizeLbl_(d))}</span>
       <input class="sn-in" style="max-width:170px" list="sn-dl-cat" value="${snEsc_(d.cat || '')}" oninput="SN.cur.cat=this.value;SN.dirty=true" placeholder="Categoría"><datalist id="sn-dl-cat">${cats.map(c => `<option value="${snEsc_(c)}">`).join('')}</datalist>
       <div style="flex:1"></div>
       <button class="sn-btn sm" title="Deshacer (Ctrl+Z)" onclick="snUndo_()">↶</button><button class="sn-btn sm" title="Rehacer (Ctrl+Y)" onclick="snRedo_()">↷</button>
       <button class="sn-btn sm" onclick="snZoom_(-0.1)">－</button><span id="sn-zoom" style="font-size:12px;font-weight:800;min-width:42px;text-align:center"></span><button class="sn-btn sm" onclick="snZoom_(0.1)">＋</button>
       <button class="sn-btn" onclick="snDuplicarDiseno_()">📄 Duplicar</button>
       ${d.id ? '<button class="sn-btn" onclick="snEliminarDiseno_()">🗑️</button>' : ''}
-      <button class="sn-btn" onclick="snExportCur_()">🖨️ PDF</button>
+      <button class="sn-btn" onclick="snExportCur_()">⬇️ Exportar</button>
       <button class="sn-btn ok" id="sn-save" onclick="snGuardar_()">💾 Guardar</button>
     </div>
     <div class="sn-ed">
@@ -61938,9 +62043,11 @@ function snRenderEditor_() {
         <button onclick="document.getElementById('sn-file').click()">🖼️ Imagen</button>
         <button onclick="snAdd_('logo')">📍 Logo</button>
         <button onclick="snAdd_('qr')">▦ Código QR</button>
+        <button onclick="snIconPicker_(n=>snAdd_('icon',n))">⭐ Ícono</button>
         <input type="file" id="sn-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none" onchange="snUpload_(this)">
         <div class="h">Plantilla</div>
         <button onclick="snAdd_('footer')">🟨 Pie de marca</button>
+        <button onclick="snIaOpen_()">✨ Crear con IA</button>
         <button onclick="snMarcaOpen_()">🎨 Kit de marca</button>
       </div>
       <div class="sn-stage" id="sn-stage"><canvas id="sn-canvas"></canvas></div>
@@ -61996,7 +62103,7 @@ window.snUndo_ = function () { if (SN.undo.length < 2) return; SN.redo.push(SN.u
 window.snRedo_ = function () { if (!SN.redo.length) return; const s = SN.redo.pop(); SN.undo.push(s); snRestore_(s); };
 
 // Insertar elementos
-window.snAdd_ = async function (k) {
+window.snAdd_ = async function (k, arg) {
   const d = SN.cur, cx = d.w / 2, cy = d.h / 2;
   let e = null;
   if (k === 'text') e = { t: 'text', x: cx - 2, y: cy - 0.4, w: 4, h: 0.8, anchor: 'top', wrap: true, pad: [0, 0, 0, 0], paras: [{ align: 'center', runs: [{ text: 'Escribe aquí', size: 32, bold: true, color: '#000000', font: '$fTitulo' }] }] };
@@ -62004,16 +62111,20 @@ window.snAdd_ = async function (k) {
   if (k === 'ellipse') e = { t: 'ellipse', x: cx - 1, y: cy - 1, w: 2, h: 2, fill: '$rojo' };
   if (k === 'line') e = { t: 'line', x1: cx - 1.5, y1: cy, x2: cx + 1.5, y2: cy, stroke: '#000000', sw: 4 };
   if (k === 'arrow') { const w = 2.5, h = 1.2; e = { t: 'poly', x: cx - w / 2, y: cy - h / 2, w, h, fill: '$azul', pts: [[0, 0.3], [1.7, 0.3], [1.7, 0], [2.5, 0.6], [1.7, 1.2], [1.7, 0.9], [0, 0.9]] }; }
+  if (k === 'icon') e = { t: 'icon', name: arg, x: cx - 1.25, y: cy - 1.25, w: 2.5, h: 2.5, color: '#0B1F3A', sw: 2 };
   if (k === 'logo') e = { t: 'image', x: cx - 0.6, y: cy - 0.87, w: 1.2, h: 1.74, src: '$logo', nat: [676, 980] };
   if (k === 'qr') { const url = prompt('¿A qué dirección (URL) o texto debe llevar el código QR?', 'https://www.check-inn-saltillo.com/es/registro'); if (!url) return; e = { t: 'qr', x: cx - 1.25, y: cy - 1.25, w: 2.5, h: 2.5, data: url, fill: '#000000' }; }
   if (k === 'footer') {
-    for (const f of [{ t: 'rect', x: 0, y: d.h - 1.14, w: d.w, h: 1.14, fill: '$amarillo' }, { t: 'image', x: 0.25, y: d.h - 1.05, w: 0.66, h: 0.96, src: '$logo', nat: [676, 980] },
-      { t: 'text', x: 1, y: d.h - 1.05, w: d.w - 1.2, h: 0.9, anchor: 'middle', wrap: true, pad: [0.05, 0, 0.05, 0], paras: [{ align: 'left', runs: [{ text: '{{marca}}', size: 40, color: '#000000', font: '$fTitulo' }] }, { align: 'left', runs: [{ text: '{{web}}', size: 14, color: '#000000', font: '$fTitulo' }] }] }]) {
-      const o = await snToFabric_(f); SN.canvas.add(o);
-    }
+    for (const f of snFooterEls_(d.w, d.h)) { const o = await snToFabric_(f); SN.canvas.add(o); }
     SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); return;
   }
   if (!e) return;
+  // Tamaños pensados para 7.5 × 10 in: se ajustan a hojas más chicas o más grandes.
+  const kk = Math.max(0.25, Math.min(3, snK_(d)));
+  if (kk !== 1) {
+    if (e.t === 'line') { e.x1 = cx + (e.x1 - cx) * kk; e.x2 = cx + (e.x2 - cx) * kk; e.sw = Math.max(1, e.sw * kk); }
+    else { e.w *= kk; e.h *= kk; e.x = cx - e.w / 2; e.y = cy - e.h / 2; if (e.pts) e.pts = e.pts.map(([a, b]) => [a * kk, b * kk]); if (e.paras) e.paras.forEach(p => p.runs.forEach(r => { r.size = Math.max(6, Math.round(r.size * kk)); })); }
+  }
   const o = await snToFabric_(e); SN.canvas.add(o); SN.canvas.setActiveObject(o); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
 };
 window.snUpload_ = async function (inp) {
@@ -62061,8 +62172,8 @@ function snProps_() {
     return;
   }
   const multi = o.type === 'activeSelection';
-  const isText = o.type === 'textbox', isLine = o.type === 'line', isImg = o.type === 'image', isQr = o.sn && o.sn.t === 'qr';
-  let h = `<div class="h">${multi ? `${o.getObjects().length} elementos` : isText ? 'Texto' : isLine ? 'Línea' : isImg ? 'Imagen' : isQr ? 'Código QR' : 'Forma'}</div>
+  const isText = o.type === 'textbox', isLine = o.type === 'line', isImg = o.type === 'image', isQr = o.sn && o.sn.t === 'qr', isIcon = !multi && o.sn && o.sn.t === 'icon';
+  let h = `<div class="h">${multi ? `${o.getObjects().length} elementos` : isText ? 'Texto' : isLine ? 'Línea' : isImg ? 'Imagen' : isQr ? 'Código QR' : isIcon ? 'Ícono' : 'Forma'}</div>
     <div class="sn-row" style="flex-wrap:wrap;gap:4px"><button class="sn-btn sm" onclick="snDup_()">📄 Duplicar</button><button class="sn-btn sm" onclick="snDel_()">🗑️ Borrar</button>
     <button class="sn-btn sm" title="Al frente" onclick="snZ_('top')">⤒</button><button class="sn-btn sm" title="Adelante" onclick="snZ_('up')">↑</button><button class="sn-btn sm" title="Atrás" onclick="snZ_('down')">↓</button><button class="sn-btn sm" title="Al fondo" onclick="snZ_('bottom')">⤓</button></div>`;
   if (!multi) {
@@ -62085,6 +62196,10 @@ function snProps_() {
       <label>Interlineado</label><input type="range" min="0.6" max="2.5" step="0.05" value="${o.lineHeight}" style="width:100%" oninput="snSet_('lineHeight',+this.value,true)" onchange="snPushUndo_()">
       <label>Color</label>${snPalette_(snColorTok_(st.fill || o.fill), 'snSetTextColor_')}
       <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Tip: doble clic para escribir; selecciona letras para cambiar solo esa parte.</div>`;
+  } else if (isIcon) {
+    h += `<div class="h">Color del ícono</div>${snPalette_(o.sn.color || '#000000', 'snSetIconColor_')}
+      <label>Grosor del trazo</label><input type="range" min="0.75" max="3.5" step="0.25" value="${o.sn.sw || 2}" style="width:100%" onchange="snIconSet_({sw:+this.value})">
+      <div style="margin-top:8px"><button class="sn-btn sm" onclick="snIconPicker_(n=>snIconSet_({name:n}))">🔁 Cambiar ícono</button></div>`;
   } else if (!multi && !isImg) {
     if (!isLine) h += `<div class="h">Relleno</div>${snPalette_(o.snFill !== undefined ? o.snFill : (isQr ? (o.sn.fill) : snColorTok_(o.fill)), 'snSetFill_')}`;
     h += `<div class="h">${isLine ? 'Color de línea' : 'Borde'}</div>${snPalette_(o.snStroke || (o.stroke ? snColorTok_(o.stroke) : null), 'snSetStroke_')}
@@ -62121,6 +62236,86 @@ window.snQrData_ = async function (v) {
   const e = snFromFabric_(o); e.data = v; const n = await snToFabric_(e);
   const i = SN.canvas.getObjects().indexOf(o); SN.canvas.remove(o); SN.canvas.insertAt(n, i); SN.canvas.setActiveObject(n); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
 };
+// Reconstruye el elemento seleccionado con cambios en su escena (íconos).
+window.snIconSet_ = async function (chg) {
+  const o = SN.canvas.getActiveObject(); if (!o || !o.sn) return;
+  const e = Object.assign(snFromFabric_(o), chg); const n = await snToFabric_(e);
+  const i = SN.canvas.getObjects().indexOf(o); SN.canvas.remove(o); SN.canvas.insertAt(n, i); SN.canvas.setActiveObject(n); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+};
+window.snSetIconColor_ = v => snIconSet_({ color: v || '#000000' });
+window.snIconPicker_ = function (cb) {
+  SN._icCb = cb;
+  const el = document.createElement('div'); el.className = 'sn-modal sn'; el.id = 'sn-modal-ic';
+  el.innerHTML = `<div class="pn"><div class="hd">⭐ Elige un ícono <button class="sn-btn sm" onclick="document.getElementById('sn-modal-ic').remove()">✕</button></div>
+    <div class="bd"><input class="sn-in" placeholder="🔎 Buscar (ej. fumar, auto, wifi, basura)…" oninput="snIconGrid_(this.value)" style="margin-bottom:10px"><div id="sn-ic-grid" class="sn-icgrid"></div>
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:10px">Íconos Lucide (licencia ISC).</div></div></div>`;
+  document.body.appendChild(el); snIconGrid_('');
+  el.querySelector('input').focus();
+};
+window.snIconGrid_ = function (q) {
+  const g = document.getElementById('sn-ic-grid'); if (!g) return;
+  const t = String(q || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const L = Object.entries(SN.icons || {}).filter(([n, v]) => !t || (n + ' ' + v.k).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(t));
+  g.innerHTML = L.length ? L.map(([n, v]) => `<button title="${snEsc_(v.k)}" onclick="const c=SN._icCb;document.getElementById('sn-modal-ic').remove();c&&c('${n}')"><svg viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${v.svg}</svg><span>${snEsc_(v.k.split(',')[0])}</span></button>`).join('') : '<div style="color:#94a3b8;font-size:12px">Sin resultados.</div>';
+};
+
+// ── Crear con IA (Claude) ────────────────────────────────────────────
+const SN_IA_EJEMPLOS = [
+  'Crea un anuncio de no estacionarse que tenga fondo blanco, con íconos simples y con colores ejecutivos',
+  'Prohibido fumar dentro del alojamiento; multa de $2,000 MXN. Estilo minimalista rojo y gris',
+  'Horario de silencio de 10 pm a 8 am, tono amable, colores de mi marca',
+  'Bienvenida con la red WiFi y un QR a https://www.check-inn-saltillo.com',
+  'Separa la basura: orgánica, inorgánica y reciclable, con tres columnas e íconos',
+  'Salida de emergencia y ubicación del extintor, estilo de seguridad industrial',
+];
+window.snIaOpen_ = function () {
+  const st = SN._ia = SN._ia || { prompt: '', marca: true, pie: true, busy: false };
+  SN._sz = SN._sz || { fmt: 'carta', ori: 'v', cw: 20, ch: 28, cu: 'cm' };
+  const el = document.createElement('div'); el.className = 'sn-modal sn'; el.id = 'sn-modal-ia';
+  el.innerHTML = `<div class="pn" style="max-width:760px"><div class="hd">✨ Crear señal con IA <button class="sn-btn sm" onclick="snIaClose_()">✕</button></div>
+    <div class="bd" id="sn-ia-bd">
+      <div style="font-size:12px;color:#64748b;margin-bottom:8px">Describe la señal: mensaje, estilo, colores, íconos, idioma… Claude la diseña y se abre en el editor para que la ajustes antes de guardar.</div>
+      <textarea id="sn-ia-p" class="sn-in" rows="4" style="resize:vertical;font-size:13.5px" placeholder="Ej. Crea un anuncio de no estacionarse con fondo blanco, íconos simples y colores ejecutivos" oninput="SN._ia.prompt=this.value">${snEsc_(st.prompt)}</textarea>
+      <div style="font-size:10.5px;font-weight:800;color:#64748b;margin:10px 0 5px">Ideas</div>
+      <div class="sn-chips" style="margin:0">${SN_IA_EJEMPLOS.map((x, i) => `<button class="sn-chip" style="font-weight:600;text-align:left" onclick="snIaEj_(${i})">${snEsc_(x)}</button>`).join('')}</div>
+      <div style="font-size:10.5px;font-weight:800;color:#64748b;margin:12px 0 5px">Formato</div>
+      <div id="sn-ia-sz"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px">
+        ${[['marca', 'Usar los colores de mi marca'], ['pie', 'Incluir pie con logo y web']].map(([k, l]) => `<span class="sn-opt" onclick="SN._ia.${k}=!SN._ia.${k};this.querySelector('.sn-ck').classList.toggle('on',SN._ia.${k});this.querySelector('.sn-ck').textContent=SN._ia.${k}?'✓':''"><span class="sn-ck ${st[k] ? 'on' : ''}">${st[k] ? '✓' : ''}</span>${l}</span>`).join('')}
+      </div>
+      <div id="sn-ia-msg"></div>
+    </div>
+    <div class="ft"><button class="sn-btn" onclick="snIaClose_()">Cancelar</button><button class="sn-btn pri" id="sn-ia-go" onclick="snIaGenerar_()">✨ Generar</button></div></div>`;
+  document.body.appendChild(el);
+  const drawSz = () => { const b = document.getElementById('sn-ia-sz'); if (b) b.innerHTML = snSizePicker_(SN._sz, drawSz); };
+  drawSz();
+  document.getElementById('sn-ia-p').focus();
+};
+window.snIaClose_ = function () { const m = document.getElementById('sn-modal-ia'); if (m) m.remove(); };
+window.snIaEj_ = function (i) { const t = document.getElementById('sn-ia-p'); t.value = SN_IA_EJEMPLOS[i]; SN._ia.prompt = t.value; t.focus(); };
+window.snIaGenerar_ = async function () {
+  const st = SN._ia; if (st.busy) return;
+  const p = String(st.prompt || '').trim(), msg = document.getElementById('sn-ia-msg'), go = document.getElementById('sn-ia-go');
+  if (p.length < 5) { msg.innerHTML = '<div class="sn-ia-err">Escribe qué señal quieres.</div>'; return; }
+  if (SN.view === 'editor' && SN.dirty && !confirm('La señal abierta tiene cambios sin guardar. ¿Descartarlos y abrir la nueva?')) return;
+  st.busy = true; go.disabled = true; go.textContent = '⏳ Diseñando…';
+  const t0 = Date.now(); const tick = setInterval(() => { if (msg) msg.innerHTML = `<div class="sn-ia-wait">🎨 Claude está diseñando tu señal… <b>${Math.round((Date.now() - t0) / 1000)} s</b><br><span>Suele tardar entre 20 y 90 segundos.</span></div>`; }, 500);
+  try {
+    const dim = snSizeDims_(SN._sz);
+    const j = await snApi_('/senal/generar', { prompt: p, marca: st.marca, pie: st.pie, w: dim.w, h: dim.h });
+    j.diseno.fmt = dim.fmt;
+    clearInterval(tick); snIaClose_();
+    if (SN.canvas) { SN.canvas.dispose(); SN.canvas = null; }
+    SN.cur = j.diseno; SN.view = 'editor'; SN.undo = []; SN.redo = []; SN.dirty = true;
+    snRenderEditor_();
+  } catch (e) {
+    clearInterval(tick);
+    if (msg) msg.innerHTML = `<div class="sn-ia-err">⚠️ ${snEsc_(e.message)}</div>`;
+    go.disabled = false; go.textContent = '✨ Reintentar';
+  }
+  st.busy = false;
+};
+
 window.snReplaceImg_ = function () {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/png,image/jpeg,image/svg+xml,image/webp';
   inp.onchange = async () => {
@@ -62237,7 +62432,9 @@ async function snPdf_(disenos, formato, nombre) {
   for (const d of disenos) d.els.forEach(e => (e.paras || []).forEach(p => p.runs.forEach(r => fams.add(snFont_(r.font)))));
   for (let i = 0; i < disenos.length; i++) {
     const d = disenos[i], W = d.w * SN_PX, H = d.h * SN_PX;
-    const PW = formato === 'carta' ? 8.5 * 72 : W, PH = formato === 'carta' ? 11 * 72 : H;
+    const pg = formato === 'carta' ? [8.5, 11] : formato === 'a4' ? [8.27, 11.69] : null;
+    let PW = pg ? pg[0] * 72 : W, PH = pg ? pg[1] * 72 : H;
+    if (pg && W > H) [PW, PH] = [PH, PW]; // señal horizontal → hoja horizontal
     if (!pdf) { pdf = new jsPDF({ unit: 'pt', format: [PW, PH], orientation: PW > PH ? 'l' : 'p', compress: true }); await snPdfFonts_(pdf, fams); }
     else pdf.addPage([PW, PH], PW > PH ? 'l' : 'p');
     c.setWidth(W); c.setHeight(H); await snBuild_(c, d);
@@ -62248,23 +62445,60 @@ async function snPdf_(disenos, formato, nombre) {
     try { await pdf.svg(svg, { x: (PW - w) / 2, y: (PH - h) / 2, width: w, height: h }); } finally { svg.remove(); }
   }
   c.dispose();
-  pdf.save((nombre || 'senaletica').replace(/[^\wáéíóúñÁÉÍÓÚÑ -]+/g, '').trim() + '.pdf');
+  pdf.save(snSafeName_(nombre) + '.pdf');
+}
+// Niveles de definición para PNG/JPG (pixeles por pulgada).
+const SN_DPI = [
+  { v: 72, n: 'Borrador', d: 'pantalla / WhatsApp, archivo ligero' },
+  { v: 150, n: 'Media', d: 'impresión casera aceptable' },
+  { v: 300, n: 'Alta', d: 'impresión profesional (recomendada)' },
+  { v: 600, n: 'Máxima', d: 'gran detalle; archivo pesado' },
+];
+const SN_MAX_PX = 100e6; // límite de pixeles por imagen que soportan los navegadores
+function snSafeName_(n) { return (n || 'senaletica').replace(/[^\wáéíóúñÁÉÍÓÚÑ -]+/g, '').trim() || 'senaletica'; }
+function snDpiReal_(d, dpi) { const px = d.w * dpi * d.h * dpi; return px > SN_MAX_PX ? Math.floor(Math.sqrt(SN_MAX_PX / (d.w * d.h))) : dpi; }
+async function snRaster_(disenos, tipo, dpi, nombre) {
+  const el = document.createElement('canvas');
+  const c = new fabric.StaticCanvas(el, { enableRetinaScaling: false });
+  try {
+    for (let i = 0; i < disenos.length; i++) {
+      const d = disenos[i]; c.setWidth(d.w * SN_PX); c.setHeight(d.h * SN_PX); await snBuild_(c, d);
+      let real = snDpiReal_(d, dpi), url = '';
+      for (let t = 0; t < 4; t++) { // Safari/iPhone tienen un límite menor: si falla, baja la definición
+        try { url = c.toDataURL({ format: tipo, quality: 0.92, multiplier: real / 72 }); } catch (_) { url = ''; }
+        if (url && url.length > 100) break; real = Math.floor(real / 1.6);
+      }
+      if (!url || url.length < 100) throw new Error('El navegador no pudo generar la imagen a esa definición.');
+      const a = document.createElement('a'); a.href = url;
+      a.download = `${snSafeName_(disenos.length === 1 ? nombre : d.nombre)} ${real}dpi.${tipo === 'jpeg' ? 'jpg' : 'png'}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      if (disenos.length > 1) await new Promise(r => setTimeout(r, 400));
+    }
+  } finally { c.dispose(); }
 }
 function snPdfDialog_(disenos, nombre) {
   const el = document.createElement('div'); el.className = 'sn-modal sn'; el.id = 'sn-modal';
-  el.innerHTML = `<div class="pn" style="max-width:440px"><div class="hd">🖨️ PDF para impresión<button class="sn-btn sm" onclick="document.getElementById('sn-modal').remove()">✕</button></div>
-    <div class="bd"><div style="font-size:12.5px;color:#475569;margin-bottom:10px">${disenos.length} señal${disenos.length === 1 ? '' : 'es'} · PDF <b>vectorial</b> (textos y formas nítidos a cualquier tamaño).</div>
-      <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px;cursor:pointer"><input type="radio" name="snfmt" value="carta" checked> Carta 8.5 × 11 in (ajustada y centrada)</label>
-      <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="radio" name="snfmt" value="original"> Tamaño original (${disenos[0].w} × ${disenos[0].h} in)</label>
+  const d0 = disenos[0], st = SN._ex = SN._ex || { tipo: 'pdf', hoja: 'original', dpi: 300 };
+  const opt = (grp, v, cur, lbl, sub) => `<button class="sn-exo ${cur === v ? 'on' : ''}" onclick="SN._ex.${grp}=${typeof v === 'number' ? v : `'${v}'`};SN._exDraw()"><b>${lbl}</b>${sub ? `<small>${sub}</small>` : ''}</button>`;
+  const draw = () => {
+    const raster = st.tipo !== 'pdf';
+    el.innerHTML = `<div class="pn" style="max-width:560px"><div class="hd">⬇️ Exportar ${disenos.length} señal${disenos.length === 1 ? '' : 'es'}<button class="sn-btn sm" onclick="document.getElementById('sn-modal').remove()">✕</button></div>
+    <div class="bd">
+      <div class="sn-exh">Tipo de archivo</div>
+      <div class="sn-exg">${opt('tipo', 'pdf', st.tipo, '📄 PDF vectorial', 'imprenta · nítido a cualquier tamaño')}${opt('tipo', 'png', st.tipo, '🖼️ PNG', 'imagen sin pérdida')}${opt('tipo', 'jpeg', st.tipo, '📷 JPG', 'imagen ligera para enviar')}</div>
+      ${raster ? `<div class="sn-exh">Definición</div><div class="sn-exg">${SN_DPI.map(x => { const r = snDpiReal_(d0, x.v); const px = `${Math.round(d0.w * r)} × ${Math.round(d0.h * r)} px`; return opt('dpi', x.v, st.dpi, `${x.n} · ${x.v} dpi`, `${x.d}<br>${px}${r < x.v ? ` (limitado a ${r} dpi por tamaño)` : ''}`); }).join('')}</div>`
+      : `<div class="sn-exh">Hoja del PDF</div><div class="sn-exg">${opt('hoja', 'original', st.hoja, 'Tamaño de la señal', snEsc_(snSizeLbl_(d0)))}${opt('hoja', 'carta', st.hoja, 'Carta 8.5 × 11 in', 'ajustada y centrada')}${opt('hoja', 'a4', st.hoja, 'A4', 'ajustada y centrada')}</div>
+         <div style="font-size:11.5px;color:#64748b;margin-top:8px">💡 El PDF es <b>vectorial</b>: textos, formas, íconos y QR salen con la máxima definición a cualquier tamaño. Las fotos conservan su resolución original.</div>`}
       <div id="sn-pdf-st" style="font-size:12px;color:#64748b;margin-top:10px"></div></div>
-    <div class="ft"><button class="sn-btn" onclick="document.getElementById('sn-modal').remove()">Cancelar</button><button class="sn-btn ok" id="sn-pdf-go">⬇️ Descargar PDF</button></div></div>`;
-  document.body.appendChild(el);
-  el.querySelector('#sn-pdf-go').onclick = async () => {
-    const fmt = el.querySelector('input[name=snfmt]:checked').value, b = el.querySelector('#sn-pdf-go'), st = el.querySelector('#sn-pdf-st');
-    b.disabled = true; b.textContent = '⏳ Generando…'; st.textContent = 'Cargando fuentes e imágenes…';
-    try { await snPdf_(disenos, fmt, nombre); el.remove(); }
-    catch (e) { console.error(e); st.textContent = '⚠️ ' + e.message; b.disabled = false; b.textContent = '⬇️ Descargar PDF'; }
+    <div class="ft"><button class="sn-btn" onclick="document.getElementById('sn-modal').remove()">Cancelar</button><button class="sn-btn ok" id="sn-pdf-go">⬇️ Descargar ${raster ? (st.tipo === 'png' ? 'PNG' : 'JPG') : 'PDF'}</button></div></div>`;
+    el.querySelector('#sn-pdf-go').onclick = async () => {
+      const b = el.querySelector('#sn-pdf-go'), s = el.querySelector('#sn-pdf-st'), txt = b.textContent;
+      b.disabled = true; b.textContent = '⏳ Generando…'; s.textContent = 'Cargando fuentes e imágenes…';
+      try { if (raster) await snRaster_(disenos, st.tipo, st.dpi, nombre); else await snPdf_(disenos, st.hoja, nombre); el.remove(); }
+      catch (e) { console.error(e); s.textContent = '⚠️ ' + e.message; b.disabled = false; b.textContent = txt; }
+    };
   };
+  SN._exDraw = draw; draw(); document.body.appendChild(el);
 }
 window.snExportCur_ = function () { SN.canvas.discardActiveObject(); const d = { ...SN.cur, els: snSceneFromCanvas_() }; snPdfDialog_([d], d.nombre); };
 window.snExportSel_ = function () {
