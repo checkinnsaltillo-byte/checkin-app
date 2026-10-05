@@ -57282,6 +57282,8 @@ async function tarLoadTemplates_() {
 
 // ── Init / render principal ────────────────────────────────────────────
 window.tareasInit = async function () {
+  // Al entrar al módulo siempre se abre Calendario › Resumen de tareas.
+  TAR_STATE.section = 'calendario'; TAR_STATE.calView = 'resumen'; TAR_STATE.calRef = tarToday_();
   if (!TAR_STATE.loaded) {
     try {
       const c = JSON.parse(localStorage.getItem(TAR_LOCAL_KEY) || 'null');
@@ -57316,8 +57318,8 @@ function tarRender() {
         </div>
       </div>
       <div style="display:flex;gap:0;border-bottom:1px solid #e2e8f0;margin-bottom:14px">
-        ${tabBtn('registro', '📝 Registro de tareas')}
         ${tabBtn('calendario', '📅 Calendario')}
+        ${tabBtn('registro', '📝 Registro de tareas')}
       </div>
       <div id="tar-content">${TAR_STATE.section === 'registro' ? tarRegistroHtml_() : tarCalendarioHtml_()}</div>
     </div>`;
