@@ -58811,6 +58811,8 @@ function pzRender_() {
       <div class="pz-tx"><div class="pz-t" title="Clic para editar" onclick="pzEditar_('${id}', this)">${pcEsc(x.texto)}</div>
         <div class="pz-meta">${pzAsigHtml_(x.asignados, `pzAsignar_('${id}', this)`)}
           ${atras ? `<span class="pz-old">⏳ desde ${pzFmtDia_(x.fecha)}</span>` : ''}
+          ${!x.hecho && x.fecha && x.fecha > hoy ? `<span class="pz-old" style="color:#1e40af;background:#dbeafe">📅 para ${pzFmtDia_(x.fecha)}</span>` : ''}
+          ${x.origen === 'Bot WhatsApp' ? '<span class="pz-old" style="color:#5b21b6;background:#ede9fe" title="Agregado por WhatsApp">🤖 Bot</span>' : ''}
           <span class="pz-by">${x.hecho ? `✓ ${pcEsc(x.hechoPor || '')} · ${pzHora_(x.hechoAt)}` : `${pcEsc(x.creadoPor || '')}${x.creadoAt ? ' · ' + pzHora_(x.creadoAt) : ''}`}</span></div></div>
       <button class="pz-del" title="Borrar" onclick="pzBorrar_('${id}')">×</button></div>`;
   };
