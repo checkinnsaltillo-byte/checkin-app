@@ -58257,6 +58257,7 @@ function pcEnsureStyles_() {
   .pc-band-n{font-size:12px;color:#64748b;flex:1;min-width:200px}
   .pc-band-sticky{position:sticky;top:0;z-index:5;background:rgba(238,242,255,.94);backdrop-filter:blur(6px);margin:-14px -14px 12px;padding:12px 14px;border-radius:20px 20px 0 0;border-bottom:1px solid #c7d2fe}
   .pc-band-mes .pc-mnav{background:#1e1b4b}
+  .pc-band-mes .pc-mnav .pc-mlabel{color:#fff}
   .pc-band .pc-grp{border-top-width:3px}
   .pc-as-t{width:100%;border-collapse:separate;border-spacing:0 3px;font-size:12px}
   .pc-as-t th{font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;padding:2px 4px;text-align:center}
