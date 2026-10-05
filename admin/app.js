@@ -348,6 +348,7 @@ const SYS_MODULE_PERMS = {
 const SYS_MODULE_LIST = [
   ['panel-control',    '📊 Panel de control'],
   ['procesos',         '📘 Documentación de procesos'],
+  ['senaletica',       '🪧 Señalética'],
   ['registros',        '📚 Registros contables'],
   ['tickets',          '🎫 Tickets'],
   ['lodgify',          '🌐 Gestión de reservas'],
@@ -390,7 +391,7 @@ function sysApplyPermissions(user) {
     });
   } else {
     // Usuario legado de sys_users (grupos por número romano).
-    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control', 'procesos']);
+    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control', 'procesos', 'senaletica']);
     if (user && user.modulos) {
       for (const k in SYS_MODULE_PERMS) {
         if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -9121,7 +9122,7 @@ const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
-  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos',
+  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica',
 ]);
 function _bootModuleFromHash_() {
   const h = (location.hash || '').replace(/^#/, '').trim();
@@ -9164,7 +9165,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9327,6 +9328,9 @@ function switchModule(mod) {
   }
   if (mod === "panel-control") {
     if (typeof panelControlInit === 'function') panelControlInit();
+  }
+  if (mod === "senaletica") {
+    if (typeof senaleticaInit === 'function') senaleticaInit();
   }
   if (mod === "procesos") {
     const host = document.getElementById('procesos-host');
@@ -60732,6 +60736,11 @@ const NAV_TREE = {
       { t: '☰ Tabla', go: () => { tarSetSection('registro'); tarSetView('tabla'); } },
     ] },
   ],
+  senaletica: [
+    { t: '🖼️ Galería de señales', go: () => { if (window.SN && SN.view === 'editor') snVolver_(); } },
+    { t: '🎨 Kit de marca', go: () => { const t = setInterval(() => { if (window.SN && SN.data) { clearInterval(t); snMarcaOpen_(); } }, 300); setTimeout(() => clearInterval(t), 15000); } },
+    { t: '＋ Nueva señal', go: () => { const t = setInterval(() => { if (window.SN && SN.data && document.getElementById('sn-root')) { clearInterval(t); snNuevo_(); } }, 300); setTimeout(() => clearInterval(t), 15000); } },
+  ],
   procesos: [
     { t: '📚 Catálogo de procesos', go: () => { if (window.DP && DP.view !== 'catalogo') dpVolver_(); } },
     { t: '＋ Nuevo proceso', go: () => dpNuevo_() },
@@ -61568,6 +61577,676 @@ window.vaBitacora_ = async function () {
     <div class="bd">${VA.log.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${['Fecha', 'Usuario', 'Acción', 'Registro'].map(h => `<th style="text-align:left;padding:7px 8px;background:#f8fafc;font-size:10.5px;text-transform:uppercase;color:#475569">${h}</th>`).join('')}</tr></thead><tbody>
       ${VA.log.map(l => `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;white-space:nowrap">${vaEsc_(new Date(l.ts).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-weight:700">${vaEsc_(l.u || '—')}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${vaEsc_(l.a)}</td><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#64748b">${vaEsc_(l.t || '')}</td></tr>`).join('')}</tbody></table>` : '<div style="color:#94a3b8">Sin movimientos.</div>'}</div></div>`;
   document.body.appendChild(m);
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║ MÓDULO 🪧 Señalética (key: senaletica)                                ║
+// ║ Kit editable de señales para impresión. Escena propia en pulgadas    ║
+// ║ (els[]) ⇄ objetos Fabric.js (72 px = 1 in = 72 pt). Tokens de marca:  ║
+// ║ colores "$amarillo", fuentes "$fTitulo", textos "{{web}}", "$logo".   ║
+// ║ Exporta PDF vectorial (Fabric → SVG → svg2pdf/jsPDF con TTF).         ║
+// ║ Datos: server /senal/* → gs://check-in-493804-senaletica.             ║
+// ═══════════════════════════════════════════════════════════════════════
+const SN_PX = 72;
+const SN_LIBS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.4/dist/svg2pdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
+];
+// Fuentes con TTF estático (necesario para PDF vectorial). [regular, bold, italic, boldItalic]
+const SN_FONTS = {
+  'Poppins': ['poppins/Poppins-Regular.ttf', 'poppins/Poppins-Bold.ttf', 'poppins/Poppins-Italic.ttf', 'poppins/Poppins-BoldItalic.ttf'],
+  'Lato': ['lato/Lato-Regular.ttf', 'lato/Lato-Bold.ttf', 'lato/Lato-Italic.ttf', 'lato/Lato-BoldItalic.ttf'],
+  'Kanit': ['kanit/Kanit-Regular.ttf', 'kanit/Kanit-Bold.ttf', 'kanit/Kanit-Italic.ttf', 'kanit/Kanit-BoldItalic.ttf'],
+  'Didact Gothic': ['didactgothic/DidactGothic-Regular.ttf'],
+  'Questrial': ['questrial/Questrial-Regular.ttf'],
+  'Anton': ['anton/Anton-Regular.ttf'],
+};
+const SN_FONT_CDN = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/';
+const SN_COLOR_LBL = { amarillo: 'Amarillo', rojo: 'Rojo', azul: 'Azul', azul2: 'Azul 2', verde: 'Verde' };
+
+window.SN = window.SN || { data: null, base: '', loading: false, err: '', view: 'galeria', cat: '', q: '', thumbs: {}, sel: new Set(), cur: null, canvas: null, zoom: 1, undo: [], redo: [], dirty: false, saving: false };
+
+function snEsc_(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function snUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : ''; }
+function snLoadScript_(src) {
+  return new Promise((ok, ko) => {
+    if (document.querySelector(`script[data-sn="${src}"]`)) return ok();
+    const s = document.createElement('script'); s.src = src; s.async = false; s.dataset.sn = src;
+    s.onload = ok; s.onerror = () => ko(new Error('No se pudo cargar ' + src)); document.head.appendChild(s);
+  });
+}
+async function snEnsureLibs_() {
+  for (const u of SN_LIBS) await snLoadScript_(u);
+  if (!document.getElementById('sn-gfonts')) {
+    const l = document.createElement('link'); l.id = 'sn-gfonts'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Lato:ital,wght@0,400;0,700;1,400;1,700&family=Kanit:ital,wght@0,400;0,700;1,400;1,700&family=Didact+Gothic&family=Questrial&family=Anton&display=swap';
+    document.head.appendChild(l);
+  }
+  try { await Promise.all(Object.keys(SN_FONTS).flatMap(f => [document.fonts.load(`16px "${f}"`), document.fonts.load(`bold 16px "${f}"`)])); } catch (_) {}
+}
+async function snApi_(path, body) {
+  const r = await fetch(`${BACKEND}${path}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || `Error ${r.status}`);
+  return j;
+}
+async function snLoad_() {
+  SN.loading = true; SN.err = ''; snRender_();
+  try {
+    const j = await snApi_('/senal/data');
+    SN.base = j.base; SN.data = { marca: j.marca || {}, disenos: j.disenos || [] };
+  } catch (e) { SN.err = e.message; }
+  SN.loading = false; snRender_();
+}
+
+// ── Tokens de marca ──────────────────────────────────────────────────
+function snM_() { return (SN.data && SN.data.marca) || {}; }
+function snColor_(v) { if (!v) return null; if (v[0] === '$') return (snM_().colores || {})[v.slice(1)] || '#000000'; return v; }
+function snFont_(v) { if (!v) return 'Lato'; if (v[0] === '$') return (snM_().fuentes || {})[v.slice(1)] || 'Lato'; return v; }
+function snTxt_(t) { const m = snM_(); return String(t || '').replace(/\{\{web\}\}/g, m.web || '').replace(/\{\{marca\}\}/g, m.nombre || '').replace(/\{\{tel\}\}/g, m.tel || ''); }
+function snSrc_(v) { const m = snM_(); const p = v === '$logo' ? m.logo : v === '$logoIcono' ? m.logoIcono : v; return /^(https?:|data:)/.test(p || '') ? p : SN.base + p; }
+function snColorTok_(hex) { // hex → token si coincide con un color de la marca
+  const c = snM_().colores || {}; const h = String(hex || '').toUpperCase();
+  const k = Object.keys(c).find(k => String(c[k]).toUpperCase() === h); return k ? '$' + k : hex;
+}
+function snFontTok_(f) { const fu = snM_().fuentes || {}; const k = Object.keys(fu).find(k => fu[k] === f); return k ? '$' + k : f; }
+function snAlphaHex_(hex, a) { if (a == null || a >= 1 || !hex) return hex; const h = hex.replace('#', ''); const n = parseInt(h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
+
+// ── Escena → Fabric ──────────────────────────────────────────────────
+function snQrPath_(data, size) {
+  const q = qrcode(0, 'M'); q.addData(String(data || ' ')); q.make();
+  const n = q.getModuleCount(), m = size / (n + 2); let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) { const x = (c + 1) * m, y = (r + 1) * m; d += `M${x.toFixed(3)} ${y.toFixed(3)}h${m.toFixed(3)}v${m.toFixed(3)}h-${m.toFixed(3)}z`; }
+  return d;
+}
+function snLoadImg_(url) { return new Promise(ok => fabric.Image.fromURL(url, img => ok(img), { crossOrigin: 'anonymous' })); }
+async function snToFabric_(e) {
+  const P = SN_PX, cx = (e.x + e.w / 2) * P, cy = (e.y + e.h / 2) * P;
+  const common = { originX: 'center', originY: 'center', left: cx, top: cy, angle: e.rot || 0, flipX: !!e.flipH, flipY: !!e.flipV, opacity: e.opacity == null ? 1 : e.opacity, strokeUniform: true };
+  let o = null;
+  if (e.t === 'rect' || e.t === 'ellipse' || e.t === 'poly') {
+    const fill = snAlphaHex_(snColor_(e.fill), e.fillA) || 'transparent', stroke = snColor_(e.stroke) || null, sw = e.stroke ? e.sw || 1 : 0;
+    if (e.t === 'rect') o = new fabric.Rect({ ...common, width: e.w * P, height: e.h * P, rx: (e.r || 0) * P, ry: (e.r || 0) * P, fill, stroke, strokeWidth: sw });
+    else if (e.t === 'ellipse') o = new fabric.Ellipse({ ...common, rx: e.w * P / 2, ry: e.h * P / 2, fill, stroke, strokeWidth: sw });
+    else o = new fabric.Polygon(e.pts.map(([a, b]) => ({ x: a * P, y: b * P })), { ...common, fill, stroke, strokeWidth: sw });
+  } else if (e.t === 'line') {
+    o = new fabric.Line([e.x1 * P, e.y1 * P, e.x2 * P, e.y2 * P], { stroke: snColor_(e.stroke) || '#000', strokeWidth: e.sw || 1, opacity: e.opacity == null ? 1 : e.opacity, strokeUniform: true });
+  } else if (e.t === 'qr') {
+    o = new fabric.Path(snQrPath_(e.data, e.w * P), { ...common, fill: snColor_(e.fill) || '#000000', stroke: null });
+    const bg = new fabric.Rect({ originX: 'center', originY: 'center', left: 0, top: 0, width: e.w * P, height: e.h * P, fill: '#ffffff' });
+    o.set({ left: 0, top: 0, originX: 'center', originY: 'center', angle: 0, flipX: false, flipY: false });
+    o = new fabric.Group([bg, o], { ...common });
+  } else if (e.t === 'image') {
+    const img = await snLoadImg_(snSrc_(e.src));
+    if (!img || !img.width) { o = new fabric.Rect({ ...common, width: e.w * P, height: e.h * P, fill: '#f1f5f9', stroke: '#cbd5e1', strokeDashArray: [4, 4] }); }
+    else {
+      const nw = img.width, nh = img.height, c = e.crop || [0, 0, 0, 0];
+      const cw = nw * (1 - c[0] - c[2]), ch = nh * (1 - c[1] - c[3]);
+      img.set({ ...common, cropX: nw * c[0], cropY: nh * c[1], width: cw, height: ch, scaleX: e.w * P / cw, scaleY: e.h * P / ch });
+      o = img;
+    }
+  } else if (e.t === 'text') {
+    const paras = e.paras || [];
+    const text = paras.map(p => p.runs.map(r => snTxt_(r.text)).join('')).join('\n');
+    const styles = {};
+    paras.forEach((p, li) => { let ci = 0; p.runs.forEach(r => { const t = snTxt_(r.text); for (let k = 0; k < t.length; k++) { (styles[li] = styles[li] || {})[ci++] = { fontSize: r.size, fontWeight: r.bold ? 'bold' : 'normal', fontStyle: r.italic ? 'italic' : 'normal', fill: snColor_(r.color) || '#000', fontFamily: snFont_(r.font), underline: !!r.underline }; } }); });
+    const first = (paras.find(p => p.runs.length) || {}).runs?.[0] || {};
+    const aligns = paras.map(p => p.align); const align = aligns.sort((a, b) => aligns.filter(x => x === b).length - aligns.filter(x => x === a).length)[0] || 'left';
+    const lhs = paras.map(p => p.lh).filter(Boolean); const lh = lhs.length ? lhs.reduce((a, b) => a + b, 0) / lhs.length : 1;
+    const pad = e.pad || [0.1, 0.05, 0.1, 0.05];
+    const innerW = Math.max(10, (e.w - pad[0] - pad[2]) * P);
+    o = new fabric.Textbox(text, { originX: 'center', originY: 'center', angle: e.rot || 0, width: e.wrap === false ? 4000 : innerW, textAlign: align, lineHeight: 1.16 * lh,
+      fontSize: first.size || 18, fontFamily: snFont_(first.font), fill: snColor_(first.color) || '#000', fontWeight: first.bold ? 'bold' : 'normal', styles, splitByGrapheme: false, opacity: e.opacity == null ? 1 : e.opacity });
+    if (e.wrap === false) { o.set('width', Math.max(10, Math.ceil(Math.max(...o._textLines.map((_, i) => o.getLineWidth(i)))) + 2)); o.initDimensions(); }
+    const th = o.height, tw = o.width;
+    let tx = e.x * P + pad[0] * P + innerW / 2;
+    if (e.wrap === false) tx = align === 'center' ? (e.x + e.w / 2) * P : align === 'right' ? (e.x + e.w - pad[2]) * P - tw / 2 : e.x * P + pad[0] * P + tw / 2;
+    const ty = e.anchor === 'middle' ? (e.y + e.h / 2) * P : e.anchor === 'bottom' ? (e.y + e.h - pad[3]) * P - th / 2 : (e.y + pad[1]) * P + th / 2;
+    o.set({ left: tx, top: ty });
+  }
+  if (o) { o.sn = JSON.parse(JSON.stringify(e)); }
+  return o;
+}
+async function snBuild_(canvas, d) {
+  canvas.clear(); canvas.backgroundColor = '#ffffff';
+  for (const e of d.els) { try { const o = await snToFabric_(e); if (o) canvas.add(o); } catch (err) { console.warn('[senal] elemento', e.t, err.message); } }
+  canvas.renderAll();
+}
+
+// ── Fabric → escena ──────────────────────────────────────────────────
+function snFromFabric_(o) {
+  const P = SN_PX, e = JSON.parse(JSON.stringify(o.sn || {}));
+  if (o.type === 'line') {
+    const pts = o.calcLinePoints(), m = o.calcTransformMatrix();
+    const a = fabric.util.transformPoint({ x: pts.x1, y: pts.y1 }, m), b = fabric.util.transformPoint({ x: pts.x2, y: pts.y2 }, m);
+    return { ...e, t: 'line', x1: a.x / P, y1: a.y / P, x2: b.x / P, y2: b.y / P, stroke: o.snStroke || snColorTok_(o.stroke), sw: o.strokeWidth, opacity: o.opacity };
+  }
+  const c = o.getCenterPoint(), w = o.getScaledWidth(), h = o.getScaledHeight();
+  Object.assign(e, { x: (c.x - w / 2) / P, y: (c.y - h / 2) / P, w: w / P, h: h / P, rot: o.angle || 0, flipH: !!o.flipX, flipV: !!o.flipY, opacity: o.opacity });
+  if (['rect', 'ellipse', 'polygon'].includes(o.type) && e.t !== 'image') {
+    // Tamaño sin el grosor del borde (Fabric lo suma).
+    const sw = o.stroke ? o.strokeWidth || 0 : 0; e.w = (o.width * o.scaleX) / P; e.h = (o.height * o.scaleY) / P; e.x = (c.x / P) - e.w / 2; e.y = (c.y / P) - e.h / 2;
+    e.fill = o.snFill !== undefined ? o.snFill : (o.fill && o.fill !== 'transparent' ? snColorTok_(o.fill) : null);
+    if (typeof o.fill === 'string' && o.fill.startsWith('rgba')) e.fill = e.fill; else e.fillA = 1;
+    e.stroke = o.stroke ? (o.snStroke || snColorTok_(o.stroke)) : null; e.sw = o.stroke ? sw : 0;
+    if (o.type === 'rect') { e.t = 'rect'; e.r = (o.rx || 0) * o.scaleX / P; }
+    if (o.type === 'ellipse') e.t = 'ellipse';
+    if (o.type === 'polygon') { e.t = 'poly'; const sx = o.scaleX, sy = o.scaleY, off = o.pathOffset; e.pts = o.points.map(p => [((p.x - off.x) * sx + o.width * sx / 2) / P, ((p.y - off.y) * sy + o.height * sy / 2) / P]); }
+  }
+  if (o.type === 'textbox') {
+    const lines = o.text.split('\n');
+    e.t = 'text'; e.anchor = 'top'; e.wrap = true; e.pad = [0, 0, 0, 0]; e.rot = o.angle || 0;
+    e.paras = lines.map((ln, li) => {
+      const runs = []; let cur = null;
+      for (let ci = 0; ci < ln.length; ci++) {
+        const st = { ...{ fontSize: o.fontSize, fontWeight: o.fontWeight, fontStyle: o.fontStyle, fill: o.fill, fontFamily: o.fontFamily, underline: o.underline }, ...((o.styles[li] || {})[ci] || {}) };
+        const r = { size: Math.round(st.fontSize * (o.scaleY || 1) * 10) / 10, bold: st.fontWeight === 'bold' || st.fontWeight >= 600, italic: st.fontStyle === 'italic', color: snColorTok_(st.fill), font: snFontTok_(st.fontFamily), underline: !!st.underline };
+        const key = JSON.stringify(r);
+        if (cur && cur.k === key) cur.r.text += ln[ci]; else { cur = { k: key, r: { ...r, text: ln[ci] } }; runs.push(cur.r); }
+      }
+      return { align: o.textAlign, runs, size: Math.round(o.fontSize * (o.scaleY || 1) * 10) / 10, lh: Math.round(o.lineHeight / 1.16 * 1000) / 1000 };
+    });
+    // Restaura tokens de texto de marca si el texto no cambió.
+    const m = snM_();
+    e.paras.forEach(p => p.runs.forEach(r => { if (m.web && r.text === m.web) r.text = '{{web}}'; else if (m.nombre && r.text === m.nombre) r.text = '{{marca}}'; else if (m.tel && r.text === m.tel) r.text = '{{tel}}'; }));
+    // Ancho/alto reales del cuadro de texto.
+    e.w = o.width * o.scaleX / P; e.h = o.height * o.scaleY / P; e.x = c.x / P - e.w / 2; e.y = c.y / P - e.h / 2;
+  }
+  if (e.t === 'qr') { e.fill = o.snFill || e.fill; }
+  return e;
+}
+function snSceneFromCanvas_() {
+  return SN.canvas.getObjects().filter(o => !o.snGuide).map(snFromFabric_);
+}
+
+// ── Estilos ──────────────────────────────────────────────────────────
+function snEnsureStyles_() {
+  if (document.getElementById('sn-styles')) return;
+  const st = document.createElement('style'); st.id = 'sn-styles';
+  st.textContent = `
+  .sn{color:#0f172a;font-size:13px}
+  .sn *{box-sizing:border-box}
+  .sn-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .sn-top h2{margin:0;font-size:20px;font-weight:900}
+  .sn-top p{margin:2px 0 0;font-size:12.5px;color:#64748b}
+  .sn-btn{border:1px solid #e2e8f0;background:#fff;color:#334155;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:inherit}
+  .sn-btn:hover{background:#f8fafc;border-color:#94a3b8}
+  .sn-btn.pri{background:linear-gradient(120deg,#0b1730,#1e3a6e);color:#fff;border-color:#1e3a6e}
+  .sn-btn.ok{background:#059669;color:#fff;border-color:#059669}
+  .sn-btn.sm{padding:5px 9px;font-size:11.5px;border-radius:7px}
+  .sn-btn:disabled{opacity:.5;cursor:default}
+  .sn-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .sn-chip{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;color:#334155;cursor:pointer;font-family:inherit}
+  .sn-chip.on{background:#0b1730;color:#fff;border-color:#0b1730}
+  .sn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+  .sn-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;cursor:pointer;position:relative;transition:box-shadow .15s,border-color .15s}
+  .sn-card:hover{border-color:#94a3b8;box-shadow:0 8px 20px rgba(15,23,42,.1)}
+  .sn-card.sel{border-color:#4f46e5;box-shadow:0 0 0 3px #c7d2fe}
+  .sn-thumb{aspect-ratio:3/4;background:#f8fafc;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #f1f5f9}
+  .sn-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+  .sn-card .n{padding:8px 10px 2px;font-size:12px;font-weight:800;line-height:1.25}
+  .sn-card .c{padding:0 10px 8px;font-size:10.5px;color:#64748b}
+  .sn-card .ck{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:6px;border:2px solid #cbd5e1;background:#fff;color:#fff;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .sn-card.sel .ck{background:#4f46e5;border-color:#4f46e5}
+  .sn-ed{display:grid;grid-template-columns:150px minmax(0,1fr) 270px;gap:10px;height:calc(100vh - 210px);min-height:520px}
+  .sn-tools,.sn-props{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;overflow:auto}
+  .sn-tools button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;padding:8px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;color:#334155;text-align:left;font-family:inherit}
+  .sn-tools button:hover{background:#f1f5f9}
+  .sn-tools .h{font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:8px 8px 4px}
+  .sn-stage{background:#e2e8f0;border-radius:12px;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+  .sn-stage .canvas-container{box-shadow:0 10px 30px rgba(15,23,42,.18)}
+  .sn-props .h{font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px}
+  .sn-props label{display:block;font-size:10.5px;font-weight:800;color:#64748b;margin:6px 0 3px}
+  .sn-in{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12.5px;font-family:inherit}
+  .sn-row{display:flex;gap:6px;align-items:center}
+  .sn-sw{width:24px;height:24px;border-radius:6px;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1;cursor:pointer;flex:none}
+  .sn-sw.on{box-shadow:0 0 0 2px #4f46e5}
+  .sn-pal{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .sn-tg{border:1px solid #e2e8f0;background:#fff;border-radius:7px;min-width:30px;height:30px;font-weight:900;cursor:pointer;font-family:inherit}
+  .sn-tg.on{background:#0b1730;color:#fff;border-color:#0b1730}
+  .sn-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:14px}
+  .sn-modal .pn{background:#fff;border-radius:16px;width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column}
+  .sn-modal .hd{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e2e8f0;font-weight:900;font-size:15px}
+  .sn-modal .bd{padding:14px 18px;overflow:auto}
+  .sn-modal .ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc;border-radius:0 0 16px 16px}
+  @media (max-width:1000px){ .sn-ed{grid-template-columns:1fr;height:auto} .sn-tools{display:flex;flex-wrap:wrap;gap:4px}.sn-tools button{width:auto}.sn-tools .h{width:100%} }`;
+  document.head.appendChild(st);
+}
+
+// ── Render ───────────────────────────────────────────────────────────
+window.senaleticaInit = async function () {
+  const host = document.getElementById('senaletica-host'); if (!host) return;
+  snEnsureStyles_();
+  if (SN.view === 'editor' && SN.canvas) return; // mantiene el editor abierto
+  host.innerHTML = '<div class="sn" id="sn-root"><div style="padding:40px;text-align:center;color:#94a3b8">⏳ Cargando editor de señalética…</div></div>';
+  try { await snEnsureLibs_(); } catch (e) { document.getElementById('sn-root').innerHTML = `<div style="padding:30px;color:#991b1b">⚠️ ${snEsc_(e.message)}</div>`; return; }
+  if (!SN.data) await snLoad_(); else snRender_();
+};
+function snRender_() {
+  const root = document.getElementById('sn-root'); if (!root) return;
+  if (SN.view === 'editor') return;
+  if (SN.loading && !SN.data) { root.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8">⏳ Cargando señales…</div>'; return; }
+  if (SN.err && !SN.data) { root.innerHTML = `<div style="padding:30px;color:#991b1b">⚠️ ${snEsc_(SN.err)} <button class="sn-btn sm" onclick="snLoad_()">Reintentar</button></div>`; return; }
+  const ds = (SN.data.disenos || []).slice().sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  const cats = Array.from(new Set(ds.map(d => d.cat || 'Sin categoría')));
+  const q = String(SN.q || '').toLowerCase();
+  const list = ds.filter(d => (!SN.cat || (d.cat || 'Sin categoría') === SN.cat) && (!q || String(d.nombre).toLowerCase().includes(q)));
+  root.innerHTML = `
+    <div class="sn-top"><div style="flex:1;min-width:220px"><h2>🪧 Señalética</h2><p>Kit editable de señales para impresión · ${ds.length} diseños · PDF vectorial</p></div>
+      <button class="sn-btn" onclick="snMarcaOpen_()">🎨 Kit de marca</button>
+      <button class="sn-btn" onclick="snNuevo_()">＋ Nueva señal</button>
+      <button class="sn-btn pri" onclick="snExportSel_()" ${SN.sel.size ? '' : 'disabled'}>🖨️ PDF de ${SN.sel.size || 0} seleccionada${SN.sel.size === 1 ? '' : 's'}</button></div>
+    <div class="sn-chips"><input class="sn-in" style="max-width:260px" placeholder="🔎 Buscar señal…" value="${snEsc_(SN.q)}" oninput="SN.q=this.value;snRender_();this.focus();this.setSelectionRange(this.value.length,this.value.length)">
+      <button class="sn-chip ${!SN.cat ? 'on' : ''}" onclick="SN.cat='';snRender_()">Todas</button>
+      ${cats.map(c => `<button class="sn-chip ${SN.cat === c ? 'on' : ''}" data-c="${snEsc_(c)}" onclick="SN.cat=this.dataset.c;snRender_()">${snEsc_(c)}</button>`).join('')}
+      <span style="margin-left:auto;font-size:11.5px;color:#64748b">${SN.sel.size ? `${SN.sel.size} seleccionadas · <a href="#" onclick="SN.sel.clear();snRender_();return false">quitar selección</a>` : 'Marca la casilla para exportar varias juntas'}</span></div>
+    <div class="sn-grid">${list.map(d => `<div class="sn-card ${SN.sel.has(d.id) ? 'sel' : ''}" onclick="snOpen_('${snEsc_(d.id)}')">
+        <div class="ck" onclick="event.stopPropagation();snToggleSel_('${snEsc_(d.id)}')">${SN.sel.has(d.id) ? '✓' : ''}</div>
+        <div class="sn-thumb" id="snth-${snEsc_(d.id)}">${SN.thumbs[d.id + d.updatedAt + (SN.data.marcaV || 0)] ? `<img src="${SN.thumbs[d.id + d.updatedAt + (SN.data.marcaV || 0)]}">` : '<span style="color:#cbd5e1;font-size:11px">⏳</span>'}</div>
+        <div class="n">${snEsc_(d.nombre)}</div><div class="c">${snEsc_(d.cat || '')}</div></div>`).join('')}</div>`;
+  snThumbs_(list);
+}
+window.snToggleSel_ = id => { if (SN.sel.has(id)) SN.sel.delete(id); else SN.sel.add(id); snRender_(); };
+let _snThumbBusy = false;
+async function snThumbs_(list) {
+  if (_snThumbBusy) return; _snThumbBusy = true;
+  try {
+    const el = document.createElement('canvas');
+    const c = new fabric.StaticCanvas(el, { width: 7.5 * SN_PX, height: 10 * SN_PX, enableRetinaScaling: false });
+    for (const d of list) {
+      const key = d.id + d.updatedAt + (SN.data.marcaV || 0);
+      if (SN.thumbs[key]) continue;
+      c.setWidth(d.w * SN_PX); c.setHeight(d.h * SN_PX);
+      await snBuild_(c, d);
+      try { SN.thumbs[key] = c.toDataURL({ format: 'jpeg', quality: .8, multiplier: 0.42 }); } catch (_) { SN.thumbs[key] = ''; }
+      const box = document.getElementById('snth-' + d.id); if (box && SN.thumbs[key]) box.innerHTML = `<img src="${SN.thumbs[key]}">`;
+      if (SN.view !== 'galeria') break;
+    }
+    c.dispose();
+  } finally { _snThumbBusy = false; }
+}
+
+// ── Editor ───────────────────────────────────────────────────────────
+window.snOpen_ = async function (id) {
+  const d = SN.data.disenos.find(x => x.id === id); if (!d) return;
+  SN.cur = JSON.parse(JSON.stringify(d)); SN.view = 'editor'; SN.undo = []; SN.redo = []; SN.dirty = false;
+  snRenderEditor_();
+};
+window.snNuevo_ = function () {
+  const m = snM_();
+  SN.cur = { id: '', nombre: 'Nueva señal', cat: SN.cat || 'Sin categoría', w: 7.5, h: 10, els: [
+    { t: 'rect', x: 0, y: 8.86, w: 7.5, h: 1.14, fill: '$amarillo' },
+    { t: 'image', x: 0.25, y: 8.95, w: 0.66, h: 0.96, src: '$logo', nat: [676, 980] },
+    { t: 'text', x: 1.0, y: 8.95, w: 6.2, h: 0.9, anchor: 'middle', wrap: true, pad: [0.05, 0.02, 0.05, 0.02], paras: [
+      { align: 'left', runs: [{ text: '{{marca}}', size: 40, bold: false, color: '#000000', font: '$fTitulo' }] },
+      { align: 'left', runs: [{ text: '{{web}}', size: 14, color: '#000000', font: '$fTitulo' }] }] },
+    { t: 'text', x: 0.5, y: 3.5, w: 6.5, h: 2, anchor: 'middle', wrap: true, pad: [0, 0, 0, 0], paras: [{ align: 'center', runs: [{ text: 'TEXTO DE LA SEÑAL', size: 60, bold: true, color: '$rojo', font: '$fTitulo' }] }] },
+  ] };
+  void m; SN.view = 'editor'; SN.undo = []; SN.redo = []; SN.dirty = true;
+  snRenderEditor_();
+};
+function snRenderEditor_() {
+  const root = document.getElementById('sn-root'); if (!root) return;
+  const d = SN.cur;
+  const cats = Array.from(new Set(SN.data.disenos.map(x => x.cat).filter(Boolean).concat(['Presentación', 'Reglamentos', 'Seguridad', 'Estacionamiento', 'Áreas comunes', 'Mapas', 'Bienvenida'])));
+  root.innerHTML = `
+    <div class="sn-top">
+      <button class="sn-btn sm" onclick="snVolver_()">← Galería</button>
+      <input class="sn-in" style="max-width:280px;font-weight:800" value="${snEsc_(d.nombre)}" oninput="SN.cur.nombre=this.value;SN.dirty=true">
+      <input class="sn-in" style="max-width:170px" list="sn-dl-cat" value="${snEsc_(d.cat || '')}" oninput="SN.cur.cat=this.value;SN.dirty=true" placeholder="Categoría"><datalist id="sn-dl-cat">${cats.map(c => `<option value="${snEsc_(c)}">`).join('')}</datalist>
+      <div style="flex:1"></div>
+      <button class="sn-btn sm" title="Deshacer (Ctrl+Z)" onclick="snUndo_()">↶</button><button class="sn-btn sm" title="Rehacer (Ctrl+Y)" onclick="snRedo_()">↷</button>
+      <button class="sn-btn sm" onclick="snZoom_(-0.1)">－</button><span id="sn-zoom" style="font-size:12px;font-weight:800;min-width:42px;text-align:center"></span><button class="sn-btn sm" onclick="snZoom_(0.1)">＋</button>
+      <button class="sn-btn" onclick="snDuplicarDiseno_()">📄 Duplicar</button>
+      ${d.id ? '<button class="sn-btn" onclick="snEliminarDiseno_()">🗑️</button>' : ''}
+      <button class="sn-btn" onclick="snExportCur_()">🖨️ PDF</button>
+      <button class="sn-btn ok" id="sn-save" onclick="snGuardar_()">💾 Guardar</button>
+    </div>
+    <div class="sn-ed">
+      <div class="sn-tools">
+        <div class="h">Insertar</div>
+        <button onclick="snAdd_('text')">🔤 Texto</button>
+        <button onclick="snAdd_('rect')">⬛ Rectángulo</button>
+        <button onclick="snAdd_('ellipse')">⚪ Círculo</button>
+        <button onclick="snAdd_('line')">➖ Línea</button>
+        <button onclick="snAdd_('arrow')">➡️ Flecha</button>
+        <button onclick="document.getElementById('sn-file').click()">🖼️ Imagen</button>
+        <button onclick="snAdd_('logo')">📍 Logo</button>
+        <button onclick="snAdd_('qr')">▦ Código QR</button>
+        <input type="file" id="sn-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none" onchange="snUpload_(this)">
+        <div class="h">Plantilla</div>
+        <button onclick="snAdd_('footer')">🟨 Pie de marca</button>
+        <button onclick="snMarcaOpen_()">🎨 Kit de marca</button>
+      </div>
+      <div class="sn-stage" id="sn-stage"><canvas id="sn-canvas"></canvas></div>
+      <div class="sn-props" id="sn-props"></div>
+    </div>`;
+  const cv = new fabric.Canvas('sn-canvas', { preserveObjectStacking: true, backgroundColor: '#fff', selection: true });
+  SN.canvas = cv;
+  const stage = document.getElementById('sn-stage');
+  SN.zoom = Math.max(0.3, Math.min(1.6, (stage.clientHeight - 40) / (d.h * SN_PX), (stage.clientWidth - 40) / (d.w * SN_PX)));
+  snApplyZoom_();
+  snBuild_(cv, d).then(() => { snPushUndo_(true); snProps_(); });
+  cv.on('selection:created', snProps_); cv.on('selection:updated', snProps_); cv.on('selection:cleared', snProps_);
+  cv.on('object:modified', () => { SN.dirty = true; snPushUndo_(); snProps_(); });
+  cv.on('text:changed', () => { SN.dirty = true; });
+  cv.on('text:editing:exited', () => { snPushUndo_(); });
+  document.removeEventListener('keydown', snKeys_); document.addEventListener('keydown', snKeys_);
+}
+function snApplyZoom_() {
+  const cv = SN.canvas, d = SN.cur; if (!cv) return;
+  cv.setZoom(SN.zoom); cv.setWidth(d.w * SN_PX * SN.zoom); cv.setHeight(d.h * SN_PX * SN.zoom); cv.renderAll();
+  const z = document.getElementById('sn-zoom'); if (z) z.textContent = Math.round(SN.zoom * 100) + '%';
+}
+window.snZoom_ = dz => { SN.zoom = Math.max(0.25, Math.min(3, SN.zoom + dz)); snApplyZoom_(); };
+window.snVolver_ = function () {
+  if (SN.dirty && !confirm('Hay cambios sin guardar. ¿Salir sin guardar?')) return;
+  document.removeEventListener('keydown', snKeys_);
+  if (SN.canvas) { SN.canvas.dispose(); SN.canvas = null; }
+  SN.view = 'galeria'; SN.cur = null; snRender_();
+};
+function snKeys_(ev) {
+  if (SN.view !== 'editor' || !SN.canvas) return;
+  const tag = (ev.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  const o = SN.canvas.getActiveObject(); if (o && o.isEditing) return;
+  const mod = ev.metaKey || ev.ctrlKey;
+  if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? snRedo_() : snUndo_(); return; }
+  if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); snRedo_(); return; }
+  if (mod && ev.key.toLowerCase() === 'd') { ev.preventDefault(); snDup_(); return; }
+  if (mod && ev.key.toLowerCase() === 's') { ev.preventDefault(); snGuardar_(); return; }
+  if (!o) return;
+  if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); snDel_(); return; }
+  const step = ev.shiftKey ? 10 : 1, mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[ev.key];
+  if (mv) { ev.preventDefault(); o.set({ left: o.left + mv[0], top: o.top + mv[1] }); o.setCoords(); SN.canvas.renderAll(); SN.dirty = true; clearTimeout(snKeys_.t); snKeys_.t = setTimeout(snPushUndo_, 400); }
+}
+function snPushUndo_(reset) {
+  if (!SN.canvas) return;
+  const s = JSON.stringify(snSceneFromCanvas_());
+  if (reset) { SN.undo = [s]; SN.redo = []; return; }
+  if (SN.undo[SN.undo.length - 1] === s) return;
+  SN.undo.push(s); if (SN.undo.length > 60) SN.undo.shift(); SN.redo = [];
+}
+async function snRestore_(s) { SN.cur.els = JSON.parse(s); await snBuild_(SN.canvas, SN.cur); SN.dirty = true; snProps_(); }
+window.snUndo_ = function () { if (SN.undo.length < 2) return; SN.redo.push(SN.undo.pop()); snRestore_(SN.undo[SN.undo.length - 1]); };
+window.snRedo_ = function () { if (!SN.redo.length) return; const s = SN.redo.pop(); SN.undo.push(s); snRestore_(s); };
+
+// Insertar elementos
+window.snAdd_ = async function (k) {
+  const d = SN.cur, cx = d.w / 2, cy = d.h / 2;
+  let e = null;
+  if (k === 'text') e = { t: 'text', x: cx - 2, y: cy - 0.4, w: 4, h: 0.8, anchor: 'top', wrap: true, pad: [0, 0, 0, 0], paras: [{ align: 'center', runs: [{ text: 'Escribe aquí', size: 32, bold: true, color: '#000000', font: '$fTitulo' }] }] };
+  if (k === 'rect') e = { t: 'rect', x: cx - 1.5, y: cy - 0.75, w: 3, h: 1.5, fill: '$amarillo' };
+  if (k === 'ellipse') e = { t: 'ellipse', x: cx - 1, y: cy - 1, w: 2, h: 2, fill: '$rojo' };
+  if (k === 'line') e = { t: 'line', x1: cx - 1.5, y1: cy, x2: cx + 1.5, y2: cy, stroke: '#000000', sw: 4 };
+  if (k === 'arrow') { const w = 2.5, h = 1.2; e = { t: 'poly', x: cx - w / 2, y: cy - h / 2, w, h, fill: '$azul', pts: [[0, 0.3], [1.7, 0.3], [1.7, 0], [2.5, 0.6], [1.7, 1.2], [1.7, 0.9], [0, 0.9]] }; }
+  if (k === 'logo') e = { t: 'image', x: cx - 0.6, y: cy - 0.87, w: 1.2, h: 1.74, src: '$logo', nat: [676, 980] };
+  if (k === 'qr') { const url = prompt('¿A qué dirección (URL) o texto debe llevar el código QR?', 'https://www.check-inn-saltillo.com/es/registro'); if (!url) return; e = { t: 'qr', x: cx - 1.25, y: cy - 1.25, w: 2.5, h: 2.5, data: url, fill: '#000000' }; }
+  if (k === 'footer') {
+    for (const f of [{ t: 'rect', x: 0, y: d.h - 1.14, w: d.w, h: 1.14, fill: '$amarillo' }, { t: 'image', x: 0.25, y: d.h - 1.05, w: 0.66, h: 0.96, src: '$logo', nat: [676, 980] },
+      { t: 'text', x: 1, y: d.h - 1.05, w: d.w - 1.2, h: 0.9, anchor: 'middle', wrap: true, pad: [0.05, 0, 0.05, 0], paras: [{ align: 'left', runs: [{ text: '{{marca}}', size: 40, color: '#000000', font: '$fTitulo' }] }, { align: 'left', runs: [{ text: '{{web}}', size: 14, color: '#000000', font: '$fTitulo' }] }] }]) {
+      const o = await snToFabric_(f); SN.canvas.add(o);
+    }
+    SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); return;
+  }
+  if (!e) return;
+  const o = await snToFabric_(e); SN.canvas.add(o); SN.canvas.setActiveObject(o); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+};
+window.snUpload_ = async function (inp) {
+  const f = (inp.files || [])[0]; inp.value = ''; if (!f) return;
+  if (f.size > 12 * 1024 * 1024) return alert('La imagen pesa más de 12 MB.');
+  const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+  try {
+    const j = await snApi_('/senal/upload', { data, name: f.name });
+    const img = await snLoadImg_(SN.base + j.path);
+    const ratio = img.height / img.width, w = Math.min(4, SN.cur.w - 1), h = w * ratio;
+    const o = await snToFabric_({ t: 'image', x: (SN.cur.w - w) / 2, y: (SN.cur.h - h) / 2, w, h, src: j.path, nat: [img.width, img.height] });
+    SN.canvas.add(o); SN.canvas.setActiveObject(o); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+  } catch (e) { alert('No se pudo subir la imagen: ' + e.message); }
+};
+function snDel_() { const cv = SN.canvas; cv.getActiveObjects().forEach(o => cv.remove(o)); cv.discardActiveObject(); cv.renderAll(); SN.dirty = true; snPushUndo_(); snProps_(); }
+window.snDel_ = snDel_;
+async function snDup_() {
+  const cv = SN.canvas, objs = cv.getActiveObjects(); if (!objs.length) return;
+  cv.discardActiveObject();
+  const nuevos = [];
+  for (const o of objs) { const e = snFromFabric_(o); if (e.t === 'line') { e.x1 += .2; e.x2 += .2; e.y1 += .2; e.y2 += .2; } else { e.x += .2; e.y += .2; } const n = await snToFabric_(e); cv.add(n); nuevos.push(n); }
+  cv.setActiveObject(nuevos.length > 1 ? new fabric.ActiveSelection(nuevos, { canvas: cv }) : nuevos[0]); cv.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+}
+window.snDup_ = snDup_;
+window.snZ_ = function (dir) {
+  const cv = SN.canvas, o = cv.getActiveObject(); if (!o) return;
+  if (dir === 'top') cv.bringToFront(o); else if (dir === 'up') cv.bringForward(o); else if (dir === 'down') cv.sendBackwards(o); else cv.sendToBack(o);
+  cv.renderAll(); SN.dirty = true; snPushUndo_();
+};
+
+// Panel de propiedades
+function snPalette_(cur, fn) {
+  const c = snM_().colores || {};
+  const curTok = String(cur || '');
+  return `<div class="sn-pal">${Object.keys(c).map(k => `<span class="sn-sw ${curTok === '$' + k ? 'on' : ''}" title="${snEsc_(SN_COLOR_LBL[k] || k)} (marca)" style="background:${c[k]}" onclick="${fn}('$${k}')"></span>`).join('')}
+    <span class="sn-sw ${curTok === '#000000' ? 'on' : ''}" style="background:#000" onclick="${fn}('#000000')"></span><span class="sn-sw ${curTok === '#FFFFFF' ? 'on' : ''}" style="background:#fff" onclick="${fn}('#FFFFFF')"></span>
+    <input type="color" value="${snColor_(curTok && curTok !== 'null' ? curTok : '#000000') || '#000000'}" style="width:30px;height:26px;border:0;background:none;padding:0;cursor:pointer" onchange="${fn}(this.value.toUpperCase())" title="Otro color">
+    ${fn !== 'snSetTextColor_' ? `<button class="sn-tg" style="font-size:10px;min-width:44px" onclick="${fn}(null)">Sin</button>` : ''}</div>`;
+}
+function snProps_() {
+  const box = document.getElementById('sn-props'); if (!box || !SN.canvas) return;
+  const o = SN.canvas.getActiveObject();
+  if (!o) {
+    box.innerHTML = `<div class="h">Señal</div><div style="font-size:12px;color:#64748b;line-height:1.6">Tamaño: <b>${SN.cur.w} × ${SN.cur.h} in</b> (${(SN.cur.w * 2.54).toFixed(1)} × ${(SN.cur.h * 2.54).toFixed(1)} cm)<br>Selecciona un elemento para editarlo. Doble clic en un texto para escribir.<br><br><b>Atajos:</b> Supr = borrar · Ctrl+D = duplicar · Ctrl+Z / Ctrl+Y · flechas = mover (Shift ×10) · Ctrl+S = guardar.</div>`;
+    return;
+  }
+  const multi = o.type === 'activeSelection';
+  const isText = o.type === 'textbox', isLine = o.type === 'line', isImg = o.type === 'image', isQr = o.sn && o.sn.t === 'qr';
+  let h = `<div class="h">${multi ? `${o.getObjects().length} elementos` : isText ? 'Texto' : isLine ? 'Línea' : isImg ? 'Imagen' : isQr ? 'Código QR' : 'Forma'}</div>
+    <div class="sn-row" style="flex-wrap:wrap;gap:4px"><button class="sn-btn sm" onclick="snDup_()">📄 Duplicar</button><button class="sn-btn sm" onclick="snDel_()">🗑️ Borrar</button>
+    <button class="sn-btn sm" title="Al frente" onclick="snZ_('top')">⤒</button><button class="sn-btn sm" title="Adelante" onclick="snZ_('up')">↑</button><button class="sn-btn sm" title="Atrás" onclick="snZ_('down')">↓</button><button class="sn-btn sm" title="Al fondo" onclick="snZ_('bottom')">⤓</button></div>`;
+  if (!multi) {
+    const c = o.getCenterPoint(), P = SN_PX;
+    h += `<div class="h">Posición y tamaño (in)</div><div class="sn-row"><label style="margin:0">X</label><input class="sn-in" type="number" step="0.05" value="${((c.x - o.getScaledWidth() / 2) / P).toFixed(2)}" onchange="snGeo_('x',this.value)"><label style="margin:0">Y</label><input class="sn-in" type="number" step="0.05" value="${((c.y - o.getScaledHeight() / 2) / P).toFixed(2)}" onchange="snGeo_('y',this.value)"></div>
+      ${isLine ? '' : `<div class="sn-row" style="margin-top:4px"><label style="margin:0">An</label><input class="sn-in" type="number" step="0.05" value="${(o.getScaledWidth() / P).toFixed(2)}" onchange="snGeo_('w',this.value)"><label style="margin:0">Al</label><input class="sn-in" type="number" step="0.05" value="${(o.getScaledHeight() / P).toFixed(2)}" onchange="snGeo_('h',this.value)"></div>`}
+      <label>Rotación °</label><input class="sn-in" type="number" step="1" value="${Math.round(o.angle || 0)}" onchange="snSet_('angle',+this.value)">
+      <label>Opacidad</label><input type="range" min="0" max="1" step="0.05" value="${o.opacity}" style="width:100%" oninput="snSet_('opacity',+this.value,true)" onchange="snPushUndo_()">`;
+  }
+  if (isText) {
+    const sel = o.isEditing && o.selectionStart !== o.selectionEnd;
+    const st = sel ? (o.getSelectionStyles()[0] || {}) : {};
+    const fam = st.fontFamily || o.fontFamily, size = st.fontSize || o.fontSize, bold = (st.fontWeight || o.fontWeight) === 'bold', ital = (st.fontStyle || o.fontStyle) === 'italic', und = st.underline != null ? st.underline : o.underline;
+    const fu = snM_().fuentes || {};
+    h += `<div class="h">Texto ${sel ? '(selección)' : '(todo)'}</div>
+      <label>Fuente</label><select class="sn-in" onchange="snTextStyle_('fontFamily',this.value)">${Object.keys(SN_FONTS).map(f => `<option ${f === fam ? 'selected' : ''} value="${f}">${f}${f === fu.fTitulo ? ' · títulos' : f === fu.fTexto ? ' · textos' : ''}</option>`).join('')}</select>
+      <div class="sn-row" style="margin-top:6px"><input class="sn-in" type="number" min="4" max="400" value="${Math.round(size)}" style="width:70px" onchange="snTextStyle_('fontSize',+this.value)"><span style="font-size:11px;color:#64748b">pt</span>
+        <button class="sn-tg ${bold ? 'on' : ''}" onclick="snTextStyle_('fontWeight','${bold ? 'normal' : 'bold'}')"><b>B</b></button><button class="sn-tg ${ital ? 'on' : ''}" onclick="snTextStyle_('fontStyle','${ital ? 'normal' : 'italic'}')"><i>I</i></button><button class="sn-tg ${und ? 'on' : ''}" onclick="snTextStyle_('underline',${!und})"><u>U</u></button></div>
+      <label>Alineación</label><div class="sn-row">${[['left', '⬅'], ['center', '↔'], ['right', '➡'], ['justify', '☰']].map(([a, l]) => `<button class="sn-tg ${o.textAlign === a ? 'on' : ''}" onclick="snSet_('textAlign','${a}')">${l}</button>`).join('')}</div>
+      <label>Interlineado</label><input type="range" min="0.6" max="2.5" step="0.05" value="${o.lineHeight}" style="width:100%" oninput="snSet_('lineHeight',+this.value,true)" onchange="snPushUndo_()">
+      <label>Color</label>${snPalette_(snColorTok_(st.fill || o.fill), 'snSetTextColor_')}
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:6px">Tip: doble clic para escribir; selecciona letras para cambiar solo esa parte.</div>`;
+  } else if (!multi && !isImg) {
+    if (!isLine) h += `<div class="h">Relleno</div>${snPalette_(o.snFill !== undefined ? o.snFill : (isQr ? (o.sn.fill) : snColorTok_(o.fill)), 'snSetFill_')}`;
+    h += `<div class="h">${isLine ? 'Color de línea' : 'Borde'}</div>${snPalette_(o.snStroke || (o.stroke ? snColorTok_(o.stroke) : null), 'snSetStroke_')}
+      <label>Grosor (pt)</label><input class="sn-in" type="number" min="0" step="0.5" value="${o.strokeWidth || 0}" onchange="snSet_('strokeWidth',+this.value)">`;
+    if (o.type === 'rect') h += `<label>Esquinas redondeadas</label><input type="range" min="0" max="${Math.min(o.width, o.height) / 2}" step="1" value="${o.rx || 0}" style="width:100%" oninput="snSet_('rx',+this.value,true);snSet_('ry',+this.value,true)" onchange="snPushUndo_()">`;
+    if (isQr) h += `<label>Contenido del QR</label><input class="sn-in" value="${snEsc_(o.sn.data)}" onchange="snQrData_(this.value)">`;
+  } else if (isImg) {
+    h += `<div class="h">Imagen</div><div class="sn-row" style="gap:4px;flex-wrap:wrap"><button class="sn-btn sm" onclick="snSet_('flipX',!SN.canvas.getActiveObject().flipX)">⇋ Voltear</button><button class="sn-btn sm" onclick="snSet_('flipY',!SN.canvas.getActiveObject().flipY)">⇵ Voltear</button>
+      <button class="sn-btn sm" onclick="snReplaceImg_()">🔁 Reemplazar</button></div>${o.sn && /^\$logo/.test(o.sn.src || '') ? '<div style="font-size:11px;color:#4f46e5;margin-top:6px">📍 Es el logo del kit de marca: cambia solo en todas las señales.</div>' : ''}`;
+  }
+  box.innerHTML = h;
+}
+window.snSet_ = function (k, v, live) { const o = SN.canvas.getActiveObject(); if (!o) return; o.set(k, v); o.setCoords(); if (o.type === 'textbox') o.initDimensions && o.initDimensions(); SN.canvas.renderAll(); SN.dirty = true; if (!live) { snPushUndo_(); snProps_(); } };
+window.snGeo_ = function (k, v) {
+  const o = SN.canvas.getActiveObject(); if (!o) return; const P = SN_PX, val = parseFloat(v) * P; if (!isFinite(val)) return;
+  const c = o.getCenterPoint(), w = o.getScaledWidth(), h = o.getScaledHeight();
+  if (k === 'x') o.setPositionByOrigin(new fabric.Point(val + w / 2, c.y), 'center', 'center');
+  if (k === 'y') o.setPositionByOrigin(new fabric.Point(c.x, val + h / 2), 'center', 'center');
+  if (k === 'w') { if (o.type === 'textbox') o.set('width', val / (o.scaleX || 1)); else o.set('scaleX', val / o.width); }
+  if (k === 'h' && o.type !== 'textbox') o.set('scaleY', val / o.height);
+  o.setCoords(); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+};
+window.snSetFill_ = function (v) { const o = SN.canvas.getActiveObject(); if (!o) return; if (o.sn && o.sn.t === 'qr') { o.sn.fill = v || '#000000'; o.snFill = v || '#000000'; o.getObjects()[1].set('fill', snColor_(v) || '#000'); } else { o.snFill = v; o.set('fill', snColor_(v) || 'transparent'); } SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_(); };
+window.snSetStroke_ = function (v) { const o = SN.canvas.getActiveObject(); if (!o) return; o.snStroke = v; o.set('stroke', snColor_(v) || null); if (v && !o.strokeWidth) o.set('strokeWidth', 2); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_(); };
+window.snSetTextColor_ = function (v) { snTextStyle_('fill', snColor_(v)); };
+window.snTextStyle_ = function (k, v) {
+  const o = SN.canvas.getActiveObject(); if (!o || o.type !== 'textbox') return;
+  if (o.isEditing && o.selectionStart !== o.selectionEnd) o.setSelectionStyles({ [k]: v });
+  else { o.set(k, v); const st = o.styles || {}; Object.keys(st).forEach(l => Object.keys(st[l]).forEach(c => { delete st[l][c][k]; })); }
+  o.initDimensions(); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+};
+window.snQrData_ = async function (v) {
+  const o = SN.canvas.getActiveObject(); if (!o || !o.sn) return;
+  const e = snFromFabric_(o); e.data = v; const n = await snToFabric_(e);
+  const i = SN.canvas.getObjects().indexOf(o); SN.canvas.remove(o); SN.canvas.insertAt(n, i); SN.canvas.setActiveObject(n); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+};
+window.snReplaceImg_ = function () {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/png,image/jpeg,image/svg+xml,image/webp';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    const data = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
+    try {
+      const j = await snApi_('/senal/upload', { data, name: f.name });
+      const o = SN.canvas.getActiveObject(); const e = snFromFabric_(o); e.src = j.path; delete e.crop;
+      const img = await snLoadImg_(SN.base + j.path); e.nat = [img.width, img.height]; e.h = e.w * img.height / img.width;
+      const n = await snToFabric_(e); const i = SN.canvas.getObjects().indexOf(o); SN.canvas.remove(o); SN.canvas.insertAt(n, i); SN.canvas.setActiveObject(n); SN.canvas.renderAll(); SN.dirty = true; snPushUndo_(); snProps_();
+    } catch (e) { alert('No se pudo subir: ' + e.message); }
+  };
+  inp.click();
+};
+
+// Guardar / duplicar / eliminar
+window.snGuardar_ = async function () {
+  if (!SN.canvas || SN.saving) return;
+  const b = document.getElementById('sn-save'); SN.saving = true; if (b) { b.disabled = true; b.textContent = '⏳ Guardando…'; }
+  try {
+    SN.canvas.discardActiveObject();
+    SN.cur.els = snSceneFromCanvas_();
+    const j = await snApi_('/senal/save', { diseno: SN.cur, user: snUser_() });
+    SN.cur.id = j.id; SN.cur.updatedAt = new Date().toISOString();
+    const i = SN.data.disenos.findIndex(x => x.id === j.id);
+    if (i >= 0) SN.data.disenos[i] = JSON.parse(JSON.stringify(SN.cur)); else SN.data.disenos.push(JSON.parse(JSON.stringify(SN.cur)));
+    SN.dirty = false; if (b) b.textContent = '✅ Guardado'; setTimeout(() => { if (b) { b.textContent = '💾 Guardar'; b.disabled = false; } }, 1500);
+  } catch (e) { alert('No se pudo guardar: ' + e.message); if (b) { b.textContent = '💾 Guardar'; b.disabled = false; } }
+  SN.saving = false;
+};
+window.snDuplicarDiseno_ = function () {
+  SN.canvas.discardActiveObject(); SN.cur.els = snSceneFromCanvas_();
+  const c = JSON.parse(JSON.stringify(SN.cur)); c.id = ''; c.nombre = SN.cur.nombre + ' (copia)';
+  SN.canvas.dispose(); SN.canvas = null; SN.cur = c; SN.dirty = true; snRenderEditor_();
+};
+window.snEliminarDiseno_ = async function () {
+  if (!confirm(`¿Eliminar la señal "${SN.cur.nombre}"? (Se conserva una copia en el historial del almacenamiento.)`)) return;
+  try { await snApi_('/senal/delete', { id: SN.cur.id }); SN.data.disenos = SN.data.disenos.filter(x => x.id !== SN.cur.id); SN.dirty = false; snVolver_(); }
+  catch (e) { alert('No se pudo eliminar: ' + e.message); }
+};
+
+// ── Kit de marca ─────────────────────────────────────────────────────
+window.snMarcaOpen_ = function () {
+  const m = JSON.parse(JSON.stringify(snM_())); m.colores = m.colores || {}; m.fuentes = m.fuentes || {};
+  SN._mk = m;
+  const el = document.createElement('div'); el.className = 'sn-modal sn'; el.id = 'sn-modal';
+  const fsel = k => `<select class="sn-in" onchange="SN._mk.fuentes.${k}=this.value">${Object.keys(SN_FONTS).map(f => `<option ${m.fuentes[k] === f ? 'selected' : ''}>${f}</option>`).join('')}</select>`;
+  el.innerHTML = `<div class="pn"><div class="hd">🎨 Kit de marca <button class="sn-btn sm" onclick="document.getElementById('sn-modal').remove()">✕</button></div>
+    <div class="bd">
+      <div style="font-size:12px;color:#64748b;margin-bottom:10px">Estos valores se aplican <b>automáticamente a todas las señales</b> que los usan (colores de marca, fuentes de títulos/textos, logo, nombre, web y teléfono).</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px">
+        <div><label style="font-size:10.5px;font-weight:800;color:#64748b">Nombre de marca</label><input class="sn-in" value="${snEsc_(m.nombre)}" oninput="SN._mk.nombre=this.value"></div>
+        <div><label style="font-size:10.5px;font-weight:800;color:#64748b">Teléfono</label><input class="sn-in" value="${snEsc_(m.tel)}" oninput="SN._mk.tel=this.value"></div>
+        <div style="grid-column:1/-1"><label style="font-size:10.5px;font-weight:800;color:#64748b">Sitio web</label><input class="sn-in" value="${snEsc_(m.web)}" oninput="SN._mk.web=this.value"></div>
+        <div><label style="font-size:10.5px;font-weight:800;color:#64748b">Fuente de títulos</label>${fsel('fTitulo')}</div>
+        <div><label style="font-size:10.5px;font-weight:800;color:#64748b">Fuente de textos</label>${fsel('fTexto')}</div>
+      </div>
+      <div style="font-size:10.5px;font-weight:800;color:#64748b;margin:12px 0 6px">Colores de marca</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">${Object.keys(m.colores).map(k => `<label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:700"><input type="color" value="${m.colores[k]}" style="width:54px;height:40px;border:0;padding:0;background:none;cursor:pointer" oninput="SN._mk.colores['${k}']=this.value.toUpperCase()">${snEsc_(SN_COLOR_LBL[k] || k)}</label>`).join('')}</div>
+      <div style="font-size:10.5px;font-weight:800;color:#64748b;margin:14px 0 6px">Logo</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        ${['logo', 'logoIcono'].map(k => `<div style="text-align:center"><img id="sn-mk-${k}" src="${snSrc_('$' + k)}" style="height:70px;max-width:110px;object-fit:contain;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:4px"><div><button class="sn-btn sm" style="margin-top:4px" onclick="snMarcaImg_('${k}')">${k === 'logo' ? 'Cambiar logo' : 'Cambiar ícono'}</button></div></div>`).join('')}
+      </div>
+    </div>
+    <div class="ft"><button class="sn-btn" onclick="document.getElementById('sn-modal').remove()">Cancelar</button><button class="sn-btn ok" id="sn-mk-save" onclick="snMarcaSave_()">💾 Guardar y aplicar a todas</button></div></div>`;
+  document.body.appendChild(el);
+};
+window.snMarcaImg_ = function (k) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/png,image/svg+xml,image/webp,image/jpeg';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    const data = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
+    try { const j = await snApi_('/senal/upload', { data, name: f.name }); SN._mk[k] = j.path; document.getElementById('sn-mk-' + k).src = SN.base + j.path; }
+    catch (e) { alert('No se pudo subir: ' + e.message); }
+  };
+  inp.click();
+};
+window.snMarcaSave_ = async function () {
+  const b = document.getElementById('sn-mk-save'); b.disabled = true; b.textContent = '⏳ Guardando…';
+  try {
+    await snApi_('/senal/marca', { marca: SN._mk });
+    SN.data.marca = SN._mk; SN.data.marcaV = (SN.data.marcaV || 0) + 1;
+    document.getElementById('sn-modal').remove();
+    if (SN.view === 'editor' && SN.canvas) { SN.canvas.discardActiveObject(); SN.cur.els = snSceneFromCanvas_(); await snBuild_(SN.canvas, SN.cur); snProps_(); }
+    else snRender_();
+  } catch (e) { alert('No se pudo guardar: ' + e.message); b.disabled = false; b.textContent = '💾 Guardar y aplicar a todas'; }
+};
+
+// ── PDF vectorial ────────────────────────────────────────────────────
+const _snFontB64 = {};
+async function snFontB64_(path) {
+  if (_snFontB64[path]) return _snFontB64[path];
+  const buf = await fetch(SN_FONT_CDN + path).then(r => { if (!r.ok) throw new Error('Fuente ' + path); return r.arrayBuffer(); });
+  let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return (_snFontB64[path] = btoa(s));
+}
+async function snPdfFonts_(pdf, fams) {
+  for (const f of fams) {
+    const files = SN_FONTS[f]; if (!files) continue;
+    const [r, b, i, bi] = [files[0], files[1] || files[0], files[2] || files[0], files[3] || files[1] || files[0]];
+    for (const [file, style] of [[r, 'normal'], [b, 'bold'], [i, 'italic'], [bi, 'bolditalic']]) {
+      const name = f.replace(/\s+/g, '') + '-' + style + '.ttf';
+      pdf.addFileToVFS(name, await snFontB64_(file)); pdf.addFont(name, f, style);
+    }
+  }
+}
+// formato: 'carta' (8.5×11 in, ajustada y centrada) | 'original'
+async function snPdf_(disenos, formato, nombre) {
+  const { jsPDF } = window.jspdf;
+  const el = document.createElement('canvas');
+  const c = new fabric.StaticCanvas(el, { enableRetinaScaling: false });
+  let pdf = null;
+  const fams = new Set();
+  for (const d of disenos) d.els.forEach(e => (e.paras || []).forEach(p => p.runs.forEach(r => fams.add(snFont_(r.font)))));
+  for (let i = 0; i < disenos.length; i++) {
+    const d = disenos[i], W = d.w * SN_PX, H = d.h * SN_PX;
+    const PW = formato === 'carta' ? 8.5 * 72 : W, PH = formato === 'carta' ? 11 * 72 : H;
+    if (!pdf) { pdf = new jsPDF({ unit: 'pt', format: [PW, PH], orientation: PW > PH ? 'l' : 'p', compress: true }); await snPdfFonts_(pdf, fams); }
+    else pdf.addPage([PW, PH], PW > PH ? 'l' : 'p');
+    c.setWidth(W); c.setHeight(H); await snBuild_(c, d);
+    const svgTxt = c.toSVG({ width: W, height: H, viewBox: { x: 0, y: 0, width: W, height: H } });
+    const svg = new DOMParser().parseFromString(svgTxt, 'image/svg+xml').documentElement;
+    const k = Math.min(PW / W, PH / H), w = W * k, h = H * k;
+    document.body.appendChild(svg); svg.style.position = 'fixed'; svg.style.left = '-99999px';
+    try { await pdf.svg(svg, { x: (PW - w) / 2, y: (PH - h) / 2, width: w, height: h }); } finally { svg.remove(); }
+  }
+  c.dispose();
+  pdf.save((nombre || 'senaletica').replace(/[^\wáéíóúñÁÉÍÓÚÑ -]+/g, '').trim() + '.pdf');
+}
+function snPdfDialog_(disenos, nombre) {
+  const el = document.createElement('div'); el.className = 'sn-modal sn'; el.id = 'sn-modal';
+  el.innerHTML = `<div class="pn" style="max-width:440px"><div class="hd">🖨️ PDF para impresión<button class="sn-btn sm" onclick="document.getElementById('sn-modal').remove()">✕</button></div>
+    <div class="bd"><div style="font-size:12.5px;color:#475569;margin-bottom:10px">${disenos.length} señal${disenos.length === 1 ? '' : 'es'} · PDF <b>vectorial</b> (textos y formas nítidos a cualquier tamaño).</div>
+      <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px;cursor:pointer"><input type="radio" name="snfmt" value="carta" checked> Carta 8.5 × 11 in (ajustada y centrada)</label>
+      <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="radio" name="snfmt" value="original"> Tamaño original (${disenos[0].w} × ${disenos[0].h} in)</label>
+      <div id="sn-pdf-st" style="font-size:12px;color:#64748b;margin-top:10px"></div></div>
+    <div class="ft"><button class="sn-btn" onclick="document.getElementById('sn-modal').remove()">Cancelar</button><button class="sn-btn ok" id="sn-pdf-go">⬇️ Descargar PDF</button></div></div>`;
+  document.body.appendChild(el);
+  el.querySelector('#sn-pdf-go').onclick = async () => {
+    const fmt = el.querySelector('input[name=snfmt]:checked').value, b = el.querySelector('#sn-pdf-go'), st = el.querySelector('#sn-pdf-st');
+    b.disabled = true; b.textContent = '⏳ Generando…'; st.textContent = 'Cargando fuentes e imágenes…';
+    try { await snPdf_(disenos, fmt, nombre); el.remove(); }
+    catch (e) { console.error(e); st.textContent = '⚠️ ' + e.message; b.disabled = false; b.textContent = '⬇️ Descargar PDF'; }
+  };
+}
+window.snExportCur_ = function () { SN.canvas.discardActiveObject(); const d = { ...SN.cur, els: snSceneFromCanvas_() }; snPdfDialog_([d], d.nombre); };
+window.snExportSel_ = function () {
+  const ds = SN.data.disenos.filter(d => SN.sel.has(d.id)).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  if (ds.length) snPdfDialog_(ds, ds.length === 1 ? ds[0].nombre : `Señalética (${ds.length})`);
 };
 
 // ── Versión cargada (visible en la barra superior y en Console) ─────────

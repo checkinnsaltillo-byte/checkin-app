@@ -140,6 +140,10 @@
             onclick="switchModule('procesos');closeNavMenu()">
           📘 Documentación de procesos
         </li>
+        <li class="nav-item" id="nav-item-senaletica"
+            onclick="switchModule('senaletica');closeNavMenu()">
+          🪧 Señalética
+        </li>
         <li class="nav-item" id="nav-item-breezeway"
             onclick="switchModule('breezeway');closeNavMenu()">
           🧹 Breezeway
@@ -288,6 +292,7 @@
             <div class="hm-tiles">
               <button type="button" class="hm-tile home-card-tareas" onclick="switchModule('tareas')"><span class="hm-ico">🗓️</span><span class="hm-tx"><b>Tareas programadas</b><small>Asignación y seguimiento de tareas al personal</small></span></button>
               <button type="button" class="hm-tile home-card-procesos" onclick="switchModule('procesos')"><span class="hm-ico">📘</span><span class="hm-tx"><b>Documentación de procesos</b><small>Procedimientos, checklists, roles y versiones</small></span></button>
+              <button type="button" class="hm-tile home-card-senaletica" onclick="switchModule('senaletica')"><span class="hm-ico">🪧</span><span class="hm-tx"><b>Señalética</b><small>Kit editable de señales para impresión</small></span></button>
               <button type="button" class="hm-tile home-card-breezeway" onclick="switchModule('breezeway')"><span class="hm-ico">🧹</span><span class="hm-tx"><b>Breezeway</b><small>Limpieza, mantenimiento e inspecciones</small></span></button>
               <button type="button" class="hm-tile home-card-incidencias" onclick="switchModule('incidencias')"><span class="hm-ico">🚨</span><span class="hm-tx"><b>Incidencias</b><small>Reportes con evidencia fotográfica</small></span></button>
               <button type="button" class="hm-tile home-card-reportes-tecnicos" onclick="switchModule('reportes-tecnicos')"><span class="hm-ico">🛠️</span><span class="hm-tx"><b>Reportes técnicos</b><small>Bitácora técnica y refacciones</small></span></button>
@@ -1957,6 +1962,9 @@
     <!-- ═══════════════ MÓDULO PANEL DE CONTROL (dashboard ejecutivo) ═══════════════ -->
     <div id="module-panel-control" class="hidden" style="padding:20px 24px 60px"></div>
 
+    <!-- ═══════════════ MÓDULO SEÑALÉTICA (editor de señales para impresión) ═══════════════ -->
+    <div id="module-senaletica" class="hidden" style="padding:20px 24px 60px"><div id="senaletica-host"></div></div>
+
     <!-- ═══════════════ MÓDULO DOCUMENTACIÓN DE PROCESOS ═══════════════ -->
     <div id="module-procesos" class="hidden" style="padding:20px 24px 60px"><div id="procesos-host" style="max-width:1600px;margin:0 auto"></div></div>
 
@@ -2812,7 +2820,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1446"></script>
+  <script src="app.js?v=1447"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
