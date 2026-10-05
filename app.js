@@ -61611,21 +61611,34 @@ window.SN = window.SN || { data: null, base: '', loading: false, err: '', view: 
 
 function snEsc_(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function snUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : ''; }
+// Cada librería con límite de tiempo: si la red la bloquea, se avisa en vez de quedarse en blanco.
 function snLoadScript_(src) {
   return new Promise((ok, ko) => {
-    if (document.querySelector(`script[data-sn="${src}"]`)) return ok();
+    const prev = document.querySelector(`script[data-sn="${src}"]`);
+    if (prev && prev.dataset.ok === '1') return ok();
+    if (prev) prev.remove();
     const s = document.createElement('script'); s.src = src; s.async = false; s.dataset.sn = src;
-    s.onload = ok; s.onerror = () => ko(new Error('No se pudo cargar ' + src)); document.head.appendChild(s);
+    const t = setTimeout(() => ko(new Error('Tiempo agotado cargando ' + src.split('/').slice(-1)[0])), 20000);
+    s.onload = () => { clearTimeout(t); s.dataset.ok = '1'; ok(); };
+    s.onerror = () => { clearTimeout(t); ko(new Error('No se pudo cargar ' + src.split('/').slice(-1)[0] + ' (¿la red bloquea ' + new URL(src).host + '?)')); };
+    document.head.appendChild(s);
   });
 }
+function snPaso_(t) { const el = document.getElementById('sn-paso'); if (el) el.textContent = t; console.info('[señalética]', t); }
 async function snEnsureLibs_() {
-  for (const u of SN_LIBS) await snLoadScript_(u);
+  // pdf.js del sistema define "define" (AMD); las UMD se registrarían ahí y no como globales.
+  const amd = window.define; if (amd && amd.amd) window.define = undefined;
+  try {
+    for (const u of SN_LIBS) { snPaso_('Cargando ' + u.split('/').slice(-1)[0] + '…'); await snLoadScript_(u); }
+  } finally { if (amd && amd.amd) window.define = amd; }
+  if (typeof fabric === 'undefined' || !window.jspdf) throw new Error('Las librerías del editor no quedaron disponibles.');
+  snPaso_('Cargando fuentes…');
   if (!document.getElementById('sn-gfonts')) {
     const l = document.createElement('link'); l.id = 'sn-gfonts'; l.rel = 'stylesheet';
     l.href = 'https://fonts.googleapis.com/css2?family=Carlito:ital,wght@0,400;0,700;1,400;1,700&family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Lato:ital,wght@0,400;0,700;1,400;1,700&family=Kanit:ital,wght@0,400;0,700;1,400;1,700&family=Didact+Gothic&family=Questrial&family=Anton&display=swap';
     document.head.appendChild(l);
   }
-  try { await Promise.all(Object.keys(SN_FONTS).flatMap(f => [document.fonts.load(`16px "${f}"`), document.fonts.load(`bold 16px "${f}"`)])); } catch (_) {}
+  try { await Promise.race([Promise.all(Object.keys(SN_FONTS).flatMap(f => [document.fonts.load(`16px "${f}"`), document.fonts.load(`bold 16px "${f}"`)])), new Promise(r => setTimeout(r, 6000))]); } catch (_) {}
 }
 async function snApi_(path, body) {
   const r = await fetch(`${BACKEND}${path}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
@@ -61821,9 +61834,13 @@ window.senaleticaInit = async function () {
   const host = document.getElementById('senaletica-host'); if (!host) return;
   snEnsureStyles_();
   if (SN.view === 'editor' && SN.canvas) return; // mantiene el editor abierto
-  host.innerHTML = '<div class="sn" id="sn-root"><div style="padding:40px;text-align:center;color:#94a3b8">⏳ Cargando editor de señalética…</div></div>';
-  try { await snEnsureLibs_(); } catch (e) { document.getElementById('sn-root').innerHTML = `<div style="padding:30px;color:#991b1b">⚠️ ${snEsc_(e.message)}</div>`; return; }
-  if (!SN.data) await snLoad_(); else snRender_();
+  host.innerHTML = '<div class="sn" id="sn-root"><div style="padding:40px;text-align:center;color:#94a3b8">⏳ Cargando editor de señalética…<div id="sn-paso" style="font-size:11.5px;margin-top:6px"></div></div></div>';
+  const datos = SN.data ? Promise.resolve() : snApi_('/senal/data').then(j => { SN.base = j.base; SN.data = { marca: j.marca || {}, disenos: j.disenos || [] }; }).catch(e => { SN.err = e.message; });
+  try { await snEnsureLibs_(); }
+  catch (e) { const r = document.getElementById('sn-root'); if (r) r.innerHTML = `<div class="sn-top"><h2>🪧 Señalética</h2></div><div style="padding:20px;border:1px solid #fecaca;background:#fef2f2;border-radius:12px;color:#991b1b">⚠️ ${snEsc_(e.message)}<div style="margin-top:10px"><button class="sn-btn" onclick="senaleticaInit()">🔄 Reintentar</button></div></div>`; return; }
+  snPaso_('Cargando señales…');
+  await datos;
+  snRender_();
 };
 function snRender_() {
   const root = document.getElementById('sn-root'); if (!root) return;
