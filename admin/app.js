@@ -58126,40 +58126,47 @@ function pcEnsureStyles_() {
   .pc-ring b{font-size:22px;font-weight:900;color:var(--pc-ink);line-height:1}
   .pc-ring small{font-size:10px;font-weight:800;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.05em}
   @media (max-width:700px){ .pc-ext-grid{grid-template-columns:repeat(2,1fr)!important} }
-  .pz-card{background:#fffef7!important;border-color:#e7e0c4!important;background-image:radial-gradient(#ece6cc 1px,transparent 1px)!important;background-size:18px 18px!important}
-  .pz-add{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px;margin-bottom:10px}
-  .pz-in{flex:1;min-width:200px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fff;width:100%;box-sizing:border-box}
-  .pz-add .pz-in{width:auto}
-  .pz-seg{display:inline-flex;border:1px solid #e2e8f0;border-radius:9px;overflow:hidden}
-  .pz-seg button{all:unset;cursor:pointer;padding:7px 11px;font-size:11.5px;font-weight:800;color:#64748b;border-right:1px solid #e2e8f0}
-  .pz-seg button:last-child{border-right:0}
-  .pz-seg button.on{background:var(--pz);color:#fff}
+  #pc-kpis-hoy{align-items:start}
+  .pz-card{--acc:#eab308}
+  .pz-card:hover{transform:none!important;box-shadow:none!important;border-color:#e7e0c4!important}
   .pz-go{all:unset;cursor:pointer;background:#0f172a;color:#fff;border-radius:9px;padding:8px 14px;font-size:12px;font-weight:800;white-space:nowrap}
-  .pz-dwho{display:flex;gap:4px;flex-wrap:wrap}
-  .pz-list{display:flex;flex-direction:column;gap:6px}
-  .pz-it{display:flex;align-items:flex-start;gap:10px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid var(--pz);border-radius:10px;padding:9px 10px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
-  .pz-it.done{opacity:.6;border-left-color:#cbd5e1}
+  .pz-card{cursor:default!important;background:#fffef7!important;border-color:#e7e0c4!important;background-image:radial-gradient(#ece6cc 1px,transparent 1px)!important;background-size:16px 16px!important;padding:10px 10px 8px!important;display:flex;flex-direction:column;gap:6px}
+  .pz-h{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .pz-ttl{font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em}
+  .pz-cnt{font-size:11px;font-weight:900;border-radius:999px;min-width:22px;height:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+  .pz-add{display:flex;gap:5px;align-items:center}
+  .pz-in{flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;width:100%;box-sizing:border-box}
+  .pz-ab{all:unset;cursor:pointer;flex:none;height:28px;min-width:28px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;gap:2px;box-sizing:border-box;padding:0 4px}
+  .pz-ab b{font-size:10px;color:#4f46e5}
+  .pz-ab.on{background:#eef2ff;border-color:#c7d2fe}
+  .pz-ab.go{background:#0f172a;color:#fff;border-color:#0f172a;font-weight:900}
+  .pz-dot{all:unset;cursor:pointer;flex:none;width:14px;height:14px;border-radius:50%;background:var(--pz);box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--pz);margin:4px 3px 0;transition:transform .12s}
+  .pz-dot:hover{transform:scale(1.2)}
+  .pz-dot.big{width:18px;height:18px;margin:0 4px}
+  .pz-list{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;margin:0 -2px;padding:0 2px}
+  .pz-it{display:flex;align-items:flex-start;gap:6px;background:#fff;border:1px solid #e2e8f0;border-left:3px solid var(--pz);border-radius:8px;padding:6px 6px 6px 7px}
+  .pz-it.done{opacity:.55;border-left-color:#cbd5e1}
   .pz-it.done .pz-t{text-decoration:line-through;color:#64748b}
-  .pz-ck{flex:none;width:22px;height:22px;border:2px solid #94a3b8;border-radius:6px;background:#fff;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;cursor:pointer;margin-top:1px}
+  .pz-ck{flex:none;width:18px;height:18px;border:2px solid #94a3b8;border-radius:5px;background:#fff;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;cursor:pointer;box-sizing:border-box}
   .pz-ck.on{background:#16a34a;border-color:#16a34a}
   .pz-ck.sm{width:18px;height:18px;font-size:12px;border-radius:5px;margin:0}
-  .pz-pr{all:unset;cursor:pointer;flex:none;font-size:10.5px;font-weight:900;padding:3px 9px;border-radius:999px;border:1px solid;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
   .pz-tx{flex:1;min-width:0}
-  .pz-t{font-size:13.5px;font-weight:700;color:#0f172a;line-height:1.35;cursor:text;word-wrap:break-word}
-  .pz-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px}
-  .pz-who{font-size:11px;font-weight:800;color:#3730a3;background:#eef2ff;border-radius:999px;padding:2px 8px;cursor:pointer;white-space:nowrap}
-  .pz-who.none{color:#64748b;background:#f1f5f9}
-  .pz-old{font-size:10.5px;font-weight:800;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 8px}
-  .pz-by{font-size:10.5px;color:#94a3b8}
-  .pz-del{all:unset;cursor:pointer;color:#cbd5e1;font-size:18px;line-height:1;padding:0 4px}
-  .pz-del:hover{color:#dc2626}
-  .pz-empty{font-size:12.5px;color:#64748b;text-align:center;padding:14px;background:#fff;border:1px dashed #e2e8f0;border-radius:10px}
+  .pz-t{font-size:12px;font-weight:700;color:#0f172a;line-height:1.3;cursor:text;word-wrap:break-word}
+  .pz-meta{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:3px}
+  .pz-meta:empty{display:none}
+  .pz-who{font-size:10px;font-weight:800;color:#3730a3;background:#eef2ff;border-radius:999px;padding:1px 6px;cursor:pointer;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .pz-who.none{color:#94a3b8;background:transparent;padding:1px 0}
+  .pz-old{font-size:9.5px;font-weight:800;color:#9a3412;background:#ffedd5;border-radius:999px;padding:1px 6px;white-space:nowrap}
+  .pz-del{all:unset;cursor:pointer;color:transparent;font-size:15px;line-height:1;padding:0 2px}
+  .pz-it:hover .pz-del{color:#cbd5e1}
+  .pz-it .pz-del:hover{color:#dc2626}
+  .pz-empty{font-size:11.5px;color:#64748b;text-align:center;padding:10px;background:#fff;border:1px dashed #e2e8f0;border-radius:8px}
+  @media (hover:none){ .pz-del{color:#cbd5e1} }
   .pz-pop{position:fixed;z-index:10050;width:280px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 14px 34px rgba(15,23,42,.2);padding:10px}
   .pz-plist{max-height:220px;overflow:auto;margin-top:6px}
   .pz-opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;color:#334155}
   .pz-opt:hover{background:#f8fafc}
   .pz-opt.on{background:#eef2ff}
-  @media (max-width:700px){ .pz-add .pz-in{min-width:100%} .pz-go{flex:1;text-align:center} }
   .pc-stat{background:#f8fafc;border:1px solid var(--pc-line);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s}
   .pc-stat:hover{background:#eef2ff}
   .pc-stat .l{font-size:10px;font-weight:900;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.06em}
@@ -58190,6 +58197,7 @@ function pcEnsureStyles_() {
     .pc-hero h1{font-size:21px}
     .pc-card{padding:12px}
     .pc-kpis{grid-template-columns:1fr 1fr;gap:10px}
+    .pz-card{grid-column:1/-1}
     .pc-kpi{padding:11px 12px 8px}
     .pc-kpi-val{font-size:18px}
     .pc-kpi-sub{font-size:10.5px}
@@ -58577,7 +58585,6 @@ function pcRenderShell_() {
         <div class="pc-band-n">Lo que pasa hoy y esta semana. <b>No cambia</b> con el mes seleccionado.</div></header>
       <div class="pc-kpis" id="pc-kpis-hoy"></div>
       <div class="pc-grid">
-        <div class="pc-card s12 pz-card" id="pc-sec-pizarra"></div>
         <div class="pc-card s12" id="pc-sec-movs"></div>
         <div class="pc-card s7" id="pc-sec-asist"></div>
         <div class="pc-card s5" id="pc-sec-ophoy"></div>
@@ -58739,7 +58746,11 @@ function pcRenderHoyKpis_(kPend) {
     const h = pcRh_(PC.ym);
     k.push(pcKpi_({ ico: '👥', label: 'Personal hoy', acc: '#2563eb', accbg: '#dbeafe', value: `${h.presentes.length}<span style="font-size:15px;color:#94a3b8"> / ${h.personal.length}</span>`, sub: h.ausentes.length ? `${h.ausentes.length} sin registro` : 'todos registrados', onclick: "pcDrawer('personal')", delay: .12 }));
   } else k.push(pcKpi_({ ico: '⏳', label: 'Personal hoy', acc: '#cbd5e1', accbg: '#f1f5f9', loading: !PC.err.rh, value: '—', onclick: '' }));
+  // La pizarra ocupa una celda del tamaño de un KPI, al lado de los KPIs.
+  const pzPrev = document.getElementById('pc-sec-pizarra');
   el.innerHTML = k.join('');
+  if (pzPrev && pzPrev.contains(document.activeElement)) el.appendChild(pzPrev);
+  else { const c = document.createElement('div'); c.className = 'pc-kpi pz-card'; c.id = 'pc-sec-pizarra'; el.appendChild(c); pzRender_(); }
 }
 // HOY · Operación en este momento (abiertos y tareas de hoy).
 function pcRenderOpHoy_() {
@@ -58763,7 +58774,9 @@ function pcRenderOpHoy_() {
 // HOY · PIZARRA — recordatorios rápidos del día (NO son tareas programadas).
 // Compartida entre usuarios (servidor: /pizarra/*). Solo vive en el panel.
 window.PZ = window.PZ || { items: null, err: '', ts: 0, verHechos: false, draft: { texto: '', prioridad: 'media', asignados: [] } };
-const PZ_PRIO = { alta: { l: 'Alta', c: '#b91c1c', bg: '#fee2e2', bd: '#fca5a5', o: 0 }, media: { l: 'Media', c: '#b45309', bg: '#fef3c7', bd: '#fcd34d', o: 1 }, baja: { l: 'Baja', c: '#166534', bg: '#dcfce7', bd: '#86efac', o: 2 } };
+const PZ_PRIO = { critica: { l: 'Crítica', c: '#dc2626', o: 0 }, alta: { l: 'Alta', c: '#ea580c', o: 1 }, media: { l: 'Media', c: '#eab308', o: 2 }, baja: { l: 'Baja', c: '#2563eb', o: 3 } };
+const PZ_CICLO = { baja: 'media', media: 'alta', alta: 'critica', critica: 'baja' };
+function pzDot_(k, onclick, big) { const p = PZ_PRIO[k] || PZ_PRIO.media; return `<button class="pz-dot${big ? ' big' : ''}" style="--pz:${p.c}" title="Urgencia: ${p.l} · clic para cambiar (Baja → Media → Alta → Crítica)" onclick="${onclick}"></button>`; }
 function pzHoy_() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function pzUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : ''; }
 async function pzApi_(path, body) {
@@ -58805,32 +58818,37 @@ function pzRender_() {
   const row = x => {
     const p = PZ_PRIO[x.prioridad] || PZ_PRIO.media, id = pcEsc(x.id);
     const atras = !x.hecho && x.fecha && x.fecha < hoy;
-    return `<div class="pz-it ${x.hecho ? 'done' : ''}" style="--pz:${p.c}">
+    const tags = [atras ? `<span class="pz-old">⏳ ${pzFmtDia_(x.fecha)}</span>` : '',
+      !x.hecho && x.fecha && x.fecha > hoy ? `<span class="pz-old" style="color:#1e40af;background:#dbeafe">📅 ${pzFmtDia_(x.fecha)}</span>` : '',
+      x.origen === 'Bot WhatsApp' ? '<span class="pz-old" style="color:#5b21b6;background:#ede9fe" title="Agregado por WhatsApp">🤖</span>' : ''].join('');
+    const by = x.hecho ? `Hecho por ${x.hechoPor || '—'} · ${pzHora_(x.hechoAt)}` : `Anotó ${x.creadoPor || '—'}${x.creadoAt ? ' · ' + pzHora_(x.creadoAt) : ''}`;
+    return `<div class="pz-it ${x.hecho ? 'done' : ''}" style="--pz:${p.c}" title="${pcEsc(by)}">
       <span class="pz-ck ${x.hecho ? 'on' : ''}" title="${x.hecho ? 'Marcar como pendiente' : 'Marcar como hecho'}" onclick="pzToggle_('${id}')">${x.hecho ? '✓' : ''}</span>
-      <button class="pz-pr" style="color:${p.c};background:${p.bg};border-color:${p.bd}" title="Cambiar urgencia" onclick="pzCiclarPrio_('${id}')">${p.l}</button>
+      ${pzDot_(x.prioridad, `pzCiclarPrio_('${id}')`)}
       <div class="pz-tx"><div class="pz-t" title="Clic para editar" onclick="pzEditar_('${id}', this)">${pcEsc(x.texto)}</div>
-        <div class="pz-meta">${pzAsigHtml_(x.asignados, `pzAsignar_('${id}', this)`)}
-          ${atras ? `<span class="pz-old">⏳ desde ${pzFmtDia_(x.fecha)}</span>` : ''}
-          ${!x.hecho && x.fecha && x.fecha > hoy ? `<span class="pz-old" style="color:#1e40af;background:#dbeafe">📅 para ${pzFmtDia_(x.fecha)}</span>` : ''}
-          ${x.origen === 'Bot WhatsApp' ? '<span class="pz-old" style="color:#5b21b6;background:#ede9fe" title="Agregado por WhatsApp">🤖 Bot</span>' : ''}
-          <span class="pz-by">${x.hecho ? `✓ ${pcEsc(x.hechoPor || '')} · ${pzHora_(x.hechoAt)}` : `${pcEsc(x.creadoPor || '')}${x.creadoAt ? ' · ' + pzHora_(x.creadoAt) : ''}`}</span></div></div>
+        <div class="pz-meta">${pzAsigHtml_(x.asignados, `pzAsignar_('${id}', this)`)}${tags}</div></div>
       <button class="pz-del" title="Borrar" onclick="pzBorrar_('${id}')">×</button></div>`;
   };
-  const head = `<div class="pc-card-h"><div class="pc-card-t">📌 Pizarra del día <small style="text-transform:none;letter-spacing:0;font-weight:700;color:#64748b">· recordatorios rápidos, no son tareas programadas</small></div>
-    <div style="display:flex;gap:6px;align-items:center">${PZ.items ? `<span class="pc-chip" style="background:${pend.length ? '#fef3c7' : '#dcfce7'};color:${pend.length ? '#92400e' : '#166534'}">${pend.length} pendiente${pend.length === 1 ? '' : 's'}</span>${hechosHoy.length ? `<span class="pc-chip" style="background:#f1f5f9;color:#475569">✓ ${hechosHoy.length} hecho${hechosHoy.length === 1 ? '' : 's'} hoy</span>` : ''}` : ''}</div></div>`;
+  const head = `<div class="pz-h"><span class="pz-ttl">📌 Pizarra del día</span>${PZ.items ? `<span class="pz-cnt" style="background:${pend.length ? '#fef3c7' : '#dcfce7'};color:${pend.length ? '#92400e' : '#166534'}" title="Pendientes${hechosHoy.length ? ` · ${hechosHoy.length} hecho(s) hoy` : ''}">${pend.length}</span>` : ''}</div>`;
   const add = `<div class="pz-add">
-      <input id="pz-new" class="pz-in" maxlength="500" placeholder="Escribe un recordatorio y presiona Enter… (ej. Llamar al plomero del depa 3)" value="${pcEsc(d.texto)}" oninput="PZ.draft.texto=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();pzAgregar_()}">
-      <div class="pz-seg">${['alta', 'media', 'baja'].map(k => `<button class="${d.prioridad === k ? 'on' : ''}" style="--pz:${PZ_PRIO[k].c}" onclick="PZ.draft.prioridad='${k}';this.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===this))">${PZ_PRIO[k].l}</button>`).join('')}</div>
-      <div class="pz-dwho">${pzAsigHtml_(d.asignados, 'pzAsignar_(null, this)')}</div>
-      <button class="pz-go" onclick="pzAgregar_()">＋ Agregar</button></div>`;
+      ${pzDot_(d.prioridad, 'pzDraftPrio_(this)', true)}
+      <input id="pz-new" class="pz-in" maxlength="500" placeholder="Nuevo recordatorio + Enter" value="${pcEsc(d.texto)}" oninput="PZ.draft.texto=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();pzAgregar_()}">
+      <button class="pz-ab ${d.asignados.length ? 'on' : ''}" title="${d.asignados.length ? 'Para: ' + pcEsc(d.asignados.join(', ')) : 'Asignar a alguien'}" onclick="pzAsignar_(null, this)">👤${d.asignados.length ? `<b>${d.asignados.length}</b>` : ''}</button>
+      <button class="pz-ab go" title="Agregar" onclick="pzAgregar_()">＋</button></div>`;
   let body;
-  if (!PZ.items) body = PZ.err ? `<div style="font-size:12px;color:#991b1b">⚠️ ${pcEsc(PZ.err)} <button class="pc-link" onclick="pzLoad_(true)">Reintentar</button></div>` : pcSkel_(80);
-  else body = `<div class="pz-list">${pend.length ? pend.map(row).join('') : '<div class="pz-empty">✨ Sin pendientes en la pizarra</div>'}${hechosHoy.map(row).join('')}</div>
-    ${hechosAnt.length ? `<div style="margin-top:8px"><button class="pc-link" onclick="PZ.verHechos=!PZ.verHechos;pzRender_()">${PZ.verHechos ? '▾ Ocultar' : '▸ Ver'} hechos de días anteriores (${hechosAnt.length})</button>${PZ.verHechos ? `<div class="pz-list" style="margin-top:6px">${hechosAnt.map(row).join('')}</div>` : ''}</div>` : ''}`;
+  if (!PZ.items) body = PZ.err ? `<div style="font-size:11.5px;color:#991b1b">⚠️ ${pcEsc(PZ.err)} <button class="pc-link" onclick="pzLoad_(true)">Reintentar</button></div>` : '<div style="font-size:11.5px;color:#94a3b8;padding:6px 0">⏳ Cargando…</div>';
+  else body = `<div class="pz-list">${pend.length ? pend.map(row).join('') : '<div class="pz-empty">✨ Sin pendientes</div>'}${hechosHoy.map(row).join('')}
+    ${hechosAnt.length ? `<button class="pc-link" style="font-size:10.5px;margin-top:2px" onclick="PZ.verHechos=!PZ.verHechos;pzRender_()">${PZ.verHechos ? '▾ Ocultar' : '▸ Ver'} hechos anteriores (${hechosAnt.length})</button>${PZ.verHechos ? hechosAnt.map(row).join('') : ''}` : ''}</div>`;
   const foc = document.activeElement && document.activeElement.id === 'pz-new';
+  const sc = (el.querySelector('.pz-list') || {}).scrollTop || 0;
   el.innerHTML = head + add + body;
+  const ls = el.querySelector('.pz-list'); if (ls) ls.scrollTop = sc;
   if (foc) { const i = document.getElementById('pz-new'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
+window.pzDraftPrio_ = function (btn) {
+  PZ.draft.prioridad = PZ_CICLO[PZ.draft.prioridad] || 'media';
+  const p = PZ_PRIO[PZ.draft.prioridad]; btn.style.setProperty('--pz', p.c); btn.title = `Urgencia: ${p.l} · clic para cambiar (Baja → Media → Alta → Crítica)`;
+};
 function pzHoyLocal_(iso) { const t = new Date(iso); if (isNaN(t)) return ''; return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; }
 async function pzGuardar_(item, local) {
   const prev = JSON.parse(JSON.stringify(PZ.items || []));
@@ -58853,7 +58871,7 @@ window.pzToggle_ = function (id) {
 };
 window.pzCiclarPrio_ = function (id) {
   const x = (PZ.items || []).find(y => y.id === id); if (!x || /^tmp/.test(id)) return;
-  const v = { alta: 'media', media: 'baja', baja: 'alta' }[x.prioridad] || 'alta';
+  const v = PZ_CICLO[x.prioridad] || 'media';
   pzGuardar_({ id, prioridad: v }, () => { x.prioridad = v; });
 };
 window.pzBorrar_ = function (id) {
