@@ -58221,6 +58221,21 @@ function pcEnsureStyles_() {
   .pc-more{position:absolute;right:12px;top:12px;font-size:10px;font-weight:800;color:#a5b4fc;opacity:0;transition:opacity .2s}
   .pc-kpi:hover .pc-more{opacity:1}
   .pc-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+  .pc-mv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .pc-mv-col{background:var(--cb);border:1px solid color-mix(in srgb,var(--cc) 22%,#fff);border-radius:14px;padding:10px;min-width:0}
+  .pc-mv-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--cc);margin-bottom:8px}
+  .pc-mv-h b{margin-left:auto;font-size:22px;letter-spacing:0;color:var(--cc)}
+  .pc-mv-ico{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#fff;font-size:15px;box-shadow:0 1px 3px rgba(15,23,42,.08)}
+  .pc-mv-list{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto}
+  .pc-mv-it{display:flex;gap:9px;align-items:flex-start;background:#fff;border:1px solid #e2e8f0;border-left:4px solid #e2e8f0;border-radius:10px;padding:8px 9px}
+  .pc-mv-it.hot{border-left-color:var(--mc);box-shadow:0 2px 10px rgba(15,23,42,.06)}
+  .pc-mv-av{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:900;background:#f1f5f9;color:#475569;border:2px solid #e2e8f0}
+  .pc-mv-n{font-size:13px;font-weight:800;color:#0f172a;overflow-wrap:anywhere}
+  .pc-mv-s{font-size:11px;color:#64748b;margin-top:1px;overflow-wrap:anywhere}
+  .pc-mv-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .pc-mv-chip{font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 8px;border:1px solid #e2e8f0;white-space:nowrap}
+  .pc-mv-empty{font-size:12px;color:#94a3b8;text-align:center;padding:16px 4px}
+  @media (max-width:900px){ .pc-mv{grid-template-columns:1fr} }
   .pc-grp{margin-bottom:22px;padding-top:14px;border-top:3px solid var(--hc)}
   .pc-grp-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
   .pc-grp-l{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--hc);color:#fff;font-size:14px;font-weight:900}
@@ -58676,7 +58691,8 @@ function pcRenderShell_() {
       <div class="pc-card s8" id="pc-sec-fin"></div>
       <div class="pc-card s4" id="pc-sec-pres"></div>
       <div class="pc-card s12" id="pc-sec-cob"></div>`)}
-    ${pcGrp_('res', 'C', 'Reservas', '#1d4ed8', 'Ocupación, hospedaje e inquilinos', `
+    ${pcGrp_('res', 'C', 'Reservas', '#1d4ed8', 'Movimientos del día, ocupación, hospedaje e inquilinos', `
+      <div class="pc-card s12" id="pc-sec-movs"></div>
       <div class="pc-card s7" id="pc-sec-ocup"></div>
       <div class="pc-card s5" id="pc-sec-ocup12"></div>
       <div class="pc-card s12" id="pc-sec-rentas"></div>`)}
@@ -58741,7 +58757,68 @@ function pcRenderKpis_() {
   // k: 0-2 Ingresos/Egresos/Utilidad · 3-4 Ocupación/Ingreso hospedaje · 5 Por cobrar · 6 Rentas · 7 Pendientes
   const put = (g, idx) => { const c = document.getElementById('pc-kpis-' + g); if (c) c.innerHTML = idx.map(i => k[i] || '').join(''); };
   put('op', [7]); put('fin', [0, 1, 2, 5]); put('res', [3, 4, 6]);
-  pcRenderReporte_(); pcRenderSys_();
+  pcRenderMovs_(); pcRenderReporte_(); pcRenderSys_();
+}
+// C) Movimientos del día: salen hoy · entran hoy · entran mañana, con relevancia del
+// huésped (clasificación Oro/Plata/Bronce/Recurrente), estancias largas y saldo pendiente.
+const PC_TIER_W = { 'Oro': 4, 'Plata': 3, 'Bronce': 2, 'Recurrente': 1 };
+function pcMovInfo_(b) {
+  const arr = _pagosDateIso(b.DateArrival), dep = _pagosDateIso(b.DateDeparture);
+  const noches = arr && dep ? Math.max(0, Math.round((new Date(dep + 'T00:00:00') - new Date(arr + 'T00:00:00')) / 864e5)) : 0;
+  let tier = null, stats = null;
+  try {
+    const hu = typeof _pagosHuRow === 'function' ? _pagosHuRow(b) : null;
+    if (hu && typeof huComputeGuestStats === 'function') {
+      stats = huComputeGuestStats(hu, HU_STATE.rows);
+      tier = huGuestTier(huComputeLoyaltyScore(stats), stats);
+    }
+  } catch (_) {}
+  const saldo = Number(b.AmountDue) || 0;
+  const larga = noches >= 28 ? 'mensual' : noches >= 7 ? 'larga' : '';
+  const score = (tier ? PC_TIER_W[tier.label] || 0 : 0) + (larga === 'mensual' ? 3 : larga ? 2 : 0) + (saldo > 0 ? 1 : 0);
+  return { b, arr, dep, noches, tier, stats, saldo, larga, score, aloj: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName) || '—' };
+}
+function pcRenderMovs_() {
+  const el = document.getElementById('pc-sec-movs'); if (!el) return;
+  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>`;
+  const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
+  if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); return; }
+  if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); return; }
+  const d0 = new Date(), d1 = new Date(); d1.setDate(d1.getDate() + 1);
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const hoy = iso(d0), man = iso(d1);
+  const vivas = (PAGOS_STATE.bookings || []).filter(b => !/cancel|declin|delet/i.test(String(b.Status || '')));
+  const grp = (fn) => vivas.filter(fn).map(pcMovInfo_).sort((a, b) => b.score - a.score || String(a.aloj).localeCompare(String(b.aloj), 'es'));
+  const cols = [
+    { k: 'sal', t: 'Salen hoy', ico: '🧳', c: '#dc2626', bg: '#fef2f2', list: grp(b => _pagosDateIso(b.DateDeparture) === hoy) },
+    { k: 'ent', t: 'Entran hoy', ico: '🔑', c: '#16a34a', bg: '#f0fdf4', list: grp(b => _pagosDateIso(b.DateArrival) === hoy) },
+    { k: 'man', t: 'Entran mañana', ico: '📅', c: '#2563eb', bg: '#eff6ff', list: grp(b => _pagosDateIso(b.DateArrival) === man) },
+  ];
+  const relev = cols.reduce((a, c) => a + c.list.filter(x => x.score >= 2).length, 0);
+  const fmtD = s => { const d = new Date(s + 'T00:00:00'); return `${d.getDate()} ${PC_MES3[d.getMonth()]}`; };
+  const item = (x, col) => {
+    const t = x.tier, b = x.b;
+    const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const chips = [
+      t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}" title="${pcEsc(t.tooltip || '')}">${t.icon} ${t.label}</span>` : (x.stats && x.stats.visitas <= 1 ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : ''),
+      x.larga === 'mensual' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>` : x.larga ? `<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>` : '',
+      x.saldo > 0 && col.k !== 'sal' ? `<span class="pc-mv-chip" style="background:#ffedd5;color:#9a3412;border-color:#fdba74">💲 Saldo ${pcFmt$(x.saldo)}</span>` : '',
+      x.saldo > 0 && col.k === 'sal' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">⚠️ Sale con saldo ${pcFmt$(x.saldo)}</span>` : '',
+    ].join('');
+    const destacado = x.score >= 2;
+    return `<div class="pc-mv-it ${destacado ? 'hot' : ''}" style="--mc:${t ? t.border : col.c}" title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
+      <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
+      <div style="min-width:0;flex:1">
+        <div class="pc-mv-n">${destacado ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
+        <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${fmtD(x.arr)} → ${fmtD(x.dep)})${b.Source ? ' · ' + pcEsc(b.Source) : ''}</div>
+        ${chips ? `<div class="pc-mv-chips">${chips}</div>` : ''}
+      </div></div>`;
+  };
+  el.innerHTML = head(`${d0.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}`) + `
+    <div class="pc-mv">${cols.map(c => `<div class="pc-mv-col" style="--cc:${c.c};--cb:${c.bg}">
+      <div class="pc-mv-h"><span class="pc-mv-ico">${c.ico}</span><span>${c.t}</span><b>${c.list.length}</b></div>
+      <div class="pc-mv-list">${c.list.length ? c.list.map(x => item(x, c)).join('') : '<div class="pc-mv-empty">Sin movimientos</div>'}</div></div>`).join('')}</div>
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Ordenados por relevancia.</div>`;
 }
 // D) Reportes — comparativo: mes vs mes anterior vs mismo mes del año anterior.
 function pcRenderReporte_() {
