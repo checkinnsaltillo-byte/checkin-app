@@ -60776,6 +60776,8 @@ function vaEnsureStyles_() {
   .va-fp.dom.on{background:#16a34a;border-color:#16a34a}
   .va-fpc{flex:none;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;white-space:nowrap}
   .va-fpc.dom{background:#dcfce7;color:#166534;border-color:#86efac}
+  .va-fpc.bank{background:#f5f3ff;color:#5b21b6;border-color:#ddd6fe;white-space:normal}
+  .va-fprow{display:flex;flex-wrap:wrap;gap:6px;padding:7px 12px;border-bottom:1px solid #f1f5f9;background:#fcfcfd}
   .va-pend{background:#dc2626;color:#fff;border-radius:6px;font-size:10px;font-weight:900;padding:2px 6px}
   .va-row{display:grid;grid-template-columns:118px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid #f1f5f9}
   .va-row .k{font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em}
@@ -60944,7 +60946,7 @@ function vaFiltered_() {
     const g = r.grupo || (VA_TIPOS[r.tipo] || VA_TIPOS.otro).g;
     if (!words.length) return !VA.grupo || g === VA.grupo;
     const T = VA_TIPOS[r.tipo] || VA_TIPOS.otro, F = r.f || {};
-    const vis = [r.titulo, g, T.l, r.notas, r.formaPago, r.updatedBy, r.verificadoPor, r.verificado ? 'verificada verificado' : 'sin verificar', r.pendiente ? 'falta completar pendiente' : ''];
+    const vis = [r.titulo, g, T.l, r.notas, r.formaPago, r.formaPago === 'Domiciliado' && vaCuentaDom_(r) ? vaCuentaLbl_(vaCuentaDom_(r)) : '', r.updatedBy, r.verificadoPor, r.verificado ? 'verificada verificado' : 'sin verificar', r.pendiente ? 'falta completar pendiente' : ''];
     const sec = [];
     T.f.forEach(([k, l, kind]) => { const v = F[k]; if (v == null || v === '') return; vis.push(l); (kind ? sec : vis).push(kind ? [l, v] : v); });
     (r.extras || []).forEach(x => { vis.push(x.k); if (x.secret) sec.push([x.k || 'Dato', x.v]); else vis.push(x.v); });
@@ -60994,8 +60996,9 @@ function vaCardHtml_(r) {
   };
   const fecha = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
   return `<div class="va-card" style="--c:${T.c}">
-    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}${restr ? ' <span title="Información restringida: pide código" style="background:#0b1730;color:#fff;border-radius:5px;padding:0 5px;font-size:9.5px">🔒 RESTRINGIDO</span>' : ''}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}${r.formaPago ? `<span class="va-fpc ${r.formaPago === 'Domiciliado' ? 'dom' : ''}" title="Forma de pago">${r.formaPago === 'Domiciliado' ? '✓ ' : '💳 '}${vaEsc_(r.formaPago)}</span>` : ''}
+    <div class="va-card-h"><div style="min-width:0;flex:1"><div class="tp">${T.l}${restr ? ' <span title="Información restringida: pide código" style="background:#0b1730;color:#fff;border-radius:5px;padding:0 5px;font-size:9.5px">🔒 RESTRINGIDO</span>' : ''}</div><div class="n">${vaEsc_(r.titulo || '(sin nombre)')}</div></div>${r.pendiente ? '<span class="va-pend">FALTA COMPLETAR</span>' : ''}
       <button type="button" class="va-ver ${r.verificado ? 'on' : ''}" onclick="vaVerifToggle_('${vaEsc_(r.id)}')" title="${r.verificado ? `Verificada por ${vaEsc_(r.verificadoPor || '—')} el ${vaEsc_(r.verificadoEn ? new Date(r.verificadoEn).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')} · clic para quitar` : 'Marcar información como verificada'}">${r.verificado ? '✓' : ''}</button></div>
+    ${r.formaPago ? `<div class="va-fprow"><span class="va-fpc ${r.formaPago === 'Domiciliado' ? 'dom' : ''}" title="Forma de pago">${r.formaPago === 'Domiciliado' ? '✓ ' : '💳 '}${vaEsc_(r.formaPago)}</span>${r.formaPago === 'Domiciliado' && r.cuentaDom ? (() => { const b = vaCuentaDom_(r); return `<span class="va-fpc bank" title="Cuenta bancaria donde está domiciliado">🏦 ${vaEsc_(b ? vaCuentaLbl_(b) : 'Cuenta eliminada')}</span>`; })() : ''}</div>` : ''}
     ${VA.q && (VA._hits || {})[r.id] ? `<div style="padding:5px 12px;font-size:11px;font-weight:700;color:#92400e;background:#fffbeb;border-bottom:1px solid #fde68a">🔎 Coincide en dato oculto: ${vaEsc_(VA._hits[r.id].join(', '))}</div>` : ''}
     ${T.f.map(([k, l, kind]) => row(k, l, kind, F[k])).join('')}
     ${(r.extras || []).map((x, i) => row('x' + i, x.k || 'Dato', x.secret ? 's' : '', x.v)).join('')}
@@ -61084,7 +61087,11 @@ function vaModal_() {
       <div class="va-g2">
         <div class="va-f"><label>Nombre del registro *</label><input class="va-in" value="${vaEsc_(r.titulo)}" oninput="VA.draft.titulo=this.value" placeholder="Ej. Inbursa ACL · Gmail limpieza 1 · Módem Matamoros"></div>
         <div class="va-f"><label>Categoría</label><input class="va-in" list="va-dl-grp" value="${vaEsc_(r.grupo || T.g)}" oninput="VA.draft.grupo=this.value"><datalist id="va-dl-grp">${grupos.map(g => `<option value="${vaEsc_(g)}">`).join('')}</datalist></div>
-        <div class="va-f" style="grid-column:1/-1"><label>Forma de pago</label><div style="display:flex;gap:6px;flex-wrap:wrap">${VA_FORMAS_PAGO.map(f => `<button type="button" class="va-fp ${r.formaPago === f ? 'on' : ''} ${f === 'Domiciliado' ? 'dom' : ''}" onclick="VA.draft.formaPago=VA.draft.formaPago==='${f}'?'':'${f}';vaModal_()">${r.formaPago === f ? '✓ ' : ''}${f}</button>`).join('')}</div></div>
+        <div class="va-f" style="grid-column:1/-1"><label>Forma de pago</label><div style="display:flex;gap:6px;flex-wrap:wrap">${VA_FORMAS_PAGO.map(f => `<button type="button" class="va-fp ${r.formaPago === f ? 'on' : ''} ${f === 'Domiciliado' ? 'dom' : ''}" onclick="VA.draft.formaPago=VA.draft.formaPago==='${f}'?'':'${f}';if(VA.draft.formaPago!=='Domiciliado')delete VA.draft.cuentaDom;vaModal_()">${r.formaPago === f ? '✓ ' : ''}${f}</button>`).join('')}</div></div>
+        ${r.formaPago === 'Domiciliado' ? (() => { const bancos = VA.records.filter(x => x.tipo === 'banco' && x.id !== r.id).sort((a, b) => vaCuentaLbl_(a).localeCompare(vaCuentaLbl_(b), 'es'));
+          return `<div class="va-f" style="grid-column:1/-1"><label>Cuenta bancaria donde está domiciliado</label>${bancos.length
+            ? `<select class="va-in" onchange="VA.draft.cuentaDom=this.value"><option value="">— Elige una cuenta —</option>${bancos.map(b => `<option value="${vaEsc_(b.id)}" ${r.cuentaDom === b.id ? 'selected' : ''}>🏦 ${vaEsc_(vaCuentaLbl_(b))}</option>`).join('')}${r.cuentaDom && !bancos.some(b => b.id === r.cuentaDom) ? '<option selected value="' + vaEsc_(r.cuentaDom) + '">(cuenta eliminada)</option>' : ''}</select>`
+            : '<div style="font-size:12px;color:#94a3b8">Aún no hay cuentas bancarias dadas de alta en esta sección.</div>'}</div>`; })() : ''}
         ${T.f.map(([k, l, kind]) => k === 'asignado' ? vaPersonasHtml_(k, l, r.f[k]) : inp(k, l, kind, r.f[k], VA_SUG[k])).join('')}
       </div>
       <div class="va-f"><label>Datos adicionales</label>
@@ -61157,6 +61164,14 @@ window.vaVerifToggle_ = async function (id) {
     await vaLoad_(); vaRefreshList_(); vaToast_(r.verificado ? '✓ Verificada' : 'Verificación retirada');
   } catch (e) { alert('No se pudo guardar: ' + e.message); try { await vaLoad_(); vaRefreshList_(); } catch (_) {} }
 };
+// Cuenta bancaria (registro tipo banco) ligada a un registro domiciliado.
+function vaCuentaDom_(r) { return r && r.cuentaDom ? VA.records.find(x => x.id === r.cuentaDom && x.tipo === 'banco') : null; }
+function vaCuentaLbl_(b) {
+  const F = b.f || {}, m = b._masked || {};
+  const num = F.cuenta || F.tarjeta || F.clabe;
+  const fin = num ? '•' + String(num).replace(/\s/g, '').slice(-4) : (m.cuenta || m.tarjeta || m.clabe || '').replace(/[•\s]+/, '•');
+  return [b.titulo, F.banco && !String(b.titulo || '').toLowerCase().includes(String(F.banco).toLowerCase()) ? F.banco : '', fin].filter(Boolean).join(' · ');
+}
 window.vaSetTipo_ = function (k) { VA.draft.tipo = k; if (!VA.draft.grupo || Object.values(VA_TIPOS).some(t => t.g === VA.draft.grupo)) VA.draft.grupo = VA_TIPOS[k].g; vaModal_(); };
 window.vaGen_ = function (k) {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#$%&*?@';
