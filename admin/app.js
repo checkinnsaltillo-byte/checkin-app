@@ -61023,7 +61023,7 @@ window.vaToggle_ = function (id, key) {
   else {
     VA.reveal.add(k);
     const r = VA.records.find(x => x.id === id);
-    if (r) vaApi_('/vault/log', { method: 'POST', body: { a: 'Vio dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
+    if (r && vaSes_()) vaApi_('/vault/log', { method: 'POST', body: { a: 'Vio dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
     setTimeout(() => { if (VA.reveal.delete(k)) vaRefreshList_(); }, 30000); // se vuelve a ocultar solo
   }
   vaRefreshList_();
@@ -61045,7 +61045,7 @@ window.vaCopy_ = async function (id, key) {
   const v = String(vaVal_(r, key) || '');
   try { await navigator.clipboard.writeText(v); } catch (_) { const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
   vaToast_('📋 Copiado');
-  vaApi_('/vault/log', { method: 'POST', body: { a: 'Copió dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
+  if (vaSes_()) vaApi_('/vault/log', { method: 'POST', body: { a: 'Copió dato', r: id, t: `${r.titulo} · ${vaLabel_(r, key)}` } }).catch(() => {});
 };
 function vaToast_(t) {
   const d = document.createElement('div');
