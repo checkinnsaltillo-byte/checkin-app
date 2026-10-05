@@ -61588,11 +61588,13 @@ window.vaBitacora_ = async function () {
 // ║ Datos: server /senal/* → gs://check-in-493804-senaletica.             ║
 // ═══════════════════════════════════════════════════════════════════════
 const SN_PX = 72;
+// Librerías servidas desde el propio dominio (algunas redes móviles bloquean CDNs);
+// si la copia local falla, se intenta el CDN.
 const SN_LIBS = [
-  'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.4/dist/svg2pdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
+  ['/vendor/senaletica/fabric.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js'],
+  ['/vendor/senaletica/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'],
+  ['/vendor/senaletica/svg2pdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.4/dist/svg2pdf.umd.min.js'],
+  ['/vendor/senaletica/qrcode.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'],
 ];
 // Fuentes con TTF estático (necesario para PDF vectorial). [regular, bold, italic, boldItalic]
 const SN_FONTS = {
@@ -61604,7 +61606,7 @@ const SN_FONTS = {
   'Questrial': ['questrial/Questrial-Regular.ttf'],
   'Anton': ['anton/Anton-Regular.ttf'],
 };
-const SN_FONT_CDN = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/';
+const SN_FONT_CDN = 'https://storage.googleapis.com/check-in-493804-senaletica/fonts/';
 const SN_COLOR_LBL = { amarillo: 'Amarillo', rojo: 'Rojo', azul: 'Azul', azul2: 'Azul 2', verde: 'Verde' };
 
 window.SN = window.SN || { data: null, base: '', loading: false, err: '', view: 'galeria', cat: '', q: '', thumbs: {}, sel: new Set(), cur: null, canvas: null, zoom: 1, undo: [], redo: [], dirty: false, saving: false };
@@ -61629,7 +61631,10 @@ async function snEnsureLibs_() {
   // pdf.js del sistema define "define" (AMD); las UMD se registrarían ahí y no como globales.
   const amd = window.define; if (amd && amd.amd) window.define = undefined;
   try {
-    for (const u of SN_LIBS) { snPaso_('Cargando ' + u.split('/').slice(-1)[0] + '…'); await snLoadScript_(u); }
+    for (const [loc, cdn] of SN_LIBS) {
+      snPaso_('Cargando ' + loc.split('/').slice(-1)[0] + '…');
+      try { await snLoadScript_(loc); } catch (e) { console.warn('[señalética] local falló, uso CDN:', e.message); await snLoadScript_(cdn); }
+    }
   } finally { if (amd && amd.amd) window.define = amd; }
   if (typeof fabric === 'undefined' || !window.jspdf) throw new Error('Las librerías del editor no quedaron disponibles.');
   snPaso_('Cargando fuentes…');
