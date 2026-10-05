@@ -57210,6 +57210,7 @@ function tarChipsHtml_(r, estadoOcur) {
     r.Clasificacion ? tarChip_(r.Clasificacion, '#5b21b6', '#ede9fe', '#c4b5fd') : '',
     r.Subclasificacion ? tarChip_(r.Subclasificacion, '#0f766e', '#ccfbf1', '#5eead4') : '',
     r.Proceso_Codigo ? tarChip_('📘 ' + r.Proceso_Codigo, '#3730a3', '#e0e7ff', '#a5b4fc') : '',
+    r.Origen === 'Bot WhatsApp' ? tarChip_('🤖 Bot', '#0f766e', '#ccfbf1', '#5eead4') : '',
     String(r.WhatsApp || '') === 'Sí' ? tarChip_('💬 WhatsApp', '#15803d', '#f0fdf4', '#86efac') : '',
   ].join('');
 }
@@ -57320,7 +57321,8 @@ function tarFiltered_() {
     if (TAR_STATE.fClasif && r.Clasificacion !== TAR_STATE.fClasif) return false;
     const fo = TAR_STATE.fOrigen;
     if (fo === 'proceso' && !r.Proceso_ID) return false;
-    if (fo === 'manual' && r.Proceso_ID) return false;
+    if (fo === 'manual' && (r.Proceso_ID || r.Origen === 'Bot WhatsApp')) return false;
+    if (fo === 'bot' && r.Origen !== 'Bot WhatsApp') return false;
     if (fo.startsWith('P:') && r.Proceso_Codigo !== fo.slice(2)) return false;
     if (q && ![r.Nombre, r.Clasificacion, r.Subclasificacion, r.Personal, r.Comentarios, r.Proceso_Codigo, r.Proceso_Nombre].join(' ').toLowerCase().includes(q)) return false;
     return true;
@@ -57456,7 +57458,7 @@ function tarOrigenSelect_() {
   const cods = Array.from(new Set(TAR_STATE.list.map(r => r.Proceso_Codigo).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
   const o = (v, l) => `<option value="${esc(v)}"${fo === v ? ' selected' : ''}>${esc(l)}</option>`;
   return `<select onchange="tarSetFOrigen(this.value)" style="width:auto;flex:0 0 auto;max-width:240px;padding:7px 10px;font-size:12px;border:1px solid ${fo ? '#818cf8' : '#cbd5e1'};border-radius:8px;background:${fo ? '#eef2ff' : '#fff'}">
-    ${o('', 'Todos los orígenes')}${o('proceso', '📘 Desde procesos')}${o('manual', '✍️ Manuales')}${cods.map(c => o('P:' + c, '📘 ' + c)).join('')}</select>`;
+    ${o('', 'Todos los orígenes')}${o('proceso', '📘 Desde procesos')}${o('bot', '🤖 Desde el bot (WhatsApp)')}${o('manual', '✍️ Manuales')}${cods.map(c => o('P:' + c, '📘 ' + c)).join('')}</select>`;
 }
 window.tarAbrirProceso = function (id) {
   if (typeof DP === 'undefined') return;
