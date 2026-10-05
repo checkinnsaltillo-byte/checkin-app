@@ -57211,8 +57211,20 @@ function tarChipsHtml_(r, estadoOcur) {
     r.Subclasificacion ? tarChip_(r.Subclasificacion, '#0f766e', '#ccfbf1', '#5eead4') : '',
     r.Proceso_Codigo ? tarChip_('📘 ' + r.Proceso_Codigo, '#3730a3', '#e0e7ff', '#a5b4fc') : '',
     r.Origen === 'Bot WhatsApp' ? tarChip_('🤖 Bot', '#0f766e', '#ccfbf1', '#5eead4') : '',
+    r.Fecha_limite === 'Sí' ? tarChip_(tarLimiteTxt_(r, estadoOcur), '#991b1b', '#fee2e2', '#fca5a5') : '',
     String(r.WhatsApp || '') === 'Sí' ? tarChip_('💬 WhatsApp', '#15803d', '#f0fdf4', '#86efac') : '',
   ].join('');
+}
+// Chip "Fecha límite": muestra la fecha (única) o la próxima fecha programada.
+function tarLimiteTxt_(r, estadoOcur) {
+  if (estadoOcur === 'Resuelto') return '⏳ Límite cumplido ✓';
+  const p = tarProg_(r);
+  const f = p.tipo === 'unica' ? (p.fechas.slice().sort().filter(x => x >= tarIso_(tarToday_()))[0] || p.fechas.slice().sort().pop()) : tarNextDate_(r);
+  if (!f) return '⏳ Fecha límite';
+  const hoy = tarIso_(tarToday_());
+  const dias = Math.round((tarParseIso_(f) - tarParseIso_(hoy)) / 864e5);
+  const cuando = dias < 0 ? 'vencida' : dias === 0 ? 'hoy' : dias === 1 ? 'mañana' : `en ${dias} días`;
+  return `⏳ Límite ${tarFmtFecha_(f)} · ${cuando}`;
 }
 function tarPersonalList_(r) {
   return String(r.Personal || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -57747,14 +57759,14 @@ function tarPanelSnapshot_(d) {
   return JSON.stringify({
     n: d.Nombre || '', c: d.Clasificacion || '', s: d.Subclasificacion || '', p: d.Prioridad || '',
     na: d.Naturaleza || '', pr: d._prog, pe: (d._personal || []).slice().sort(),
-    w: d.WhatsApp || 'No', m: d.Mensaje || '', t: d.Template_ID || '', e: d.Estado || '', co: d.Comentarios || '',
+    w: d.WhatsApp || 'No', m: d.Mensaje || '', t: d.Template_ID || '', e: d.Estado || '', co: d.Comentarios || '', fl: d.Fecha_limite === 'Sí' ? 'Sí' : 'No',
   });
 }
 window.tarOpenPanel = function (id, fecha) {
   const row = id ? TAR_STATE.list.find(x => x.ID === id) : null;
   const d = row ? JSON.parse(JSON.stringify(row)) : {
     Nombre: '', Clasificacion: '', Subclasificacion: '', Prioridad: 'Medio', Naturaleza: 'Recurrente',
-    WhatsApp: 'No', Mensaje: '', Template_ID: '', Estado: 'Activa', Comentarios: '',
+    WhatsApp: 'No', Mensaje: '', Template_ID: '', Estado: 'Activa', Comentarios: '', Fecha_limite: 'No',
   };
   d.Estado = tarVigencia_(d);
   d._prog = JSON.parse(JSON.stringify(row ? tarProg_(row) : tarEmptyProg_(d.Naturaleza)));
@@ -57875,7 +57887,12 @@ function tarPanelRender_() {
       </div>
       ${field(lbl('Nivel de prioridad') + `<div style="display:flex;gap:6px;flex-wrap:wrap">${TAR_PRIORIDADES.map(p => tarPill_(d.Prioridad === p.k, p.k, `tarSetField('Prioridad','${p.k}')`, { fg: p.k === 'Crítico' ? '#fff' : p.fg, bg: p.bg, bd: p.bd })).join('')}</div>`)}
       ${field(lbl('Naturaleza') + `<div style="display:flex;gap:6px">${tarPill_(d.Naturaleza === 'Único', 'Único', "tarSetNaturaleza('Único')")}${tarPill_(d.Naturaleza === 'Recurrente', 'Recurrente', "tarSetNaturaleza('Recurrente')")}</div>`)}
-      ${field(lbl('Fecha(s)') + fechasHtml)}
+      ${field(lbl('Fecha(s)') + fechasHtml + `
+        <div onclick="tarSetField('Fecha_limite', TAR_STATE.panel.d.Fecha_limite === 'Sí' ? 'No' : 'Sí')" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-top:12px;padding:10px 12px;border-radius:10px;border:1.5px solid ${d.Fecha_limite === 'Sí' ? '#fca5a5' : '#e2e8f0'};background:${d.Fecha_limite === 'Sí' ? '#fef2f2' : '#fff'}">
+          ${tarCheck_(d.Fecha_limite === 'Sí')}
+          <div><div style="font-size:13px;font-weight:900;color:#0f172a">⏳ Fecha límite</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:2px">La tarea debe quedar resuelta a más tardar en esa fecha${d.Naturaleza === 'Recurrente' ? ' (en cada fecha programada)' : ''}.</div></div>
+        </div>`)}
       ${field(lbl(`Personal asignado${d._personal.length ? ` · ${d._personal.length}` : ''}`) + personalHtml)}
       ${field(lbl('¿Enviar mensaje por WhatsApp?') + waHtml)}
       ${field(lbl('Vigencia de la tarea') + `<div style="display:flex;gap:6px;flex-wrap:wrap">${TAR_VIGENCIAS.map(e => tarPill_(d.Estado === e.k, e.k, `tarSetField('Estado','${e.k}')`, { fg: e.fg, bg: e.bg, bd: e.bd })).join('')}</div><div style="font-size:11px;color:#94a3b8;margin-top:5px">Pausada o Cancelada: deja de aparecer en fechas futuras. El estado de cada día se marca desde el calendario.</div>`)}
@@ -57982,6 +57999,7 @@ window.tarSavePanel = async function () {
     Mensaje: d.WhatsApp === 'Sí' ? (d.Mensaje || '') : '',
     Template_ID: d.WhatsApp === 'Sí' ? (d.Template_ID || '') : '',
     Estado: d.Estado || 'Activa', Comentarios: d.Comentarios || '',
+    Fecha_limite: d.Fecha_limite === 'Sí' ? 'Sí' : 'No',
     Updated_at: new Date().toISOString(),
   };
   if (d.Proceso_ID) Object.assign(payload, { Origen: 'Proceso', Proceso_ID: d.Proceso_ID, Proceso_Codigo: d.Proceso_Codigo || '', Proceso_Nombre: d.Proceso_Nombre || '', Proceso_Version: "'" + String(d.Proceso_Version || '').replace(/^'/, '') });
@@ -57995,7 +58013,7 @@ window.tarSavePanel = async function () {
     if (!defChanged) { tarClosePanel(true); tarRender(); return; }
     // Bitácora de cambios en la definición.
     const prevRow = P.id ? TAR_STATE.list.find(x => x.ID === P.id) : null;
-    const CAMPOS = [['Nombre','Nombre'],['Clasificacion','Clasificación'],['Subclasificacion','Sub-clasificación'],['Prioridad','Prioridad'],['Naturaleza','Naturaleza'],['Programacion_texto','Fecha(s)'],['Personal','Personal asignado'],['WhatsApp','WhatsApp'],['Mensaje','Mensaje'],['Estado','Vigencia'],['Comentarios','Comentarios']];
+    const CAMPOS = [['Nombre','Nombre'],['Clasificacion','Clasificación'],['Subclasificacion','Sub-clasificación'],['Prioridad','Prioridad'],['Naturaleza','Naturaleza'],['Programacion_texto','Fecha(s)'],['Personal','Personal asignado'],['WhatsApp','WhatsApp'],['Mensaje','Mensaje'],['Estado','Vigencia'],['Fecha_limite','Fecha límite'],['Comentarios','Comentarios']];
     const user = tarUser_();
     const histRows = [];
     const j = await tarSaveRow_(payload);
