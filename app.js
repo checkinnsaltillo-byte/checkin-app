@@ -58774,6 +58774,7 @@ function pcRenderShell_() {
         <div class="pc-card s12" id="pc-sec-movs"></div>
         <div class="pc-card s7" id="pc-sec-asist"></div>
         <div class="pc-card s5" id="pc-sec-ophoy"></div>
+        <div class="pc-card s12" id="pc-sec-reemitir"></div>
         <div class="pc-card s12" id="pc-sec-disp"></div>
       </div>
     </section>
@@ -58852,7 +58853,7 @@ function pcRenderKpis_() {
   // k: 0-2 Ingresos/Egresos/Utilidad · 3-4 Ocupación/Ingreso hospedaje · 5 Por cobrar · 6 Rentas · 7 Pendientes
   const put = (g, idx) => { const c = document.getElementById('pc-kpis-' + g); if (c) c.innerHTML = idx.map(i => k[i] || '').join(''); };
   put('op', []); put('fin', [0, 1, 2, 5]); put('res', [3, 4, 6]);
-  pcRenderMovs_(); pcRenderOpHoy_(); pcRenderAsist_(); pcRenderHoyKpis_(k[7]); pcRenderReporte_();
+  pcRenderMovs_(); pcRenderOpHoy_(); pcRenderReemitir_(); pcRenderAsist_(); pcRenderHoyKpis_(k[7]); pcRenderReporte_();
 }
 // C) Movimientos del día: salen hoy · entran hoy · entran mañana, con relevancia del
 // huésped (clasificación Oro/Plata/Bronce/Recurrente), estancias largas y saldo pendiente.
@@ -58951,6 +58952,46 @@ function pcRenderOpHoy_() {
     ${crit.length ? `<div style="margin-top:12px;font-size:11px;font-weight:900;color:#991b1b;text-transform:uppercase;letter-spacing:.05em">Atención prioritaria</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${crit.map(c => `<div class="pc-row" style="padding:6px 8px;background:#fff1f2;border:1px solid #fecdd3" onclick="pcDrawer('operacion')"><span class="pc-chip" style="background:#dc2626;color:#fff">${pcEsc(c.n)}</span><span style="font-size:12px;font-weight:700;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.t}: ${pcEsc(c.txt)}</span><span style="font-size:10.5px;color:#94a3b8">${pcEsc(c.f || '')}</span></div>`).join('')}</div>`
     : '<div style="margin-top:12px;font-size:12px;color:#16a34a;font-weight:800">✅ Sin pendientes de prioridad alta o crítica</div>'}`;
+}
+// HOY · Reservas extendidas cuyo ticket ya emitido quedó por debajo del total → re-emitir.
+// Todas las fechas (no depende del mes elegido): es un pendiente por atender.
+function pcReemitirList_() {
+  if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) return null;
+  const out = [];
+  (PAGOS_STATE.bookings || []).forEach(b => {
+    if (/cancel|declined/i.test(String(b.Status || ''))) return;
+    const e = _pagosExt(b); if (!e) return;
+    const tk = _pagosTicket(b); if (!tk) return;
+    const motivo = _pagosAlertaExt(b, e, tk); if (!motivo) return;
+    out.push({ b, e, tk, motivo });
+  });
+  return out.sort((x, y) => _pagosDateIso(y.b.DateArrival).localeCompare(_pagosDateIso(x.b.DateArrival)));
+}
+window.pcAbrirEnPagos_ = function (id) {
+  pcGo('pagos');
+  let n = 0; const t = setInterval(() => { if (document.getElementById('pagos-root') || ++n > 40) { clearInterval(t); pagosOpenReserva(id); } }, 150);
+};
+function pcRenderReemitir_() {
+  const el = document.getElementById('pc-sec-reemitir'); if (!el) return;
+  const list = pcReemitirList_();
+  const head = (n, extra) => `<div class="pc-card-h"><div class="pc-card-t">⚠️ Tickets por re-emitir${n != null ? ` <span class="pc-chip" style="background:${n ? '#fecaca' : '#dcfce7'};color:${n ? '#7f1d1d' : '#166534'}">${n}</span>` : ''} <small>· reservas extendidas con ticket ya emitido</small></div>${extra || ''}</div>`;
+  if (!list) { el.innerHTML = head(null) + pcSkel_(90); return; }
+  if (!list.length) { el.innerHTML = head(0) + '<div style="font-size:12px;color:#16a34a;font-weight:800">✅ Ningún ticket por re-emitir: todas las extensiones tienen su ticket al día.</div>'; return; }
+  const dias = (a, b) => Math.max(0, Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 864e5));
+  el.innerHTML = head(list.length, `<button class="pc-link" onclick="pcGo('pagos')">Pagos →</button>`) +
+    `<div class="pc-tblwrap"><table class="pc-tbl"><thead><tr><th>Reserva</th><th>Huésped</th><th>Alojamiento</th><th>Fechas</th><th class="r">Ticket emitido</th><th class="r">Total actual</th><th class="r">Diferencia</th><th></th></tr></thead><tbody>
+    ${list.map(({ b, e, tk, motivo }) => {
+      const tot = Number(b.TotalAmount) || 0, dif = tk.monto != null ? tot - tk.monto : null;
+      const nueva = e.nueva || _pagosDateIso(b.DateDeparture);
+      return `<tr title="${pcEsc(motivo)}">
+        <td><a href="#" onclick="event.preventDefault();pcAbrirEnPagos_('${pcEsc(String(b.Id))}')" style="color:#1d4ed8;font-weight:800">${pcEsc(b.Id)}</a></td>
+        <td>${pcEsc(b.GuestName || '')}</td><td>${pcEsc(_pagosAlojName(b))}</td>
+        <td style="white-space:nowrap">${_pagosFmtFecha(_pagosDateIso(b.DateArrival))} → ${_pagosFmtFecha(nueva)}<br><span class="pc-chip" style="background:#fef3c7;color:#92400e">antes ${_pagosFmtFecha(e.antes)} · +${dias(e.antes, nueva)} noches</span></td>
+        <td class="r">Folio #${pcEsc(tk.folio || '—')}<br><span style="font-size:11px;color:#64748b">${tk.monto != null ? pcFmt$(tk.monto, 2) : 'monto no registrado'}${tk.emision ? ' · ' + _pagosFmtFecha(tk.emision) : ''}</span></td>
+        <td class="r">${pcFmt$(tot, 2)}</td>
+        <td class="r"><b style="color:#9a3412">${dif != null ? '+' + pcFmt$(dif, 2) : '—'}</b></td>
+        <td class="r"><button class="pc-link" style="white-space:nowrap" onclick="pcAbrirEnPagos_('${pcEsc(String(b.Id))}')">Abrir en Pagos →</button></td></tr>`;
+    }).join('')}</tbody></table></div>`;
 }
 // HOY · Asistencia de la semana en curso (lunes → domingo).
 function pcRenderAsist_() {
@@ -59156,6 +59197,7 @@ function pcRenderSection_(key) {
     pcAnimateBars_();
   }
   if (key === 'cob') {
+    pcRenderReemitir_();
     if (PC.err.cob) { card('pc-sec-cob', head('🧾 Cobranza y facturación') + pcErr_(PC.err.cob)); return; }
     if (PC.loading.cob || typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { card('pc-sec-cob', head('🧾 Cobranza y facturación') + pcSkel_(260)); return; }
     const c = pcCobMonth_(ym);
