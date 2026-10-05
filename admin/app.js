@@ -60721,15 +60721,15 @@ window.dpImprimir_ = function () {
 function navAfter_(ms, fn) { return () => setTimeout(() => { try { fn(); } catch (e) { console.warn('[nav]', e.message); } }, ms); }
 const NAV_TREE = {
   tareas: [
-    { t: '📝 Registro de tareas', go: () => tarSetSection('registro'), subs: [
-      { t: '▦ Cards', go: () => { tarSetSection('registro'); tarSetView('cards'); } },
-      { t: '☰ Tabla', go: () => { tarSetSection('registro'); tarSetView('tabla'); } },
-    ] },
     { t: '📅 Calendario', go: () => tarSetSection('calendario'), subs: [
       { t: '🗂️ Resumen de tareas', go: () => { tarSetSection('calendario'); tarSetCalView('resumen'); } },
       { t: '📌 Pendientes del día', go: () => { tarSetSection('calendario'); tarSetCalView('dia'); } },
       { t: '🗓️ Pendientes de la semana', go: () => { tarSetSection('calendario'); tarSetCalView('semana'); } },
       { t: '📆 Pendientes del mes', go: () => { tarSetSection('calendario'); tarSetCalView('mes'); } },
+    ] },
+    { t: '📝 Registro de tareas', go: () => tarSetSection('registro'), subs: [
+      { t: '▦ Cards', go: () => { tarSetSection('registro'); tarSetView('cards'); } },
+      { t: '☰ Tabla', go: () => { tarSetSection('registro'); tarSetView('tabla'); } },
     ] },
   ],
   procesos: [
