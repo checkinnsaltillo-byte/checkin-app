@@ -58146,7 +58146,7 @@ function pcEnsureStyles_() {
   .pz-col.over{box-shadow:0 0 0 3px var(--c) inset;background:#fff}
   .pz-colh{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;font-weight:900;color:var(--c);text-transform:uppercase;letter-spacing:.05em;margin:2px 4px 8px}
   .pz-colh b{background:#fff;color:var(--c);border-radius:999px;min-width:22px;height:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;font-size:11px}
-  .pz-cards{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
+  .pz-cards{display:flex;flex-direction:column;gap:6px;overflow-y:auto;position:relative;padding-right:2px}
   .pz-it{display:flex;align-items:flex-start;gap:7px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid var(--pz);border-radius:9px;padding:8px;cursor:grab;box-shadow:0 1px 2px rgba(15,23,42,.05)}
   .pz-it.drag{opacity:.35}
   .pz-it.pz-st-resuelto .pz-t{text-decoration:line-through;color:#64748b}
@@ -58891,12 +58891,23 @@ function pzRender_() {
     }).join('')}</div>`;
   const foc = document.activeElement && document.activeElement.id === 'pz-new';
   el.innerHTML = head + add + body;
+  pzAjustarAlto_(el);
   if (foc) { const i = document.getElementById('pz-new'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
 window.pzAbrirTarea_ = function (id) {
   pcGo('tareas');
   let n = 0; const t = setInterval(() => { const m = document.getElementById('module-tareas'); if ((m && !m.classList.contains('hidden') && m.children.length) || ++n > 40) { clearInterval(t); if (typeof tarOpenPanel === 'function') tarOpenPanel(id, pzHoy_()); } }, 150);
 };
+// Cada columna muestra máximo 4 tarjetas; el resto con scroll (las tarjetas miden distinto).
+function pzAjustarAlto_(el) {
+  el.querySelectorAll('.pz-cards').forEach(box => {
+    const its = box.querySelectorAll(':scope > .pz-it');
+    if (its.length <= 4) { box.style.maxHeight = ''; return; }
+    if (!its[3].offsetHeight) return; // panel oculto: se ajusta al mostrarse (ResizeObserver)
+    box.style.maxHeight = (its[3].offsetTop + its[3].offsetHeight + 2) + 'px';
+  });
+  if (!el.__pzRO && window.ResizeObserver) { el.__pzRO = new ResizeObserver(() => pzAjustarAlto_(el)); el.__pzRO.observe(el); }
+}
 window.pzEstado_ = function (id, est) {
   if (/^T:/.test(id)) {
     const tid = id.slice(2), hoy = pzHoy_(), E = PZ_EST_TAR[est];
