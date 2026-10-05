@@ -60649,7 +60649,7 @@ try { sysRefreshMenuGroups_(); } catch (_) {}
 const VA_TIPOS = {
   banco: { l: '🏦 Cuenta bancaria', c: '#7c3aed', g: 'Bancos', f: [
     ['titular', 'Usuario / titular'], ['banco', 'Banco'], ['tarjeta', 'No. de tarjeta', 'p'], ['clabe', 'CLABE', 'p'], ['cuenta', 'Cuenta', 'p'],
-    ['nip', 'NIP', 's'], ['pass', 'Contraseña banca en línea / app', 's'] ] },
+    ['nip', 'NIP', 's'], ['pass', 'Contraseña banca en línea / app', 's'], ['passOp', 'Contraseña de operaciones', 's'] ] },
   cuenta: { l: '🔑 Cuenta de plataforma o correo', c: '#ea580c', g: 'Plataformas', f: [
     ['plataforma', 'Plataforma'], ['usuario', 'Usuario / correo'], ['pass', 'Contraseña', 's'], ['asignado', 'Asignado a'], ['url', 'Enlace de acceso'] ] },
   servicio: { l: '⚡ Portal de servicio', c: '#0e7490', g: 'Servicios', f: [
