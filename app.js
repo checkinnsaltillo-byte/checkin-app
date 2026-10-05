@@ -58161,15 +58161,14 @@ function pcEnsureStyles_() {
   .pz-who.none{color:#94a3b8;background:transparent;padding:1px 0}
   .pz-old{font-size:10px;font-weight:800;color:#9a3412;background:#ffedd5;border-radius:999px;padding:1px 7px;white-space:nowrap}
   .pz-by{font-size:10px;color:#94a3b8;margin-top:3px}
-  .pz-mv{display:none;gap:4px;flex-wrap:wrap;margin-top:5px}
-  .pz-it:hover .pz-mv{display:flex}
-  .pz-mv button{all:unset;cursor:pointer;font-size:10px;font-weight:800;color:var(--c);border:1px solid #e2e8f0;border-radius:999px;padding:1px 7px;background:#fff}
-  .pz-mv button:hover{border-color:var(--c)}
+  .pz-mv{display:flex;margin-top:5px}
+  .pz-sel{font-family:inherit;font-size:10.5px;font-weight:800;color:var(--c);border:1px solid #e2e8f0;border-radius:7px;padding:2px 6px;background:#fff;cursor:pointer;max-width:100%}
+  .pz-sel:hover,.pz-sel:focus{border-color:var(--c);outline:none}
   .pz-del{all:unset;cursor:pointer;color:transparent;font-size:16px;line-height:1;padding:0 2px}
   .pz-it:hover .pz-del{color:#cbd5e1}
   .pz-it .pz-del:hover{color:#dc2626}
   .pz-empty{font-size:11.5px;color:#94a3b8;text-align:center;padding:12px;border:1px dashed #cbd5e1;border-radius:9px;background:rgba(255,255,255,.6)}
-  @media (hover:none){ .pz-mv{display:flex} .pz-del{color:#cbd5e1} .pz-it{cursor:default} }
+  @media (hover:none){ .pz-del{color:#cbd5e1} .pz-it{cursor:default} }
   @media (max-width:1100px){ .pz-board{grid-template-columns:repeat(2,minmax(0,1fr))} }
   @media (max-width:600px){ .pz-board{grid-template-columns:1fr} .pz-add{flex-wrap:wrap} .pz-add .pz-in{flex-basis:calc(100% - 40px)} .pz-ab{flex:1} }
   .pz-pop{position:fixed;z-index:10050;width:280px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 14px 34px rgba(15,23,42,.2);padding:10px}
@@ -58855,7 +58854,7 @@ function pzRender_() {
       <div class="pz-tx"><div class="pz-t" title="Abrir la tarea" onclick="pzAbrirTarea_('${tid}')"><span class="pz-kind tar">📋 Tarea</span> ${pcEsc(r.Nombre || '')}</div>
         <div class="pz-meta">${per.map(n => `<span class="pz-who" style="cursor:default">👤 ${pcEsc(n)}</span>`).join('')}${lim ? '<span class="pz-old">⏳ Fecha límite</span>' : ''}${r.Origen === 'Bot WhatsApp' ? '<span class="pz-old" style="color:#5b21b6;background:#ede9fe">🤖 Bot</span>' : ''}</div>
         <div class="pz-by">${pcEsc(by)}</div>
-        <div class="pz-mv">${PZ_COLS.filter(c => c.k !== e).map(c => `<button title="Mover a ${c.l}" style="--c:${c.c}" onclick="pzEstado_('${id}','${c.k}')">${c.ico} ${c.l}</button>`).join('')}</div></div></div>`;
+        <div class="pz-mv"><select class="pz-sel" style="--c:${(PZ_COLS.find(c => c.k === e) || PZ_COLS[0]).c}" title="Cambiar estado" onmousedown="event.stopPropagation()" onchange="pzEstado_('${id}',this.value)">${PZ_COLS.map(c => `<option value="${c.k}" ${c.k === e ? 'selected' : ''}>${c.ico} ${c.l}</option>`).join('')}</select></div></div></div>`;
   };
   const card = x => {
     if (x._tar) return tarCard(x, PZ_COLS.find(c => cols[c.k].hoy.includes(x)).k);
@@ -58869,7 +58868,7 @@ function pzRender_() {
       <div class="pz-tx"><div class="pz-t" title="Clic para editar" onclick="pzEditar_('${id}', this)"><span class="pz-kind rec">📌 Recordatorio</span> ${pcEsc(x.texto)}</div>
         <div class="pz-meta">${pzAsigHtml_(x.asignados, `pzAsignar_('${id}', this)`)}${tags}</div>
         <div class="pz-by">${pcEsc(by)}</div>
-        <div class="pz-mv">${PZ_COLS.filter(c => c.k !== e).map(c => `<button title="Mover a ${c.l}" style="--c:${c.c}" onclick="pzEstado_('${id}','${c.k}')">${c.ico} ${c.l}</button>`).join('')}</div></div>
+        <div class="pz-mv"><select class="pz-sel" style="--c:${(PZ_COLS.find(c => c.k === e) || PZ_COLS[0]).c}" title="Cambiar estado" onmousedown="event.stopPropagation()" onchange="pzEstado_('${id}',this.value)">${PZ_COLS.map(c => `<option value="${c.k}" ${c.k === e ? 'selected' : ''}>${c.ico} ${c.l}</option>`).join('')}</select></div></div>
       <button class="pz-del" title="Borrar" onclick="pzBorrar_('${id}')">×</button></div>`;
   };
   const tot = { p: cols.pendiente.hoy.length, e: cols.proceso.hoy.length };
