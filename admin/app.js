@@ -58221,6 +58221,31 @@ function pcEnsureStyles_() {
   .pc-more{position:absolute;right:12px;top:12px;font-size:10px;font-weight:800;color:#a5b4fc;opacity:0;transition:opacity .2s}
   .pc-kpi:hover .pc-more{opacity:1}
   .pc-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+  .pc-band{border-radius:20px;padding:14px;margin-bottom:22px}
+  .pc-band-hoy{background:linear-gradient(180deg,#fff7ed,#fff);border:1px solid #fed7aa}
+  .pc-band-mes{background:linear-gradient(180deg,#eef2ff,#fff 260px);border:1px solid #c7d2fe}
+  .pc-band-h{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .pc-band-k{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#9a3412}
+  .pc-band-mes .pc-band-k{color:#3730a3}
+  .pc-band-t{font-size:20px;font-weight:900;color:#0f172a;text-transform:capitalize;line-height:1.15}
+  .pc-band-n{font-size:12px;color:#64748b;flex:1;min-width:200px}
+  .pc-band-sticky{position:sticky;top:0;z-index:5;background:rgba(238,242,255,.94);backdrop-filter:blur(6px);margin:-14px -14px 12px;padding:12px 14px;border-radius:20px 20px 0 0;border-bottom:1px solid #c7d2fe}
+  .pc-band-mes .pc-mnav{background:#1e1b4b}
+  .pc-band .pc-grp{border-top-width:3px}
+  .pc-as-t{width:100%;border-collapse:separate;border-spacing:0 3px;font-size:12px}
+  .pc-as-t th{font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;padding:2px 4px;text-align:center}
+  .pc-as-t th div{font-size:13px;color:#0f172a;text-transform:none}
+  .pc-as-t th.hoy{color:#c2410c}.pc-as-t th.hoy div{color:#c2410c}
+  .pc-as-n{font-weight:800;color:#0f172a;white-space:nowrap;padding-right:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+  .pc-as-c{text-align:center;padding:1px 2px}
+  .pc-as-c.hoy{background:#fff7ed}
+  .pc-as-d{text-align:center;font-weight:900;color:#334155}
+  .pc-as{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border-radius:7px;font-size:12px;font-weight:900;font-style:normal;background:#f1f5f9;color:#94a3b8}
+  .pc-as.ok{background:#16a34a;color:#fff}.pc-as.fa{background:#dc2626;color:#fff}.pc-as.va{background:#f59e0b;color:#fff}
+  .pc-as.in{background:#7c3aed;color:#fff}.pc-as.fe{background:#0ea5e9;color:#fff}.pc-as.pe{background:#fff;border:2px dashed #fdba74;color:#c2410c}
+  .pc-as.fu{background:transparent;border:1px dashed #e2e8f0}
+  .pc-as-leg{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:11px;color:#64748b;margin-top:8px}
+  .pc-as-leg span{display:inline-flex;align-items:center;gap:4px}.pc-as-leg .pc-as{width:18px;height:18px;font-size:10px}
   .pc-mv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .pc-mv-col{background:var(--cb);border:1px solid color-mix(in srgb,var(--cc) 22%,#fff);border-radius:14px;padding:10px;min-width:0}
   .pc-mv-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--cc);margin-bottom:8px}
@@ -58700,29 +58725,40 @@ function pcRenderShell_() {
           <div class="pc-meta">${hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · actualizado ${PC.updatedAt ? PC.updatedAt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <div class="pc-mnav"><button type="button" onclick="pcSetMonth(-1)" title="Mes anterior">‹</button><div class="pc-mlabel">${pcYmLabel(PC.ym)}</div><button type="button" onclick="pcSetMonth(1)" title="Mes siguiente">›</button></div>
           <button type="button" class="pc-btn" onclick="pcReload()">🔄 Actualizar</button>
         </div>
       </div>
     </div>
     <div id="pc-kpis" hidden></div>
-    ${pcGrp_('op', 'A', 'Operación', '#0e7490', 'Pendientes, personal y dispositivos', `
+    <section class="pc-band pc-band-hoy">
+      <header class="pc-band-h"><div><div class="pc-band-k">📍 Hoy</div><div class="pc-band-t">${hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+        <div class="pc-band-n">Lo que pasa hoy y esta semana. <b>No cambia</b> con el mes seleccionado.</div></header>
+      <div class="pc-kpis" id="pc-kpis-hoy"></div>
+      <div class="pc-grid">
+        <div class="pc-card s12" id="pc-sec-movs"></div>
+        <div class="pc-card s7" id="pc-sec-asist"></div>
+        <div class="pc-card s5" id="pc-sec-ophoy"></div>
+        <div class="pc-card s12" id="pc-sec-disp"></div>
+      </div>
+    </section>
+    <section class="pc-band pc-band-mes">
+      <header class="pc-band-h pc-band-sticky"><div><div class="pc-band-k">📅 Acumulado del mes</div><div class="pc-band-t">${pcYmLabel(PC.ym)}</div></div>
+        <div class="pc-band-n">Todo lo de esta sección corresponde al mes elegido.</div>
+        <div class="pc-mnav"><button type="button" onclick="pcSetMonth(-1)" title="Mes anterior">‹</button><div class="pc-mlabel">${pcYmLabel(PC.ym)}</div><button type="button" onclick="pcSetMonth(1)" title="Mes siguiente">›</button></div></header>
+    ${pcGrp_('op', 'A', 'Operación', '#0e7490', 'Incidencias, reportes y nómina del mes', `
       <div class="pc-card s8" id="pc-sec-op"></div>
-      <div class="pc-card s4" id="pc-sec-rh"></div>
-      <div class="pc-card s12" id="pc-sec-disp"></div>`)}
+      <div class="pc-card s4" id="pc-sec-rh"></div>`)}
     ${pcGrp_('fin', 'B', 'Finanzas', '#047857', 'Ingresos, egresos, presupuesto y cobranza', `
       <div class="pc-card s8" id="pc-sec-fin"></div>
       <div class="pc-card s4" id="pc-sec-pres"></div>
       <div class="pc-card s12" id="pc-sec-cob"></div>`)}
-    ${pcGrp_('res', 'C', 'Reservas', '#1d4ed8', 'Movimientos del día, ocupación, hospedaje e inquilinos', `
-      <div class="pc-card s12" id="pc-sec-movs"></div>
+    ${pcGrp_('res', 'C', 'Reservas', '#1d4ed8', 'Ocupación, hospedaje e inquilinos', `
       <div class="pc-card s7" id="pc-sec-ocup"></div>
       <div class="pc-card s5" id="pc-sec-ocup12"></div>
       <div class="pc-card s12" id="pc-sec-rentas"></div>`)}
     ${pcGrp_('rep', 'D', 'Reportes', '#6d28d9', 'Comparativo del mes', `
       <div class="pc-card s12" id="pc-sec-rep"></div>`)}
-    ${pcGrp_('cfg', 'E', 'Configuración admin', '#b45309', 'Estado de las fuentes de datos', `
-      <div class="pc-card s12" id="pc-sec-sys"></div>`)}
+    </section>
   </div>
   <div id="pc-drawer"><div class="bd" onclick="pcCloseDrawer()"></div><div class="pn" id="pc-drawer-pn"></div></div>`;
   pcRenderKpis_();
@@ -58779,8 +58815,8 @@ function pcRenderKpis_() {
   } else k.push(pcKpi_({ ico: '⏳', label: 'Pendientes operativos', acc: '#cbd5e1', accbg: '#f1f5f9', loading: true, value: '', onclick: '' }));
   // k: 0-2 Ingresos/Egresos/Utilidad · 3-4 Ocupación/Ingreso hospedaje · 5 Por cobrar · 6 Rentas · 7 Pendientes
   const put = (g, idx) => { const c = document.getElementById('pc-kpis-' + g); if (c) c.innerHTML = idx.map(i => k[i] || '').join(''); };
-  put('op', [7]); put('fin', [0, 1, 2, 5]); put('res', [3, 4, 6]);
-  pcRenderMovs_(); pcRenderReporte_(); pcRenderSys_();
+  put('op', []); put('fin', [0, 1, 2, 5]); put('res', [3, 4, 6]);
+  pcRenderMovs_(); pcRenderOpHoy_(); pcRenderAsist_(); pcRenderHoyKpis_(k[7]); pcRenderReporte_();
 }
 // C) Movimientos del día: salen hoy · entran hoy · entran mañana, con relevancia del
 // huésped (clasificación Oro/Plata/Bronce/Recurrente), estancias largas y saldo pendiente.
@@ -58837,11 +58873,92 @@ function pcRenderMovs_() {
         ${chips ? `<div class="pc-mv-chips">${chips}</div>` : ''}
       </div></div>`;
   };
-  el.innerHTML = head(`${d0.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}`) + `
+  PC._movs = { sal: cols[0].list, ent: cols[1].list, man: cols[2].list, relev };
+  el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}`) + `
     <div class="pc-mv">${cols.map(c => `<div class="pc-mv-col" style="--cc:${c.c};--cb:${c.bg}">
       <div class="pc-mv-h"><span class="pc-mv-ico">${c.ico}</span><span>${c.t}</span><b>${c.list.length}</b></div>
       <div class="pc-mv-list">${c.list.length ? c.list.map(x => item(x, c)).join('') : '<div class="pc-mv-empty">Sin movimientos</div>'}</div></div>`).join('')}</div>
     <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Ordenados por relevancia.</div>`;
+}
+// HOY · KPIs del día (independientes del mes elegido).
+function pcRenderHoyKpis_(kPend) {
+  const el = document.getElementById('pc-kpis-hoy'); if (!el) return;
+  const k = [];
+  const m = PC._movs;
+  if (m) {
+    const conSaldo = m.sal.filter(x => x.saldo > 0).length;
+    k.push(pcKpi_({ ico: '🔑', label: 'Entran hoy', acc: '#16a34a', accbg: '#dcfce7', value: pcFmtN(m.ent.length), sub: `+${m.man.length} mañana`, onclick: "document.getElementById('pc-sec-movs').scrollIntoView({behavior:'smooth',block:'start'})" }));
+    k.push(pcKpi_({ ico: '🧳', label: 'Salen hoy', acc: '#dc2626', accbg: '#fee2e2', value: pcFmtN(m.sal.length), sub: conSaldo ? `<span class="pc-delta down">${conSaldo} con saldo</span>` : '<span class="pc-delta up">sin saldos</span>', onclick: "document.getElementById('pc-sec-movs').scrollIntoView({behavior:'smooth',block:'start'})", delay: .04 }));
+  } else ['Entran hoy', 'Salen hoy'].forEach(l => k.push(pcKpi_({ ico: '⏳', label: l, acc: '#cbd5e1', accbg: '#f1f5f9', loading: true, value: '', onclick: '' })));
+  if (kPend) k.push(kPend);
+  if (!PC.loading.rh && !PC.err.rh) {
+    const h = pcRh_(PC.ym);
+    k.push(pcKpi_({ ico: '👥', label: 'Personal hoy', acc: '#2563eb', accbg: '#dbeafe', value: `${h.presentes.length}<span style="font-size:15px;color:#94a3b8"> / ${h.personal.length}</span>`, sub: h.ausentes.length ? `${h.ausentes.length} sin registro` : 'todos registrados', onclick: "pcDrawer('personal')", delay: .12 }));
+  } else k.push(pcKpi_({ ico: '⏳', label: 'Personal hoy', acc: '#cbd5e1', accbg: '#f1f5f9', loading: !PC.err.rh, value: '—', onclick: '' }));
+  el.innerHTML = k.join('');
+}
+// HOY · Operación en este momento (abiertos y tareas de hoy).
+function pcRenderOpHoy_() {
+  const el = document.getElementById('pc-sec-ophoy'); if (!el) return;
+  const head = `<div class="pc-card-h"><div class="pc-card-t">🛠️ Operación ahora <small>· pendientes abiertos y tareas de hoy</small></div></div>`;
+  if (PC.loading.op) { el.innerHTML = head + pcSkel_(220); return; }
+  const op = pcOpMonth_(PC.ym);
+  const stat = (n, l, c, mod) => `<div class="pc-stat" onclick="pcGo('${mod}')" style="text-align:center"><div class="v" style="color:${c}">${n}</div><div class="l">${l}</div></div>`;
+  const tarPend = op.tar.hoy.filter(x => x.e === 'Pendiente' || x.e === 'En proceso').length;
+  const crit = [...op.inc.criticas.map(x => ({ t: 'Incidencia', n: x.n, txt: `${x.r.Clasificacion || (x.r.Motivos || '')} · ${x.r.Alojamiento || x.r.Propiedad || ''}`, f: x.f })),
+    ...op.rt.criticos.map(x => ({ t: 'Reporte', n: x.p === 'critica' ? 'Crítica' : 'Alta', txt: `${x.r.Titulo || ''} · ${x.r.Alojamiento || x.r.Propiedad || ''}`, f: x.f }))].slice(0, 5);
+  el.innerHTML = head + `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      ${stat(op.inc.abiertas.length, 'Incidencias abiertas', '#b45309', 'incidencias')}
+      ${stat(op.rt.abiertos.length, 'Reportes abiertos', '#1d4ed8', 'reportes-tecnicos')}
+      ${stat(`${tarPend}<span style="font-size:13px;color:#94a3b8">/${op.tar.hoy.length}</span>`, 'Tareas de hoy por hacer', '#7c3aed', 'tareas')}
+    </div>
+    ${crit.length ? `<div style="margin-top:12px;font-size:11px;font-weight:900;color:#991b1b;text-transform:uppercase;letter-spacing:.05em">Atención prioritaria</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${crit.map(c => `<div class="pc-row" style="padding:6px 8px;background:#fff1f2;border:1px solid #fecdd3" onclick="pcDrawer('operacion')"><span class="pc-chip" style="background:#dc2626;color:#fff">${pcEsc(c.n)}</span><span style="font-size:12px;font-weight:700;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.t}: ${pcEsc(c.txt)}</span><span style="font-size:10.5px;color:#94a3b8">${pcEsc(c.f || '')}</span></div>`).join('')}</div>`
+    : '<div style="margin-top:12px;font-size:12px;color:#16a34a;font-weight:800">✅ Sin pendientes de prioridad alta o crítica</div>'}`;
+}
+// HOY · Asistencia de la semana en curso (lunes → domingo).
+function pcRenderAsist_() {
+  const el = document.getElementById('pc-sec-asist'); if (!el) return;
+  const lun = new Date(); lun.setHours(0, 0, 0, 0); lun.setDate(lun.getDate() - ((lun.getDay() + 6) % 7));
+  const dias = Array.from({ length: 7 }, (_, i) => { const d = new Date(lun); d.setDate(lun.getDate() + i); return d; });
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const hoyIso = iso(new Date());
+  const head = `<div class="pc-card-h"><div class="pc-card-t">🕐 Asistencia de la semana <small>· ${dias[0].getDate()} ${PC_MES3[dias[0].getMonth()]} – ${dias[6].getDate()} ${PC_MES3[dias[6].getMonth()]}</small></div><button class="pc-link" onclick="pcGo('rh')">Control de asistencias →</button></div>`;
+  if (PC.err.rh) { el.innerHTML = head + pcErr_(PC.err.rh); return; }
+  if (PC.loading.rh) { el.innerHTML = head + pcSkel_(220); return; }
+  const h = pcRh_(PC.ym);
+  const personal = h.personal || [];
+  const alias = (typeof _asistBuildAliasMap_ === 'function') ? _asistBuildAliasMap_(personal) : new Map();
+  const canon = n => alias.get((typeof _normNombre_ === 'function') ? _normNombre_(n) : n) || n;
+  const by = new Map();
+  (ASIST_STATE.rows || []).forEach(r => {
+    const f = String(r.Fecha || '').slice(0, 10); if (f < iso(dias[0]) || f > iso(dias[6])) return;
+    const k = canon(String(r.Empleado_Nombre || '').trim()) + '|' + f;
+    if (!by.has(k)) by.set(k, []); by.get(k).push(r);
+  });
+  const ASIS = ['Asistencia', 'Regular', 'Vac laboradas', 'Domingo', 'Sin beneficios'];
+  const cell = (p, d) => {
+    const f = iso(d), recs = by.get(p.nombre + '|' + f) || [];
+    const c = typeof asistDeriveConceptos_ === 'function' ? asistDeriveConceptos_(recs) : new Set();
+    let cls = '', txt = '', tip = '';
+    if (ASIS.some(x => c.has(x))) { cls = 'ok'; txt = '✓'; tip = 'Asistió'; }
+    else if (c.has('Falta')) { cls = 'fa'; txt = '✕'; tip = 'Falta'; }
+    else if (c.has('Vacaciones')) { cls = 'va'; txt = 'V'; tip = 'Vacaciones'; }
+    else if (c.has('Incapacidad')) { cls = 'in'; txt = 'I'; tip = 'Incapacidad'; }
+    else if (c.has('Día feriado') || c.has('Feriado')) { cls = 'fe'; txt = 'F'; tip = 'Feriado'; }
+    else if (f > hoyIso) { cls = 'fu'; tip = 'Próximo'; }
+    else if (f === hoyIso) { cls = 'pe'; txt = '?'; tip = 'Sin registro aún'; }
+    else { cls = 'sr'; txt = '·'; tip = 'Sin registro'; }
+    return `<td class="pc-as-c ${f === hoyIso ? 'hoy' : ''}"><span class="pc-as ${cls}" title="${p.nombre.split(' ')[0]} · ${tip}">${txt}</span></td>`;
+  };
+  const cuenta = p => dias.filter(d => { const c = asistDeriveConceptos_(by.get(p.nombre + '|' + iso(d)) || []); return ASIS.some(x => c.has(x)); }).length;
+  const DN = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  el.innerHTML = head + (personal.length ? `<div class="pc-tblwrap" style="overflow-x:auto"><table class="pc-as-t">
+    <thead><tr><th></th>${dias.map((d, i) => `<th class="${iso(d) === hoyIso ? 'hoy' : ''}">${DN[i]}<div>${d.getDate()}</div></th>`).join('')}<th>Días</th></tr></thead>
+    <tbody>${personal.map(p => `<tr><td class="pc-as-n" title="${pcEsc(p.nombre)}">${pcEsc(p.nombre.split(' ').slice(0, 2).join(' '))}</td>${dias.map(d => cell(p, d)).join('')}<td class="pc-as-d">${cuenta(p)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="pc-as-leg"><span><i class="pc-as ok">✓</i>Asistió</span><span><i class="pc-as fa">✕</i>Falta</span><span><i class="pc-as va">V</i>Vacaciones</span><span><i class="pc-as in">I</i>Incapacidad</span><span><i class="pc-as fe">F</i>Feriado</span><span><i class="pc-as sr">·</i>Sin registro</span>
+      <span style="margin-left:auto;font-weight:800;color:#334155">Nómina de la semana: ${pcFmt$(h.semanaTotal)}</span></div>`
+    : '<div style="font-size:12px;color:#94a3b8">Sin personal operativo.</div>');
 }
 // D) Reportes — comparativo: mes vs mes anterior vs mismo mes del año anterior.
 function pcRenderReporte_() {
@@ -59042,41 +59159,34 @@ function pcRenderSection_(key) {
       <div style="display:flex;gap:12px;font-size:10.5px;color:#64748b;margin-top:8px"><span>🟩 Pagado</span><span>🟥 No pagado</span><span>⬜ Futuro / fuera de contrato</span></div>`);
   }
   if (key === 'op') {
-    if (PC.loading.op) { card('pc-sec-op', head('🛠️ Operación') + pcSkel_(260)); return; }
+    if (PC.loading.op) { card('pc-sec-op', head('🛠️ Operación del mes') + pcSkel_(220)); return; }
     const op = pcOpMonth_(ym);
-    const col = (title, ico, pairs, colors, drawer, mod, foot) => `
+    const rtMes = op.rt.all.filter(x => String(x.f || '').startsWith(ym));
+    const C4 = [['#fef3c7', '#b45309'], ['#dbeafe', '#1d4ed8'], ['#dcfce7', '#15803d'], ['#e2e8f0', '#475569']];
+    const col = (title, ico, pairs, mod, foot) => `
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;font-weight:900;color:#0f172a">${ico} ${title}</div><button class="pc-link" onclick="pcGo('${mod}')">abrir →</button></div>
-        ${pairs.map(([l, n], i) => `<div class="pc-row" onclick="pcDrawer('${drawer}')"><span class="pc-chip" style="background:${colors[i][0]};color:${colors[i][1]};min-width:92px;justify-content:center">${pcEsc(l)}</span>
-          <div class="pc-bar"><span data-w="${Math.min(100, n / Math.max(1, ...pairs.map(p => p[1])) * 100).toFixed(0)}%" style="background:${colors[i][1]}"></span></div><b style="width:28px;text-align:right;font-size:13px">${n}</b></div>`).join('')}
+        ${pairs.map(([l, n], i) => `<div class="pc-row" onclick="pcDrawer('operacion')"><span class="pc-chip" style="background:${C4[i][0]};color:${C4[i][1]};min-width:92px;justify-content:center">${pcEsc(l)}</span>
+          <div class="pc-bar"><span data-w="${Math.min(100, n / Math.max(1, ...pairs.map(p => p[1])) * 100).toFixed(0)}%" style="background:${C4[i][1]}"></span></div><b style="width:28px;text-align:right;font-size:13px">${n}</b></div>`).join('')}
         <div style="font-size:11px;color:#64748b;margin-top:6px">${foot}</div>
       </div>`;
-    const C4 = [['#fef3c7', '#b45309'], ['#dbeafe', '#1d4ed8'], ['#dcfce7', '#15803d'], ['#e2e8f0', '#475569']];
-    const crit = [...op.inc.criticas.map(x => ({ t: 'Incidencia', n: x.n, txt: `${x.r.Clasificacion || (x.r.Motivos || '')} · ${x.r.Alojamiento || x.r.Propiedad || ''}`, f: x.f })),
-      ...op.rt.criticos.map(x => ({ t: 'Reporte', n: x.p === 'critica' ? 'Crítica' : 'Alta', txt: `${x.r.Titulo || ''} · ${x.r.Alojamiento || x.r.Propiedad || ''}`, f: x.f }))].slice(0, 6);
-    card('pc-sec-op', head('🛠️ Operación', pcYmLabel(ym)) +
+    const rtPor = [['nuevo', 'Nuevos'], ['en_proceso', 'En proceso'], ['resuelto', 'Resueltos'], ['cancelado', 'Cancelados']].map(([k2, l]) => [l, rtMes.filter(x => x.e === k2).length]);
+    card('pc-sec-op', head('🛠️ Operación del mes', pcYmLabel(ym)) +
       `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-        ${col('Incidencias del mes', '🚨', op.inc.porEstado, C4, 'operacion', 'incidencias', `${op.inc.abiertas.length} abiertas en total`)}
-        ${col('Reportes técnicos', '🛠', op.rt.porEstado, C4, 'operacion', 'reportes-tecnicos', `${op.rt.abiertos.length} abiertos`)}
-        ${col('Tareas de hoy', '🗓️', op.tar.porEstado, C4, 'tareas', 'tareas', `${op.tar.hoy.length} programadas hoy`)}
-      </div>
-      ${crit.length ? `<div style="margin-top:12px;font-size:11px;font-weight:900;color:#991b1b;text-transform:uppercase;letter-spacing:.05em">Atención prioritaria</div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${crit.map(c => `<div class="pc-row" style="padding:6px 8px;background:#fff1f2;border:1px solid #fecdd3" onclick="pcDrawer('operacion')"><span class="pc-chip" style="background:#e11d48;color:#fff">${c.n}</span><span style="font-size:12px;font-weight:700;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.t}: ${pcEsc(c.txt)}</span><span style="font-size:11px;color:#94a3b8">${pcEsc(c.f)}</span></div>`).join('')}</div>` : ''}`);
+        ${col('Incidencias registradas', '🚨', op.inc.porEstado, 'incidencias', `${op.inc.mes.length} registradas en ${pcYmLabel(ym)}`)}
+        ${col('Reportes técnicos registrados', '🛠', rtPor, 'reportes-tecnicos', `${rtMes.length} registrados en ${pcYmLabel(ym)}`)}
+      </div>`);
     pcAnimateBars_();
   }
   if (key === 'rh') {
-    if (PC.err.rh) { card('pc-sec-rh', head('👥 Personal y nómina') + pcErr_(PC.err.rh)); return; }
-    if (PC.loading.rh) { card('pc-sec-rh', head('👥 Personal y nómina') + pcSkel_(260)); return; }
+    if (PC.err.rh) { card('pc-sec-rh', head('💵 Nómina del mes') + pcErr_(PC.err.rh)); return; }
+    if (PC.loading.rh) { card('pc-sec-rh', head('💵 Nómina del mes') + pcSkel_(220)); return; }
     const h = pcRh_(ym);
-    const pct = h.personal.length ? h.presentes.length / h.personal.length : 0;
-    card('pc-sec-rh', head('👥 Personal y nómina', '', `<button class="pc-link" onclick="pcGo('rh')">RH →</button>`) +
-      `<div style="display:flex;align-items:center;gap:14px">${pcRing_(pct, '#2563eb', 'asistencia hoy')}
-        <div style="font-size:12px;color:#475569;line-height:1.7"><b style="font-size:20px;color:#0f172a">${h.presentes.length}</b> de ${h.personal.length} registraron asistencia hoy
-        ${h.ausentes.length ? `<div style="font-size:11px;color:#94a3b8;cursor:pointer" onclick="pcDrawer('personal')">Sin registro: ${pcEsc(h.ausentes.map(p => p.nombre.split(' ')[0]).join(', '))}</div>` : ''}</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
-        <div class="pc-stat" onclick="pcDrawer('nomina')"><div class="l">Nómina semana actual</div><div class="v">${pcFmt$(h.semanaTotal)}</div><div style="font-size:11px;color:#64748b">${h.semana.length} personas IMSS</div></div>
-        <div class="pc-stat" onclick="pcDrawer('nomina')"><div class="l">Nómina del mes</div><div class="v">${pcFmt$(h.mesTotal)}</div><div style="font-size:11px;color:#64748b">pagado ${pcFmt$(h.mesPagado)}</div></div>
-      </div>`);
+    const pct = h.mesTotal ? h.mesPagado / h.mesTotal : 0;
+    card('pc-sec-rh', head('💵 Nómina del mes', pcYmLabel(ym), `<button class="pc-link" onclick="pcGo('rh')">RH →</button>`) +
+      `<div style="display:flex;align-items:center;gap:14px">${pcRing_(pct, '#16a34a', 'pagado')}
+        <div style="font-size:12px;color:#475569;line-height:1.7"><b style="font-size:20px;color:#0f172a">${pcFmt$(h.mesTotal)}</b><div>pagado ${pcFmt$(h.mesPagado)}</div>${h.mesTotal - h.mesPagado > 0 ? `<div style="color:#b45309;font-weight:800">por pagar ${pcFmt$(h.mesTotal - h.mesPagado)}</div>` : ''}</div></div>
+      <div class="pc-stat" style="margin-top:14px" onclick="pcDrawer('nomina')"><div class="l">Semanas de nómina con inicio en ${pcYmLabel(ym)}</div><div style="font-size:11.5px;color:#64748b">Personal con IMSS · ver detalle →</div></div>`);
   }
   if (key === 'disp') {
     const linkD = `<button class="pc-link" onclick="pcGo('tuya')">Dispositivos →</button>`;
