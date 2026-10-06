@@ -336,12 +336,12 @@ const SYS_MODULE_PERMS = {
   // 'personas' e 'inquilinos' son pestañas del módulo compuesto
   // "Huéspedes/Inquilinos" → cualquier usuario con permiso a alguno de los
   // dos debe ver la entrada. Se listan en ambos grupos.
-  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos'],
+  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos','proveedores'],
   IV:   ['breezeway'],
   V:    ['incidencias'],
   VI:   ['objetos'],
   VII:  ['ocupacion'],
-  VIII: ['rh','inquilinos','personas','inventarios'],
+  VIII: ['rh','inquilinos','personas','proveedores','inventarios'],
 };
 // Módulos asignables por empleado (RH › Documentación › Acceso al sistema).
 // Se guardan como lista de claves en la columna sys_modulos de la hoja Personal.
@@ -353,6 +353,7 @@ const SYS_MODULE_LIST = [
   ['tickets',          '🎫 Tickets'],
   ['lodgify',          '🌐 Gestión de reservas'],
   ['personas',         '📇 Directorio'],
+  ['inquilinos',       '📑 Contratos de Larga estancia'],
   ['pagos',            '💰 Pagos'],
   ['breezeway',        '🧹 Breezeway'],
   ['incidencias',      '🚨 Incidencias'],
@@ -372,7 +373,7 @@ const SYS_MODULE_LIST = [
 // Submódulos/alias que acompañan a un módulo elegido.
 const SYS_MODULE_EXTRAS = {
   registros: ['efectivo'],
-  personas:  ['huespedes', 'inquilinos'],
+  personas:  ['huespedes', 'inquilinos', 'proveedores'],
   lodgify:   ['reservas-detalles'],
   ocupacion: ['dashboard', 'calendario'],
 };
@@ -9121,7 +9122,7 @@ function esc(v) {
 const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
-  'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
+  'dashboard','calendario','rh','inquilinos','proveedores','inventarios','tuya','guias',
   'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica',
 ]);
 function _bootModuleFromHash_() {
@@ -9165,7 +9166,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9307,6 +9308,9 @@ function switchModule(mod) {
   }
   if (mod === "inquilinos") {
     if (typeof inqInit === 'function') inqInit();
+  }
+  if (mod === "proveedores") {
+    if (typeof prvInit === 'function') prvInit();
   }
   if (mod === "inventarios") {
     if (typeof invInit === 'function') invInit();
@@ -59833,7 +59837,7 @@ function pcRenderSys_() {
     ['fin', '🏦 Registros contables', 'Ingresos, egresos, utilidad y presupuesto', 'registros'],
     ['ocup', '🏨 Reservas (Lodgify)', 'Ocupación e ingreso de hospedaje', 'lodgify'],
     ['cob', '💳 Pagos', 'Cobranza, tickets y extensiones', 'pagos'],
-    ['rentas', '🏠 Inquilinos', 'Rentas y pagos de inquilinos', 'personas'],
+    ['rentas', '📑 Contratos de Larga estancia', 'Rentas y pagos de inquilinos', 'inquilinos'],
     ['op', '🚨 Operación', 'Incidencias, reportes técnicos y tareas', 'incidencias'],
     ['rh', '👥 Recursos Humanos', 'Asistencia y nómina', 'rh'],
     ['disp', '📡 Dispositivos', 'Sensores Smart Life', 'tuya'],
@@ -59949,7 +59953,7 @@ function pcRenderSection_(key) {
       <div></div>${PC_MES3.map((m, i) => `<div style="text-align:center;font-weight:${i === r.m0 ? 900 : 700};color:${i === r.m0 ? '#4f46e5' : '#94a3b8'}">${m}</div>`).join('')}
       ${r.rows.map(({ p, cells }) => `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#334155;font-size:10.5px;padding-right:6px" title="${pcEsc(p.Nombre)} · ${pcEsc([p.Propiedad, p.Departamento ? '#' + p.Departamento : ''].filter(Boolean).join(' '))}">${pcEsc(p.Nombre || p.ID)}</div>${cells.map((c, i) => `<div class="c" title="${pcEsc(p.Nombre)} · ${PC_MESES[i]}: ${c.state === 'paid' ? 'Pagado' : c.state === 'overdue' ? 'No pagado' : c.state === 'future' ? 'Futuro' : 'Fuera de contrato'}" style="background:${colS[c.state]};${i === r.m0 ? 'outline:2px solid #6366f1;outline-offset:-1px' : ''};border:1px solid ${c.state === 'noctr' ? '#e2e8f0' : 'transparent'}"></div>`).join('')}`).join('')}
     </div>`;
-    card('pc-sec-rentas', head('🏠 Rentas de inquilinos', `${r.y}`, `<button class="pc-link" onclick="pcGo('inquilinos')">Inquilinos →</button>`) +
+    card('pc-sec-rentas', head('🏠 Rentas de inquilinos', `${r.y}`, `<button class="pc-link" onclick="pcGo('inquilinos')">Contratos →</button>`) +
       `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
         <div class="pc-stat" onclick="pcDrawer('rentas')"><div class="l">Pagadas ${PC_MES3[r.m0]}</div><div class="v" style="color:#166534">${r.pag} / ${r.activos}</div></div>
         <div class="pc-stat" onclick="pcDrawer('rentas')"><div class="l">Cobrado</div><div class="v">${pcFmt$(r.cobrado)}</div><div style="font-size:11px;color:#64748b">de ${pcFmt$(r.esperado)} esperado</div></div>
@@ -61610,11 +61614,12 @@ const NAV_TREE = {
       { t: '📇 Cards', go: () => personasSetView('cards') },
       { t: '📋 Tabla', go: () => personasSetView('tabla') },
     ] },
-    { t: '🏠 Inquilinos', mod: 'inquilinos', go: () => inqSetTab('rentas'), subs: [
-      { t: '💵 Rentas · tabla', go: () => { inqSetTab('rentas'); inqSetRentasView('tabla'); } },
-      { t: '🗓️ Rentas · vista mensual', go: () => { inqSetTab('rentas'); inqSetRentasView('heatmap'); } },
-      { t: '👥 Perfiles', go: () => inqSetTab('perfiles') },
-    ] },
+    { t: '🏢 Proveedores', mod: 'proveedores', go: () => {} },
+  ],
+  inquilinos: [
+    { t: '💵 Rentas · tabla', go: () => { inqSetTab('rentas'); inqSetRentasView('tabla'); } },
+    { t: '🗓️ Rentas · vista mensual', go: () => { inqSetTab('rentas'); inqSetRentasView('heatmap'); } },
+    { t: '👥 Perfiles', go: () => inqSetTab('perfiles') },
   ],
   'bot-chats': [
     { t: '📂 Clasificado', go: () => botcSetSidebarView_('clasificado') },
@@ -63370,3 +63375,132 @@ window.hmGuiasMenu_ = async function (btn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put();
   } catch (_) {}
 })();
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROVEEDORES (Directorio › Proveedores) — mismo diseño que Perfiles de
+// inquilinos: tabla + panel lateral. Datos: GCS datos/proveedores.json.
+// ═══════════════════════════════════════════════════════════════════════════
+const PRV_STATE = { items: [], loaded: false, editId: null };
+async function prvInit() {
+  if (!PRV_STATE.loaded) prvRender_();
+  try {
+    const r = await fetch(`${BACKEND}/proveedores/list?_cb=${Date.now()}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Error');
+    PRV_STATE.items = j.items || []; PRV_STATE.loaded = true;
+  } catch (e) { PRV_STATE.err = e.message || String(e); }
+  prvRender_();
+}
+function prvRender_() {
+  const view = document.getElementById('prv-view'); if (!view) return;
+  if (!PRV_STATE.loaded) {
+    view.innerHTML = PRV_STATE.err ? `<div class="rh-empty">⚠️ ${esc(PRV_STATE.err)}</div>` : `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
+    return;
+  }
+  const rows = PRV_STATE.items.slice().sort((a, b) => String(a.Empresa || a.Contacto).localeCompare(String(b.Empresa || b.Contacto), 'es'));
+  const tel = v => v ? `<a href="tel:${esc(v)}" onclick="event.stopPropagation()" style="color:#0f172a;text-decoration:none">${esc(v)}</a>` : '—';
+  const wa = v => v ? `<a href="https://wa.me/${esc(String(v).replace(/\D/g, ''))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#15803d;text-decoration:none;font-weight:700">${esc(v)}</a>` : '—';
+  const mail = v => v ? `<a href="mailto:${esc(v)}" onclick="event.stopPropagation()" style="color:#1d4ed8;text-decoration:none">${esc(v)}</a>` : '—';
+  const est = v => { const on = (v || 'Activo') === 'Activo'; return `<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;background:${on ? '#dcfce7' : '#f1f5f9'};color:${on ? '#166534' : '#64748b'}">${esc(v || 'Activo')}</span>`; };
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">🏢 Proveedores</div>
+        <div class="rh-toolbar-count">${rows.length} proveedor(es)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="prvOpenForm(null)">＋ Nuevo proveedor</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty">Sin proveedores. Pulsa <strong>＋ Nuevo proveedor</strong> para crear el primero.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Proveedor</th><th>Giro</th><th>Contacto</th><th>Teléfono</th><th>WhatsApp</th><th>Correo</th><th>RFC</th><th>Condiciones de pago</th><th>Estado</th><th>Notas</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `
+            <tr onclick="prvOpenForm('${esc(r.ID)}')" style="cursor:pointer">
+              <td><strong>${esc(r.Empresa || '—')}</strong>${r.Sitio_web ? `<br><a href="${esc(/^https?:/i.test(r.Sitio_web) ? r.Sitio_web : 'https://' + r.Sitio_web)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#64748b;font-size:11px">${esc(r.Sitio_web)}</a>` : ''}</td>
+              <td>${esc(r.Giro || '—')}</td>
+              <td>${esc(r.Contacto || '—')}${r.Puesto ? `<br><span style="color:#64748b;font-size:11px">${esc(r.Puesto)}</span>` : ''}</td>
+              <td style="white-space:nowrap">${tel(r.Telefono)}</td>
+              <td style="white-space:nowrap">${wa(r.Whatsapp)}</td>
+              <td>${mail(r.Correo)}</td>
+              <td>${esc(r.RFC || '—')}</td>
+              <td style="font-size:12px">${esc(r.Condiciones_pago || '—')}</td>
+              <td>${est(r.Estado)}</td>
+              <td style="font-size:11px;max-width:220px;white-space:normal;color:#475569">${esc(r.Notas || '—')}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`}`;
+}
+const PRV_GIROS = ['', 'Limpieza y lavandería', 'Mantenimiento', 'Plomería', 'Electricidad', 'Jardinería', 'Fumigación', 'Amenidades y blancos', 'Mobiliario y equipo', 'Ferretería', 'Internet y telefonía', 'Gas', 'Agua', 'Seguridad', 'Contabilidad y legal', 'Otro'];
+window.prvOpenForm = function (id) {
+  const d = id ? (PRV_STATE.items.find(x => x.ID === id) || {}) : {};
+  PRV_STATE.editId = id || null;
+  const sec = (sid, title, body) => `<section style="margin:0 0 12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+      <button type="button" onclick="inqToggleSection('${sid}')" style="all:unset;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;box-sizing:border-box;font-size:14px;font-weight:800;color:#0f172a">
+        <span>${title}</span><span id="inq-sec-chev-${sid}" style="font-size:14px;color:#64748b;transition:transform .15s">▾</span></button>
+      <div id="inq-sec-body-${sid}" style="padding:0 14px 14px">${body}</div></section>`;
+  const giros = PRV_GIROS.includes(d.Giro || '') ? PRV_GIROS : PRV_GIROS.concat([d.Giro]);
+  document.getElementById('prv-form-title').textContent = id ? 'Editar proveedor' : 'Nuevo proveedor';
+  document.getElementById('prv-form-body').innerHTML = `<form id="prv-form" onsubmit="return false">
+    ${sec('prv-gen', '🏢 Datos del proveedor', `
+      ${inqField('Nombre del proveedor / empresa', 'Empresa', 'text', d.Empresa, 'Ej. Lavandería Express')}
+      ${inqField('Giro', 'Giro', 'select', d.Giro || '', '', { options: giros.map(g => [g, g || '— Selecciona —']) })}
+      ${inqField('Sitio web', 'Sitio_web', 'text', d.Sitio_web, 'www.ejemplo.com')}
+      ${inqField('Dirección', 'Direccion', 'textarea', d.Direccion, 'Calle, número, colonia, ciudad', { rows: 2 })}
+      ${inqField('Estado', 'Estado', 'select', d.Estado || 'Activo', '', { options: ['Activo', 'Inactivo'] })}`)}
+    ${sec('prv-con', '👤 Contacto', `
+      ${inqField('Nombre del contacto', 'Contacto', 'text', d.Contacto, 'Ej. María López')}
+      ${inqField('Puesto', 'Puesto', 'text', d.Puesto, 'Ej. Ventas')}
+      ${inqPhoneField_('Teléfono', 'Telefono', d.Telefono)}
+      ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
+      ${inqField('Correo electrónico', 'Correo', 'email', d.Correo, 'ejemplo@correo.com')}`)}
+    ${sec('prv-fis', '🧾 Datos fiscales y de pago', `
+      ${inqField('RFC', 'RFC', 'text', d.RFC, 'XAXX010101000')}
+      ${inqField('Razón social', 'Razon_social', 'text', d.Razon_social)}
+      ${inqField('Banco', 'Banco', 'text', d.Banco)}
+      ${inqField('CLABE / Cuenta', 'Clabe', 'text', d.Clabe)}
+      ${inqField('Condiciones de pago', 'Condiciones_pago', 'text', d.Condiciones_pago, 'Ej. Contado, crédito 15 días')}`)}
+    ${sec('prv-not', '📝 Notas', inqField('Notas', 'Notas', 'textarea', d.Notas, 'Servicios que ofrece, precios, horarios…'))}
+  </form>`;
+  document.getElementById('prv-form-del-btn').style.display = id ? '' : 'none';
+  const ov = document.getElementById('prv-form-overlay');
+  ov.classList.remove('hidden'); ov.style.display = 'block';
+};
+window.prvCloseForm = function () {
+  const ov = document.getElementById('prv-form-overlay');
+  ov.classList.add('hidden'); ov.style.display = 'none'; PRV_STATE.editId = null;
+};
+window.prvGuardar = async function () {
+  const form = document.getElementById('prv-form'); if (!form) return;
+  const item = {};
+  Array.from(form.elements).forEach(el => { if (el.name) item[el.name] = el.value; });
+  form.querySelectorAll('[data-inq-phone]').forEach(el => {
+    const n = el.getAttribute('data-inq-phone');
+    const lada = (form.querySelector(`[data-inq-lada="${n}"]`) || {}).value || '+52';
+    const num = String(el.value || '').replace(/\D/g, '');
+    item[n] = num ? lada + num : '';
+  });
+  if (!String(item.Empresa || '').trim() && !String(item.Contacto || '').trim()) { alert('Captura el nombre del proveedor o del contacto.'); return; }
+  if (PRV_STATE.editId) item.ID = PRV_STATE.editId;
+  const btn = document.getElementById('prv-form-save-btn'); btn.disabled = true; btn.textContent = '⏳ Guardando…';
+  try {
+    const r = await fetch(`${BACKEND}/proveedores/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item, user: currentUser || '' }) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Error al guardar');
+    const i = PRV_STATE.items.findIndex(x => x.ID === j.item.ID);
+    if (i >= 0) PRV_STATE.items[i] = j.item; else PRV_STATE.items.push(j.item);
+    prvCloseForm(); prvRender_();
+  } catch (e) { alert('No se pudo guardar: ' + (e.message || e)); }
+  finally { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+};
+window.prvEliminar = async function () {
+  const id = PRV_STATE.editId; if (!id) return;
+  const d = PRV_STATE.items.find(x => x.ID === id) || {};
+  if (!confirm(`¿Eliminar al proveedor "${d.Empresa || d.Contacto || ''}"?`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/proveedores/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Error');
+    PRV_STATE.items = PRV_STATE.items.filter(x => x.ID !== id);
+    prvCloseForm(); prvRender_();
+  } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+};
