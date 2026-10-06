@@ -62703,6 +62703,65 @@ window.snExportSel_ = function () {
   if (ds.length) snPdfDialog_(ds, ds.length === 1 ? ds[0].nombre : `Señalética (${ds.length})`);
 };
 
+// ── Barra superior: "Guías de bienvenida" = lista para copiar la URL de una guía ──
+function hmToast_(msg) {
+  let t = document.getElementById('hm-toast');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'hm-toast';
+    t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#0f172a;color:#fff;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 12px 30px rgba(15,23,42,.35);z-index:100500;opacity:0;transition:opacity .2s,transform .2s;max-width:calc(100vw - 32px);text-align:center';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; }, 3200);
+}
+function hmGuiasLista_() {
+  const rows = (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows) || [];
+  const seen = new Set();
+  return rows.map(r => ({ id: guiasItemId(r), nombre: guiasItemLabel(r), url: String(r.url_guia || '').trim() }))
+    .filter(x => x.id && !seen.has(x.id) && seen.add(x.id))
+    .map(x => ({ ...x, url: /^https?:\/\//.test(x.url) ? x.url : `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(x.id)}` }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
+}
+window.hmGuiasMenu_ = async function (btn) {
+  const prev = document.getElementById('hm-guias-pop');
+  if (prev) { prev.remove(); return; }
+  const pop = document.createElement('div'); pop.id = 'hm-guias-pop';
+  pop.style.cssText = 'position:fixed;z-index:100400;width:320px;max-width:calc(100vw - 16px);background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.25);padding:8px;display:flex;flex-direction:column;gap:6px';
+  pop.innerHTML = `<div style="font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:2px 4px">📖 Copiar URL de la guía de bienvenida</div>
+    <input type="search" placeholder="🔎 Buscar alojamiento…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
+    <div class="hm-gl" style="max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:2px"><div style="font-size:12px;color:#94a3b8;padding:8px">⏳ Cargando alojamientos…</div></div>`;
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
+  const inp = pop.querySelector('input'), box = pop.querySelector('.hm-gl');
+  const close = () => { pop.remove(); document.removeEventListener('mousedown', out, true); document.removeEventListener('keydown', esc_, true); };
+  const out = e => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(); };
+  const esc_ = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('mousedown', out, true); document.addEventListener('keydown', esc_, true);
+  if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && typeof lgLoadAlojamientos === 'function') { try { await lgLoadAlojamientos(); } catch (_) {} }
+  const lista = hmGuiasLista_();
+  const pinta = () => {
+    const q = inp.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const L = lista.filter(x => !q || x.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q));
+    box.innerHTML = L.length ? L.map((x, i) => `<button type="button" data-i="${lista.indexOf(x)}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><span>📖</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.nombre)}</span><span style="font-size:11px;color:#94a3b8">copiar</span></button>`).join('')
+      : `<div style="font-size:12px;color:#94a3b8;padding:8px">${lista.length ? 'Sin coincidencias.' : 'No hay alojamientos cargados.'}</div>`;
+  };
+  box.onclick = async e => {
+    const b = e.target.closest('button[data-i]'); if (!b) return;
+    const x = lista[+b.dataset.i];
+    let ok = false;
+    try { await navigator.clipboard.writeText(x.url); ok = true; } catch (_) {
+      const t = document.createElement('textarea'); t.value = x.url; document.body.appendChild(t); t.select();
+      try { ok = document.execCommand('copy'); } catch (__) {} t.remove();
+    }
+    close();
+    hmToast_(ok ? `Se ha copiado en el portapapeles la url de la guía ${x.nombre}` : `No se pudo copiar. URL: ${x.url}`);
+  };
+  inp.oninput = pinta; inp.onkeydown = e => { if (e.key === 'Enter') { const f = box.querySelector('button[data-i]'); if (f) f.click(); } };
+  pinta(); inp.focus();
+};
+
 // ── Versión cargada (visible en la barra superior y en Console) ─────────
 (function () {
   try {
