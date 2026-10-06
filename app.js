@@ -11810,7 +11810,8 @@ function huReglasAplicar_() {
   ['hu-w-noches', 'hu-w-visitas', 'hu-w-monto'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.value = HU_REGLAS[['w_noches', 'w_visitas', 'w_monto'][i]]; });
   try { if (window.__huGuestStatsCache) window.__huGuestStatsCache.clear(); } catch (_) {}
   if (PERSONAS_STATE && PERSONAS_STATE.personas) PERSONAS_STATE.personas.forEach(p => personasClasificar_(p));
-  if (typeof personasRender === 'function' && document.getElementById('personas-container')) { if (typeof personasMultiRender === 'function') { try { delete PERSONAS_MULTI.multiSel.clasificacion; } catch (_) {} } personasRender(); }
+  // Solo repinta el Directorio si ya cargó (si no, los filtros se crearían vacíos).
+  if (typeof personasRender === 'function' && PERSONAS_STATE && PERSONAS_STATE.loaded && document.getElementById('personas-container')) { try { delete PERSONAS_MULTI.multiSel.clasificacion; } catch (_) {} personasRender(); }
   huReglasRender_();
   if (typeof pcRenderMovs_ === 'function' && document.getElementById('pc-sec-movs')) pcRenderMovs_();
 }
