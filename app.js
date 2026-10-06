@@ -57305,11 +57305,11 @@ window.tarSetSection = function (k) { TAR_STATE.section = k; tarRender(); };
 // ── Filtros globales (Calendario y Registro) ───────────────────────────
 // Tipo: botones (ambos activos por defecto). Clasificación / Sub-clasificación
 // (anidada) / Prioridad / Personal: listas de opción múltiple que NO se cierran al marcar.
-TAR_STATE.fx = TAR_STATE.fx || { tipos: new Set(['Tarea programada', 'Recordatorio']), clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
+TAR_STATE.fx = TAR_STATE.fx || { tipo: '', clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
 const TAR_SIN = '(Sin clasificación)', TAR_SIN_PERS = '(Sin asignar)';
 function tarPasaFiltro_(r) {
   const fx = TAR_STATE.fx;
-  if (!fx.tipos.has(tarEsRec_(r) ? 'Recordatorio' : 'Tarea programada')) return false;
+  if (fx.tipo && (tarEsRec_(r) ? 'Recordatorio' : 'Tarea programada') !== fx.tipo) return false;
   const c = r.Clasificacion || TAR_SIN;
   if (fx.clas.size && !fx.clas.has(c)) return false;
   if (fx.sub.size) {
@@ -57323,7 +57323,7 @@ function tarPasaFiltro_(r) {
   return true;
 }
 function tarDelDiaF_(iso) { return tarDelDia_(iso).filter(tarPasaFiltro_); }
-function tarFxActivos_() { const fx = TAR_STATE.fx; return (fx.tipos.size < 2 ? 1 : 0) + fx.clas.size + fx.sub.size + fx.prio.size + fx.pers.size; }
+function tarFxActivos_() { const fx = TAR_STATE.fx; return (fx.tipo ? 1 : 0) + fx.clas.size + fx.sub.size + fx.prio.size + fx.pers.size; }
 function tarFxOpts_(k) {
   const fx = TAR_STATE.fx;
   if (k === 'clas') {
@@ -57358,7 +57358,7 @@ function tarFxBtnLbl_(k) {
 }
 function tarFiltrosHtml_() {
   const fx = TAR_STATE.fx;
-  const tipo = (k, ico, l) => { const on = fx.tipos.has(k); return `<button type="button" class="tfx-tipo ${on ? 'on' : ''}" onclick="tarFxTipo_('${k}')" title="${on ? 'Ocultar' : 'Mostrar'} ${l.toLowerCase()}s">${ico} ${l}</button>`; };
+  const tipo = (k, ico, l) => { const on = fx.tipo === k; return `<button type="button" class="tfx-tipo ${on ? 'on' : ''} ${k === 'Recordatorio' ? 'rec' : 'tar'}" data-tipo="${k}" onclick="tarFxTipo_('${k}')" title="${on ? 'Quitar filtro (mostrar todo)' : 'Mostrar solo ' + l.toLowerCase() + 's'}">${ico} ${l}</button>`; };
   const dd = k => `<button type="button" class="tfx-dd ${fx[k].size ? 'on' : ''}" data-k="${k}" onclick="tarFxOpen_('${k}', this)"><span>${esc(tarFxBtnLbl_(k))}</span><b>▾</b></button>`;
   const n = tarFxActivos_();
   return `<div class="tfx">
@@ -57374,10 +57374,11 @@ function tarFiltrosHtml_() {
   .tfx{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px}
   .tfx-l{font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
   .tfx-seg{display:inline-flex;border:1.5px solid #cbd5e1;border-radius:9px;overflow:hidden;margin-right:4px}
-  .tfx-tipo{all:unset;cursor:pointer;padding:7px 12px;font-size:12px;font-weight:800;background:#e2e8f0;color:#94a3b8;transition:background .15s,color .15s}
+  .tfx-tipo{all:unset;cursor:pointer;padding:7px 12px;font-size:12px;font-weight:800;background:#fff;color:#475569;transition:background .15s,color .15s}
   .tfx-tipo + .tfx-tipo{border-left:1.5px solid #cbd5e1}
-  .tfx-tipo.on{background:#fff;color:#0f172a}
-  .tfx-tipo:not(.on){text-decoration:line-through;box-shadow:inset 0 2px 4px rgba(15,23,42,.12)}
+  .tfx-tipo:hover{background:#f1f5f9}
+  .tfx-tipo.on.rec{background:#f59e0b;color:#fff}
+  .tfx-tipo.on.tar{background:#7c3aed;color:#fff}
   .tfx-dd{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1.5px solid #cbd5e1;border-radius:9px;background:#fff;font-size:12px;font-weight:700;color:#334155;max-width:240px}
   .tfx-dd span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tfx-dd b{font-size:9px;color:#94a3b8}
@@ -57407,14 +57408,18 @@ function tarFxAplicar_() {
   if (f && n && !clr) { f.insertAdjacentHTML('beforeend', `<button type="button" class="tfx-clr" onclick="tarFxLimpiar_()"></button>`); clr = f.querySelector('.tfx-clr'); }
   if (clr) { if (n) clr.textContent = `✕ Quitar filtros (${n})`; else clr.remove(); }
 }
+// Sin selección = se muestran ambos. Clic en uno = solo ese; otro clic en el mismo = quitar filtro.
 window.tarFxTipo_ = function (k) {
-  const t = TAR_STATE.fx.tipos;
-  if (t.has(k)) { if (t.size === 1) return; t.delete(k); } else t.add(k); // al menos uno queda activo
-  document.querySelectorAll('#tar-filtros .tfx-tipo').forEach(b => { const kk = /Recordatorio/.test(b.textContent) ? 'Recordatorio' : 'Tarea programada'; b.classList.toggle('on', t.has(kk)); });
+  const fx = TAR_STATE.fx;
+  fx.tipo = fx.tipo === k ? '' : k;
+  document.querySelectorAll('#tar-filtros .tfx-tipo').forEach(b => {
+    const on = fx.tipo === b.dataset.tipo; b.classList.toggle('on', on);
+    b.title = on ? 'Quitar filtro (mostrar todo)' : 'Mostrar solo ' + (b.dataset.tipo === 'Recordatorio' ? 'recordatorios' : 'tareas');
+  });
   tarFxAplicar_();
 };
 window.tarFxLimpiar_ = function () {
-  TAR_STATE.fx = { tipos: new Set(['Tarea programada', 'Recordatorio']), clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
+  TAR_STATE.fx = { tipo: '', clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
   document.querySelectorAll('.tfx-pop').forEach(p => p.remove());
   const f = document.getElementById('tar-filtros'); if (f) f.innerHTML = tarFiltrosHtml_();
   tarFxAplicar_();
