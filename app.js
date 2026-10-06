@@ -56979,6 +56979,11 @@ if (!window.__personasMultiOutsideClickBound) {
 }
 
 function personasRender() {
+  const st = dxSearchSave_('personas-search');
+  _personasRenderCore();
+  dxSearchMount_(document.getElementById('personas-container'), 'personas-search', st);
+}
+function _personasRenderCore() {
   huReglasRender_();
   const cont = document.getElementById('personas-container');
   const lbl  = document.getElementById('personas-status-label');
@@ -63403,17 +63408,19 @@ function prvRender_() {
     return;
   }
   dxEnsureCss_();
+  const st = dxSearchSave_('prv-search');
   const all = PRV_STATE.items;
   const nom = r => r.Empresa || r.Contacto || '';
   const giroF = PRV_STATE.giro || '';
-  const rows = all.filter(r => !giroF || (r.Giro || 'Sin giro') === giroF)
+  const qn = dxNorm_(PRV_STATE.q);
+  const rows = all.filter(r => (!giroF || (r.Giro || 'Sin giro') === giroF) && (!qn || dxNorm_(Object.values(r).join(' ')).includes(qn)))
     .sort((a, b) => ((a.Estado || 'Activo') === 'Activo' ? 0 : 1) - ((b.Estado || 'Activo') === 'Activo' ? 0 : 1) || String(nom(a)).localeCompare(String(nom(b)), 'es'));
   // Resumen por giro (sobre todos) — también filtro rápido, igual que la clasificación en Huéspedes.
   const cnt = {}; all.forEach(r => { const g = r.Giro || 'Sin giro'; cnt[g] = (cnt[g] || 0) + 1; });
   const segs = Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x] || x.localeCompare(y, 'es'))
     .map(g => `<button type="button" class="dx-q ${giroF === g ? 'on' : ''}" style="--c:${prvGiroColor_(g)}" onclick="prvGiroFiltro_(${esc(JSON.stringify(g))})" title="Mostrar solo ${esc(g)}"><i></i>${esc(g)}<b>${cnt[g]}</b></button>`).join('');
   const hero = `<div class="dx-hero"><div class="dx-hero-in">
-      <div><h3>Directorio de proveedores</h3><small>${giroF ? `${rows.length} de giro ${esc(giroF)}` : 'Todos los proveedores'} · contacto, giro y datos de pago</small></div>
+      <div><h3>Directorio de proveedores</h3><small>${giroF || qn ? `${rows.length} con los filtros actuales` : 'Todos los proveedores'} · contacto, giro y datos de pago</small></div>
       <div class="dx-total">${all.length.toLocaleString('es-MX')}</div>
       <div class="dx-seg">${giroF ? `<button type="button" class="dx-q" style="--c:#e2e8f0" onclick="prvGiroFiltro_('')">✕ Todos</button>` : ''}${segs}</div>
     </div></div>`;
@@ -63478,7 +63485,8 @@ function prvRender_() {
     </div>
     ${all.length === 0
       ? `<div class="rh-empty">Sin proveedores. Pulsa <strong>＋ Nuevo proveedor</strong> para crear el primero.</div>`
-      : `<div class="dx-wrap">${hero}<div class="dx-grid">${rows.map(card).join('')}</div></div>`}`;
+      : `<div class="dx-wrap">${hero}${rows.length ? `<div class="dx-grid">${rows.map(card).join('')}</div>` : '<div class="rh-empty">Sin resultados.</div>'}</div>`}`;
+  if (all.length) dxSearchMount_(view, 'prv-search', st, 'Buscar por nombre, giro, teléfono, correo, RFC…', v => { PRV_STATE.q = v; prvRender_(); });
 }
 const PRV_PALETA = ['#0f766e', '#1d4ed8', '#7c3aed', '#c2410c', '#be185d', '#047857', '#b45309', '#4338ca', '#0e7490', '#a21caf'];
 function prvGiroColor_(g) {
@@ -63616,10 +63624,11 @@ function dinqRender_(cargando) {
   const all = INQ_STATE.perfiles || [];
   if (cargando && !all.length) { view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`; return; }
   dxEnsureCss_();
-  const F = DINQ_STATE.filtro;
+  const st = dxSearchSave_('dinq-search');
+  const F = DINQ_STATE.filtro, qn = dxNorm_(DINQ_STATE.q);
   const depto = r => r.Departamento || r['# Departamento'] || '';
   const pasa = r => !F || (F === 'Activo' ? dinqActivo_(r) : F === 'Inactivo' ? !dinqActivo_(r) : (r.Propiedad || 'Sin propiedad') === F);
-  const rows = all.filter(pasa).sort((a, b) => (dinqActivo_(a) ? 0 : 1) - (dinqActivo_(b) ? 0 : 1)
+  const rows = all.filter(r => pasa(r) && (!qn || dxNorm_(Object.values(r).filter(v => typeof v !== 'object').join(' ')).includes(qn))).sort((a, b) => (dinqActivo_(a) ? 0 : 1) - (dinqActivo_(b) ? 0 : 1)
     || String(a.Propiedad || '').localeCompare(String(b.Propiedad || ''), 'es') || String(depto(a)).localeCompare(String(depto(b)), 'es', { numeric: true }));
   const nAct = all.filter(dinqActivo_).length;
   const cntP = {}; all.forEach(r => { const k = r.Propiedad || 'Sin propiedad'; cntP[k] = (cntP[k] || 0) + 1; });
@@ -63627,7 +63636,7 @@ function dinqRender_(cargando) {
   const segs = q('Activo', nAct, '#10b981') + q('Inactivo', all.length - nAct, '#94a3b8')
     + Object.keys(cntP).sort((x, y) => cntP[y] - cntP[x] || x.localeCompare(y, 'es')).map(k => q(k, cntP[k], prvGiroColor_(k))).join('');
   const hero = `<div class="dx-hero"><div class="dx-hero-in">
-      <div><h3>Directorio de inquilinos</h3><small>${F ? `${rows.length} · ${esc(F)}` : 'Todos los inquilinos'} · contrato, departamento y datos fiscales</small></div>
+      <div><h3>Directorio de inquilinos</h3><small>${F || qn ? `${rows.length} con los filtros actuales` : 'Todos los inquilinos'} · contrato, departamento y datos fiscales</small></div>
       <div class="dx-total">${all.length.toLocaleString('es-MX')}</div>
       <div class="dx-seg">${F ? `<button type="button" class="dx-q" style="--c:#e2e8f0" onclick="dinqFiltro_('')">✕ Todos</button>` : ''}${segs}</div>
     </div></div>`;
@@ -63681,7 +63690,8 @@ function dinqRender_(cargando) {
   };
   view.innerHTML = all.length === 0
     ? `<div class="rh-empty">Sin inquilinos. Se dan de alta en <strong>📑 Contratos de Larga estancia › Perfiles</strong>.</div>`
-    : `<div class="dx-wrap">${hero}<div class="dx-grid">${rows.map(card).join('')}</div></div>`;
+    : `<div class="dx-wrap">${hero}${rows.length ? `<div class="dx-grid">${rows.map(card).join('')}</div>` : '<div class="rh-empty">Sin resultados.</div>'}</div>`;
+  if (all.length) dxSearchMount_(view, 'dinq-search', st, 'Buscar por nombre, propiedad, depto., correo, RFC…', v => { DINQ_STATE.q = v; dinqRender_(); });
 }
 window.dinqFiltro_ = function (k) { DINQ_STATE.filtro = DINQ_STATE.filtro === k ? '' : k; dinqRender_(); };
 // El formulario completo vive en Contratos de Larga estancia → se abre ahí.
@@ -63690,3 +63700,48 @@ window.dinqAbrir_ = function (id) {
   switchModule('inquilinos');
   setTimeout(() => { try { inqSetTab('perfiles'); inqOpenPerfilForm(id); } catch (e) { console.warn(e); } }, 60);
 };
+
+
+// ── Barra buscadora del Directorio (Huéspedes / Proveedores / Inquilinos) ──
+// Va justo debajo de la barra oscura (.dx-hero). Es un nodo persistente que se
+// re-inserta tras cada render, conservando el foco y el cursor al teclear.
+function dxNorm_(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+const DX_SEARCH_BOX = {}; // id → caja (sobrevive a los innerHTML de cada render)
+function dxSearchSave_(id) {
+  const inp = DX_SEARCH_BOX[id] ? DX_SEARCH_BOX[id].querySelector('input') : document.getElementById(id);
+  return inp && document.activeElement === inp ? { focus: true, pos: inp.selectionStart } : { focus: false };
+}
+function dxSearchMount_(cont, id, st, ph, onInput) {
+  if (!cont) return;
+  if (!document.getElementById('dx-search-css')) {
+    const css = document.createElement('style'); css.id = 'dx-search-css';
+    css.textContent = `.dx-search{display:flex;align-items:center;gap:10px;margin:12px 0 14px;padding:0 14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -16px rgba(15,23,42,.25);transition:border-color .2s,box-shadow .2s}
+      .dx-search:focus-within{border-color:#6366f1;box-shadow:0 0 0 4px rgba(99,102,241,.12)}
+      .dx-search svg{width:18px;height:18px;flex:none;stroke:#94a3b8}
+      .dx-search input{all:unset;flex:1;min-width:0;padding:13px 0;font-size:14px;color:#0f172a}
+      .dx-search input::placeholder{color:#94a3b8}
+      .dx-search button{all:unset;cursor:pointer;flex:none;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:900}
+      .dx-search.has button{display:flex}`;
+    document.head.appendChild(css);
+  }
+  let box = DX_SEARCH_BOX[id], inp = box ? box.querySelector('input') : document.getElementById(id);
+  if (!box) {
+    box = document.createElement('div'); box.className = 'dx-search';
+    box.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><button type="button" title="Borrar búsqueda">✕</button>`;
+    if (inp) inp.removeAttribute('style');            // Huéspedes: se reutiliza el input existente
+    else {
+      inp = document.createElement('input'); inp.type = 'text'; inp.id = id;
+      inp.placeholder = ph || 'Buscar…';
+      inp.addEventListener('input', () => onInput && onInput(inp.value));
+    }
+    inp.autocomplete = 'off';
+    box.insertBefore(inp, box.lastChild);
+    box.lastChild.onclick = () => { inp.value = ''; inp.dispatchEvent(new Event('input')); inp.focus(); };
+    DX_SEARCH_BOX[id] = box;
+  }
+  if (inp.placeholder.startsWith('🔍')) inp.placeholder = inp.placeholder.replace(/^🔍\s*/, '');
+  box.classList.toggle('has', !!inp.value);
+  const hero = cont.querySelector('.dx-hero');
+  if (hero) hero.after(box); else cont.prepend(box);
+  if (st && st.focus) { inp.focus(); try { inp.setSelectionRange(st.pos, st.pos); } catch (_) {} }
+}
