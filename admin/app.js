@@ -57054,7 +57054,7 @@ function dxEnsureCss_() {
   .dx-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
   .dx-k{border-radius:12px;padding:8px 10px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border:1px solid var(--line)}
   .dx-k span{display:block;font-size:9.5px;font-weight:800;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}
-  .dx-k b{display:block;font-size:16px;font-weight:900;color:var(--ink);margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .dx-k b{display:block;font-size:15px;font-weight:900;color:var(--ink);margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dx-info{margin-top:12px;display:flex;flex-direction:column;gap:6px}
   .dx-row{display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;min-width:0}
   .dx-row svg{flex:none;width:15px;height:15px;stroke:var(--tc);opacity:.9}
@@ -57105,7 +57105,10 @@ window.dxCopiar_ = function (txt, what) {
 };
 function personasRenderCards_(rows) {
   dxEnsureCss_();
-  const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ ' + Number(n || 0).toFixed(0));
+  const fmt$ = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-MX');
+  // Orden ejecutivo: mayor puntaje de lealtad primero; nombres válidos (con letras) antes que datos incompletos.
+  const valido = p => /\p{L}{2}/u.test(p.nombre || '') ? 0 : 1;
+  rows = rows.slice().sort((a, b) => valido(a) - valido(b) || (b.score || 0) - (a.score || 0) || String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
   // Paginación progresiva (miles de huéspedes): reinicia al cambiar búsqueda/filtros.
   const sig = PERSONAS_STATE.search + '|' + rows.length;
   if (PERSONAS_STATE.dxSig !== sig) { PERSONAS_STATE.dxSig = sig; PERSONAS_STATE.dxLimit = 60; }
