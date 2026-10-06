@@ -57305,7 +57305,7 @@ window.tarSetSection = function (k) { TAR_STATE.section = k; tarRender(); };
 // ── Filtros globales (Calendario y Registro) ───────────────────────────
 // Tipo: botones (ambos activos por defecto). Clasificación / Sub-clasificación
 // (anidada) / Prioridad / Personal: listas de opción múltiple que NO se cierran al marcar.
-TAR_STATE.fx = TAR_STATE.fx || { tipo: '', clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
+TAR_STATE.fx = TAR_STATE.fx || { tipo: '', clas: new Set(), sub: new Set(), prio: '', pers: new Set() };
 const TAR_SIN = '(Sin clasificación)', TAR_SIN_PERS = '(Sin asignar)';
 function tarPasaFiltro_(r) {
   const fx = TAR_STATE.fx;
@@ -57318,38 +57318,50 @@ function tarPasaFiltro_(r) {
     if (subsDeC.length) { if (!fx.sub.has(`${c}›${r.Subclasificacion || '—'}`)) return false; }
     else if (!fx.clas.has(c)) return false;
   }
-  if (fx.prio.size && !fx.prio.has(r.Prioridad || 'Medio')) return false;
+  if (fx.prio && (r.Prioridad || 'Medio') !== fx.prio) return false;
   if (fx.pers.size) { const p = tarPersonalList_(r); if (!(p.length ? p.some(n => fx.pers.has(n)) : fx.pers.has(TAR_SIN_PERS))) return false; }
   return true;
 }
 function tarDelDiaF_(iso) { return tarDelDia_(iso).filter(tarPasaFiltro_); }
-function tarFxActivos_() { const fx = TAR_STATE.fx; return (fx.tipo ? 1 : 0) + fx.clas.size + fx.sub.size + fx.prio.size + fx.pers.size; }
+function tarFxActivos_() { const fx = TAR_STATE.fx; return (fx.tipo ? 1 : 0) + (fx.prio ? 1 : 0) + fx.clas.size + fx.sub.size + fx.pers.size; }
+// Registros del periodo que se ve en pantalla (sin aplicar filtros): de aquí salen las opciones.
+function tarFxBase_() {
+  if (TAR_STATE.section === 'registro') return TAR_STATE.list.slice();
+  const v = TAR_STATE.calView, ref = TAR_STATE.calRef || tarToday_(), dias = [];
+  const mes = (y, m) => { const dim = new Date(y, m + 1, 0).getDate(); for (let d = 1; d <= dim; d++) dias.push(tarIso_(new Date(y, m, d))); };
+  if (v === 'resumen') { const [y, m] = (TAR_STATE.resMes || tarIso_(tarToday_()).slice(0, 7)).split('-').map(Number); mes(y, m - 1); }
+  else if (v === 'dia') dias.push(tarIso_(ref));
+  else if (v === 'semana') { const l = new Date(ref); l.setDate(ref.getDate() - ((ref.getDay() + 6) % 7)); for (let i = 0; i < 7; i++) { const x = new Date(l); x.setDate(l.getDate() + i); dias.push(tarIso_(x)); } }
+  else mes(ref.getFullYear(), ref.getMonth());
+  const set = new Set(); dias.forEach(iso => tarDelDia_(iso).forEach(r => set.add(r)));
+  return [...set];
+}
 function tarFxOpts_(k) {
-  const fx = TAR_STATE.fx;
+  const fx = TAR_STATE.fx, base = TAR_STATE._fxBase || tarFxBase_();
+  const conSel = (vals, sel) => { sel.forEach(v => vals.add(v)); return vals; };
   if (k === 'clas') {
-    const set = new Set(Object.keys(tarClasif_())); TAR_STATE.list.forEach(r => set.add(r.Clasificacion || TAR_SIN));
+    const set = conSel(new Set(base.map(r => r.Clasificacion || TAR_SIN)), fx.clas);
     return [...set].sort((a, b) => a === TAR_SIN ? 1 : b === TAR_SIN ? -1 : a.localeCompare(b, 'es')).map(v => ({ v, l: v }));
   }
   if (k === 'sub') {
-    const cat = tarClasif_(), out = [];
-    const clases = fx.clas.size ? [...fx.clas] : Object.keys(cat).sort((a, b) => a.localeCompare(b, 'es'));
-    clases.forEach(c => {
-      const subs = new Set(cat[c] || []); TAR_STATE.list.forEach(r => { if ((r.Clasificacion || TAR_SIN) === c && r.Subclasificacion) subs.add(r.Subclasificacion); });
-      if (!subs.size) return;
-      out.push({ grupo: c });
-      [...subs].sort((a, b) => a.localeCompare(b, 'es')).forEach(sb => out.push({ v: `${c}›${sb}`, l: sb }));
-    });
+    const porC = new Map();
+    base.forEach(r => { const c = r.Clasificacion || TAR_SIN; if (!r.Subclasificacion || (fx.clas.size && !fx.clas.has(c))) return; if (!porC.has(c)) porC.set(c, new Set()); porC.get(c).add(r.Subclasificacion); });
+    fx.sub.forEach(v => { const [c, sb] = v.split('›'); if (!porC.has(c)) porC.set(c, new Set()); porC.get(c).add(sb); });
+    const out = [];
+    [...porC.keys()].sort((a, b) => a.localeCompare(b, 'es')).forEach(c => { out.push({ grupo: c }); [...porC.get(c)].sort((a, b) => a.localeCompare(b, 'es')).forEach(sb => out.push({ v: `${c}›${sb}`, l: sb })); });
     return out;
   }
-  if (k === 'prio') return TAR_PRIORIDADES.map(p => ({ v: p.k, l: p.k }));
   if (k === 'pers') {
-    const set = new Set(typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
-    TAR_STATE.list.forEach(r => tarPersonalList_(r).forEach(n => set.add(n)));
-    return [...set].sort((a, b) => a.localeCompare(b, 'es')).map(v => ({ v, l: v })).concat([{ v: TAR_SIN_PERS, l: TAR_SIN_PERS }]);
+    const set = new Set(); let sinAsig = false;
+    base.forEach(r => { const p = tarPersonalList_(r); if (!p.length) sinAsig = true; p.forEach(n => set.add(n)); });
+    conSel(set, [...fx.pers].filter(v => v !== TAR_SIN_PERS));
+    const out = [...set].sort((a, b) => a.localeCompare(b, 'es')).map(v => ({ v, l: v }));
+    if (sinAsig || fx.pers.has(TAR_SIN_PERS)) out.push({ v: TAR_SIN_PERS, l: TAR_SIN_PERS });
+    return out;
   }
   return [];
 }
-const TAR_FX_LBL = { clas: 'Clasificación', sub: 'Sub-clasificación', prio: 'Nivel de prioridad', pers: 'Personal asignado' };
+const TAR_FX_LBL = { clas: 'Clasificación', sub: 'Sub-clasificación', pers: 'Personal asignado' };
 function tarFxBtnLbl_(k) {
   const n = TAR_STATE.fx[k].size;
   if (!n) return `${TAR_FX_LBL[k]}: todas`;
@@ -57357,13 +57369,19 @@ function tarFxBtnLbl_(k) {
   return n === 1 ? `${TAR_FX_LBL[k]}: ${vals[0]}` : `${TAR_FX_LBL[k]}: ${n}`;
 }
 function tarFiltrosHtml_() {
-  const fx = TAR_STATE.fx;
+  const fx = TAR_STATE.fx, base = TAR_STATE._fxBase = tarFxBase_();
+  const hayRec = base.some(tarEsRec_), hayTar = base.some(r => !tarEsRec_(r));
   const tipo = (k, ico, l) => { const on = fx.tipo === k; return `<button type="button" class="tfx-tipo ${on ? 'on' : ''} ${k === 'Recordatorio' ? 'rec' : 'tar'}" data-tipo="${k}" onclick="tarFxTipo_('${k}')" title="${on ? 'Quitar filtro (mostrar todo)' : 'Mostrar solo ' + l.toLowerCase() + 's'}">${ico} ${l}</button>`; };
-  const dd = k => `<button type="button" class="tfx-dd ${fx[k].size ? 'on' : ''}" data-k="${k}" onclick="tarFxOpen_('${k}', this)"><span>${esc(tarFxBtnLbl_(k))}</span><b>▾</b></button>`;
+  const tipos = [(hayRec || fx.tipo === 'Recordatorio') ? tipo('Recordatorio', '📌', 'Recordatorio') : '', (hayTar || fx.tipo === 'Tarea programada') ? tipo('Tarea programada', '📋', 'Tarea') : ''].join('');
+  const prios = PRIO_METER.filter(([k]) => fx.prio === k || base.some(r => (r.Prioridad || 'Medio') === k))
+    .map(([k, c]) => { const on = fx.prio === k; return `<button type="button" class="tfx-tipo prio ${on ? 'on' : ''}" data-prio="${k}" style="--c:${c}" onclick="tarFxPrio_('${k}')" title="${on ? 'Quitar filtro (mostrar todo)' : 'Mostrar solo prioridad ' + k}"><i></i>${k}</button>`; }).join('');
+  const dd = k => tarFxOpts_(k).length || TAR_STATE.fx[k].size ? `<button type="button" class="tfx-dd ${fx[k].size ? 'on' : ''}" data-k="${k}" onclick="tarFxOpen_('${k}', this)"><span>${esc(tarFxBtnLbl_(k))}</span><b>▾</b></button>` : '';
   const n = tarFxActivos_();
+  if (!base.length && !n) return `<div class="tfx"><span class="tfx-l">Filtros</span><span style="font-size:12px;color:#94a3b8">Sin registros en este periodo.</span></div>`;
   return `<div class="tfx">
-    <span class="tfx-l">Tipo</span><div class="tfx-seg">${tipo('Recordatorio', '📌', 'Recordatorio')}${tipo('Tarea programada', '📋', 'Tarea')}</div>
-    ${dd('clas')}${dd('sub')}${dd('prio')}${dd('pers')}
+    ${tipos ? `<span class="tfx-l">Tipo</span><div class="tfx-seg">${tipos}</div>` : ''}
+    ${prios ? `<span class="tfx-l">Prioridad</span><div class="tfx-seg">${prios}</div>` : ''}
+    ${dd('clas')}${dd('sub')}${dd('pers')}
     ${n ? `<button type="button" class="tfx-clr" onclick="tarFxLimpiar_()">✕ Quitar filtros (${n})</button>` : ''}
   </div>`;
 }
@@ -57379,6 +57397,10 @@ function tarFiltrosHtml_() {
   .tfx-tipo:hover{background:#f1f5f9}
   .tfx-tipo.on.rec{background:#f59e0b;color:#fff}
   .tfx-tipo.on.tar{background:#7c3aed;color:#fff}
+  .tfx-tipo.prio{display:inline-flex;align-items:center;gap:6px}
+  .tfx-tipo.prio i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+  .tfx-tipo.prio.on{background:var(--c);color:#fff}
+  .tfx-tipo.prio.on i{background:#fff}
   .tfx-dd{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1.5px solid #cbd5e1;border-radius:9px;background:#fff;font-size:12px;font-weight:700;color:#334155;max-width:240px}
   .tfx-dd span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tfx-dd b{font-size:9px;color:#94a3b8}
@@ -57418,8 +57440,13 @@ window.tarFxTipo_ = function (k) {
   });
   tarFxAplicar_();
 };
+window.tarFxPrio_ = function (k) {
+  const fx = TAR_STATE.fx; fx.prio = fx.prio === k ? '' : k;
+  document.querySelectorAll('#tar-filtros .tfx-tipo.prio').forEach(b => b.classList.toggle('on', fx.prio === b.dataset.prio));
+  tarFxAplicar_();
+};
 window.tarFxLimpiar_ = function () {
-  TAR_STATE.fx = { tipo: '', clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
+  TAR_STATE.fx = { tipo: '', clas: new Set(), sub: new Set(), prio: '', pers: new Set() };
   document.querySelectorAll('.tfx-pop').forEach(p => p.remove());
   const f = document.getElementById('tar-filtros'); if (f) f.innerHTML = tarFiltrosHtml_();
   tarFxAplicar_();
@@ -57444,7 +57471,7 @@ window.tarFxOpen_ = function (k, btn) {
       if (q && !o.l.toLowerCase().includes(q) && !(grupo || '').toLowerCase().includes(q)) return;
       if (grupo) { html += `<div class="tfx-grp">${esc(grupo)}</div>`; grupo = null; }
       const on = set.has(o.v);
-      html += `<div class="tfx-opt ${k === 'sub' ? 'sub' : ''}" data-v="${esc(o.v)}"><span class="tfx-ck ${on ? 'on' : ''}">${on ? '✓' : ''}</span>${k === 'prio' ? prioMeter_(o.v, { sm: true }) : ''}<span>${esc(o.l)}</span></div>`;
+      html += `<div class="tfx-opt ${k === 'sub' ? 'sub' : ''}" data-v="${esc(o.v)}"><span class="tfx-ck ${on ? 'on' : ''}">${on ? '✓' : ''}</span><span>${esc(o.l)}</span></div>`;
     });
     list.innerHTML = html || `<div style="font-size:12px;color:#94a3b8;padding:8px">${k === 'sub' ? 'No hay sub-clasificaciones para las clasificaciones elegidas.' : 'Sin opciones.'}</div>`;
   };
