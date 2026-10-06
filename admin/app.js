@@ -59753,6 +59753,24 @@ function pcRenderSection_(key) {
       return;
     }
     const devs = ((PC.disp && PC.disp.devices) || []).filter(d => typeof tuyaIsWaterLevel === 'function' ? tuyaIsWaterLevel(d) : false);
+    // Historial (últimos 7 días) para la línea de tendencia de cada medidor.
+    if (devs.length && !PC.dispLogs && !PC._dispLogsLoading) {
+      PC._dispLogsLoading = true;
+      fetch(`${BACKEND}/tuya/logs-bulk`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ ids: devs.map(d => d.id), size: 3000, days: 7 }) })
+        .then(r => r.json()).then(j => { PC.dispLogs = (j && j.ok && j.byId) || {}; })
+        .catch(() => { PC.dispLogs = {}; })
+        .finally(() => { PC._dispLogsLoading = false; pcRenderSection_('disp'); });
+    }
+    const trend = (d, col) => {
+      if (!PC.dispLogs) return '<div style="height:30px;width:100%;border-radius:6px;background:linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9)"></div>';
+      let ser = [];
+      try { ser = (typeof tuyaRotoplasParseLogs === 'function' ? tuyaRotoplasParseLogs(PC.dispLogs[d.id] || []).series : []); } catch (_) {}
+      // Una sola magnitud por medidor: % si lo reporta; si no, profundidad (cm).
+      const conPct = ser.some(r => r.pct != null);
+      let vals = ser.map(r => conPct ? r.pct : r.depth).filter(v => v != null && isFinite(v));
+      if (vals.length > 80) { const k = vals.length / 80; vals = Array.from({ length: 80 }, (_, i) => vals[Math.min(vals.length - 1, Math.round(i * k))]); }
+      return `<div style="width:100%;height:30px" title="Nivel de los últimos 7 días">${pcSpark_(vals, col)}</div>`;
+    };
     const items = devs.map(d => {
       const pct = typeof tuyaWaterLevelCurrentPct === 'function' ? tuyaWaterLevelCurrentPct(d) : null;
       const al = typeof tuyaResolveAloj === 'function' ? tuyaResolveAloj(d) : null;
@@ -59763,7 +59781,8 @@ function pcRenderSection_(key) {
         <div class="pc-tank"><span style="height:${pct == null ? 0 : pct}%;${pct != null && pct < 25 ? 'background:linear-gradient(180deg,#fca5a5,#dc2626)' : ''}"></span><b>${pct == null ? '—' : pct + '%'}</b></div>
         <div style="font-size:11.5px;font-weight:800;color:#334155;text-align:center;max-width:130px">${pcEsc(nm)}</div>
         <span class="pc-chip" style="background:${d.online === false ? '#fee2e2' : '#dcfce7'};color:${d.online === false ? '#991b1b' : '#166534'}">${d.online === false ? 'Offline' : 'Online'}</span>
-        <div style="height:4px;width:100%;border-radius:4px;background:${col}"></div></div>`;
+        <div style="height:4px;width:100%;border-radius:4px;background:${col}"></div>
+        ${trend(d, col === '#94a3b8' ? '#0ea5e9' : col)}</div>`;
     });
     card('pc-sec-disp', head('💧 Dispositivos · tinacos y cisternas', `${devs.length} medidores`, linkD) + (items.length ? `<div style="display:flex;gap:12px;flex-wrap:wrap">${items.join('')}</div>` : '<div style="font-size:12px;color:#94a3b8">Sin medidores de nivel de agua.</div>'));
   }
