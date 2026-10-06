@@ -62717,8 +62717,9 @@ function hmToast_(msg) {
 function hmGuiasLista_() {
   const rows = (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows) || [];
   const seen = new Set();
-  return rows.map(r => ({ id: guiasItemId(r), nombre: guiasItemLabel(r), url: String(r.url_guia || '').trim() }))
-    .filter(x => x.id && !seen.has(x.id) && seen.add(x.id))
+  // Solo alojamientos con guía pública: su id es el HouseId de Lodgify (columna HouseId vacía → id_lodgify).
+  return rows.map(r => ({ id: String(r.HouseId || r.id_lodgify || '').trim(), nombre: guiasItemLabel(r), url: String(r.url_guia || '').trim() }))
+    .filter(x => /^\d+$/.test(x.id) && !seen.has(x.id) && seen.add(x.id))
     .map(x => ({ ...x, url: /^https?:\/\//.test(x.url) ? x.url : `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(x.id)}` }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
 }
