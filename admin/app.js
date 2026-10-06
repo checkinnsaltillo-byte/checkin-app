@@ -56581,7 +56581,12 @@ async function personasInit() {
     PERSONAS_STATE.loaded = true;
     // "Estancia larga/mensual" necesita el historial de estancias: se completa al cargar Reservaciones.
     if (typeof HU_STATE !== 'undefined' && !(HU_STATE.rows || []).length && !HU_STATE.loading && typeof huespedesLoad === 'function') {
-      huespedesLoad(false).then(() => { (PERSONAS_STATE.personas || []).forEach(personasClasificar_); personasRender(); }).catch(() => {});
+      huespedesLoad(false).then(() => {
+        const cs = PERSONAS_MULTI.multiSel.clasificacion, todas = !cs || cs.size === personasMultiGetOptions('clasificacion').length;
+        (PERSONAS_STATE.personas || []).forEach(personasClasificar_);
+        if (todas) delete PERSONAS_MULTI.multiSel.clasificacion; // nuevas etiquetas quedan incluidas
+        personasRender();
+      }).catch(() => {});
     }
   } catch(e) {
     console.warn('[PERSONAS] /perfiles-list falló, fallback a HU_STATE:', e.message);
