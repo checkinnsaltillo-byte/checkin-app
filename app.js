@@ -59778,7 +59778,7 @@ function pcRenderSection_(key) {
       const dep = al ? String(al['# Departamento'] || '').trim() : '';
       const nm = al ? [al['Propiedad'], dep ? (/^\d/.test(dep) ? '#' + dep : '· ' + dep) : ''].filter(Boolean).join(' ') || d.name : d.name;
       const col = pct == null ? '#94a3b8' : pct < 25 ? '#dc2626' : pct < 50 ? '#f59e0b' : '#16a34a';
-      return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;min-width:120px">
+      return `<div class="pc-dev" onclick="pcAbrirDispositivo_('${pcEsc(d.id)}')" title="Ver detalle del dispositivo" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;min-width:120px;cursor:pointer;transition:box-shadow .15s,border-color .15s" onmouseover="this.style.borderColor='#7dd3fc';this.style.boxShadow='0 8px 18px rgba(15,23,42,.1)'" onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow=''">
         <div class="pc-tank"><span style="height:${pct == null ? 0 : pct}%;${pct != null && pct < 25 ? 'background:linear-gradient(180deg,#fca5a5,#dc2626)' : ''}"></span><b>${pct == null ? '—' : pct + '%'}</b></div>
         <div style="font-size:11.5px;font-weight:800;color:#334155;text-align:center;max-width:130px">${pcEsc(nm)}</div>
         <span class="pc-chip" style="background:${d.online === false ? '#fee2e2' : '#dcfce7'};color:${d.online === false ? '#991b1b' : '#166534'}">${d.online === false ? 'Offline' : 'Online'}</span>
@@ -59788,6 +59788,12 @@ function pcRenderSection_(key) {
     card('pc-sec-disp', head('💧 Dispositivos · tinacos y cisternas', `${devs.length} medidores`, linkD) + (items.length ? `<div style="display:flex;gap:12px;flex-wrap:wrap">${items.join('')}</div>` : '<div style="font-size:12px;color:#94a3b8">Sin medidores de nivel de agua.</div>'));
   }
 }
+// Abre la misma ventana lateral de detalle del módulo Dispositivos.
+window.pcAbrirDispositivo_ = function (id) {
+  if (typeof tuyaOpenDetail !== 'function') return pcGo('tuya');
+  if (typeof TUYA_STATE !== 'undefined' && !((TUYA_STATE.data && TUYA_STATE.data.devices) || []).some(x => x.id === id) && PC.disp) TUYA_STATE.data = PC.disp;
+  tuyaOpenDetail(id);
+};
 window.pcToggleSerie = function (k) { if (PC.hidden.has(k)) PC.hidden.delete(k); else PC.hidden.add(k); pcRenderSection_('fin'); };
 
 // ── Drawer de detalle (al oprimir un KPI / tarjeta) ─────────────────────
