@@ -63419,7 +63419,7 @@ function prvRender_() {
           </tr></thead>
           <tbody>${rows.map(r => `
             <tr onclick="prvOpenForm('${esc(r.ID)}')" style="cursor:pointer">
-              <td><strong>${esc(r.Empresa || '—')}</strong>${r.Sitio_web ? `<br><a href="${esc(/^https?:/i.test(r.Sitio_web) ? r.Sitio_web : 'https://' + r.Sitio_web)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#64748b;font-size:11px">${esc(r.Sitio_web)}</a>` : ''}</td>
+              <td><strong>${esc(r.Empresa || r.Contacto || '—')}</strong>${r.Sitio_web ? `<br><a href="${esc(/^https?:/i.test(r.Sitio_web) ? r.Sitio_web : 'https://' + r.Sitio_web)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#64748b;font-size:11px">${esc(r.Sitio_web)}</a>` : ''}</td>
               <td>${esc(r.Giro || '—')}</td>
               <td>${esc(r.Contacto || '—')}${r.Puesto ? `<br><span style="color:#64748b;font-size:11px">${esc(r.Puesto)}</span>` : ''}</td>
               <td style="white-space:nowrap">${tel(r.Telefono)}</td>
@@ -63444,21 +63444,27 @@ window.prvOpenForm = function (id) {
   const giroOtro = d.Giro && !PRV_GIROS.includes(d.Giro) ? d.Giro : '';
   const giroSel = giroOtro ? 'Otro' : (d.Giro || '');
   document.getElementById('prv-form-title').textContent = id ? 'Editar proveedor' : 'Nuevo proveedor';
+  // Nuevo: solo lo esencial a la vista; el resto tras "Más detalles". Al editar se muestra todo.
+  const det = !!id;
   document.getElementById('prv-form-body').innerHTML = `<form id="prv-form" onsubmit="return false">
-    ${sec('prv-gen', '🏢 Datos del proveedor', `
-      ${inqField('Nombre del proveedor / empresa', 'Empresa', 'text', d.Empresa, 'Ej. Lavandería Express')}
+    <section style="margin:0 0 12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 14px 4px">
+      ${inqField('Nombre del contacto', 'Contacto', 'text', d.Contacto, 'Ej. María López')}
+      ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
       ${inqField('Giro', 'Giro', 'select', giroSel, '', { options: PRV_GIROS.map(g => [g, g || '— Selecciona —']), extra: `onchange="prvGiroOtro_(this)"` })}
       <div id="prv-giro-otro" style="display:${giroSel === 'Otro' ? 'block' : 'none'};margin-top:-4px">
         ${inqField('Especifica el giro', 'Giro_otro', 'text', giroOtro, 'Ej. Cerrajería')}
       </div>
+    </section>
+    <button type="button" id="prv-mas-btn" onclick="prvMasDetalles_()" style="all:unset;box-sizing:border-box;cursor:pointer;display:${det ? 'none' : 'flex'};align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;margin:0 0 12px;border:1px dashed #cbd5e1;border-radius:10px;font-size:13px;font-weight:800;color:#475569;background:#f8fafc">▾ Más detalles</button>
+    <div id="prv-mas" style="display:${det ? 'block' : 'none'}">
+    ${sec('prv-gen', '🏢 Datos del proveedor', `
+      ${inqField('Nombre del proveedor / empresa', 'Empresa', 'text', d.Empresa, 'Ej. Lavandería Express')}
       ${inqField('Sitio web', 'Sitio_web', 'text', d.Sitio_web, 'www.ejemplo.com')}
       ${inqField('Dirección', 'Direccion', 'textarea', d.Direccion, 'Calle, número, colonia, ciudad', { rows: 2 })}
       ${inqField('Estado', 'Estado', 'select', d.Estado || 'Activo', '', { options: ['Activo', 'Inactivo'] })}`)}
     ${sec('prv-con', '👤 Contacto', `
-      ${inqField('Nombre del contacto', 'Contacto', 'text', d.Contacto, 'Ej. María López')}
       ${inqField('Puesto', 'Puesto', 'text', d.Puesto, 'Ej. Ventas')}
       ${inqPhoneField_('Teléfono', 'Telefono', d.Telefono)}
-      ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
       ${inqField('Correo electrónico', 'Correo', 'email', d.Correo, 'ejemplo@correo.com')}`)}
     ${sec('prv-fis', '🧾 Datos fiscales y de pago', `
       ${inqField('RFC', 'RFC', 'text', d.RFC, 'XAXX010101000')}
@@ -63467,10 +63473,15 @@ window.prvOpenForm = function (id) {
       ${inqField('CLABE / Cuenta', 'Clabe', 'text', d.Clabe)}
       ${inqField('Condiciones de pago', 'Condiciones_pago', 'text', d.Condiciones_pago, 'Ej. Contado, crédito 15 días')}`)}
     ${sec('prv-not', '📝 Notas', inqField('Notas', 'Notas', 'textarea', d.Notas, 'Servicios que ofrece, precios, horarios…'))}
+    </div>
   </form>`;
   document.getElementById('prv-form-del-btn').style.display = id ? '' : 'none';
   const ov = document.getElementById('prv-form-overlay');
   ov.classList.remove('hidden'); ov.style.display = 'block';
+};
+window.prvMasDetalles_ = function () {
+  document.getElementById('prv-mas').style.display = 'block';
+  document.getElementById('prv-mas-btn').style.display = 'none';
 };
 window.prvGiroOtro_ = function (sel) {
   const box = document.getElementById('prv-giro-otro'); if (!box) return;
