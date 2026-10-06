@@ -63398,40 +63398,90 @@ function prvRender_() {
     view.innerHTML = PRV_STATE.err ? `<div class="rh-empty">⚠️ ${esc(PRV_STATE.err)}</div>` : `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
     return;
   }
-  const rows = PRV_STATE.items.slice().sort((a, b) => String(a.Empresa || a.Contacto).localeCompare(String(b.Empresa || b.Contacto), 'es'));
-  const tel = v => v ? `<a href="tel:${esc(v)}" onclick="event.stopPropagation()" style="color:#0f172a;text-decoration:none">${esc(v)}</a>` : '—';
-  const wa = v => v ? `<a href="https://wa.me/${esc(String(v).replace(/\D/g, ''))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#15803d;text-decoration:none;font-weight:700">${esc(v)}</a>` : '—';
-  const mail = v => v ? `<a href="mailto:${esc(v)}" onclick="event.stopPropagation()" style="color:#1d4ed8;text-decoration:none">${esc(v)}</a>` : '—';
-  const est = v => { const on = (v || 'Activo') === 'Activo'; return `<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;background:${on ? '#dcfce7' : '#f1f5f9'};color:${on ? '#166534' : '#64748b'}">${esc(v || 'Activo')}</span>`; };
+  dxEnsureCss_();
+  const all = PRV_STATE.items;
+  const nom = r => r.Empresa || r.Contacto || '';
+  const giroF = PRV_STATE.giro || '';
+  const rows = all.filter(r => !giroF || (r.Giro || 'Sin giro') === giroF)
+    .sort((a, b) => ((a.Estado || 'Activo') === 'Activo' ? 0 : 1) - ((b.Estado || 'Activo') === 'Activo' ? 0 : 1) || String(nom(a)).localeCompare(String(nom(b)), 'es'));
+  // Resumen por giro (sobre todos) — también filtro rápido, igual que la clasificación en Huéspedes.
+  const cnt = {}; all.forEach(r => { const g = r.Giro || 'Sin giro'; cnt[g] = (cnt[g] || 0) + 1; });
+  const segs = Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x] || x.localeCompare(y, 'es'))
+    .map(g => `<button type="button" class="dx-q ${giroF === g ? 'on' : ''}" style="--c:${prvGiroColor_(g)}" onclick="prvGiroFiltro_(${esc(JSON.stringify(g))})" title="Mostrar solo ${esc(g)}"><i></i>${esc(g)}<b>${cnt[g]}</b></button>`).join('');
+  const hero = `<div class="dx-hero"><div class="dx-hero-in">
+      <div><h3>Directorio de proveedores</h3><small>${giroF ? `${rows.length} de giro ${esc(giroF)}` : 'Todos los proveedores'} · contacto, giro y datos de pago</small></div>
+      <div class="dx-total">${all.length.toLocaleString('es-MX')}</div>
+      <div class="dx-seg">${giroF ? `<button type="button" class="dx-q" style="--c:#e2e8f0" onclick="prvGiroFiltro_('')">✕ Todos</button>` : ''}${segs}</div>
+    </div></div>`;
+  const IC = Object.assign({}, DX_IC, {
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    web: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  });
+  const CAMPOS = ['Empresa', 'Giro', 'Contacto', 'Whatsapp', 'Telefono', 'Correo', 'RFC', 'Direccion', 'Condiciones_pago', 'Clabe'];
+  const card = (r, i) => {
+    const c = prvGiroColor_(r.Giro || 'Sin giro');
+    const T = { c, g: `linear-gradient(135deg,color-mix(in srgb,${c} 35%,#fff),${c} 55%,color-mix(in srgb,${c} 55%,#000))`, soft: `color-mix(in srgb,${c} 13%,transparent)` };
+    const tel = dxTel_(r.Telefono || r.Whatsapp), wa = dxTel_(r.Whatsapp || r.Telefono);
+    const mail = String(r.Correo || '').trim();
+    const sc = Math.round(CAMPOS.filter(k => String(r[k] || '').trim()).length / CAMPOS.length * 100);
+    const activo = (r.Estado || 'Activo') === 'Activo';
+    const web = String(r.Sitio_web || '').trim();
+    const chips = [
+      r.Giro ? `<span class="dx-tier"><em>🏷️</em>${esc(r.Giro)}</span>` : '',
+      `<span class="dx-chip" style="--b:${activo ? '#ecfdf5' : '#f1f5f9'};--f:${activo ? '#047857' : '#64748b'};--d:${activo ? '#a7f3d0' : '#e2e8f0'}">${activo ? '● Activo' : '○ Inactivo'}</span>`,
+      r.RFC ? '<span class="dx-chip" style="--b:#eff6ff;--f:#1d4ed8;--d:#bfdbfe">🧾 Factura</span>' : '',
+      r.Clabe ? '<span class="dx-chip" style="--b:#f5f3ff;--f:#5b21b6;--d:#ddd6fe">🏦 Cuenta</span>' : '',
+    ].join('');
+    const k = (lbl, v) => `<div class="dx-k"><span>${lbl}</span><b style="font-size:12.5px" title="${esc(v || '')}">${esc(v || '—')}</b></div>`;
+    const info = [
+      mail ? `<div class="dx-row">${IC.mail}<a href="mailto:${esc(mail)}" onclick="event.stopPropagation()">${esc(mail)}</a></div>` : '',
+      (r.RFC || r.Razon_social) ? `<div class="dx-row">${IC.doc}<span class="t">${r.Razon_social ? esc(r.Razon_social) + ' · ' : ''}<span class="dx-mono">${esc(r.RFC || '')}</span></span></div>` : '',
+      r.Direccion ? `<div class="dx-row">${IC.pin}<span class="t">${esc(r.Direccion)}</span></div>` : '',
+      web ? `<div class="dx-row">${IC.web}<a href="${esc(/^https?:/i.test(web) ? web : 'https://' + web)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(web)}</a></div>` : '',
+    ].join('');
+    return `<article class="dx-card" style="--tc:${T.c};--tg:${T.g};--ts:${T.soft};animation-delay:${Math.min(i, 24) * 18}ms;cursor:pointer${activo ? '' : ';opacity:.72'}" onclick="prvOpenForm('${esc(r.ID)}')" onmousemove="this.style.setProperty('--mx',(event.offsetX/this.offsetWidth*100)+'%')" title="Clic para ver o editar">
+      <div class="dx-in">
+        <div class="dx-head">
+          <div class="dx-av">${esc(dxIni_(nom(r)))}</div>
+          <div class="dx-id"><div class="dx-name" title="${esc(nom(r))}">${esc(nom(r) || 'Sin nombre')}</div><div class="dx-tel">${tel ? esc(tel.txt) : 'Sin teléfono'}</div></div>
+          <div class="dx-ring" style="--sc:${Math.max(3, sc)}" title="Ficha ${sc}% completa"><span>${sc}</span><small>% ficha</small></div>
+        </div>
+        <div class="dx-chips">${chips}</div>
+        <div class="dx-kpis">
+          ${k('👤 Contacto', r.Empresa ? (r.Contacto || '') + (r.Puesto ? ' · ' + r.Puesto : '') : r.Puesto)}
+          ${k('💳 Pago', r.Condiciones_pago)}
+          ${k('🏦 Banco', r.Banco)}
+        </div>
+        ${info ? `<div class="dx-info">${info}</div>` : ''}
+        ${r.Notas ? `<div style="margin-top:10px;font-size:11.5px;color:#64748b;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">📝 ${esc(r.Notas)}</div>` : ''}
+      </div>
+      <div class="dx-act" onclick="event.stopPropagation()">
+        <a class="dx-btn ${tel ? '' : 'off'}" style="--hc:#0f766e" ${tel ? `href="tel:${tel.e164}"` : ''} title="Llamar">${IC.phone}Llamar</a>
+        <a class="dx-btn ${wa ? '' : 'off'}" style="--hc:#16a34a" ${wa ? `href="https://wa.me/${wa.wa}" target="_blank" rel="noopener"` : ''} title="Abrir WhatsApp">${IC.wa}WhatsApp</a>
+        <a class="dx-btn ${mail ? '' : 'off'}" style="--hc:#1d4ed8" ${mail ? `href="mailto:${esc(mail)}"` : ''} title="Enviar correo">${IC.mail}Correo</a>
+        <button type="button" class="dx-btn ${tel ? '' : 'off'}" style="--hc:#7c3aed" onclick="dxCopiar_('${tel ? tel.e164 : ''}','Teléfono')" title="Copiar teléfono">${IC.copy}Copiar</button>
+      </div>
+    </article>`;
+  };
   view.innerHTML = `
     <div class="rh-toolbar">
       <div>
         <div class="rh-toolbar-title">🏢 Proveedores</div>
-        <div class="rh-toolbar-count">${rows.length} proveedor(es)</div>
+        <div class="rh-toolbar-count">${all.length} proveedor(es)</div>
       </div>
       <button type="button" class="rh-btn-add" onclick="prvOpenForm(null)">＋ Nuevo proveedor</button>
     </div>
-    ${rows.length === 0
+    ${all.length === 0
       ? `<div class="rh-empty">Sin proveedores. Pulsa <strong>＋ Nuevo proveedor</strong> para crear el primero.</div>`
-      : `<div style="overflow-x:auto"><table class="rh-table">
-          <thead><tr>
-            <th>Proveedor</th><th>Giro</th><th>Contacto</th><th>Teléfono</th><th>WhatsApp</th><th>Correo</th><th>RFC</th><th>Condiciones de pago</th><th>Estado</th><th>Notas</th>
-          </tr></thead>
-          <tbody>${rows.map(r => `
-            <tr onclick="prvOpenForm('${esc(r.ID)}')" style="cursor:pointer">
-              <td><strong>${esc(r.Empresa || r.Contacto || '—')}</strong>${r.Sitio_web ? `<br><a href="${esc(/^https?:/i.test(r.Sitio_web) ? r.Sitio_web : 'https://' + r.Sitio_web)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#64748b;font-size:11px">${esc(r.Sitio_web)}</a>` : ''}</td>
-              <td>${esc(r.Giro || '—')}</td>
-              <td>${esc(r.Contacto || '—')}${r.Puesto ? `<br><span style="color:#64748b;font-size:11px">${esc(r.Puesto)}</span>` : ''}</td>
-              <td style="white-space:nowrap">${tel(r.Telefono)}</td>
-              <td style="white-space:nowrap">${wa(r.Whatsapp)}</td>
-              <td>${mail(r.Correo)}</td>
-              <td>${esc(r.RFC || '—')}</td>
-              <td style="font-size:12px">${esc(r.Condiciones_pago || '—')}</td>
-              <td>${est(r.Estado)}</td>
-              <td style="font-size:11px;max-width:220px;white-space:normal;color:#475569">${esc(r.Notas || '—')}</td>
-            </tr>`).join('')}</tbody>
-        </table></div>`}`;
+      : `<div class="dx-wrap">${hero}<div class="dx-grid">${rows.map(card).join('')}</div></div>`}`;
 }
+const PRV_PALETA = ['#0f766e', '#1d4ed8', '#7c3aed', '#c2410c', '#be185d', '#047857', '#b45309', '#4338ca', '#0e7490', '#a21caf'];
+function prvGiroColor_(g) {
+  if (!g || g === 'Sin giro') return '#64748b';
+  let h = 0; for (const ch of g) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PRV_PALETA[h % PRV_PALETA.length];
+}
+window.prvGiroFiltro_ = function (g) { PRV_STATE.giro = PRV_STATE.giro === g ? '' : g; prvRender_(); };
 const PRV_GIROS = ['', 'Limpieza y lavandería', 'Mantenimiento', 'Plomería', 'Electricidad', 'Jardinería', 'Fumigación', 'Amenidades y blancos', 'Mobiliario y equipo', 'Ferretería', 'Internet y telefonía', 'Gas', 'Agua', 'Seguridad', 'Contabilidad y legal', 'Otro'];
 window.prvOpenForm = function (id) {
   const d = id ? (PRV_STATE.items.find(x => x.ID === id) || {}) : {};
