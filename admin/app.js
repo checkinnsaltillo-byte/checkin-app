@@ -28940,6 +28940,18 @@ function rhRenderExpediente(targetId) {
       .catch(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(viewId); });
     return;
   }
+  // Documentos adjuntos (INE, domicilio, CIF, NSS): resumen del servidor, se recarga cada 2 min.
+  if (!RH_STATE._docsResLoading && Date.now() - (RH_STATE.docsResTs || 0) > 120000) {
+    RH_STATE._docsResLoading = true; RH_STATE.docsResTs = Date.now(); // también si falla: no reintentar en bucle
+    fetch(`${BACKEND}/rh/docs/resumen`, { cache: 'no-store' }).then(r => r.json()).then(j => {
+      if (j && j.ok) RH_STATE.docsRes = j.emps || {};
+    }).catch(() => {}).finally(() => { RH_STATE._docsResLoading = false; if (document.getElementById(viewId)) rhRenderExpediente(viewId); });
+  }
+  const docCell = (r, k) => {
+    if (!RH_STATE.docsRes) return '<td style="text-align:center;color:#cbd5e1">…</td>';
+    const ok = !!((RH_STATE.docsRes[r.ID] || {})[k]);
+    return `<td style="text-align:center">${ok ? '<span class="rh-chip rh-chip-activo" title="Documento adjunto">✓ Sí</span>' : '<span style="font-size:11px;font-weight:700;color:#dc2626" title="Sin documento adjunto">✕ Falta</span>'}</td>`;
+  };
   const nombreCompleto = (r) => [r.Nombre, r.Apellido_paterno, r.Apellido_materno].filter(Boolean).join(' ') || '—';
   const estadoChip = (r) => {
     const est = r.Estado || 'Activo';
@@ -28974,6 +28986,10 @@ function rhRenderExpediente(targetId) {
             <th>RFC</th>
             <th>CURP</th>
             <th>NSS</th>
+            <th style="text-align:center">📎 INE</th>
+            <th style="text-align:center">📎 Comp. domicilio</th>
+            <th style="text-align:center">📎 CIF</th>
+            <th style="text-align:center">📎 No. Seguro Social</th>
             <th>Banco</th>
             <th>CLABE</th>
             <th>Tipo cta.</th>
@@ -28998,6 +29014,7 @@ function rhRenderExpediente(targetId) {
               <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.RFC || '—')}</td>
               <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.CURP || '—')}</td>
               <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.NSS || '—')}</td>
+              ${docCell(r, 'ine')}${docCell(r, 'domicilio')}${docCell(r, 'cif')}${docCell(r, 'nss')}
               <td>${esc(r.Banco || '—')}</td>
               <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.CLABE || '—')}</td>
               <td>${r.Tipo_cuenta ? `<span class="rh-chip rh-chip-tipo">${esc(r.Tipo_cuenta)}</span>` : '—'}</td>
@@ -29607,9 +29624,16 @@ window.rhDocUpload_ = async function (k, inp) {
       body: JSON.stringify({ emp, kind: k, name, data, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo subir');
     if (RH_DOCS.emp === emp) RH_DOCS.docs = j.docs || {};
+    rhDocsResSync_(emp, j.docs || {});
   } catch (e) { alert('No se pudo subir el documento: ' + e.message); }
   delete RH_DOCS.busy[k]; rhDocsPaint_();
 };
+// Refleja en la tabla de personal lo que se acaba de subir/quitar.
+function rhDocsResSync_(emp, docs) {
+  if (!RH_STATE.docsRes) return;
+  const o = {}; Object.keys(docs).forEach(k => { o[k] = true; }); RH_STATE.docsRes[emp] = o;
+  ['rh-view', 'rh-view-documentacion'].forEach(id => { const v = document.getElementById(id); if (v && v.querySelector('.rh-table') && /Datos generales del personal/.test(v.textContent)) rhRenderExpediente(id); });
+}
 window.rhDocQuitar_ = async function (k) {
   const emp = RH_DOCS.emp; if (!emp || !RH_DOCS.docs[k]) return;
   if (!confirm(`¿Quitar "${RH_DOC_KINDS[k]}" del expediente?`)) return;
@@ -29619,6 +29643,7 @@ window.rhDocQuitar_ = async function (k) {
       body: JSON.stringify({ emp, kind: k, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo quitar');
     if (RH_DOCS.emp === emp) RH_DOCS.docs = j.docs || {};
+    rhDocsResSync_(emp, j.docs || {});
   } catch (e) { alert('No se pudo quitar: ' + e.message); }
   delete RH_DOCS.busy[k]; rhDocsPaint_();
 };
