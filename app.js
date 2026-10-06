@@ -57295,20 +57295,181 @@ function tarRender() {
         ${tabBtn('calendario', '📅 Calendario')}
         ${tabBtn('registro', '📝 Registro de tareas')}
       </div>
+      <div id="tar-filtros">${tarFiltrosHtml_()}</div>
       <div id="tar-content">${TAR_STATE.section === 'registro' ? tarRegistroHtml_() : tarCalendarioHtml_()}</div>
     </div>`;
   if (typeof pzRender_ === 'function') pzRender_();
 }
 window.tarSetSection = function (k) { TAR_STATE.section = k; tarRender(); };
 
+// ── Filtros globales (Calendario y Registro) ───────────────────────────
+// Tipo: botones (ambos activos por defecto). Clasificación / Sub-clasificación
+// (anidada) / Prioridad / Personal: listas de opción múltiple que NO se cierran al marcar.
+TAR_STATE.fx = TAR_STATE.fx || { tipos: new Set(['Tarea programada', 'Recordatorio']), clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
+const TAR_SIN = '(Sin clasificación)', TAR_SIN_PERS = '(Sin asignar)';
+function tarPasaFiltro_(r) {
+  const fx = TAR_STATE.fx;
+  if (!fx.tipos.has(tarEsRec_(r) ? 'Recordatorio' : 'Tarea programada')) return false;
+  const c = r.Clasificacion || TAR_SIN;
+  if (fx.clas.size && !fx.clas.has(c)) return false;
+  if (fx.sub.size) {
+    // Clasificación con sub-clasificaciones elegidas → solo esas; elegida sin subs → pasa completa.
+    const subsDeC = [...fx.sub].filter(k => k.startsWith(c + '›'));
+    if (subsDeC.length) { if (!fx.sub.has(`${c}›${r.Subclasificacion || '—'}`)) return false; }
+    else if (!fx.clas.has(c)) return false;
+  }
+  if (fx.prio.size && !fx.prio.has(r.Prioridad || 'Medio')) return false;
+  if (fx.pers.size) { const p = tarPersonalList_(r); if (!(p.length ? p.some(n => fx.pers.has(n)) : fx.pers.has(TAR_SIN_PERS))) return false; }
+  return true;
+}
+function tarDelDiaF_(iso) { return tarDelDia_(iso).filter(tarPasaFiltro_); }
+function tarFxActivos_() { const fx = TAR_STATE.fx; return (fx.tipos.size < 2 ? 1 : 0) + fx.clas.size + fx.sub.size + fx.prio.size + fx.pers.size; }
+function tarFxOpts_(k) {
+  const fx = TAR_STATE.fx;
+  if (k === 'clas') {
+    const set = new Set(Object.keys(tarClasif_())); TAR_STATE.list.forEach(r => set.add(r.Clasificacion || TAR_SIN));
+    return [...set].sort((a, b) => a === TAR_SIN ? 1 : b === TAR_SIN ? -1 : a.localeCompare(b, 'es')).map(v => ({ v, l: v }));
+  }
+  if (k === 'sub') {
+    const cat = tarClasif_(), out = [];
+    const clases = fx.clas.size ? [...fx.clas] : Object.keys(cat).sort((a, b) => a.localeCompare(b, 'es'));
+    clases.forEach(c => {
+      const subs = new Set(cat[c] || []); TAR_STATE.list.forEach(r => { if ((r.Clasificacion || TAR_SIN) === c && r.Subclasificacion) subs.add(r.Subclasificacion); });
+      if (!subs.size) return;
+      out.push({ grupo: c });
+      [...subs].sort((a, b) => a.localeCompare(b, 'es')).forEach(sb => out.push({ v: `${c}›${sb}`, l: sb }));
+    });
+    return out;
+  }
+  if (k === 'prio') return TAR_PRIORIDADES.map(p => ({ v: p.k, l: p.k }));
+  if (k === 'pers') {
+    const set = new Set(typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
+    TAR_STATE.list.forEach(r => tarPersonalList_(r).forEach(n => set.add(n)));
+    return [...set].sort((a, b) => a.localeCompare(b, 'es')).map(v => ({ v, l: v })).concat([{ v: TAR_SIN_PERS, l: TAR_SIN_PERS }]);
+  }
+  return [];
+}
+const TAR_FX_LBL = { clas: 'Clasificación', sub: 'Sub-clasificación', prio: 'Nivel de prioridad', pers: 'Personal asignado' };
+function tarFxBtnLbl_(k) {
+  const n = TAR_STATE.fx[k].size;
+  if (!n) return `${TAR_FX_LBL[k]}: todas`;
+  const vals = [...TAR_STATE.fx[k]].map(v => k === 'sub' ? v.split('›')[1] : v);
+  return n === 1 ? `${TAR_FX_LBL[k]}: ${vals[0]}` : `${TAR_FX_LBL[k]}: ${n}`;
+}
+function tarFiltrosHtml_() {
+  const fx = TAR_STATE.fx;
+  const tipo = (k, ico, l) => { const on = fx.tipos.has(k); return `<button type="button" class="tfx-tipo ${on ? 'on' : ''}" onclick="tarFxTipo_('${k}')" title="${on ? 'Ocultar' : 'Mostrar'} ${l.toLowerCase()}s">${ico} ${l}</button>`; };
+  const dd = k => `<button type="button" class="tfx-dd ${fx[k].size ? 'on' : ''}" data-k="${k}" onclick="tarFxOpen_('${k}', this)"><span>${esc(tarFxBtnLbl_(k))}</span><b>▾</b></button>`;
+  const n = tarFxActivos_();
+  return `<div class="tfx">
+    <span class="tfx-l">Tipo</span><div class="tfx-seg">${tipo('Recordatorio', '📌', 'Recordatorio')}${tipo('Tarea programada', '📋', 'Tarea')}</div>
+    ${dd('clas')}${dd('sub')}${dd('prio')}${dd('pers')}
+    ${n ? `<button type="button" class="tfx-clr" onclick="tarFxLimpiar_()">✕ Quitar filtros (${n})</button>` : ''}
+  </div>`;
+}
+(function () {
+  if (document.getElementById('tfx-css')) return;
+  const st = document.createElement('style'); st.id = 'tfx-css';
+  st.textContent = `
+  .tfx{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px}
+  .tfx-l{font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+  .tfx-seg{display:inline-flex;border:1.5px solid #cbd5e1;border-radius:9px;overflow:hidden;margin-right:4px}
+  .tfx-tipo{all:unset;cursor:pointer;padding:7px 12px;font-size:12px;font-weight:800;background:#e2e8f0;color:#94a3b8;transition:background .15s,color .15s}
+  .tfx-tipo + .tfx-tipo{border-left:1.5px solid #cbd5e1}
+  .tfx-tipo.on{background:#fff;color:#0f172a}
+  .tfx-tipo:not(.on){text-decoration:line-through;box-shadow:inset 0 2px 4px rgba(15,23,42,.12)}
+  .tfx-dd{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1.5px solid #cbd5e1;border-radius:9px;background:#fff;font-size:12px;font-weight:700;color:#334155;max-width:240px}
+  .tfx-dd span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tfx-dd b{font-size:9px;color:#94a3b8}
+  .tfx-dd.on{border-color:#7c3aed;background:#faf5ff;color:#5b21b6}
+  .tfx-clr{all:unset;cursor:pointer;font-size:12px;font-weight:800;color:#b91c1c;padding:6px 8px}
+  .tfx-pop{position:fixed;z-index:9500;width:300px;max-width:calc(100vw - 16px);background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.22);padding:8px;display:flex;flex-direction:column;gap:6px}
+  .tfx-pop input{width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;font-family:inherit}
+  .tfx-list{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+  .tfx-opt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:700;color:#334155}
+  .tfx-opt:hover{background:#f1f5f9}
+  .tfx-opt.sub{padding-left:22px}
+  .tfx-grp{font-size:10px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.05em;padding:8px 8px 2px}
+  .tfx-ck{flex:none;width:18px;height:18px;border:1.5px solid #cbd5e1;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;background:#fff;box-sizing:border-box}
+  .tfx-ck.on{background:#7c3aed;border-color:#7c3aed}
+  .tfx-ft{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1f5f9;padding-top:6px}
+  .tfx-ft button{all:unset;cursor:pointer;font-size:12px;font-weight:800;color:#64748b;padding:4px 6px}
+  .tfx-ft button.ok{color:#fff;background:#7c3aed;border-radius:7px;padding:5px 12px}`;
+  document.head.appendChild(st);
+})();
+// Re-pinta solo los resultados (no la barra de filtros ni la lista abierta).
+function tarFxAplicar_() {
+  const c = document.getElementById('tar-content');
+  if (c) c.innerHTML = TAR_STATE.section === 'registro' ? tarRegistroHtml_() : tarCalendarioHtml_();
+  document.querySelectorAll('#tar-filtros .tfx-dd').forEach(b => { const k = b.dataset.k; b.classList.toggle('on', TAR_STATE.fx[k].size > 0); b.querySelector('span').textContent = tarFxBtnLbl_(k); });
+  const n = tarFxActivos_(), f = document.querySelector('#tar-filtros .tfx');
+  let clr = f && f.querySelector('.tfx-clr');
+  if (f && n && !clr) { f.insertAdjacentHTML('beforeend', `<button type="button" class="tfx-clr" onclick="tarFxLimpiar_()"></button>`); clr = f.querySelector('.tfx-clr'); }
+  if (clr) { if (n) clr.textContent = `✕ Quitar filtros (${n})`; else clr.remove(); }
+}
+window.tarFxTipo_ = function (k) {
+  const t = TAR_STATE.fx.tipos;
+  if (t.has(k)) { if (t.size === 1) return; t.delete(k); } else t.add(k); // al menos uno queda activo
+  document.querySelectorAll('#tar-filtros .tfx-tipo').forEach(b => { const kk = /Recordatorio/.test(b.textContent) ? 'Recordatorio' : 'Tarea programada'; b.classList.toggle('on', t.has(kk)); });
+  tarFxAplicar_();
+};
+window.tarFxLimpiar_ = function () {
+  TAR_STATE.fx = { tipos: new Set(['Tarea programada', 'Recordatorio']), clas: new Set(), sub: new Set(), prio: new Set(), pers: new Set() };
+  document.querySelectorAll('.tfx-pop').forEach(p => p.remove());
+  const f = document.getElementById('tar-filtros'); if (f) f.innerHTML = tarFiltrosHtml_();
+  tarFxAplicar_();
+};
+window.tarFxOpen_ = function (k, btn) {
+  const prev = document.querySelector('.tfx-pop'); const same = prev && prev.dataset.k === k;
+  if (prev) prev.remove(); if (same) return;
+  const pop = document.createElement('div'); pop.className = 'tfx-pop'; pop.dataset.k = k;
+  const conBusca = k === 'pers' || k === 'sub' || k === 'clas';
+  pop.innerHTML = `${conBusca ? '<input type="search" placeholder="🔎 Buscar…">' : ''}<div class="tfx-list"></div>
+    <div class="tfx-ft"><button type="button" data-a="clr">Limpiar</button><button type="button" class="ok" data-a="ok">Listo</button></div>`;
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px'; pop.style.left = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
+  const list = pop.querySelector('.tfx-list'), inp = pop.querySelector('input'), set = TAR_STATE.fx[k];
+  const pinta = () => {
+    const q = (inp ? inp.value : '').trim().toLowerCase();
+    const opts = tarFxOpts_(k);
+    let html = '', grupo = null;
+    opts.forEach(o => {
+      if (o.grupo) { grupo = o.grupo; return; }
+      if (q && !o.l.toLowerCase().includes(q) && !(grupo || '').toLowerCase().includes(q)) return;
+      if (grupo) { html += `<div class="tfx-grp">${esc(grupo)}</div>`; grupo = null; }
+      const on = set.has(o.v);
+      html += `<div class="tfx-opt ${k === 'sub' ? 'sub' : ''}" data-v="${esc(o.v)}"><span class="tfx-ck ${on ? 'on' : ''}">${on ? '✓' : ''}</span>${k === 'prio' ? prioMeter_(o.v, { sm: true }) : ''}<span>${esc(o.l)}</span></div>`;
+    });
+    list.innerHTML = html || `<div style="font-size:12px;color:#94a3b8;padding:8px">${k === 'sub' ? 'No hay sub-clasificaciones para las clasificaciones elegidas.' : 'Sin opciones.'}</div>`;
+  };
+  list.onclick = e => {
+    const o = e.target.closest('.tfx-opt'); if (!o) return;
+    const v = o.dataset.v, on = !set.has(v);
+    if (on) set.add(v); else set.delete(v);
+    const ck = o.querySelector('.tfx-ck'); ck.classList.toggle('on', on); ck.textContent = on ? '✓' : '';
+    // Clasificación quitada → se quitan sus sub-clasificaciones
+    if (k === 'clas' && !on) [...TAR_STATE.fx.sub].forEach(sv => { if (sv.startsWith(v + '›')) TAR_STATE.fx.sub.delete(sv); });
+    tarFxAplicar_();
+  };
+  pop.querySelector('.tfx-ft').onclick = e => {
+    const a = e.target.dataset.a; if (!a) return;
+    if (a === 'clr') { set.clear(); if (k === 'clas') TAR_STATE.fx.sub.clear(); pinta(); tarFxAplicar_(); }
+    else cerrar();
+  };
+  const cerrar = () => { pop.remove(); document.removeEventListener('mousedown', fuera, true); };
+  const fuera = e => { if (!pop.contains(e.target) && !btn.contains(e.target)) cerrar(); };
+  document.addEventListener('mousedown', fuera, true);
+  if (inp) { inp.oninput = pinta; inp.focus(); }
+  pinta();
+};
+
 // ── Sección 1: Registro de tareas ──────────────────────────────────────
 function tarFiltered_() {
   const q = TAR_STATE.q.trim().toLowerCase();
   return TAR_STATE.list.filter(r => {
     if (TAR_STATE.fEstado && tarVigencia_(r) !== TAR_STATE.fEstado) return false;
-    if (TAR_STATE.fPrioridad && r.Prioridad !== TAR_STATE.fPrioridad) return false;
-    if (TAR_STATE.fClasif && r.Clasificacion !== TAR_STATE.fClasif) return false;
-    if (TAR_STATE.fTipo && (tarEsRec_(r) ? 'Recordatorio' : 'Tarea programada') !== TAR_STATE.fTipo) return false;
+    if (!tarPasaFiltro_(r)) return false;
     const fo = TAR_STATE.fOrigen;
     if (fo === 'proceso' && !r.Proceso_ID) return false;
     if (fo === 'manual' && (r.Proceso_ID || r.Origen === 'Bot WhatsApp')) return false;
@@ -57334,10 +57495,7 @@ function tarRegistroHtml_() {
   const toolbar = `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
       <input type="search" value="${esc(TAR_STATE.q)}" oninput="tarSetQ(this.value)" placeholder="🔍 Buscar tarea, personal…" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
-      ${sel('t', TAR_STATE.fTipo, ['Tarea programada', 'Recordatorio'], 'Tareas y recordatorios', 'tarSetFTipo')}
       ${sel('e', TAR_STATE.fEstado, TAR_VIGENCIAS.map(e => e.k), 'Todas las vigencias', 'tarSetFEstado')}
-      ${sel('p', TAR_STATE.fPrioridad, TAR_PRIORIDADES.map(p => p.k), 'Todas las prioridades', 'tarSetFPrioridad')}
-      ${sel('c', TAR_STATE.fClasif, Object.keys(tarClasif_()), 'Todas las clasificaciones', 'tarSetFClasif')}
       ${tarOrigenSelect_()}
       <div style="display:inline-flex;gap:2px;padding:3px;background:#f1f5f9;border-radius:8px">${vBtn('cards', '▦ Cards')}${vBtn('tabla', '☰ Tabla')}</div>
     </div>
@@ -57531,7 +57689,7 @@ function tarResumenHtml_() {
   const recUlt = new Map();
   for (let day = 1; day <= dim; day++) {
     const iso = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    tarDelDia_(iso).forEach(r => {
+    tarDelDiaF_(iso).forEach(r => {
       if (tarEsRec_(r)) { recUlt.set(r.ID, { r, iso }); return; }
       const est = tarOcurEstado_(r.ID, iso);
       (buckets[est] || buckets['Pendiente']).push({ r, iso });
@@ -57596,7 +57754,7 @@ function tarDiaHtml_() {
   const iso = tarIso_(TAR_STATE.calRef);
   const d = TAR_STATE.calRef;
   const dowName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][d.getDay()];
-  const items = tarDelDia_(iso);
+  const items = tarDelDiaF_(iso);
   return tarNavBar_(`${dowName} ${d.getDate()} de ${TAR_MESES_L[d.getMonth()].toLowerCase()} ${d.getFullYear()}`) +
     (items.length
       ? `<div style="display:flex;flex-direction:column;gap:10px;max-width:760px">${items.map(r => tarCardHtml_(r, { fecha: iso })).join('')}</div>`
@@ -57612,7 +57770,7 @@ function tarSemanaHtml_() {
   const titulo = `${lunes.getDate()} ${TAR_MESES[lunes.getMonth()]} – ${fin.getDate()} ${TAR_MESES[fin.getMonth()]} ${fin.getFullYear()}`;
   return tarNavBar_(titulo) + `<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:8px;min-width:1050px">${dias.map(d => {
     const iso = tarIso_(d);
-    const items = tarDelDia_(iso);
+    const items = tarDelDiaF_(iso);
     const isHoy = iso === hoy;
     return `<div style="background:${isHoy ? '#faf5ff' : '#f8fafc'};border:1.5px solid ${isHoy ? '#a78bfa' : '#e2e8f0'};border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:160px">
       <div style="display:flex;align-items:baseline;justify-content:space-between">
@@ -57650,7 +57808,7 @@ function tarMesHtml_() {
   return tarNavBar_(`${TAR_MESES_L[m]} ${y}`) + `<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:4px;min-width:860px">${head}${celdas.map(d => {
     const iso = tarIso_(d);
     const inMonth = d.getMonth() === m;
-    const items = inMonth ? tarDelDia_(iso) : [];
+    const items = inMonth ? tarDelDiaF_(iso) : [];
     const isHoy = iso === hoy;
     const shown = items.slice(0, 3);
     return `<div onclick="tarIrADia('${iso}')" style="cursor:pointer;min-height:96px;background:${!inMonth ? '#fafafa' : isHoy ? '#faf5ff' : '#fff'};border:1.5px solid ${isHoy ? '#a78bfa' : '#e2e8f0'};border-radius:8px;padding:5px;display:flex;flex-direction:column;gap:3px;opacity:${inMonth ? 1 : .45}">
