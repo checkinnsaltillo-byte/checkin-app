@@ -59148,13 +59148,26 @@ function pcRenderMovs_() {
       x.saldo > 0 && col.k !== 'sal' ? `<span class="pc-mv-chip" style="background:#ffedd5;color:#9a3412;border-color:#fdba74">💲 Saldo ${pcFmt$(x.saldo)}</span>` : '',
       x.saldo > 0 && col.k === 'sal' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">⚠️ Sale con saldo ${pcFmt$(x.saldo)}</span>` : '',
     ].join('');
+    // Medio de reserva · Registrado · Ticket (folio) · origen del ticket
+    const hu = typeof _pagosHuRow === 'function' ? _pagosHuRow(b) : null;
+    const tk = typeof _pagosTicket === 'function' ? _pagosTicket(b) : null;
+    const medioEm = hu ? String(hu['Medio de emisión'] || hu['Medio de emision'] || '').trim() : '';
+    const auto = /auto/i.test(medioEm);
+    const chips2 = [
+      typeof lgSourceChipMini === 'function' ? lgSourceChipMini(b.Source) : (b.Source ? `<span class="pc-mv-chip">${pcEsc(b.Source)}</span>` : ''),
+      hu ? '<span class="pc-mv-chip" style="background:#334155;color:#fff;border-color:#1e293b" title="Tiene registro de check-in">📋 Registrado</span>'
+         : '<span class="pc-mv-chip" style="background:#f8fafc;color:#94a3b8;border-color:#e2e8f0" title="Aún no tiene registro de check-in">📋 Sin registro</span>',
+      tk ? (tk.url ? `<a class="pc-mv-chip" href="${pcEsc(tk.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="background:#dcfce7;color:#166534;border-color:#86efac;text-decoration:none" title="Ver ticket">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</a>`
+               : `<span class="pc-mv-chip" style="background:#dcfce7;color:#166534;border-color:#86efac">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</span>`) : '',
+      tk && medioEm ? `<span class="pc-mv-chip" style="background:${auto ? '#ede9fe' : '#e0f2fe'};color:${auto ? '#5b21b6' : '#0369a1'};border-color:${auto ? '#c4b5fd' : '#7dd3fc'}" title="Origen del ticket">${auto ? '👤 Auto-facturación' : '🖥️ Facturación sistema'}</span>` : '',
+    ].join('');
     const destacado = x.score >= 2;
     return `<div class="pc-mv-it ${destacado ? 'hot' : ''}" style="--mc:${t ? t.border : col.c}" title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
       <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
       <div style="min-width:0;flex:1">
         <div class="pc-mv-n">${destacado ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
-        <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${fmtD(x.arr)} → ${fmtD(x.dep)})${b.Source ? ' · ' + pcEsc(b.Source) : ''}</div>
-        ${chips ? `<div class="pc-mv-chips">${chips}</div>` : ''}
+        <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${fmtD(x.arr)} → ${fmtD(x.dep)})</div>
+        <div class="pc-mv-chips">${chips2}${chips}</div>
       </div></div>`;
   };
   PC._movs = { sal: cols[0].list, ent: cols[1].list, man: cols[2].list, relev };
