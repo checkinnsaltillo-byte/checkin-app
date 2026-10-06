@@ -10743,22 +10743,23 @@ function huGuestTier(score, stats) {
   const tip = stats
     ? `Score ${s}/100 · ${stats.totalNoches} noches · ${stats.visitas} visitas · ${huFmtMonto(stats.montoGlobal)}`
     : `Score ${s}/100`;
-  if (s >= 70) {
+  const R = window.HU_REGLAS || {};
+  if (s >= (R.oro ?? 70)) {
     return { score:s, label:'Oro', icon:'🏆',
       bg:'linear-gradient(135deg,#fef3c7,#fde68a 60%,#facc15)', fg:'#78350f',
       border:'#f59e0b', shadow:'rgba(234,179,8,.5)', tooltip:tip };
   }
-  if (s >= 45) {
+  if (s >= (R.plata ?? 45)) {
     return { score:s, label:'Plata', icon:'🥈',
       bg:'linear-gradient(135deg,#f1f5f9,#e2e8f0 60%,#cbd5e1)', fg:'#334155',
       border:'#94a3b8', shadow:'rgba(100,116,139,.4)', tooltip:tip };
   }
-  if (s >= 25) {
+  if (s >= (R.bronce ?? 25)) {
     return { score:s, label:'Bronce', icon:'🥉',
       bg:'linear-gradient(135deg,#fed7aa,#fdba74 60%,#f97316)', fg:'#7c2d12',
       border:'#ea580c', shadow:'rgba(234,88,12,.4)', tooltip:tip };
   }
-  if (s >= 10) {
+  if (s >= (R.recurrente ?? 10)) {
     return { score:s, label:'Recurrente', icon:'⭐',
       bg:'linear-gradient(135deg,#e0e7ff,#c7d2fe 60%,#a5b4fc)', fg:'#3730a3',
       border:'#6366f1', shadow:'rgba(99,102,241,.4)', tooltip:tip };
@@ -11794,14 +11795,34 @@ function huParseMontoRobust(raw) {
 
 // ─── Índice de Lealtad: score 0-100 con ponderaciones editables ──────────
 const HU_LOYALTY_DEFAULTS = { w_noches:30, w_visitas:20, w_monto:50 };
+// ── Reglas de clasificación de huéspedes (editables en Directorio › Huéspedes; compartidas en el servidor) ──
+const HU_REGLAS_DEF = { oro: 70, plata: 45, bronce: 25, recurrente: 10, w_noches: 30, w_visitas: 20, w_monto: 50,
+  ref_noches: 30, ref_visitas: 12, ref_monto: 100000, primera_max_visitas: 1, larga_noches: 7, mensual_noches: 28 };
+window.HU_REGLAS = Object.assign({}, HU_REGLAS_DEF);
+async function huReglasLoad_() {
+  try {
+    const j = await fetch(`${BACKEND}/config/hu-reglas`, { cache: 'no-store' }).then(r => r.json());
+    if (j && j.ok && j.reglas) { Object.assign(HU_REGLAS, HU_REGLAS_DEF, j.reglas); huReglasAplicar_(); }
+  } catch (_) {}
+}
+// Recalcula clasificaciones y repinta lo que esté visible.
+function huReglasAplicar_() {
+  ['hu-w-noches', 'hu-w-visitas', 'hu-w-monto'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.value = HU_REGLAS[['w_noches', 'w_visitas', 'w_monto'][i]]; });
+  try { if (window.__huGuestStatsCache) window.__huGuestStatsCache.clear(); } catch (_) {}
+  if (PERSONAS_STATE && PERSONAS_STATE.personas) PERSONAS_STATE.personas.forEach(p => personasClasificar_(p));
+  if (typeof personasRender === 'function' && document.getElementById('personas-container')) { if (typeof personasMultiRender === 'function') { try { delete PERSONAS_MULTI.multiSel.clasificacion; } catch (_) {} } personasRender(); }
+  huReglasRender_();
+  if (typeof pcRenderMovs_ === 'function' && document.getElementById('pc-sec-movs')) pcRenderMovs_();
+}
+setTimeout(huReglasLoad_, 0);
 // Valores de referencia con los que cada KPI llega a 100 puntos. Calibrados
 // a partir de la metodología solicitada (Oro = ≥20 noches y ≥8 visitas):
 const HU_LOYALTY_REF = { ref_noches:30, ref_visitas:12, ref_monto:100000 };
 
 function huGetLoyaltyWeights() {
-  const wN = Number(document.getElementById('hu-w-noches')?.value);
-  const wV = Number(document.getElementById('hu-w-visitas')?.value);
-  const wM = Number(document.getElementById('hu-w-monto')?.value);
+  const wN = Number(HU_REGLAS.w_noches);
+  const wV = Number(HU_REGLAS.w_visitas);
+  const wM = Number(HU_REGLAS.w_monto);
   const def = HU_LOYALTY_DEFAULTS;
   return {
     w_noches:  isFinite(wN) ? wN : def.w_noches,
@@ -11814,9 +11835,9 @@ function huGetLoyaltyWeights() {
 function huComputeLoyaltyScore(stats) {
   const w = huGetLoyaltyWeights();
   const sum = (w.w_noches + w.w_visitas + w.w_monto) || 1;
-  const nNoches  = Math.min(1, (Number(stats.totalNoches) || 0) / HU_LOYALTY_REF.ref_noches);
-  const nVisitas = Math.min(1, (Number(stats.visitas)     || 0) / HU_LOYALTY_REF.ref_visitas);
-  const nMonto   = Math.min(1, (Number(stats.montoGlobal) || 0) / HU_LOYALTY_REF.ref_monto);
+  const nNoches  = Math.min(1, (Number(stats.totalNoches) || 0) / (Number(HU_REGLAS.ref_noches) || HU_LOYALTY_REF.ref_noches));
+  const nVisitas = Math.min(1, (Number(stats.visitas)     || 0) / (Number(HU_REGLAS.ref_visitas) || HU_LOYALTY_REF.ref_visitas));
+  const nMonto   = Math.min(1, (Number(stats.montoGlobal) || 0) / (Number(HU_REGLAS.ref_monto) || HU_LOYALTY_REF.ref_monto));
   const score = (w.w_noches*nNoches + w.w_visitas*nVisitas + w.w_monto*nMonto) * (100/sum);
   return Math.round(Math.max(0, Math.min(100, score)));
 }
@@ -11832,6 +11853,7 @@ window.huResetLoyaltyWeights = function() {
 /** Cambio en cualquiera de los inputs de ponderación: re-render debounced. */
 let HU_W_TIMER = null;
 window.huOnLoyaltyWeightChange = function() {
+  ['w_noches', 'w_visitas', 'w_monto'].forEach((k, i) => { const v = Number(document.getElementById(['hu-w-noches', 'hu-w-visitas', 'hu-w-monto'][i])?.value); if (isFinite(v)) HU_REGLAS[k] = v; });
   huUpdateLoyaltySumNote();
   if (HU_W_TIMER) clearTimeout(HU_W_TIMER);
   HU_W_TIMER = setTimeout(() => {
@@ -56553,8 +56575,13 @@ async function personasInit() {
       };
     });
     arr.sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''), 'es'));
+    arr.forEach(personasClasificar_);
     PERSONAS_STATE.personas = arr;
     PERSONAS_STATE.loaded = true;
+    // "Estancia larga/mensual" necesita el historial de estancias: se completa al cargar Reservaciones.
+    if (typeof HU_STATE !== 'undefined' && !(HU_STATE.rows || []).length && !HU_STATE.loading && typeof huespedesLoad === 'function') {
+      huespedesLoad(false).then(() => { (PERSONAS_STATE.personas || []).forEach(personasClasificar_); personasRender(); }).catch(() => {});
+    }
   } catch(e) {
     console.warn('[PERSONAS] /perfiles-list falló, fallback a HU_STATE:', e.message);
     // Fallback: si el endpoint nuevo falla, usar el flujo viejo (lento pero funcional)
@@ -56566,6 +56593,117 @@ async function personasInit() {
   personasRender();
 }
 window.personasInit = personasInit;
+
+// ── Clasificación de cada huésped con las reglas editables (HU_REGLAS) ──
+function huMaxNochesTail_(tail) {
+  if (!tail || typeof HU_STATE === 'undefined' || !(HU_STATE.rows || []).length) return null;
+  const rows = HU_STATE.rows;
+  if (!window.__huGuestIndex || window.__huGuestIndexSig !== `${rows.length}`) huBuildGuestIndex_(rows);
+  let mx = 0;
+  (window.__huGuestIndex.get(tail) || []).forEach(x => {
+    const ing = huParseDate(huValueFlexible(x, ['Fecha de ingreso'])), sal = huParseDate(huValueFlexible(x, ['Fecha de salida']));
+    let n = Number(huValueFlexible(x, ['# Noches'])) || 0;
+    if (!n && ing && sal) n = Math.max(0, Math.round((sal - ing) / 864e5));
+    if (n > mx) mx = n;
+  });
+  return mx;
+}
+const HU_ETQ = {
+  'Primera visita':   { ico: '🆕', bg: '#f8fafc', fg: '#475569', bd: '#cbd5e1' },
+  'Estancia larga':   { ico: '🗓️', bg: '#fef3c7', fg: '#92400e', bd: '#fcd34d' },
+  'Estancia mensual': { ico: '📆', bg: '#fee2e2', fg: '#991b1b', bd: '#fca5a5' },
+};
+function personasClasificar_(p) {
+  const s = p.stats || {}, R = HU_REGLAS;
+  p.score = huComputeLoyaltyScore(s);
+  p.tier = huGuestTier(p.score, s);
+  const et = [];
+  if (!p.tier && Number(s.visitas || 0) <= Number(R.primera_max_visitas)) et.push('Primera visita');
+  const mx = huMaxNochesTail_(p.phone10); p.maxNoches = mx;
+  if (mx != null) { if (mx >= R.mensual_noches) et.push('Estancia mensual'); else if (mx >= R.larga_noches) et.push('Estancia larga'); }
+  p.etiquetas = et;
+  p.clasifs = [p.tier && p.tier.label, ...et].filter(Boolean);
+  return p;
+}
+function huEtqChips_(p, small) {
+  return (p.etiquetas || []).map(k => { const e = HU_ETQ[k]; return `<span title="${esc(huEtqRegla_(k, p))}" style="display:inline-flex;align-items:center;gap:3px;font-size:${small ? 9 : 10}px;font-weight:800;color:${e.fg};background:${e.bg};border:1px solid ${e.bd};padding:${small ? '1px 6px' : '2px 8px'};border-radius:999px;margin-left:6px;white-space:nowrap">${e.ico} ${k}</span>`; }).join('');
+}
+function huEtqRegla_(k, p) {
+  const R = HU_REGLAS;
+  if (k === 'Primera visita') return `Sin nivel de lealtad y ${Number((p && p.stats && p.stats.visitas) || 0)} visita(s) (regla: ≤ ${R.primera_max_visitas})`;
+  if (k === 'Estancia mensual') return `Su estancia más larga: ${p && p.maxNoches} noches (regla: ≥ ${R.mensual_noches})`;
+  return `Su estancia más larga: ${p && p.maxNoches} noches (regla: ${R.larga_noches}–${R.mensual_noches - 1})`;
+}
+// Caja "Reglas de clasificación" (arriba de Directorio › Huéspedes): texto + edición.
+window.HU_REGLAS_UI = window.HU_REGLAS_UI || { open: false, edit: false, draft: null, saving: false };
+function huReglasRender_() {
+  const box = document.getElementById('hu-reglas-box'); if (!box) return;
+  const U = HU_REGLAS_UI, R = U.edit ? U.draft : HU_REGLAS;
+  const n = (k, w) => U.edit ? `<input type="number" min="0" value="${esc(String(R[k]))}" oninput="HU_REGLAS_UI.draft['${k}']=Number(this.value)" class="hur-in" style="width:${w || 64}px">` : `<b>${k === 'ref_monto' ? '$' + Number(R[k]).toLocaleString('es-MX') : esc(String(R[k]))}</b>`;
+  const chip = (ico, l, bg, fg, bd) => `<span class="hur-chip" style="background:${bg};color:${fg};border-color:${bd}">${ico} ${l}</span>`;
+  const sum = (Number(R.w_noches) || 0) + (Number(R.w_visitas) || 0) + (Number(R.w_monto) || 0);
+  const resumen = `${chip('🏆', 'Oro', '#fef3c7', '#78350f', '#f59e0b')} ≥ ${HU_REGLAS.oro} · ${chip('🥈', 'Plata', '#f1f5f9', '#334155', '#94a3b8')} ≥ ${HU_REGLAS.plata} · ${chip('🥉', 'Bronce', '#fed7aa', '#7c2d12', '#ea580c')} ≥ ${HU_REGLAS.bronce} · ${chip('⭐', 'Recurrente', '#e0e7ff', '#3730a3', '#6366f1')} ≥ ${HU_REGLAS.recurrente} pts · ${chip('🆕', 'Primera visita', '#f8fafc', '#475569', '#cbd5e1')} · ${chip('🗓️', 'Estancia larga', '#fef3c7', '#92400e', '#fcd34d')} ≥ ${HU_REGLAS.larga_noches} n · ${chip('📆', 'Estancia mensual', '#fee2e2', '#991b1b', '#fca5a5')} ≥ ${HU_REGLAS.mensual_noches} n`;
+  box.innerHTML = `<div class="hur">
+    <div class="hur-h" onclick="HU_REGLAS_UI.open=!HU_REGLAS_UI.open;huReglasRender_()">
+      <span class="hur-t">📏 Reglas de clasificación de huéspedes</span><span class="hur-sum">${U.open ? '' : resumen}</span><b>${U.open ? '▾' : '▸'}</b></div>
+    ${U.open ? `<div class="hur-b">
+      <div class="hur-sec"><div class="hur-st">🏅 Nivel de lealtad (puntaje de 0 a 100)</div>
+        <div class="hur-l">${chip('🏆', 'Oro', '#fef3c7', '#78350f', '#f59e0b')} con ${n('oro')} puntos o más</div>
+        <div class="hur-l">${chip('🥈', 'Plata', '#f1f5f9', '#334155', '#94a3b8')} con ${n('plata')} puntos o más</div>
+        <div class="hur-l">${chip('🥉', 'Bronce', '#fed7aa', '#7c2d12', '#ea580c')} con ${n('bronce')} puntos o más</div>
+        <div class="hur-l">${chip('⭐', 'Recurrente', '#e0e7ff', '#3730a3', '#6366f1')} con ${n('recurrente')} puntos o más · por debajo: sin nivel</div>
+        <div class="hur-note">El puntaje combina el historial del huésped (todas sus reservas):
+          <b>noches</b> (peso ${n('w_noches', 54)}, llega a su máximo con ${n('ref_noches', 64)} noches),
+          <b>visitas</b> (peso ${n('w_visitas', 54)}, máximo con ${n('ref_visitas', 54)} visitas) y
+          <b>monto</b> (peso ${n('w_monto', 54)}, máximo con ${n('ref_monto', 96)}).
+          ${U.edit && sum !== 100 ? `<span style="color:#b45309;font-weight:800">Los pesos suman ${sum}; se reparten en proporción.</span>` : ''}</div></div>
+      <div class="hur-sec"><div class="hur-st">🏷️ Otras clasificaciones</div>
+        <div class="hur-l">${chip('🆕', 'Primera visita', '#f8fafc', '#475569', '#cbd5e1')} sin nivel de lealtad y con ${n('primera_max_visitas', 54)} visita(s) o menos</div>
+        <div class="hur-l">${chip('🗓️', 'Estancia larga', '#fef3c7', '#92400e', '#fcd34d')} alguna estancia de ${n('larga_noches', 54)} noches o más</div>
+        <div class="hur-l">${chip('📆', 'Estancia mensual', '#fee2e2', '#991b1b', '#fca5a5')} alguna estancia de ${n('mensual_noches', 54)} noches o más (sustituye a "Estancia larga")</div>
+        <div class="hur-note">Se usan las mismas reglas en el Panel de control (Movimientos del día). En una reserva, "Estancia larga/mensual" se mide con las noches de esa reserva.</div></div>
+      <div class="hur-ft">${U.edit
+        ? `<button type="button" class="hur-btn" onclick="HU_REGLAS_UI.draft=Object.assign({},HU_REGLAS_DEF);huReglasRender_()">↺ Valores predeterminados</button><span style="flex:1"></span><button type="button" class="hur-btn" onclick="HU_REGLAS_UI.edit=false;huReglasRender_()">Cancelar</button><button type="button" class="hur-btn pri" onclick="huReglasGuardar_()" ${U.saving ? 'disabled' : ''}>${U.saving ? '⏳ Guardando…' : '💾 Guardar reglas'}</button>`
+        : `${HU_REGLAS.updated_at ? `<span style="font-size:11px;color:#94a3b8">Última edición: ${esc(new Date(HU_REGLAS.updated_at).toLocaleString('es-MX'))}${HU_REGLAS.updated_by ? ' · ' + esc(HU_REGLAS.updated_by) : ''}</span>` : ''}<span style="flex:1"></span><button type="button" class="hur-btn pri" onclick="HU_REGLAS_UI.edit=true;HU_REGLAS_UI.draft=Object.assign({},HU_REGLAS);huReglasRender_()">✏️ Editar reglas</button>`}</div>
+    </div>` : ''}</div>`;
+}
+window.huReglasRender_ = huReglasRender_;
+window.huReglasGuardar_ = async function () {
+  const U = HU_REGLAS_UI, d = U.draft || {};
+  for (const k of Object.keys(HU_REGLAS_DEF)) if (!isFinite(Number(d[k])) || Number(d[k]) < 0) { alert('Revisa los valores: deben ser números positivos.'); return; }
+  if (!(d.oro > d.plata && d.plata > d.bronce && d.bronce > d.recurrente)) { alert('Los puntos deben ir de mayor a menor: Oro > Plata > Bronce > Recurrente.'); return; }
+  if (!(d.mensual_noches > d.larga_noches)) { alert('"Estancia mensual" debe requerir más noches que "Estancia larga".'); return; }
+  if (!(Number(d.w_noches) + Number(d.w_visitas) + Number(d.w_monto) > 0)) { alert('Al menos un peso debe ser mayor a 0.'); return; }
+  U.saving = true; huReglasRender_();
+  try {
+    const j = await fetch(`${BACKEND}/config/hu-reglas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reglas: d, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo guardar');
+    Object.assign(HU_REGLAS, HU_REGLAS_DEF, j.reglas); U.edit = false;
+    huReglasAplicar_();
+  } catch (e) { alert('No se pudieron guardar las reglas: ' + e.message); }
+  U.saving = false; huReglasRender_();
+};
+(function () {
+  if (document.getElementById('hur-css')) return;
+  const st = document.createElement('style'); st.id = 'hur-css';
+  st.textContent = `
+  .hur{background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .hur-h{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:linear-gradient(180deg,#f8fafc,#fff);flex-wrap:wrap}
+  .hur-h b{margin-left:auto;color:#94a3b8;font-size:12px}
+  .hur-t{font-size:12.5px;font-weight:900;color:#0f172a}
+  .hur-sum{font-size:11px;color:#64748b;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .hur-chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;border:1px solid;white-space:nowrap}
+  .hur-b{padding:4px 14px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+  .hur-sec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px}
+  .hur-st{font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  .hur-l{font-size:12.5px;color:#334155;margin:6px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .hur-note{font-size:11.5px;color:#64748b;line-height:1.7;margin-top:8px}
+  .hur-in{padding:3px 6px;border:1.5px solid #c7d2fe;border-radius:6px;font-size:12px;font-weight:800;color:#3730a3;background:#eef2ff;font-family:inherit}
+  .hur-ft{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .hur-btn{all:unset;cursor:pointer;padding:7px 12px;border-radius:8px;border:1.5px solid #cbd5e1;font-size:12px;font-weight:800;color:#334155;background:#fff}
+  .hur-btn.pri{background:#0f172a;color:#fff;border-color:#0f172a}`;
+  document.head.appendChild(st);
+})();
 
 /** Deduplica HU_STATE.rows por últimos 10 dígitos del celular, elige el
  *  row más reciente (mayor Fecha de ingreso) y arma el objeto persona. */
@@ -56645,6 +56783,7 @@ function personasBuildFromHu_() {
   byPhone.forEach((r, p10) => push(p10, r));
   noPhone.forEach(r => push('', r));
   arr.sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''), 'es'));
+  arr.forEach(personasClasificar_);
   PERSONAS_STATE.personas = arr;
   PERSONAS_STATE.loaded = true;
 }
@@ -56681,8 +56820,7 @@ function personasFilter_() {
     }
     const claSet = PERSONAS_MULTI.multiSel.clasificacion;
     if (claSet && claSet.size !== personasMultiGetOptions('clasificacion').length) {
-      const label = (p.tier && p.tier.label) || '';
-      if (!claSet.has(label)) return false;
+      if (!(p.clasifs || [(p.tier && p.tier.label) || '']).some(v => claSet.has(v))) return false;
     }
     return true;
   };
@@ -56706,7 +56844,7 @@ function personasMultiGetOptions(key) {
   const set = new Set();
   if (key === 'regimen') arr.forEach(p => { const v = String(p.regimenFiscal||'').trim(); if (v) set.add(v); });
   else if (key === 'requiere_factura') arr.forEach(p => { const v = String(p.requiereFactura||'').trim(); if (v) set.add(v); });
-  else if (key === 'clasificacion') arr.forEach(p => { const v = String((p.tier && p.tier.label)||'').trim(); if (v) set.add(v); });
+  else if (key === 'clasificacion') arr.forEach(p => (p.clasifs || [p.tier && p.tier.label]).forEach(v => { v = String(v || '').trim(); if (v) set.add(v); }));
   return Array.from(set).sort();
 }
 
@@ -56828,6 +56966,7 @@ if (!window.__personasMultiOutsideClickBound) {
 }
 
 function personasRender() {
+  huReglasRender_();
   const cont = document.getElementById('personas-container');
   const lbl  = document.getElementById('personas-status-label');
   if (!cont) return;
@@ -56911,7 +57050,7 @@ function personasRenderCards_(rows) {
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
         <div style="display:flex;align-items:center;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:900;color:#0f172a">${esc(p.nombre)}</div>
-          ${tierChip}
+          ${tierChip}${huEtqChips_(p)}
         </div>
         ${kpisRow}
         ${contactoBlock}
@@ -56941,14 +57080,14 @@ function personasRenderTabla_(rows) {
       ${tdN(Number(s.totalNoches||0))}
       ${tdN(Number(s.visitas||0))}
       ${tdN(s.montoTotal > 0 ? fmt$(s.montoTotal) : '—')}
-      ${td(tierCell)}
+      ${td(tierCell + huEtqChips_(p, true))}
     </tr>`;
   }).join('');
   return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 220px)">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr>
         ${th('Nombre')}${th('Teléfono')}${th('Correo')}${th('RFC')}${th('Razón social')}${th('Vehículo')}
-        ${th('Noches', true)}${th('Visitas', true)}${th('Monto', true)}${th('Tier')}
+        ${th('Noches', true)}${th('Visitas', true)}${th('Monto', true)}${th('Clasificación')}
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
@@ -59118,7 +59257,7 @@ function pcMovInfo_(b) {
     }
   } catch (_) {}
   const saldo = Number(b.AmountDue) || 0;
-  const larga = noches >= 28 ? 'mensual' : noches >= 7 ? 'larga' : '';
+  const larga = noches >= (HU_REGLAS.mensual_noches || 28) ? 'mensual' : noches >= (HU_REGLAS.larga_noches || 7) ? 'larga' : '';
   const score = (tier ? PC_TIER_W[tier.label] || 0 : 0) + (larga === 'mensual' ? 3 : larga ? 2 : 0) + (saldo > 0 ? 1 : 0);
   return { b, arr, dep, noches, tier, stats, saldo, larga, score, aloj: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName) || '—' };
 }
@@ -59144,7 +59283,7 @@ function pcRenderMovs_() {
     const t = x.tier, b = x.b;
     const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
     const chips = [
-      t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}" title="${pcEsc(t.tooltip || '')}">${t.icon} ${t.label}</span>` : (x.stats && x.stats.visitas <= 1 ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : ''),
+      t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}" title="${pcEsc(t.tooltip || '')}">${t.icon} ${t.label}</span>` : (x.stats && x.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : ''),
       x.larga === 'mensual' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>` : x.larga ? `<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>` : '',
       x.saldo > 0 && col.k !== 'sal' ? `<span class="pc-mv-chip" style="background:#ffedd5;color:#9a3412;border-color:#fdba74">💲 Saldo ${pcFmt$(x.saldo)}</span>` : '',
       x.saldo > 0 && col.k === 'sal' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">⚠️ Sale con saldo ${pcFmt$(x.saldo)}</span>` : '',
