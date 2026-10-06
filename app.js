@@ -58864,7 +58864,8 @@ async function pcLoadCob_(force) {
   if (typeof _pagosLoadExtensiones_ === 'function' && !PAGOS_STATE.extById) { try { await _pagosLoadExtensiones_(); } catch (_) {} }
 }
 function pcCobMonth_(ym) {
-  const list = (PAGOS_STATE.bookings || []).filter(b => _pagosDateIso(b.DateArrival).startsWith(ym));
+  // Solo reservas confirmadas (Status "Booked"): sin canceladas, rechazadas ni tentativas.
+  const list = (PAGOS_STATE.bookings || []).filter(b => /^booked$/i.test(String(b.Status || '').trim()) && _pagosDateIso(b.DateArrival).startsWith(ym));
   let fact = 0, cob = 0, pend = 0;
   const pendientes = [], tickets = { req: 0, emit: 0, pend: [] }, ext = [], alertas = [];
   const dias = (a, b) => (a && b) ? Math.max(0, Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 864e5)) : 0;
@@ -59671,7 +59672,7 @@ function pcRenderSection_(key) {
     if (PC.loading.cob || typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { card('pc-sec-cob', head('🧾 Cobranza y facturación') + pcSkel_(260)); return; }
     const c = pcCobMonth_(ym);
     const pctCob = c.fact ? c.cob / c.fact : 0, pctTk = c.tickets.req ? c.tickets.emit / c.tickets.req : 0;
-    card('pc-sec-cob', head('🧾 Cobranza y facturación', `reservas con llegada en ${pcYmLabel(ym)}`, `<button class="pc-link" onclick="pcGo('pagos')">Pagos →</button>`) +
+    card('pc-sec-cob', head('🧾 Cobranza y facturación', `reservas confirmadas (Booked) con llegada en ${pcYmLabel(ym)}`, `<button class="pc-link" onclick="pcGo('pagos')">Pagos →</button>`) +
       `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div class="pc-stat" onclick="pcDrawer('cobranza')"><div class="l">Facturado</div><div class="v">${pcFmt$(c.fact)}</div><div style="font-size:11px;color:#64748b">${c.n} reservas</div></div>
         <div class="pc-stat" onclick="pcDrawer('cobranza')"><div class="l">Cobrado</div><div class="v" style="color:#166534">${pcFmt$(c.cob)}</div><div style="font-size:11px;color:#64748b">${pcPct(pctCob)} del total</div></div>
