@@ -59753,7 +59753,7 @@ function pcRenderSection_(key) {
       return;
     }
     const devs = ((PC.disp && PC.disp.devices) || []).filter(d => typeof tuyaIsWaterLevel === 'function' ? tuyaIsWaterLevel(d) : false);
-    // Historial (últimos 7 días) para la línea de tendencia de cada medidor.
+    // Historial reciente (hasta 3000 lecturas, máx. 7 días) para la línea de tendencia de cada medidor.
     if (devs.length && !PC.dispLogs && !PC._dispLogsLoading) {
       PC._dispLogsLoading = true;
       fetch(`${BACKEND}/tuya/logs-bulk`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ ids: devs.map(d => d.id), size: 3000, days: 7 }) })
@@ -59769,7 +59769,8 @@ function pcRenderSection_(key) {
       const conPct = ser.some(r => r.pct != null);
       let vals = ser.map(r => conPct ? r.pct : r.depth).filter(v => v != null && isFinite(v));
       if (vals.length > 80) { const k = vals.length / 80; vals = Array.from({ length: 80 }, (_, i) => vals[Math.min(vals.length - 1, Math.round(i * k))]); }
-      return `<div style="width:100%;height:30px" title="Nivel de los últimos 7 días">${pcSpark_(vals, col)}</div>`;
+      const desde = ser.length ? new Date(ser[0].ts).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+      return `<div style="width:100%;height:30px" title="${vals.length ? `Nivel desde ${desde} hasta ahora` : 'Sin lecturas recientes'}">${pcSpark_(vals, col)}</div>`;
     };
     const items = devs.map(d => {
       const pct = typeof tuyaWaterLevelCurrentPct === 'function' ? tuyaWaterLevelCurrentPct(d) : null;
