@@ -57798,12 +57798,15 @@ function tarPanelRender_() {
   // Fechas
   let fechasHtml = '';
   if (d.Naturaleza === 'Único') {
-    fechasHtml = `
+    // Una sola fecha: se ve dentro del mismo campo. (Tareas antiguas con varias fechas conservan sus chips.)
+    const varias = prog.fechas.length > 1;
+    fechasHtml = varias ? `
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <input type="date" id="tar-add-fecha" onchange="tarAddFecha()" style="${inp};width:auto">
-        <span style="font-size:11px;color:#94a3b8">${prog.fechas.length ? 'Elige otra fecha para agregar más.' : 'Elige la fecha (se agrega al seleccionarla).'}</span>
+        <span style="font-size:11px;color:#94a3b8">Elige otra fecha para agregar más.</span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${prog.fechas.slice().sort().map(f => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#f5f3ff;border:1px solid #c4b5fd;font-size:12px;font-weight:700;color:#5b21b6">${esc(tarFmtFecha_(f))}<button type="button" onclick="tarDelFecha('${f}')" style="all:unset;cursor:pointer;color:#b91c1c;font-weight:900">✕</button></span>`).join('') || '<span style="font-size:12px;color:#94a3b8">Sin fechas — elige una o varias.</span>'}</div>`;
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${prog.fechas.slice().sort().map(f => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#f5f3ff;border:1px solid #c4b5fd;font-size:12px;font-weight:700;color:#5b21b6">${esc(tarFmtFecha_(f))}<button type="button" onclick="tarDelFecha('${f}')" style="all:unset;cursor:pointer;color:#b91c1c;font-weight:900">✕</button></span>`).join('')}</div>`
+      : `<input type="date" value="${esc(prog.fechas[0] || '')}" onchange="tarSetFechaUnica(this.value)" style="${inp};width:auto">`;
   } else {
     const tipoPills = [['semanal', 'Días de la semana'], ['mensual', 'Días del mes'], ['bimestral', 'Bimestral']]
       .map(([k, l]) => tarPill_(prog.tipo === k, l, `tarSetTipo('${k}')`)).join(' ');
@@ -57954,6 +57957,7 @@ window.tarToggleDiaMes = function (n) {
   tarPanelRender_();
 };
 window.tarSetProgField = function (k, v) { TAR_STATE.panel.d._prog[k] = v || ''; tarPanelRefreshFooter_(); };
+window.tarSetFechaUnica = function (v) { const P = TAR_STATE.panel; if (!P) return; P.d._prog.fechas = v ? [v] : []; tarPanelRefreshFooter_(); };
 window.tarAddFecha = function () {
   const v = document.getElementById('tar-add-fecha')?.value;
   if (!v) return;
