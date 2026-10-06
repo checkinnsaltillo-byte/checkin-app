@@ -63440,12 +63440,17 @@ window.prvOpenForm = function (id) {
       <button type="button" onclick="inqToggleSection('${sid}')" style="all:unset;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;box-sizing:border-box;font-size:14px;font-weight:800;color:#0f172a">
         <span>${title}</span><span id="inq-sec-chev-${sid}" style="font-size:14px;color:#64748b;transition:transform .15s">▾</span></button>
       <div id="inq-sec-body-${sid}" style="padding:0 14px 14px">${body}</div></section>`;
-  const giros = PRV_GIROS.includes(d.Giro || '') ? PRV_GIROS : PRV_GIROS.concat([d.Giro]);
+  // Giro fuera del catálogo = "Otro" con su texto capturado a mano.
+  const giroOtro = d.Giro && !PRV_GIROS.includes(d.Giro) ? d.Giro : '';
+  const giroSel = giroOtro ? 'Otro' : (d.Giro || '');
   document.getElementById('prv-form-title').textContent = id ? 'Editar proveedor' : 'Nuevo proveedor';
   document.getElementById('prv-form-body').innerHTML = `<form id="prv-form" onsubmit="return false">
     ${sec('prv-gen', '🏢 Datos del proveedor', `
       ${inqField('Nombre del proveedor / empresa', 'Empresa', 'text', d.Empresa, 'Ej. Lavandería Express')}
-      ${inqField('Giro', 'Giro', 'select', d.Giro || '', '', { options: giros.map(g => [g, g || '— Selecciona —']) })}
+      ${inqField('Giro', 'Giro', 'select', giroSel, '', { options: PRV_GIROS.map(g => [g, g || '— Selecciona —']), extra: `onchange="prvGiroOtro_(this)"` })}
+      <div id="prv-giro-otro" style="display:${giroSel === 'Otro' ? 'block' : 'none'};margin-top:-4px">
+        ${inqField('Especifica el giro', 'Giro_otro', 'text', giroOtro, 'Ej. Cerrajería')}
+      </div>
       ${inqField('Sitio web', 'Sitio_web', 'text', d.Sitio_web, 'www.ejemplo.com')}
       ${inqField('Dirección', 'Direccion', 'textarea', d.Direccion, 'Calle, número, colonia, ciudad', { rows: 2 })}
       ${inqField('Estado', 'Estado', 'select', d.Estado || 'Activo', '', { options: ['Activo', 'Inactivo'] })}`)}
@@ -63467,6 +63472,12 @@ window.prvOpenForm = function (id) {
   const ov = document.getElementById('prv-form-overlay');
   ov.classList.remove('hidden'); ov.style.display = 'block';
 };
+window.prvGiroOtro_ = function (sel) {
+  const box = document.getElementById('prv-giro-otro'); if (!box) return;
+  const on = sel.value === 'Otro';
+  box.style.display = on ? 'block' : 'none';
+  if (on) box.querySelector('input')?.focus();
+};
 window.prvCloseForm = function () {
   const ov = document.getElementById('prv-form-overlay');
   ov.classList.add('hidden'); ov.style.display = 'none'; PRV_STATE.editId = null;
@@ -63481,6 +63492,12 @@ window.prvGuardar = async function () {
     const num = String(el.value || '').replace(/\D/g, '');
     item[n] = num ? lada + num : '';
   });
+  if (item.Giro === 'Otro') {
+    const g = String(item.Giro_otro || '').trim();
+    if (!g) { alert('Escribe el giro del proveedor.'); return; }
+    item.Giro = g;
+  }
+  delete item.Giro_otro;
   if (!String(item.Empresa || '').trim() && !String(item.Contacto || '').trim()) { alert('Captura el nombre del proveedor o del contacto.'); return; }
   if (PRV_STATE.editId) item.ID = PRV_STATE.editId;
   const btn = document.getElementById('prv-form-save-btn'); btn.disabled = true; btn.textContent = '⏳ Guardando…';
