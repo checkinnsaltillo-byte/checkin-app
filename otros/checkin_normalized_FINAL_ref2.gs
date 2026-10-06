@@ -178,6 +178,7 @@ function doPost(e) {
     if (action === "perfiles_backfill_from_lodgify") return jsonOutput_(perfilesBackfillFromLodgify_(data));
     if (action === "perfiles_kpis") return jsonOutput_(perfilesKpisList_());
     if (action === "perfiles_list_full") return jsonOutput_(perfilesListFull_());
+    if (action === "perfiles_dedupe") return jsonOutput_(perfilesDedupe_(data));
     if (action === "perfil_get_by_phone")    return jsonOutput_(perfilGetByPhone_(data));
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(data));
     if (action === "reserva_get_by_confirmation_code") return jsonOutput_(reservaGetByConfirmationCode_(data));
@@ -413,6 +414,7 @@ function doGet(e) {
     if (action === "perfiles_backfill_from_lodgify") return jsonOutput_(perfilesBackfillFromLodgify_(e.parameter || {}));
     if (action === "perfiles_kpis") return jsonOutput_(perfilesKpisList_());
     if (action === "perfiles_list_full") return jsonOutput_(perfilesListFull_());
+    if (action === "perfiles_dedupe") return jsonOutput_(perfilesDedupe_(e.parameter || {}));
     if (action === "perfil_get_by_phone")    return jsonOutput_(perfilGetByPhone_(e.parameter || {}));
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(e.parameter || {}));
     if (action === "reserva_get_by_confirmation_code") return jsonOutput_(reservaGetByConfirmationCode_(e.parameter || {}));
@@ -10544,6 +10546,83 @@ function _kpiNumSafe(v) {
   }
   var n = Number(v);
   return isFinite(n) ? n : 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ perfiles_dedupe — 1 perfil por celular (últimos 10 dígitos).            ║
+// ║ dry (por defecto): solo reporta. dry=false: respalda la hoja completa    ║
+// ║ en "Perfiles_respaldo_<fecha>" y deja una fila por teléfono, completando ║
+// ║ los campos vacíos con los datos de sus duplicados.                       ║
+// ═══════════════════════════════════════════════════════════════════════════
+function perfilesDedupe_(data) {
+  data = data || {};
+  var dry = !(data.dry === false || data.dry === "false" || data.dry === "0");
+  var ss = getSpreadsheet_();
+  var sh = getSheet_(PERFILES_SHEET);
+  var lock = LockService.getScriptLock();
+  if (!dry) lock.waitLock(30000);
+  try {
+    var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (lastRow < 3) return { ok: true, dry: dry, grupos_duplicados: 0, filas_a_borrar: 0 };
+    var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h || "").trim(); });
+    var vals = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var iPh = headers.indexOf("Cel/Whatsapp (principal)"), iId = headers.indexOf("ID_Perfil");
+    var iFC = headers.indexOf("Fecha creación"), iFA = headers.indexOf("Fecha actualización"), iNom = headers.indexOf("Nombre del huésped");
+    if (iPh < 0) return { ok: false, error: "columna Cel/Whatsapp (principal) no existe" };
+    var vacio = function (v) { return v === "" || v == null; };
+    var llenos = function (r) { var n = 0; for (var c = 0; c < r.length; c++) if (!vacio(r[c])) n++; return n; };
+    var ts = function (v) { var d = (v instanceof Date) ? v : new Date(v); var t = d.getTime(); return isNaN(t) ? 0 : t; };
+    var groups = {}, order = [];
+    for (var i = 0; i < vals.length; i++) {
+      var k = String(vals[i][iPh] || "").replace(/\D/g, "");
+      k = k.length >= 10 ? k.slice(-10) : "";
+      if (!k) { order.push({ solo: i }); continue; }
+      if (!groups[k]) { groups[k] = []; order.push({ k: k }); }
+      groups[k].push(i);
+    }
+    var kept = [], top = [], porFecha = {}, porId = {}, dupGrupos = 0, borrar = 0;
+    order.forEach(function (o) {
+      if (o.solo != null) { kept.push(vals[o.solo]); return; }
+      var idxs = groups[o.k];
+      if (idxs.length === 1) { kept.push(vals[idxs[0]]); return; }
+      dupGrupos++; borrar += idxs.length - 1;
+      // Se conserva: con ID_Perfil → con más datos → el más antiguo.
+      var sorted = idxs.slice().sort(function (a, b) {
+        var ia = (iId >= 0 && !vacio(vals[a][iId])) ? 1 : 0, ib = (iId >= 0 && !vacio(vals[b][iId])) ? 1 : 0;
+        if (ia !== ib) return ib - ia;
+        var fa = llenos(vals[a]), fb = llenos(vals[b]); if (fa !== fb) return fb - fa;
+        return iFC >= 0 ? ts(vals[a][iFC]) - ts(vals[b][iFC]) : a - b;
+      });
+      var keep = vals[sorted[0]].slice();
+      var otros = sorted.slice(1).sort(function (a, b) { return iFA >= 0 ? ts(vals[b][iFA]) - ts(vals[a][iFA]) : 0; });
+      otros.forEach(function (ix) {
+        var r = vals[ix];
+        for (var c = 0; c < keep.length; c++) if (vacio(keep[c]) && !vacio(r[c])) keep[c] = r[c];
+        var f = iFC < 0 ? "(sin columna)" : (r[iFC] instanceof Date ? Utilities.formatDate(r[iFC], "America/Monterrey", "yyyy-MM-dd") : (String(r[iFC] || "").slice(0, 10) || "(sin fecha)"));
+        porFecha[f] = (porFecha[f] || 0) + 1;
+        var idv = iId >= 0 ? String(r[iId] || "") : "";
+        var tipo = !idv ? "sin ID" : (/^P\d/.test(idv) ? "ID P… (perfilUpsertByPhone)" : "ID UUID");
+        porId[tipo] = (porId[tipo] || 0) + 1;
+      });
+      kept.push(keep);
+      top.push({ phone: o.k, nombre: iNom >= 0 ? String(keep[iNom] || "") : "", copias: idxs.length });
+    });
+    top.sort(function (a, b) { return b.copias - a.copias; });
+    var res = { ok: true, dry: dry, total_filas: vals.length, grupos_duplicados: dupGrupos, filas_a_borrar: borrar, filas_finales: kept.length,
+      top: top.slice(0, 30), duplicados_por_fecha_creacion: porFecha, duplicados_por_tipo_id: porId };
+    if (dry || !borrar) return res;
+    var nombre = "Perfiles_respaldo_" + Utilities.formatDate(new Date(), "America/Monterrey", "yyyyMMdd_HHmm");
+    sh.copyTo(ss).setName(nombre);
+    sh.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+    sh.getRange(2, 1, kept.length, lastCol).setValues(kept);
+    // Quita los renglones sobrantes (si entraron filas nuevas mientras tanto, se recorren hacia arriba).
+    var sobran = (lastRow - 1) - kept.length;
+    if (sobran > 0) sh.deleteRows(kept.length + 2, sobran);
+    SpreadsheetApp.flush();
+    res.respaldo = nombre;
+    res.filas_borradas = sobran;
+    return res;
+  } finally { if (!dry) lock.releaseLock(); }
 }
 
 function perfilesListFull_() {
