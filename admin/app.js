@@ -56862,8 +56862,13 @@ function personasMultiGetOptions(key) {
 }
 
 function personasMultiInit(key) {
-  if (PERSONAS_MULTI.multiSel[key] instanceof Set) return;
-  PERSONAS_MULTI.multiSel[key] = new Set(personasMultiGetOptions(key));
+  // Si el filtro se creó antes de que llegaran los huéspedes (sin opciones),
+  // quedaba vacío = "Ninguno" y ocultaba a todos. Se re-inicia a "Todos".
+  const sinOpc = PERSONAS_MULTI.vacio && PERSONAS_MULTI.vacio[key];
+  if (PERSONAS_MULTI.multiSel[key] instanceof Set && !sinOpc) return;
+  const opts = personasMultiGetOptions(key);
+  PERSONAS_MULTI.multiSel[key] = new Set(opts);
+  (PERSONAS_MULTI.vacio = PERSONAS_MULTI.vacio || {})[key] = !opts.length;
 }
 
 function personasMultiRender(key, label) {
