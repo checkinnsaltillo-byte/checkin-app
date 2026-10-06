@@ -62728,7 +62728,7 @@ window.hmGuiasMenu_ = async function (btn) {
   if (prev) { prev.remove(); return; }
   const pop = document.createElement('div'); pop.id = 'hm-guias-pop';
   pop.style.cssText = 'position:fixed;z-index:100400;width:320px;max-width:calc(100vw - 16px);background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.25);padding:8px;display:flex;flex-direction:column;gap:6px';
-  pop.innerHTML = `<div style="font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:2px 4px">📖 Copiar URL de la guía de bienvenida</div>
+  pop.innerHTML = `<div style="font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:2px 4px">📖 Link de guía de bienvenida</div>
     <input type="search" placeholder="🔎 Buscar alojamiento…" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit">
     <div class="hm-gl" style="max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:2px"><div style="font-size:12px;color:#94a3b8;padding:8px">⏳ Cargando alojamientos…</div></div>`;
   document.body.appendChild(pop);
@@ -62745,19 +62745,14 @@ window.hmGuiasMenu_ = async function (btn) {
   const pinta = () => {
     const q = inp.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const L = lista.filter(x => !q || x.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q));
-    box.innerHTML = L.length ? L.map((x, i) => `<button type="button" data-i="${lista.indexOf(x)}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><span>📖</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.nombre)}</span><span style="font-size:11px;color:#94a3b8">copiar</span></button>`).join('')
+    box.innerHTML = L.length ? L.map((x, i) => `<button type="button" data-i="${lista.indexOf(x)}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><span>📖</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.nombre)}</span><span style="font-size:11px;color:#94a3b8">🔗</span></button>`).join('')
       : `<div style="font-size:12px;color:#94a3b8;padding:8px">${lista.length ? 'Sin coincidencias.' : 'No hay alojamientos cargados.'}</div>`;
   };
-  box.onclick = async e => {
+  box.onclick = e => {
     const b = e.target.closest('button[data-i]'); if (!b) return;
     const x = lista[+b.dataset.i];
-    let ok = false;
-    try { await navigator.clipboard.writeText(x.url); ok = true; } catch (_) {
-      const t = document.createElement('textarea'); t.value = x.url; document.body.appendChild(t); t.select();
-      try { ok = document.execCommand('copy'); } catch (__) {} t.remove();
-    }
     close();
-    hmToast_(ok ? `Se ha copiado en el portapapeles la url de la guía ${x.nombre}` : `No se pudo copiar. URL: ${x.url}`);
+    guiasShareLink_(x.id, x.nombre); // misma ventana "🔗 Link de guía" del módulo Guías
   };
   inp.oninput = pinta; inp.onkeydown = e => { if (e.key === 'Enter') { const f = box.querySelector('button[data-i]'); if (f) f.click(); } };
   pinta(); inp.focus();
