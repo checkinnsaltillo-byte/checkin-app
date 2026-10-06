@@ -56853,32 +56853,29 @@ const PRIO_METER = [['Bajo', '#2563eb'], ['Medio', '#eab308'], ['Alto', '#ea580c
   if (document.getElementById('prio-meter-css')) return;
   const st = document.createElement('style'); st.id = 'prio-meter-css';
   st.textContent = `
-  .pm{position:relative;display:inline-flex;flex-direction:column;align-items:stretch;flex:none;padding-top:13px;width:var(--pmw,148px);vertical-align:middle}
-  .pm-trk{display:flex;gap:2px;padding:2px;border-radius:999px;background:#e5e7eb;box-shadow:inset 0 1px 2px rgba(15,23,42,.12)}
-  .pm-s{all:unset;flex:1;min-width:0;height:var(--pmh,14px);display:flex;align-items:center;justify-content:center;background:var(--c);opacity:.22;font-size:7.5px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#fff;white-space:nowrap;overflow:hidden;transition:opacity .15s,transform .15s;text-shadow:0 1px 1px rgba(0,0,0,.25)}
-  .pm-s:first-child{border-radius:999px 3px 3px 999px}
-  .pm-s:last-child{border-radius:3px 999px 999px 3px}
-  .pm-s.on{opacity:1;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)}
+  .pm{position:relative;display:inline-flex;flex-direction:column;flex:none;padding-top:7px;width:var(--pmw,148px);vertical-align:middle}
+  .pm-trk{display:flex;height:var(--pmh,9px);border-radius:999px;overflow:hidden}
+  .pm-s{all:unset;flex:1;min-width:0;background:linear-gradient(180deg,var(--c) 0 55%,color-mix(in srgb,var(--c) 80%,#000) 55% 100%)}
   .pm.pick .pm-s{cursor:pointer}
-  .pm.pick .pm-s:hover{opacity:.75}
-  .pm.pick .pm-s.on:hover{opacity:1}
-  .pm-ndl{position:absolute;top:0;width:0;height:0;transform:translateX(-50%);transition:left .2s}
-  .pm-ndl:before{content:'';position:absolute;left:-5px;top:0;width:10px;height:10px;border-radius:50%;background:#1f2937;box-shadow:0 1px 2px rgba(0,0,0,.3)}
-  .pm-ndl:after{content:'';position:absolute;left:-3px;top:6px;border-left:3px solid transparent;border-right:3px solid transparent;border-top:9px solid #1f2937}
-  .pm.sm{--pmw:96px;--pmh:7px;padding-top:9px}
-  .pm.sm .pm-s{font-size:0}
-  .pm.sm .pm-ndl:before{width:7px;height:7px;left:-3.5px}
-  .pm.sm .pm-ndl:after{left:-2px;top:4px;border-left-width:2px;border-right-width:2px;border-top-width:6px}`;
+  .pm.pick .pm-s:hover{filter:brightness(1.12)}
+  .pm-ndl{position:absolute;top:0;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #111827;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);transition:left .2s}
+  .pm-lbl{display:flex;margin-top:3px}
+  .pm-lbl span{flex:1;text-align:center;font-size:7.5px;font-weight:900;letter-spacing:.03em;text-transform:uppercase;color:#94a3b8;white-space:nowrap}
+  .pm-lbl span.on{color:#111827}
+  .pm.pick .pm-lbl span{cursor:pointer}
+  .pm.sm{--pmw:90px;--pmh:6px;padding-top:6px}
+  .pm.sm .pm-ndl{border-left-width:4px;border-right-width:4px;border-top-width:6px}
+  .pm.sm .pm-lbl{display:none}`;
   document.head.appendChild(st);
 })();
 function prioMeter_(nivel, opts) {
   opts = opts || {};
   let i = PRIO_METER.findIndex(([k]) => k === nivel); if (i < 0) i = 1;
-  const segs = PRIO_METER.map(([k, c], j) => opts.pick
-    ? `<button type="button" class="pm-s ${j === i ? 'on' : ''}" style="--c:${c}" title="Prioridad ${k}" onclick="event.stopPropagation();${opts.pick.replace('%K', `'${k}'`)}">${k}</button>`
-    : `<span class="pm-s ${j === i ? 'on' : ''}" style="--c:${c}">${k}</span>`).join('');
+  const on = k => opts.pick ? ` onclick="event.stopPropagation();${opts.pick.replace('%K', `'${k}'`)}"` : '';
+  const segs = PRIO_METER.map(([k, c]) => opts.pick ? `<button type="button" class="pm-s" style="--c:${c}" title="Prioridad ${k}"${on(k)}></button>` : `<span class="pm-s" style="--c:${c}"></span>`).join('');
+  const lbls = PRIO_METER.map(([k], j) => `<span class="${j === i ? 'on' : ''}"${on(k)}>${k}</span>`).join('');
   return `<span class="pm ${opts.sm ? 'sm' : ''} ${opts.pick ? 'pick' : ''}" title="Prioridad: ${PRIO_METER[i][0]}${opts.pick ? ' · clic en un nivel para cambiarla' : ''}" ${opts.w ? `style="--pmw:${opts.w}px"` : ''}>
-    <span class="pm-ndl" style="left:${((i + 0.5) / 4 * 100).toFixed(1)}%"></span><span class="pm-trk">${segs}</span></span>`;
+    <span class="pm-ndl" style="left:${((i + 0.5) / 4 * 100).toFixed(1)}%"></span><span class="pm-trk">${segs}</span><span class="pm-lbl">${lbls}</span></span>`;
 }
 const TAR_PRIORIDADES = [
   { k: 'Bajo',    fg: '#475569', bg: '#f1f5f9', bd: '#cbd5e1', w: 1 },
