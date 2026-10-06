@@ -29241,6 +29241,7 @@ window.rhOpenForm = function (kind, id) {
           ${rhFieldSelect('Tipo','Tipo',['Empleado','Invitado','Apoyo'], editing?.Tipo || 'Empleado')}
         </div>
         ${rhFieldText('Direccion','Dirección',editing?.Direccion)}
+        <div class="rh-grid-2">${rhFieldDoc_('ine')}${rhFieldDoc_('domicilio')}</div>
       </div>
 
       <div class="rh-section" data-rh-no-invitado="1">
@@ -29271,6 +29272,7 @@ window.rhOpenForm = function (kind, id) {
           ${rhFieldText('RFC','RFC',editing?.RFC)}
           ${rhFieldText('CURP','CURP',editing?.CURP)}
         </div>
+        <div class="rh-grid-2">${rhFieldDoc_('cif')}${rhFieldDoc_('nss')}</div>
       </div>
 
       <div class="rh-section" data-rh-no-invitado="1">
@@ -29353,6 +29355,7 @@ window.rhOpenForm = function (kind, id) {
   panel.classList.remove('hidden');
   panel.classList.add('open');
   if (kind === 'empleado') {
+    rhDocsLoad_(editing?.ID || '');
     setTimeout(() => {
       const tipoSel = document.querySelector('#rh-form-body [data-rh-field="Tipo"]');
       if (tipoSel) { tipoSel.addEventListener('change', rhAplicarTipo_); rhAplicarTipo_(); }
@@ -29524,6 +29527,102 @@ function _rhSafeRow_(row) {
 }
 
 // ── Helpers de campos ──
+// ── Documentos del empleado (INE, comprobante, CIF, NSS) ──────────────────
+// Privados en el servidor (no en la hoja Personal); se ven con link firmado.
+const RH_DOC_KINDS = { ine: 'INE', domicilio: 'Comprobante de domicilio', cif: 'Certificado de Identificación Fiscal (CIF)', nss: 'No. Seguro Social' };
+window.RH_DOCS = window.RH_DOCS || { emp: '', docs: {}, busy: {}, loaded: false, err: '' };
+(function () {
+  if (document.getElementById('rh-doc-css')) return;
+  const st = document.createElement('style'); st.id = 'rh-doc-css';
+  st.textContent = `
+  .rh-doc-box{display:flex;gap:10px;align-items:center;min-height:58px;padding:8px;border:1.5px dashed #cbd5e1;border-radius:10px;background:#f8fafc}
+  .rh-doc-hint{font-size:11.5px;color:#94a3b8}
+  .rh-doc-add{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;font-weight:800;color:#4f46e5;padding:8px 12px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe}
+  .rh-doc-add:hover{background:#e0e7ff}
+  .rh-doc-prev{flex:none;width:64px;height:46px;border-radius:7px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none}
+  .rh-doc-prev img{width:100%;height:100%;object-fit:cover;display:block}
+  .rh-doc-pdf{font-size:11px;font-weight:900;color:#b91c1c}
+  .rh-doc-inf{flex:1;min-width:0}
+  .rh-doc-n{font-size:12px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rh-doc-m{font-size:10.5px;color:#64748b;margin-top:1px}
+  .rh-doc-acts{display:flex;gap:10px;margin-top:4px;flex-wrap:wrap}
+  .rh-doc-acts a,.rh-doc-acts label,.rh-doc-acts button{all:unset;cursor:pointer;font-size:11px;font-weight:800;color:#4f46e5}
+  .rh-doc-acts button{color:#b91c1c}
+  .rh-doc-err{font-size:11px;color:#b91c1c}`;
+  document.head.appendChild(st);
+})();
+function rhFieldDoc_(kind) {
+  return `<div class="rh-field" data-rh-doc="${kind}"><label>📎 ${esc(RH_DOC_KINDS[kind])}</label><div class="rh-doc-box"><span class="rh-doc-hint">⏳</span></div></div>`;
+}
+async function rhDocsLoad_(emp) {
+  RH_DOCS.emp = emp; RH_DOCS.docs = {}; RH_DOCS.busy = {}; RH_DOCS.loaded = false; RH_DOCS.err = '';
+  rhDocsPaint_();
+  if (!emp) return;
+  try {
+    const j = await fetch(`${BACKEND}/rh/docs?emp=${encodeURIComponent(emp)}`, { cache: 'no-store' }).then(r => r.json());
+    if (RH_DOCS.emp !== emp) return;
+    if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudieron cargar los documentos');
+    RH_DOCS.docs = j.docs || {};
+  } catch (e) { RH_DOCS.err = e.message; }
+  RH_DOCS.loaded = true; rhDocsPaint_();
+}
+function rhDocsPaint_() {
+  document.querySelectorAll('#rh-form-body [data-rh-doc]').forEach(el => {
+    const k = el.dataset.rhDoc, box = el.querySelector('.rh-doc-box'), d = RH_DOCS.docs[k];
+    if (!RH_DOCS.emp) { box.innerHTML = '<span class="rh-doc-hint">Guarda primero al empleado para poder adjuntar documentos.</span>'; return; }
+    if (RH_DOCS.busy[k]) { box.innerHTML = '<span class="rh-doc-hint">⏳ Subiendo archivo…</span>'; return; }
+    if (!RH_DOCS.loaded) { box.innerHTML = '<span class="rh-doc-hint">⏳ Cargando…</span>'; return; }
+    const pick = `<input type="file" accept="image/*,application/pdf" style="display:none" onchange="rhDocUpload_('${k}', this)">`;
+    if (!d) { box.innerHTML = `<label class="rh-doc-add">📎 Adjuntar imagen o PDF${pick}</label>${RH_DOCS.err ? `<span class="rh-doc-err">⚠️ ${esc(RH_DOCS.err)}</span>` : ''}`; return; }
+    const url = BACKEND + d.url, img = /^image\/(png|jpeg|webp)$/.test(d.mime);
+    const f = d.at ? new Date(d.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    box.innerHTML = `<a class="rh-doc-prev" href="${esc(url)}" target="_blank" rel="noopener" title="Ver ${esc(d.name)}">${img ? `<img src="${esc(url)}" alt="">` : `<span class="rh-doc-pdf">${/pdf/.test(d.mime) ? '📄 PDF' : '🖼️'}</span>`}</a>
+      <div class="rh-doc-inf"><div class="rh-doc-n" title="${esc(d.name)}">${esc(d.name)}</div><div class="rh-doc-m">${esc(f)}${d.by ? ' · ' + esc(d.by) : ''}</div>
+      <div class="rh-doc-acts"><a href="${esc(url)}" target="_blank" rel="noopener">👁 Ver</a><label>🔁 Reemplazar${pick}</label><button type="button" onclick="rhDocQuitar_('${k}')">🗑 Quitar</button></div></div>`;
+  });
+}
+// Fotos grandes de celular se reducen (máx. 2400 px, JPEG) antes de subir.
+async function rhDocLeer_(file) {
+  const dataUrl = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(file); });
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1.5 * 1024 * 1024) return dataUrl;
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = dataUrl; });
+    const k = Math.min(1, 2400 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.85);
+  } catch (_) { return dataUrl; }
+}
+window.rhDocUpload_ = async function (k, inp) {
+  const file = inp.files && inp.files[0]; inp.value = '';
+  if (!file) return;
+  if (!/^image\//.test(file.type) && file.type !== 'application/pdf') { alert('Solo imágenes (JPG, PNG) o PDF.'); return; }
+  if (file.size > 15 * 1024 * 1024) { alert('El archivo pesa más de 15 MB.'); return; }
+  const emp = RH_DOCS.emp; if (!emp) return;
+  RH_DOCS.busy[k] = true; rhDocsPaint_();
+  try {
+    const data = await rhDocLeer_(file);
+    const name = /^data:image\/jpeg/.test(data) && !/\.jpe?g$/i.test(file.name) ? file.name.replace(/\.\w+$/, '') + '.jpg' : file.name;
+    const j = await fetch(`${BACKEND}/rh/docs/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emp, kind: k, name, data, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo subir');
+    if (RH_DOCS.emp === emp) RH_DOCS.docs = j.docs || {};
+  } catch (e) { alert('No se pudo subir el documento: ' + e.message); }
+  delete RH_DOCS.busy[k]; rhDocsPaint_();
+};
+window.rhDocQuitar_ = async function (k) {
+  const emp = RH_DOCS.emp; if (!emp || !RH_DOCS.docs[k]) return;
+  if (!confirm(`¿Quitar "${RH_DOC_KINDS[k]}" del expediente?`)) return;
+  RH_DOCS.busy[k] = true; rhDocsPaint_();
+  try {
+    const j = await fetch(`${BACKEND}/rh/docs/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emp, kind: k, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo quitar');
+    if (RH_DOCS.emp === emp) RH_DOCS.docs = j.docs || {};
+  } catch (e) { alert('No se pudo quitar: ' + e.message); }
+  delete RH_DOCS.busy[k]; rhDocsPaint_();
+};
+
 function rhFieldText(name, label, val) {
   return `<div class="rh-field"><label>${esc(label)}</label><input type="text" data-rh-field="${esc(name)}" value="${esc(val || '')}"></div>`;
 }
