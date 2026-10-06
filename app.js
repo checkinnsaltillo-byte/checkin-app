@@ -336,12 +336,12 @@ const SYS_MODULE_PERMS = {
   // 'personas' e 'inquilinos' son pestañas del módulo compuesto
   // "Huéspedes/Inquilinos" → cualquier usuario con permiso a alguno de los
   // dos debe ver la entrada. Se listan en ambos grupos.
-  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos','proveedores'],
+  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos','proveedores','dir-inquilinos'],
   IV:   ['breezeway'],
   V:    ['incidencias'],
   VI:   ['objetos'],
   VII:  ['ocupacion'],
-  VIII: ['rh','inquilinos','personas','proveedores','inventarios'],
+  VIII: ['rh','inquilinos','personas','proveedores','dir-inquilinos','inventarios'],
 };
 // Módulos asignables por empleado (RH › Documentación › Acceso al sistema).
 // Se guardan como lista de claves en la columna sys_modulos de la hoja Personal.
@@ -373,7 +373,7 @@ const SYS_MODULE_LIST = [
 // Submódulos/alias que acompañan a un módulo elegido.
 const SYS_MODULE_EXTRAS = {
   registros: ['efectivo'],
-  personas:  ['huespedes', 'inquilinos', 'proveedores'],
+  personas:  ['huespedes', 'inquilinos', 'proveedores', 'dir-inquilinos'],
   lodgify:   ['reservas-detalles'],
   ocupacion: ['dashboard', 'calendario'],
 };
@@ -9122,7 +9122,7 @@ function esc(v) {
 const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
-  'dashboard','calendario','rh','inquilinos','proveedores','inventarios','tuya','guias',
+  'dashboard','calendario','rh','inquilinos','proveedores','dir-inquilinos','inventarios','tuya','guias',
   'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica',
 ]);
 function _bootModuleFromHash_() {
@@ -9166,7 +9166,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9311,6 +9311,9 @@ function switchModule(mod) {
   }
   if (mod === "proveedores") {
     if (typeof prvInit === 'function') prvInit();
+  }
+  if (mod === "dir-inquilinos") {
+    if (typeof dinqInit === 'function') dinqInit();
   }
   if (mod === "inventarios") {
     if (typeof invInit === 'function') invInit();
@@ -61615,6 +61618,7 @@ const NAV_TREE = {
       { t: '📋 Tabla', go: () => personasSetView('tabla') },
     ] },
     { t: '🏢 Proveedores', mod: 'proveedores', go: () => {} },
+    { t: '🏠 Inquilinos', mod: 'dir-inquilinos', go: () => {} },
   ],
   inquilinos: [
     { t: '💵 Rentas · tabla', go: () => { inqSetTab('rentas'); inqSetRentasView('tabla'); } },
@@ -63582,4 +63586,107 @@ window.prvEliminar = async function () {
     PRV_STATE.items = PRV_STATE.items.filter(x => x.ID !== id);
     prvCloseForm(); prvRender_();
   } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIRECTORIO › INQUILINOS — cards (mismo diseño que Huéspedes/Proveedores)
+// con los perfiles de Contratos de Larga estancia (INQ_STATE.perfiles).
+// ═══════════════════════════════════════════════════════════════════════════
+const DINQ_STATE = { filtro: '' };
+async function dinqInit() {
+  if (!(INQ_STATE.perfiles || []).length) { dinqRender_(true); await inqLoadPerfiles(); }
+  dinqRender_();
+}
+function dinqFecha_(v) {
+  const s = String(v == null ? '' : v).trim(); if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return new Date(+m[1], m[2] - 1, +m[3]);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return new Date(+m[3], m[2] - 1, +m[1]);
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+// Activo = contrato "Vigente"; si no hay estado capturado, se deduce de la fecha de fin.
+function dinqActivo_(r) {
+  const e = String(r.Estado_contrato || '').toLowerCase();
+  if (e === 'vigente') return true;
+  if (e) return false;
+  const fin = dinqFecha_(r.Fecha_fin); return fin ? fin >= new Date(new Date().toDateString()) : true;
+}
+function dinqRender_(cargando) {
+  const view = document.getElementById('dinq-view'); if (!view) return;
+  const all = INQ_STATE.perfiles || [];
+  if (cargando && !all.length) { view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`; return; }
+  dxEnsureCss_();
+  const F = DINQ_STATE.filtro;
+  const depto = r => r.Departamento || r['# Departamento'] || '';
+  const pasa = r => !F || (F === 'Activo' ? dinqActivo_(r) : F === 'Inactivo' ? !dinqActivo_(r) : (r.Propiedad || 'Sin propiedad') === F);
+  const rows = all.filter(pasa).sort((a, b) => (dinqActivo_(a) ? 0 : 1) - (dinqActivo_(b) ? 0 : 1)
+    || String(a.Propiedad || '').localeCompare(String(b.Propiedad || ''), 'es') || String(depto(a)).localeCompare(String(depto(b)), 'es', { numeric: true }));
+  const nAct = all.filter(dinqActivo_).length;
+  const cntP = {}; all.forEach(r => { const k = r.Propiedad || 'Sin propiedad'; cntP[k] = (cntP[k] || 0) + 1; });
+  const q = (k, n, c) => `<button type="button" class="dx-q ${F === k ? 'on' : ''}" style="--c:${c}" onclick="dinqFiltro_(${esc(JSON.stringify(k))})" title="Mostrar solo ${esc(k)}"><i></i>${esc(k)}<b>${n}</b></button>`;
+  const segs = q('Activo', nAct, '#10b981') + q('Inactivo', all.length - nAct, '#94a3b8')
+    + Object.keys(cntP).sort((x, y) => cntP[y] - cntP[x] || x.localeCompare(y, 'es')).map(k => q(k, cntP[k], prvGiroColor_(k))).join('');
+  const hero = `<div class="dx-hero"><div class="dx-hero-in">
+      <div><h3>Directorio de inquilinos</h3><small>${F ? `${rows.length} · ${esc(F)}` : 'Todos los inquilinos'} · contrato, departamento y datos fiscales</small></div>
+      <div class="dx-total">${all.length.toLocaleString('es-MX')}</div>
+      <div class="dx-seg">${F ? `<button type="button" class="dx-q" style="--c:#e2e8f0" onclick="dinqFiltro_('')">✕ Todos</button>` : ''}${segs}</div>
+    </div></div>`;
+  const hoy = new Date();
+  const card = (r, i) => {
+    const act = dinqActivo_(r);
+    const c = act ? '#059669' : '#64748b';
+    const T = { c, g: act ? 'linear-gradient(135deg,#a7f3d0,#10b981 55%,#065f46)' : 'linear-gradient(135deg,#e2e8f0,#64748b 60%,#334155)', soft: act ? 'rgba(16,185,129,.13)' : 'rgba(100,116,139,.10)' };
+    const tel = dxTel_(r.Whatsapp), mail = String(r.Correo || '').trim();
+    // Anillo: avance del plazo del contrato (inicio → fin).
+    const ini = dinqFecha_(r.Fecha_inicio), fin = dinqFecha_(r.Fecha_fin);
+    let pct = null;
+    if (ini && fin && fin > ini) pct = Math.max(0, Math.min(100, Math.round((hoy - ini) / (fin - ini) * 100)));
+    const fact = /^(s[ií]|yes|true|1)$/i.test(String(r.Requiere_factura || '').trim());
+    const chips = [
+      `<span class="dx-tier"><em>${act ? '✓' : '✕'}</em>${act ? 'Contrato activo' : 'Contrato inactivo'}</span>`,
+      fact ? '<span class="dx-chip" style="--b:#ecfdf5;--f:#047857;--d:#a7f3d0">🧾 Factura</span>' : '',
+      r.Clasificacion ? `<span class="dx-chip" style="--b:#f5f3ff;--f:#5b21b6;--d:#ddd6fe">${esc(r.Clasificacion)}</span>` : '',
+    ].join('');
+    const k = (lbl, v) => `<div class="dx-k"><span>${lbl}</span><b style="font-size:12.5px" title="${esc(v || '')}">${esc(v || '—')}</b></div>`;
+    const fiscal = [r.Razon_social, r.RFC, r.Regimen_fiscal].some(Boolean)
+      ? `<div class="dx-row">${DX_IC.doc}<span class="t">${r.Razon_social ? esc(r.Razon_social) + ' · ' : ''}<span class="dx-mono">${esc(r.RFC || '')}</span>${r.Regimen_fiscal ? ` <span style="color:#94a3b8">· ${esc(r.Regimen_fiscal)}</span>` : ''}${r.CP ? ` <span style="color:#94a3b8">· C.P. ${esc(r.CP)}</span>` : ''}</span></div>` : '';
+      const mailF = String(r.Correo_factura || '').trim();
+    const info = [
+      mail ? `<div class="dx-row">${DX_IC.mail}<a href="mailto:${esc(mail)}" onclick="event.stopPropagation()">${esc(mail)}</a></div>` : '',
+      fiscal,
+      mailF && mailF !== mail ? `<div class="dx-row">${DX_IC.mail}<span class="t">Facturas: <a href="mailto:${esc(mailF)}" onclick="event.stopPropagation()">${esc(mailF)}</a></span></div>` : '',
+    ].join('');
+    return `<article class="dx-card" style="--tc:${T.c};--tg:${T.g};--ts:${T.soft};animation-delay:${Math.min(i, 24) * 18}ms;cursor:pointer${act ? '' : ';opacity:.78'}" onclick="dinqAbrir_('${esc(r.ID)}')" onmousemove="this.style.setProperty('--mx',(event.offsetX/this.offsetWidth*100)+'%')" title="Clic para abrir el perfil en Contratos de Larga estancia">
+      <div class="dx-in">
+        <div class="dx-head">
+          <div class="dx-av">${esc(dxIni_(r.Nombre))}</div>
+          <div class="dx-id"><div class="dx-name" title="${esc(r.Nombre || '')}">${esc(r.Nombre || 'Sin nombre')}</div><div class="dx-tel">${tel ? esc(tel.txt) : 'Sin teléfono'}</div></div>
+          ${pct != null ? `<div class="dx-ring" style="--sc:${Math.max(3, pct)}" title="Plazo del contrato transcurrido: ${pct}%"><span>${pct}</span><small>% plazo</small></div>` : ''}
+        </div>
+        <div class="dx-chips">${chips}</div>
+        <div class="dx-kpis">
+          ${k('🏢 Propiedad', r.Propiedad)}
+          ${k('🚪 # Depto.', depto(r))}
+          ${k('📅 Vence', fin ? inqFmtFechaCorta(r.Fecha_fin) : '')}
+        </div>
+        ${info ? `<div class="dx-info">${info}</div>` : ''}
+      </div>
+      <div class="dx-act" onclick="event.stopPropagation()">
+        <a class="dx-btn ${tel ? '' : 'off'}" style="--hc:#0f766e" ${tel ? `href="tel:${tel.e164}"` : ''} title="Llamar">${DX_IC.phone}Llamar</a>
+        <a class="dx-btn ${tel ? '' : 'off'}" style="--hc:#16a34a" ${tel ? `href="https://wa.me/${tel.wa}" target="_blank" rel="noopener"` : ''} title="Abrir WhatsApp">${DX_IC.wa}WhatsApp</a>
+        <a class="dx-btn ${mail ? '' : 'off'}" style="--hc:#1d4ed8" ${mail ? `href="mailto:${esc(mail)}"` : ''} title="Enviar correo">${DX_IC.mail}Correo</a>
+        <button type="button" class="dx-btn ${tel ? '' : 'off'}" style="--hc:#7c3aed" onclick="dxCopiar_('${tel ? tel.e164 : ''}','Teléfono')" title="Copiar teléfono">${DX_IC.copy}Copiar</button>
+      </div>
+    </article>`;
+  };
+  view.innerHTML = all.length === 0
+    ? `<div class="rh-empty">Sin inquilinos. Se dan de alta en <strong>📑 Contratos de Larga estancia › Perfiles</strong>.</div>`
+    : `<div class="dx-wrap">${hero}<div class="dx-grid">${rows.map(card).join('')}</div></div>`;
+}
+window.dinqFiltro_ = function (k) { DINQ_STATE.filtro = DINQ_STATE.filtro === k ? '' : k; dinqRender_(); };
+// El formulario completo vive en Contratos de Larga estancia → se abre ahí.
+window.dinqAbrir_ = function (id) {
+  INQ_STATE.tab = 'perfiles';
+  switchModule('inquilinos');
+  setTimeout(() => { try { inqSetTab('perfiles'); inqOpenPerfilForm(id); } catch (e) { console.warn(e); } }, 60);
 };

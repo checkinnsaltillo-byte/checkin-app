@@ -225,6 +225,10 @@
           📑 Contratos de Larga estancia
         </li>
         <!-- Proveedores es una pestaña dentro de "Directorio" -->
+        <li class="nav-item hidden" id="nav-item-dir-inquilinos"
+            onclick="switchModule('dir-inquilinos');closeNavMenu()">
+          🏠 Inquilinos
+        </li>
         <li class="nav-item hidden" id="nav-item-proveedores"
             onclick="switchModule('proveedores');closeNavMenu()">
           🏢 Proveedores
@@ -322,7 +326,7 @@
               <button type="button" class="hm-tile home-card-reservas-nueva" onclick="switchModule('reservas-nueva')"><span class="hm-ico">🛎️</span><span class="hm-tx"><b>Reservas</b><small>Disponibilidad, cotización y checkout</small></span></button>
               <button type="button" class="hm-tile home-card-lodgify" onclick="switchModule('lodgify')"><span class="hm-ico">🌐</span><span class="hm-tx"><b>Gestión de reservas</b><small>Reservaciones, facturación y cobros</small></span></button>
               <button type="button" class="hm-tile home-card-ocupacion" onclick="switchModule('calendario')"><span class="hm-ico">📆</span><span class="hm-tx"><b>Calendario</b><small>Calendario mensual de reservas</small></span></button>
-              <button type="button" class="hm-tile home-card-personas" onclick="switchModule('personas')"><span class="hm-ico">📇</span><span class="hm-tx"><b>Directorio</b><small>Huéspedes y proveedores</small></span></button>
+              <button type="button" class="hm-tile home-card-personas" onclick="switchModule('personas')"><span class="hm-ico">📇</span><span class="hm-tx"><b>Directorio</b><small>Huéspedes, proveedores e inquilinos</small></span></button>
               <button type="button" class="hm-tile home-card-inquilinos" onclick="switchModule('inquilinos')"><span class="hm-ico">📑</span><span class="hm-tx"><b>Contratos de Larga estancia</b><small>Inquilinos, contratos y rentas mensuales</small></span></button>
               <button type="button" class="hm-tile home-card-bot-chats" onclick="switchModule('bot-chats')"><span class="hm-ico">🤖</span><span class="hm-tx"><b>Chats bot</b><small>Conversaciones WhatsApp del bot IA</small></span></button>
               <button type="button" class="hm-tile home-card-guias" onclick="switchModule('guias')"><span class="hm-ico">📖</span><span class="hm-tx"><b>Guías de bienvenida</b><small>Guía digital por alojamiento</small></span></button>
@@ -1612,6 +1616,7 @@
       <div id="hi-tabs-personas" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
         <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">👤 Huéspedes</button>
         <button type="button" onclick="switchModule('proveedores')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🏢 Proveedores</button>
+        <button type="button" onclick="switchModule('dir-inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🏠 Inquilinos</button>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <div>
@@ -2542,6 +2547,7 @@
         <div id="hi-tabs-proveedores" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
           <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">👤 Huéspedes</button>
           <button type="button" onclick="switchModule('proveedores')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">🏢 Proveedores</button>
+          <button type="button" onclick="switchModule('dir-inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🏠 Inquilinos</button>
         </div>
         <div id="prv-view" class="rh-view">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
@@ -2563,6 +2569,21 @@
         </aside>
       </div>
     </div><!-- /module-proveedores -->
+
+    <!-- ═══════════════ MÓDULO DIRECTORIO › INQUILINOS (cards; datos de Contratos de Larga estancia) ═══════════════ -->
+    <div id="module-dir-inquilinos" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">📇 Directorio</div>
+        <div style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
+          <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">👤 Huéspedes</button>
+          <button type="button" onclick="switchModule('proveedores')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🏢 Proveedores</button>
+          <button type="button" onclick="switchModule('dir-inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">🏠 Inquilinos</button>
+        </div>
+        <div id="dinq-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+    </div><!-- /module-dir-inquilinos -->
 
     <!-- ═══════════════ MÓDULO INVENTARIOS ═══════════════ -->
     <div id="module-inventarios" class="hidden" style="padding:20px 24px 60px">
@@ -2849,7 +2870,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1491"></script>
+  <script src="app.js?v=1492"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
