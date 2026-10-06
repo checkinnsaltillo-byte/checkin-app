@@ -63432,6 +63432,7 @@ function prvRender_() {
       r.RFC ? '<span class="dx-chip" style="--b:#eff6ff;--f:#1d4ed8;--d:#bfdbfe">🧾 Factura</span>' : '',
       r.Clabe ? '<span class="dx-chip" style="--b:#f5f3ff;--f:#5b21b6;--d:#ddd6fe">🏦 Cuenta</span>' : '',
     ].join('');
+    const kc = r.Empresa ? [r.Contacto, r.Puesto].filter(Boolean).join(' · ') : (r.Puesto || '');
     const k = (lbl, v) => `<div class="dx-k"><span>${lbl}</span><b style="font-size:12.5px" title="${esc(v || '')}">${esc(v || '—')}</b></div>`;
     const info = [
       mail ? `<div class="dx-row">${IC.mail}<a href="mailto:${esc(mail)}" onclick="event.stopPropagation()">${esc(mail)}</a></div>` : '',
@@ -63447,11 +63448,11 @@ function prvRender_() {
           <div class="dx-ring" style="--sc:${Math.max(3, sc)}" title="Ficha ${sc}% completa"><span>${sc}</span><small>% ficha</small></div>
         </div>
         <div class="dx-chips">${chips}</div>
-        <div class="dx-kpis">
-          ${k('👤 Contacto', r.Empresa ? (r.Contacto || '') + (r.Puesto ? ' · ' + r.Puesto : '') : r.Puesto)}
+        ${kc || r.Condiciones_pago || r.Banco ? `<div class="dx-kpis">
+          ${k('👤 Contacto', kc)}
           ${k('💳 Pago', r.Condiciones_pago)}
           ${k('🏦 Banco', r.Banco)}
-        </div>
+        </div>` : ''}
         ${info ? `<div class="dx-info">${info}</div>` : ''}
         ${r.Notas ? `<div style="margin-top:10px;font-size:11.5px;color:#64748b;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">📝 ${esc(r.Notas)}</div>` : ''}
       </div>
