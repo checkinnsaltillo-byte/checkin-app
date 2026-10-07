@@ -59699,7 +59699,10 @@ function pcMovAlojGrupos_(cols, dia) {
 function aseoTempOn_(id) { return !!(((window.ASEO && ASEO.temprana) || {})[String(id)] || {}).on; }
 function aseoAccionesReserva_(b, kind, aloj, hid) {
   const id = String(b.Id), on = aseoTempOn_(id);
-  const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''}" onclick="event.stopPropagation();aseoTemprana_('${pcEsc(id)}')" title="El huésped pidió entrar antes de la hora oficial"><span class="sw"><i></i></span>Entrada temprana</button>`;
+  const acep = on && !!((((window.ASEO && ASEO.temprana) || {})[id]) || {}).aceptada;
+  // Activo: mismo formato que el chip del encabezado (solicitud punteada / aceptada en verde).
+  const txt = !on ? 'Entrada temprana' : acep ? '✓ Entrada temprana · solicitud aceptada' : '⏰ Solicitud: Entrada temprana';
+  const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTemprana_('${pcEsc(id)}')" title="${on ? 'Clic para quitar la solicitud de entrada temprana' : 'El huésped pidió entrar antes de la hora oficial'}"><span class="sw"><i></i></span>${txt}</button>`;
   if (kind !== 'ent') return `<div class="mv-acts">${tg}</div>`;
   const env = (((window.ASEO && ASEO.sms) || {})[id] || []);
   const ult = env[env.length - 1];
@@ -64281,7 +64284,9 @@ function aseoEnsureCss_() {
   .mv-tg{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#64748b;padding:3px 9px 3px 4px;border-radius:999px;border:1px solid #e2e8f0;background:#fff}
   .mv-tg .sw{position:relative;width:26px;height:15px;border-radius:999px;background:#cbd5e1;transition:background .2s}
   .mv-tg .sw i{position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
-  .mv-tg.on{color:#9a3412;border-color:#fdba74;background:#fff7ed}
+  .mv-tg.on{color:#c2410c;border:1.5px dashed #fb923c;background:#fff7ed;font-weight:900}
+  .mv-tg.on.ok{color:#fff;border:1.5px solid transparent;background:linear-gradient(135deg,#16a34a,#15803d)}
+  .mv-tg.on.ok .sw{background:rgba(255,255,255,.45)}
   .mv-tg.on .sw{background:#ea580c}.mv-tg.on .sw i{left:13px}
   .mv-sms{all:unset;cursor:pointer;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
   .mv-sms:hover{background:#bae6fd}
