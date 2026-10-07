@@ -59477,30 +59477,47 @@ const ASEO_EST = [
 ];
 function aseoEstDe_(id) { return ((window.ASEO && ASEO.estados) || {})[String(id)] || null; }
 function aseoHora_(iso) { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); }
-// Bloque de estado (chip-combobox + avance por etapas + palomita de LISTO) para una salida.
-function aseoEstadoHtml_(id, hid) {
-  const r = aseoEstDe_(id), k = r ? r.estado : 'pendiente';
-  const E = ASEO_EST.find(e => e.k === k) || ASEO_EST[0];
-  const h = (r && r.hist) || {};
-  // Botón circular de validación por etapa (idéntico al ✓ "Validado" de las cards de Registros contables).
-  const pasos = ASEO_EST.slice(1).map((e, i) => {
-    const on = !!h[e.k], prev = ASEO_EST[i].k; // al quitar una etapa se regresa a la anterior
-    const tit = on ? `${e.t} · validado ${aseoHora_(h[e.k].at)}${h[e.k].by ? ' · ' + h[e.k].by : ''} — clic para quitar` : `Validar «${e.t}»`;
-    return `<span class="ae-p ${on ? 'on' : ''}"><button type="button" class="ae-val" data-checked="${on}" title="${pcEsc(tit)}"
-      onclick="event.stopPropagation();aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${on ? prev : e.k}')"
-      style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${on ? '#16a34a' : '#e5e7eb'};background:${on ? '#16a34a' : '#f9fafb'};color:${on ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:pointer;padding:0;flex-shrink:0">✓</button>${e.t}${on ? ` <small>${aseoHora_(h[e.k].at)}</small>` : ''}</span>`;
-  }).join('<span class="ae-l"></span>');
-  const listo = k === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(r.at)}${r.by ? ' · ' + pcEsc(r.by) : ''}</small></div></div>` : '';
-  return `<div class="ae-w" data-est="${pcEsc(String(id))}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button><div class="ae-ps">${pasos}</div></div></div>`;
+// Estado PUBLICADO (validado con la palomita) — es lo que ve la guía de bienvenida.
+// Registros anteriores al esquema de validación cuentan como publicados.
+function aseoPubDe_(id) {
+  const r = aseoEstDe_(id); if (!r) return null;
+  if (r.validado === undefined) return r.estado ? { estado: r.estado, at: r.at, by: r.by } : null;
+  return r.pub || null;
 }
+// Bloque de estado: combobox (elige) + botón circular ✓ (valida y publica) + aviso LISTO.
+function aseoEstadoHtml_(id, hid) {
+  const r = aseoEstDe_(id), pub = aseoPubDe_(id);
+  const k = r ? r.estado : 'pendiente';
+  const validado = r ? (r.validado === undefined ? true : !!r.validado) : false;
+  const E = ASEO_EST.find(e => e.k === k) || ASEO_EST[0];
+  const P = pub ? (ASEO_EST.find(e => e.k === pub.estado) || null) : null;
+  const sid = pcEsc(String(id)), shid = pcEsc(String(hid || ''));
+  const tit = validado ? `«${E.t}» validado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + r.by : ''} — publicado en la guía` : `Validar «${E.t}» y publicarlo en la guía`;
+  const circulo = `<button type="button" class="ae-val" data-checked="${validado}" title="${pcEsc(tit)}"
+      onclick="event.stopPropagation();aseoValidar_('${sid}','${shid}')"
+      style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${validado ? '#16a34a' : '#e5e7eb'};background:${validado ? '#16a34a' : '#f9fafb'};color:${validado ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:${validado ? 'default' : 'pointer'};padding:0;flex-shrink:0">${validado ? '✓' : ''}</button>`;
+  const nota = validado
+    ? `<span class="ae-nota ok">✓ Validado y publicado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + pcEsc(r.by) : ''}</span>`
+    : `<span class="ae-nota pend">Sin validar · no publicado${P ? ` (la guía muestra: ${P.t})` : ''}</span>`;
+  const listo = pub && pub.estado === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(pub.at)}${pub.by ? ' · ' + pcEsc(pub.by) : ''}</small></div></div>` : '';
+  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${circulo}${nota}</div></div>`;
+}
+window.aseoValidar_ = function (id, hid) {
+  const r = aseoEstDe_(id);
+  const k = r ? r.estado : 'pendiente';
+  if (r && (r.validado === undefined || r.validado)) return; // ya validado
+  const E = ASEO_EST.find(e => e.k === k) || ASEO_EST[0];
+  if (!confirm(`¿Validar el estado «${E.t}» y publicarlo en la guía de bienvenida?`)) return;
+  aseoSetEstado_(id, hid, k, true);
+};
 window.aseoEstadoPop_ = function (id, hid, anchor) {
   aseoEnsureCss_();
   document.querySelectorAll('.pz-pop').forEach(p => p.remove());
   const cur = (aseoEstDe_(id) || {}).estado || 'pendiente';
   const pop = document.createElement('div'); pop.className = 'pz-pop';
   pop.innerHTML = `<div style="font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🧽 Estado de aseo</div>
-    ${ASEO_EST.map(e => `<div class="pz-opt ${e.k === cur ? 'on' : ''}" onclick="aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${e.k}')"><span class="pz-ck sm ${e.k === cur ? 'on' : ''}" style="border-radius:50%">${e.k === cur ? '✓' : ''}</span>${e.ico} ${e.t}</div>`).join('')}
-    <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;line-height:1.35">Marcar una etapa completa las anteriores. «Inspeccionado» = listo para recibir huéspedes (se muestra en la guía de bienvenida).</div>`;
+    ${ASEO_EST.map(e => `<div class="pz-opt ${e.k === cur ? 'on' : ''}" onclick="aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${e.k}',false)"><span class="pz-ck sm ${e.k === cur ? 'on' : ''}" style="border-radius:50%">${e.k === cur ? '✓' : ''}</span>${e.ico} ${e.t}</div>`).join('')}
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;line-height:1.35">Elegir un estado NO lo publica: queda en gris hasta validarlo con el botón circular ✓. Solo lo validado se muestra en la guía de bienvenida.</div>`;
   document.body.appendChild(pop);
   const rc = anchor.getBoundingClientRect(), w = 280;
   pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px';
@@ -59513,21 +59530,24 @@ function aseoCerrarPop_() {
   if (ASEO._popOut) { document.removeEventListener('mousedown', ASEO._popOut); ASEO._popOut = null; }
   ASEO._estPop = false;
 }
-window.aseoSetEstado_ = async function (id, hid, k) {
+window.aseoSetEstado_ = async function (id, hid, k, validar) {
   aseoCerrarPop_();
+  validar = !!validar;
   const prev = ASEO.estados[id];
+  const cur0 = aseoEstDe_(id);
+  if (!validar && cur0 && cur0.estado === k) return; // mismo estado: nada que cambiar
   const now = new Date().toISOString(), user = (typeof currentUser !== 'undefined' && currentUser) || '';
-  if (k === 'pendiente') delete ASEO.estados[id];
-  else {
-    const hist = Object.assign({}, (prev && prev.hist) || {}), n = ASEO_EST.findIndex(e => e.k === k);
-    ASEO_EST.slice(1).forEach((e, i) => { if (i + 1 <= n) { if (!hist[e.k]) hist[e.k] = { at: now, by: user }; } else delete hist[e.k]; });
-    ASEO.estados[id] = { estado: k, at: now, by: user, hid, hist };
-  }
+  // Actualización optimista (el servidor confirma y responde el registro final).
+  const r = JSON.parse(JSON.stringify(prev || { hist: {} }));
+  if (r.validado === undefined && r.estado) { r.validado = true; r.pub = { estado: r.estado, at: r.at, by: r.by }; }
+  Object.assign(r, { estado: k, at: now, by: user, hid: hid || r.hid || '', validado: validar });
+  if (validar) { if (k === 'pendiente') delete r.pub; else r.pub = { estado: k, at: now, by: user }; }
+  if (k === 'pendiente' && !r.pub) delete ASEO.estados[id]; else ASEO.estados[id] = r;
   aseoPintarEstado_(id);
   try {
-    const r = await fetch(`${BACKEND}/aseo/estado`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, estado: k, user }) }).then(r => r.json());
-    if (!r.ok) throw new Error(r.error || 'Error');
-    if (r.estado) ASEO.estados[id] = r.estado; else delete ASEO.estados[id];
+    const res = await fetch(`${BACKEND}/aseo/estado`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, estado: k, validar, user }) }).then(r => r.json());
+    if (!res.ok) throw new Error(res.error || 'Error');
+    if (res.estado) ASEO.estados[id] = res.estado; else delete ASEO.estados[id];
     aseoPintarEstado_(id);
   } catch (e) {
     if (prev) ASEO.estados[id] = prev; else delete ASEO.estados[id];
@@ -59540,7 +59560,7 @@ function aseoPintarEstado_(id) {
     const hid = (el.closest('[data-hid]') || {}).dataset ? el.closest('[data-hid]').dataset.hid : '';
     el.outerHTML = aseoEstadoHtml_(id, hid || (aseoEstDe_(id) || {}).hid || '');
   });
-  document.querySelectorAll(`[data-listo-for="${CSS.escape(String(id))}"]`).forEach(el => el.classList.toggle('listo', (aseoEstDe_(id) || {}).estado === 'inspeccionado'));
+  document.querySelectorAll(`[data-listo-for="${CSS.escape(String(id))}"]`).forEach(el => el.classList.toggle('listo', (aseoPubDe_(id) || {}).estado === 'inspeccionado'));
 }
 // Dos roles por reserva: personal de ASEO y personal de INSPECCIÓN (multi-selección).
 const ASEO_ROLES = { aseo: { ico: '🧹', t: 'Aseo' }, inspeccion: { ico: '🔍', t: 'Inspección' } };
@@ -59586,7 +59606,7 @@ function pcMovCard_(x, colK, o) {
   const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const { chips, chips2, aviso } = pcMovChips_(x, colK);
   const destacado = x.score >= 2, cb = x.cambio;
-  return `<div class="pc-mv-it ${destacado ? 'hot' : ''} ${cb ? 'chg' : ''} ${o.sel ? 'sel' : ''} ${colK === 'sal' && (aseoEstDe_(b.Id) || {}).estado === 'inspeccionado' ? 'listo' : ''}" data-listo-for="${pcEsc(String(b.Id))}" data-hid="${pcEsc(String(b.HouseId || ''))}" data-bid="${pcEsc(String(b.Id))}" style="--mc:${cb ? cb.c : t ? t.border : o.c || '#e2e8f0'}${o.onclick ? ';cursor:pointer' : ''}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(b.Id))}')"` : ''} title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
+  return `<div class="pc-mv-it ${destacado ? 'hot' : ''} ${cb ? 'chg' : ''} ${o.sel ? 'sel' : ''} ${colK === 'sal' && (aseoPubDe_(b.Id) || {}).estado === 'inspeccionado' ? 'listo' : ''}" data-listo-for="${pcEsc(String(b.Id))}" data-hid="${pcEsc(String(b.HouseId || ''))}" data-bid="${pcEsc(String(b.Id))}" style="--mc:${cb ? cb.c : t ? t.border : o.c || '#e2e8f0'}${o.onclick ? ';cursor:pointer' : ''}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(b.Id))}')"` : ''} title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
     <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
     <div style="min-width:0;flex:1">
       ${aviso}
@@ -59635,7 +59655,7 @@ function pcAlojCard_(g, hoy, o) {
   const ids = [...g.sal, ...g.ent].map(x => String(x.b.Id));
   const sel = o.selId && ids.includes(String(o.selId));
   const asigId = g.sal[0] ? g.sal[0].b.Id : ids[0];
-  const listo = (aseoEstDe_(asigId) || {}).estado === 'inspeccionado';
+  const listo = (aseoPubDe_(asigId) || {}).estado === 'inspeccionado';
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
     <div class="mv-ac-h"><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}</div>
     ${aseoEstadoHtml_(asigId, g.hid)}
@@ -64058,6 +64078,9 @@ function aseoEnsureCss_() {
   .ae-p{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap}
   .ae-p.on{color:#166534}
   .ae-val:hover{box-shadow:0 0 0 3px rgba(22,163,74,.18)}
+  .ae-nota{font-size:10.5px;font-weight:700}
+  .ae-nota.ok{color:#15803d}
+  .ae-nota.pend{color:#b45309}
   .ae-p i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1.5px solid #cbd5e1;font-size:9px;color:#fff}
   .ae-p small{font-size:9.5px;opacity:.8}
   .ae-l{width:14px;height:2px;background:#e2e8f0;margin:0 4px}
