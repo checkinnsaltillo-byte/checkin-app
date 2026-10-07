@@ -59758,7 +59758,7 @@ function pcMovRow_(x, kind, hoy, o) {
   o = o || {};
   const b = x.b, st = mvStay_(b, hoy), { chips, chips2, aviso } = pcMovChips_(x, kind);
   return `<div class="mv-row ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" ${o.onclick ? `onclick="event.stopPropagation();${o.onclick}('${pcEsc(String(b.Id))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-row-k" style="color:${kind === 'ent' ? '#16a34a' : kind === 'cur' ? '#2563eb' : '#dc2626'}">${kind === 'ent' ? '🔑 Entrada hoy' : kind === 'cur' ? '🛏️ Reserva en curso' : '🧳 Salida'}<span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
+    <div class="mv-row-k"><span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
     ${aviso}
     <div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
@@ -59766,6 +59766,17 @@ function pcMovRow_(x, kind, hoy, o) {
     ${kind === 'ent' ? aseoAccionesReserva_(b, 'ent', x.aloj, '') : ''}
   </div>`;
 }
+window.mvAcToggle_ = function (k) {
+  ASEO.abiertas = ASEO.abiertas || new Set();
+  if (ASEO.abiertas.has(k)) ASEO.abiertas.delete(k); else ASEO.abiertas.add(k);
+  // Solo esta card (todas sus copias: Panel y Control de aseo), sin re-pintar el resto.
+  document.querySelectorAll('.mv-ac').forEach(c => {
+    if ((c.dataset.hid || '') !== k && c.dataset.k !== k) return;
+    const on = ASEO.abiertas.has(k);
+    const r = c.querySelector('.mv-ac-res'); if (r) r.hidden = !on;
+    const car = c.querySelector('.mv-ac-car'); if (car) car.classList.toggle('on', on);
+  });
+};
 function pcAlojCard_(g, hoy, o) {
   o = o || {};
   const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(g.hid) : null;
@@ -59780,18 +59791,23 @@ function pcAlojCard_(g, hoy, o) {
   const selE = (aseoEstDe_(asigId) || {}).estado || 'pendiente', pubE = (aseoPubDe_(asigId) || {}).estado || '';
   const horaMx = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24;
   const vivosEnt = g.ent.filter(x => !(x.cambio && x.cambio.k === 'cancelada')).length;
+  // Reservas plegadas por defecto (se abren con el encabezado o al seleccionar en el calendario).
+  const kAc = g.hid || g.k, nRes = g.sal.length + g.ent.length + (g.cur || []).length;
+  const abierta = !!((window.ASEO && ASEO.abiertas && ASEO.abiertas.has(kAc)) || sel);
   let avisoVal = '';
   if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (!g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
-  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-ac-h"><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}</div>
+  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
+    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcToggle_('${pcEsc(kAc)}')" title="${abierta ? 'Ocultar' : 'Ver'} reservas"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
     ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid)}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
+    <div class="mv-ac-res" ${abierta ? '' : 'hidden'}>
     ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${(g.cur || []).map(x => pcMovRow_(x, 'cur', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${g.extra && !g.ent.length && !(g.cur || []).length ? '<div class="mv-row" style="color:#64748b;font-size:12px;font-weight:700">🏠 Sin reserva en curso</div>' : ''}
+    </div>
   </div>`;
 }
 function mvVista_(k) { try { return localStorage.getItem(k) || 'reserva'; } catch (_) { return 'reserva'; } }
@@ -64181,8 +64197,8 @@ function aseoEnsureCss_() {
   .mv-tg .sw i{position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
   .mv-tg.on{color:#9a3412;border-color:#fdba74;background:#fff7ed}
   .mv-tg.on .sw{background:#ea580c}.mv-tg.on .sw i{left:13px}
-  .mv-sms{all:unset;cursor:pointer;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#0f172a;color:#fff}
-  .mv-sms:hover{background:#334155}
+  .mv-sms{all:unset;cursor:pointer;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
+  .mv-sms:hover{background:#bae6fd}
   .mv-sms-ok{font-size:10.5px;font-weight:800;color:#15803d}
   .mv-modal{position:fixed;inset:0;z-index:10060;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}
   .mv-modal-c{width:min(460px,100%);background:#fff;border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
@@ -64210,7 +64226,11 @@ function aseoEnsureCss_() {
   .mv-ac{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #cbd5e1;border-radius:14px;padding:10px 12px;box-shadow:0 2px 10px rgba(15,23,42,.05);min-width:0}
   .mv-ac.in{background:linear-gradient(180deg,#fecaca,#fee2e2 60%,#fef2f2);border-color:#f87171;border-left-color:#dc2626;box-shadow:0 6px 18px -8px rgba(220,38,38,.45)}
   .mv-ac.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18)}
-  .mv-ac-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .mv-ac-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;cursor:pointer;user-select:none}
+  .mv-ac-car{display:inline-block;font-size:12px;color:#64748b;transition:transform .2s}
+  .mv-ac-car.on{transform:rotate(90deg)}
+  .mv-ac-n{font-size:10.5px;font-weight:800;color:#64748b;background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
+  .mv-ac-res[hidden]{display:none}
   .mv-ac-t{font-size:14.5px;font-weight:900;color:#0f172a;flex:1;min-width:0;overflow-wrap:anywhere}
   .mv-ac-code{font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#1e1b4b;color:#fff}
   .mv-ac-in{font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dc2626;color:#fff;animation:mvPulse 1.6s ease-in-out infinite;--ac:#dc2626}
