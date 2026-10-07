@@ -63939,7 +63939,7 @@ function aseoEnsureCss_() {
   .mv-asig:hover{border-color:#6366f1}
   .mv-live{color:#16a34a;font-weight:800}
   .mv-sync{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;margin:0 0 10px;border-radius:10px;background:#0f172a;color:#cbd5e1;font-size:12px;line-height:1.35}
-  .mv-sync b{color:#fff;font-weight:800;text-transform:capitalize}
+  .mv-sync b{color:#fff;font-weight:800}
   .mv-sync .d{width:10px;height:10px;border-radius:50%;flex:none;background:#22c55e;--ac:#22c55e;animation:mvPulse 1.6s ease-in-out infinite}
   .mv-sync .d.warn{background:#f59e0b;--ac:#f59e0b}.mv-sync .d.bad{background:#ef4444;--ac:#ef4444}
   .mv-sync .h{font-weight:900;padding:1px 8px;border-radius:999px;background:rgba(34,197,94,.18);color:#86efac}
@@ -64004,7 +64004,8 @@ function mvSyncTxt_() {
   const nivel = ASEO.err || ASEO.netErr || seg > 180 ? 'bad' : seg > 75 ? 'warn' : 'ok';
   const hace = seg < 60 ? `hace ${seg} s` : seg < 3600 ? `hace ${Math.floor(seg / 60)} min ${seg % 60} s` : `hace ${Math.floor(seg / 3600)} h`;
   const prox = ASEO.chk ? Math.max(0, ASEO_POLL_S - Math.round((Date.now() - ASEO.chk) / 1000)) : ASEO_POLL_S;
-  const fecha = t.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  let fecha = t.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  fecha = fecha.charAt(0).toUpperCase() + fecha.slice(1);
   const hora = t.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   return `<span class="d ${nivel}"></span><span>Última actualización con Lodgify:</span> <b>${fecha} · ${hora}</b> <span class="h ${nivel}">${hace}</span>`
     + (nivel === 'ok' ? ` <span class="p">· siguiente revisión en ${prox} s</span>` : '')
