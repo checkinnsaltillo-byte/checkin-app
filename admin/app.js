@@ -59641,7 +59641,22 @@ function pcMovAlojGrupos_(cols) {
   const okB = x => /^booked$/i.test(String(x.b.Status || '').trim()) || (x.cambio && x.cambio.k === 'cancelada');
   cols = cols.map(c => Object.assign({}, c, { list: c.list.filter(okB) }));
   cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
-  cols[1].list.forEach(x => { const g = m.get(key(x)); if (g) g.ent.push(x); });
+  // Entradas sin salida hoy en ese alojamiento → card propia (el estado de aseo es el de
+  // su última salida, o el del alojamiento "H<hid>" si no tiene; igual que el bot y la guía).
+  const hoyE = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const bookedE = pcMovBookings_().filter(b => /^booked$/i.test(String(b.Status || '').trim()));
+  const turnoverId = hid => {
+    let u = null;
+    bookedE.forEach(b => { if (String(b.HouseId) !== hid) return; const d = _pagosDateIso(b.DateDeparture); if (d && d <= hoyE && (!u || d > u.d)) u = { id: String(b.Id), d }; });
+    return u ? u.id : 'H' + hid;
+  };
+  cols[1].list.forEach(x => {
+    const g = m.get(key(x));
+    if (g) { g.ent.push(x); return; }
+    const k = key(x), hid = String(x.b.HouseId || '');
+    if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid, sal: [], ent: [], estId: hid ? turnoverId(hid) : '', soloEnt: true });
+    m.get(k).ent.push(x);
+  });
   // Alojamientos SIN salida hoy cuyo estado de aseo se actualizó hoy (bot o sistema):
   // misma card, con la reserva en curso si la hay.
   const hoy = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
@@ -59684,8 +59699,18 @@ function pcAlojCard_(g, hoy, o) {
   const sel = o.selId && ids.includes(String(o.selId));
   const asigId = g.estId || (g.sal[0] ? g.sal[0].b.Id : ids[0]);
   const listo = (aseoPubDe_(asigId) || {}).estado === 'inspeccionado';
+  // Avisos de validación:
+  //  · sale y entra hoy, aseo aún Pendiente después de las 2:00 p.m. → URGE validación
+  //  · solo entra hoy y no hay "Terminado"/"Inspeccionado" publicado → Requiere validación
+  const selE = (aseoEstDe_(asigId) || {}).estado || 'pendiente', pubE = (aseoPubDe_(asigId) || {}).estado || '';
+  const horaMx = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24;
+  const vivosEnt = g.ent.filter(x => !(x.cambio && x.cambio.k === 'cancelada')).length;
+  let avisoVal = '';
+  if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
+  else if (!g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
     <div class="mv-ac-h"><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}</div>
+    ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid)}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
     ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
@@ -59717,8 +59742,8 @@ function pcRenderMovs_() {
   if (elA) {
     const gs = pcMovAlojGrupos_(cols), nIn = gs.filter(g => g.ent.length).length;
     const nChgA = gs.filter(g => [...g.sal, ...g.ent].some(x => x.cambio)).length;
-    const nX = gs.filter(g => g.extra).length, nS = gs.length - nX;
-    elA.innerHTML = headA(`${nS} alojamiento${nS === 1 ? '' : 's'} con salida hoy${nX ? ` · ${nX} más con estado actualizado hoy` : ''}${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChgA ? ` · <b style="color:#dc2626">⚠️ ${nChgA} con cambios</b>` : ''}`) +
+    const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length, nS = gs.length - nX - nE;
+    elA.innerHTML = headA(`${nS} alojamiento${nS === 1 ? '' : 's'} con salida hoy${nE ? ` · ${nE} solo con entrada` : ''}${nX ? ` · ${nX} más con estado actualizado hoy` : ''}${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChgA ? ` · <b style="color:#dc2626">⚠️ ${nChgA} con cambios</b>` : ''}`) +
       (gs.length ? `<div class="mv-acg">${gs.map(g => pcAlojCard_(g, hoy)).join('')}</div>` : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
       `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
   }
@@ -64259,8 +64284,8 @@ function aseoRenderSide_() {
     // La reserva seleccionada puede ser la ENTRADA de una card → no mostrarla aparte.
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
-    const nX = gs.filter(g => g.extra).length;
-    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nX ? ` + ${nX} con estado actualizado hoy` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
+    const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
+    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado hoy` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
       <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
