@@ -64109,6 +64109,8 @@ function aseoEnsureCss_() {
   .mv-sync-t{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
   .mv-sync-btn{all:unset;cursor:pointer;flex:none;margin-left:auto;padding:5px 12px;border-radius:999px;background:#fff;color:#0f172a;font-size:11.5px;font-weight:800;white-space:nowrap}
   .mv-sync-btn:hover{background:#e0e7ff}
+  .mv-sync-btn.notif{margin-left:6px;background:#fde68a;color:#78350f}
+  .mv-sync-btn.notif:hover{background:#fcd34d}
   .mv-sync-btn:disabled{opacity:.75;cursor:default}
   .mv-sync .d{width:10px;height:10px;border-radius:50%;flex:none;background:#22c55e;--ac:#22c55e;animation:mvPulse 1.6s ease-in-out infinite}
   .mv-sync .d.warn{background:#f59e0b;--ac:#f59e0b}.mv-sync .d.bad{background:#ef4444;--ac:#ef4444}
@@ -64197,8 +64199,37 @@ async function aseoRefresh_(force) {
 // Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
 const ASEO_POLL_S = 20;
 function mvSyncBar_() {
-  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button></div>`;
+  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button><button type="button" class="mv-sync-btn notif" onclick="event.stopPropagation();mvNotificar_(this)" title="Avisar por WhatsApp al personal cuyas limpiezas/inspecciones asignadas cambiaron">📣 Notificar actualizaciones</button></div>`;
 }
+// "Notificar actualizaciones": compara lo que se le envió a cada persona hoy contra sus
+// asignaciones actuales, muestra los cambios para confirmar y envía la lista actualizada.
+window.mvNotificar_ = async function (btn) {
+  if (ASEO._notificando) return;
+  ASEO._notificando = true;
+  const txt0 = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Revisando cambios…'; }
+  try {
+    const pv = await fetch(`${BACKEND}/aseo/notificar/preview?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    if (!pv.ok) throw new Error(pv.error || 'No se pudo revisar');
+    const cambios = pv.cambios || [];
+    if (!cambios.length) { alert('No hay cambios de asignación por notificar: cada persona ya tiene su lista al día.'); return; }
+    const conTel = cambios.filter(c => c.tel), sinTel = cambios.filter(c => !c.tel);
+    const linea = c => `• ${c.persona}${c.primerEnvio ? ' (primer envío)' : ''}\n` +
+      (c.agregados.length ? `   ➕ ${c.agregados.join(', ')}\n` : '') + (c.quitados.length ? `   ➖ ${c.quitados.join(', ')}\n` : '') +
+      (c.total ? '' : '   (se queda sin limpiezas asignadas)\n');
+    let msg = 'Cambios en las asignaciones de aseo / inspección:\n\n' + conTel.map(linea).join('');
+    if (sinTel.length) msg += `\n⚠️ Sin celular en Personal (no se les enviará): ${sinTel.map(c => c.persona).join(', ')}\n`;
+    if (!conTel.length) { alert(msg + '\nNadie a quien enviar.'); return; }
+    msg += `\n¿Enviar el WhatsApp con su lista actualizada a ${conTel.length} persona${conTel.length === 1 ? '' : 's'}?`;
+    if (!confirm(msg)) return;
+    if (btn) btn.textContent = '⏳ Enviando…';
+    const r = await fetch(`${BACKEND}/aseo/notificar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personas: conTel.map(c => c.persona), user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'No se pudo enviar');
+    const ok = (r.resultados || []).filter(x => x.ok), mal = (r.resultados || []).filter(x => !x.ok);
+    alert(`✅ Enviado a: ${ok.map(x => x.persona).join(', ') || 'nadie'}` + (mal.length ? `\n⚠️ No se pudo enviar a: ${mal.map(x => `${x.persona} (${x.error})`).join(', ')}` : ''));
+  } catch (e) { alert('No se pudo notificar: ' + (e.message || e)); }
+  finally { ASEO._notificando = false; if (btn) { btn.disabled = false; btn.textContent = txt0 || '📣 Notificar actualizaciones'; } }
+};
 // Botón "Actualizar": fuerza la consulta a Lodgify (sin esperar los 20 s) y recarga
 // estados, asignaciones y extensiones; cada 5 min también la copia completa de reservas.
 window.mvForzar_ = async function (btn) {
