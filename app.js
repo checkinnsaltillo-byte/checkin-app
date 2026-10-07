@@ -59471,10 +59471,11 @@ function pcMovCols_(dia) {
 // Chip "Personal asignado" (multi-selección) — compartido Panel / Control de aseo.
 // ── Estado de aseo de la salida: En proceso → Terminado → Inspeccionado (= listo).
 const ASEO_EST = [
-  { k: 'pendiente', t: 'Pendiente', ico: '⏳', c: '#64748b', bg: '#f1f5f9' },
-  { k: 'en_proceso', t: 'En proceso', ico: '🧽', c: '#b45309', bg: '#fef3c7' },
-  { k: 'terminado', t: 'Terminado', ico: '🧹', c: '#1d4ed8', bg: '#dbeafe' },
-  { k: 'inspeccionado', t: 'Inspeccionado', ico: '✅', c: '#15803d', bg: '#dcfce7' },
+  // card = fondo de la card de alojamiento (mismo tono que el chip del estado).
+  { k: 'pendiente', t: 'Pendiente', ico: '⏳', c: '#64748b', bg: '#f1f5f9', card: '#f1f5f9' },
+  { k: 'en_proceso', t: 'En proceso', ico: '🧽', c: '#b45309', bg: '#fef3c7', card: '#fef3c7' },
+  { k: 'terminado', t: 'Terminado', ico: '🧹', c: '#15803d', bg: '#dcfce7', card: '#dcfce7' },
+  { k: 'inspeccionado', t: 'Inspeccionado', ico: '✅', c: '#fff', bg: '#16a34a', bd: '#15803d', card: '#86efac' },
 ];
 function aseoEstDe_(id) { return ((window.ASEO && ASEO.estados) || {})[String(id)] || null; }
 function aseoHora_(iso) { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); }
@@ -59510,7 +59511,7 @@ function aseoEstadoHtml_(id, hid, opt) {
     ? `<div class="ae-guia ${G.estado === 'terminado' || G.estado === 'inspeccionado' ? 'ok' : ''}">📖 La guía muestra: <b>«${pcEsc(G.texto)}»</b></div>`
     : `<div class="ae-guia nada">📖 La guía no muestra ningún aviso</div>`;
   const listo = pub && pub.estado === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(pub.at)}${pub.by ? ' · ' + pcEsc(pub.by) : ''}</small></div></div>` : '';
-  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${requiere ? circulo : ''}${nota}</div>${guia}</div>`;
+  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}${E.bd ? ';--bd:' + E.bd : ''}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${requiere ? circulo : ''}${nota}</div>${guia}</div>`;
 }
 window.aseoValidar_ = function (id, hid) {
   const r = aseoEstDe_(id);
@@ -59978,8 +59979,12 @@ function pcAlojCard_(g, hoy, o) {
     hChips = medio + clas + larga;
   }
   // Franja superior pegada al borde: código | entrada | salida (las dos mitades del mismo ancho).
-  const banda = corto || boxEnt || tardChip
-    ? `<div class="mv-ac-band"><span class="mv-ac-code">${pcEsc((corto || '').toUpperCase())}</span><div class="bx">${boxEnt}</div><div class="bx">${tardChip}</div></div>` : '';
+  const chipsH = `${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>`;
+  // Sin recuadros de entrada/salida: los chips ocupan ese espacio (2 líneas = alto del código).
+  const conCajas = !!(boxEnt || tardChip);
+  const banda = !(corto || conCajas) ? ''
+    : conCajas ? `<div class="mv-ac-band"><span class="mv-ac-code">${pcEsc((corto || '').toUpperCase())}</span><div class="bx">${boxEnt}</div><div class="bx">${tardChip}</div></div>`
+    : `<div class="mv-ac-band solo"><span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span><div class="mv-ac-chips">${chipsH}</div></div>`;
   const asg = ((window.ASEO && ASEO.asig) || {})[String(asigId)] || {};
   const pA = asg.aseo || asg.personal || [], pI = asg.inspeccion || [];
   const personas = pA.length || pI.length
@@ -59989,13 +59994,14 @@ function pcAlojCard_(g, hoy, o) {
   const esHoyC = o.esHoy !== false;
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
-  else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
+  else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#7c3aed"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   // Orden: franja código|entrada|salida · chips · personas asignadas · botones
   // de asignar · estado · aviso · lo que muestra la guía · casilla Publicado.
-  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
+  const EC = ASEO_EST.find(e => e.k === selE) || ASEO_EST[0];
+  return `<div class="mv-ac mv-est ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" style="--eb:${EC.card};--ec:${EC.bd || EC.c}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')">
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
       ${banda}
-      <div class="mv-ac-chips">${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
+      ${banda && !conCajas ? '' : `<div class="mv-ac-chips">${chipsH}</div>`}
       ${personas}
     </div>
     <div class="pc-mv-chips" style="margin:0 0 4px">${pcAsigChip_(asigId)}</div>
@@ -64465,6 +64471,9 @@ function aseoEnsureCss_() {
   .mv-ac .mv-ac-band .mv-chg > .mv-temp-chip{white-space:normal !important;text-align:center;line-height:1.15;padding:3px 3px !important;font-size:9.5px !important;flex:1}
   .mv-ac .mv-ac-band .mv-chg > select.mv-hora{padding:2px 2px;font-size:9.5px;min-height:17px}
   .mv-ac-h .mv-pers{margin:5px 0 0}
+  .mv-ac-band.solo{grid-template-columns:auto 1fr}
+  .mv-ac-band.solo > .mv-ac-chips{align-content:center;padding:4px 6px 0 7px;row-gap:3px}
+  .mv-ac.mv-est{cursor:pointer;background:var(--eb) !important;border-color:color-mix(in srgb,var(--ec) 35%,#fff) !important;border-left-color:var(--ec) !important}
   .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35}
   .mv-pers b{color:#0f172a}.mv-pers small{color:#64748b;font-weight:700}
   .mv-pers.no{color:#dc2626;font-weight:900}
@@ -64551,7 +64560,7 @@ function aseoEnsureCss_() {
   .aseo-grid:not(.con-cal) .aseo-side{position:static;max-height:none}
   .ae-w{margin:2px 0 6px}
   .ae-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .ae-btn{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--c);border:1.5px solid color-mix(in srgb,var(--c) 45%,#fff)}
+  .ae-btn{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--c);border:1.5px solid var(--bd,color-mix(in srgb,var(--c) 45%,#fff))}
   .ae-btn:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent)}
   .ae-ps{display:flex;align-items:center;gap:0;flex-wrap:wrap}
   .ae-p{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap}
