@@ -59503,9 +59503,14 @@ function aseoEstadoHtml_(id, hid) {
     ? (k === 'en_proceso' && r ? `<span class="ae-nota ok">Publicado${r.at ? ' ' + aseoHora_(r.at) : ''}${r.by ? ' · ' + pcEsc(r.by) : ''}</span>` : '')
     : validado
     ? `<span class="ae-nota ok">✓ Validado y publicado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + pcEsc(r.by) : ''}</span>`
-    : `<span class="ae-nota pend">Sin validar · no publicado${P ? ` (la guía muestra: ${P.t})` : ''}</span>`;
+    : `<span class="ae-nota pend">Sin validar · no publicado</span>`;
+  // Lo que REALMENTE ve el huésped en su guía (calculado en el servidor con la misma regla que la guía).
+  const G = hid ? ((window.ASEO && ASEO.guias) || {})[String(hid)] : null;
+  const guia = !G ? '' : G.texto
+    ? `<div class="ae-guia ${G.estado === 'terminado' || G.estado === 'inspeccionado' ? 'ok' : ''}">📖 La guía muestra: <b>«${pcEsc(G.texto)}»</b></div>`
+    : `<div class="ae-guia nada">📖 La guía no muestra ningún aviso</div>`;
   const listo = pub && pub.estado === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(pub.at)}${pub.by ? ' · ' + pcEsc(pub.by) : ''}</small></div></div>` : '';
-  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${requiere ? circulo : ''}${nota}</div></div>`;
+  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${requiere ? circulo : ''}${nota}</div>${guia}</div>`;
 }
 window.aseoValidar_ = function (id, hid) {
   const r = aseoEstDe_(id);
@@ -59557,6 +59562,8 @@ window.aseoSetEstado_ = async function (id, hid, k, validar) {
     if (!res.ok) throw new Error(res.error || 'Error');
     if (res.estado) ASEO.estados[id] = res.estado; else delete ASEO.estados[id];
     aseoPintarEstado_(id);
+    // Recalcula al instante lo que muestra la guía (línea "📖 La guía muestra…").
+    aseoRefresh_(true).then(() => { aseoPintarEstado_(id); if (document.getElementById('pc-sec-movs')) mvSyncTick_(); }).catch(() => {});
   } catch (e) {
     if (prev) ASEO.estados[id] = prev; else delete ASEO.estados[id];
     aseoPintarEstado_(id);
@@ -64147,6 +64154,10 @@ function aseoEnsureCss_() {
   .ae-nota{font-size:10.5px;font-weight:700}
   .ae-nota.ok{color:#15803d}
   .ae-nota.pend{color:#b45309}
+  .ae-guia{margin-top:5px;font-size:11px;color:#475569;font-weight:600;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.75);border:1px dashed #cbd5e1;display:inline-block}
+  .ae-guia b{color:#0f172a}
+  .ae-guia.ok{border-color:#86efac;background:#f0fdf4}.ae-guia.ok b{color:#15803d}
+  .ae-guia.nada{color:#94a3b8}
   .ae-p i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1.5px solid #cbd5e1;font-size:9px;color:#fff}
   .ae-p small{font-size:9.5px;opacity:.8}
   .ae-l{width:14px;height:2px;background:#e2e8f0;margin:0 4px}
@@ -64178,7 +64189,7 @@ async function aseoRefresh_(force) {
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
