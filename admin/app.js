@@ -59889,8 +59889,10 @@ function aseoAplicarReprog_(gs, hoy) {
   Object.entries(RP).forEach(([id, r]) => {
     if (!r || r.fecha !== hoy || !r.orig || r.orig === hoy) return;
     if (!porDia[r.orig]) { try { const { cols } = pcMovCols_(r.orig); porDia[r.orig] = pcMovAlojGrupos_(cols, r.orig); } catch (_) { porDia[r.orig] = []; } }
+    const ya = out.findIndex(x => aseoAsigIdDe_(x) === String(id));
+    if (ya >= 0) { out[ya] = Object.assign({}, out[ya], { reprogDe: r.orig }); return; } // ese día ya tenía la card (mismo aseo)
     const g = porDia[r.orig].find(x => aseoAsigIdDe_(x) === String(id));
-    if (g && !out.some(x => aseoAsigIdDe_(x) === String(id))) out.push(Object.assign({}, g, { reprogDe: r.orig, estId: g.estId || id }));
+    if (g) out.push(Object.assign({}, g, { reprogDe: r.orig, estId: g.estId || id }));
   });
   return out;
 }
