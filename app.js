@@ -59804,7 +59804,8 @@ function mvAcPopupRefresh_() {
   const src = [...document.querySelectorAll('.mv-ac')].find(c => c.dataset.k === ASEO._popK && !c.closest('#mv-ac-modal'));
   if (!src) { mvAcPopupCerrar_(); return; }
   const c = src.cloneNode(true);
-  c.removeAttribute('onclick'); c.style.cursor = 'default';
+  c.removeAttribute('onclick'); c.style.cursor = 'default'; c.classList.remove('sel');
+  c.querySelectorAll('[onclick*="aseoSelect_"]').forEach(e => e.removeAttribute('onclick'));
   const r = c.querySelector('.mv-ac-res'); if (r) r.hidden = false;
   const h = c.querySelector('.mv-ac-h'); if (h) { h.removeAttribute('onclick'); h.style.cursor = 'default'; h.querySelector('.mv-ac-car')?.remove(); }
   const prev = m.querySelector('.mv-acm-c'), top = prev ? prev.scrollTop : 0;
@@ -59836,7 +59837,7 @@ function pcAlojCard_(g, hoy, o) {
   const vivosEnt = g.ent.filter(x => !(x.cambio && x.cambio.k === 'cancelada')).length;
   // Reservas plegadas por defecto (se abren con el encabezado o al seleccionar en el calendario).
   const kAc = g.hid || g.k, nRes = g.sal.length + g.ent.length + (g.cur || []).length;
-  const abierta = !!((window.ASEO && ASEO.todas) || sel);
+  const abierta = !!(window.ASEO && ASEO.todas);
   // Chips de la reserva que ENTRA (medio, clasificación y entrada temprana) visibles en el encabezado.
   const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
   let hChips = '';
@@ -59857,15 +59858,15 @@ function pcAlojCard_(g, hoy, o) {
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
-  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
+  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
     ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: !esHoyC })}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
     <div class="mv-ac-res" ${abierta ? '' : 'hidden'}>
-    ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
-    ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
-    ${(g.cur || []).map(x => pcMovRow_(x, 'cur', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
+    ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { sel: String(o.selId) === String(x.b.Id) })).join('')}
+    ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { sel: String(o.selId) === String(x.b.Id) })).join('')}
+    ${(g.cur || []).map(x => pcMovRow_(x, 'cur', hoy, { sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${g.extra && !g.ent.length && !(g.cur || []).length ? '<div class="mv-row" style="color:#64748b;font-size:12px;font-weight:700">🏠 Sin reserva en curso</div>' : ''}
     </div>
   </div>`;
@@ -64496,7 +64497,7 @@ function aseoRenderSide_() {
   const sal = cols[0].list;
   const selId = ASEO.sel ? String(ASEO.sel) : '';
   let selBlock = '';
-  if (selId && !sal.some(x => String(x.b.Id) === selId)) {
+  if (selId && ASEO.cal && !sal.some(x => String(x.b.Id) === selId)) {
     const b = pcMovBookings_().find(x => String(x.Id) === selId);
     if (b) {
       const x = pcMovInfo_(b); x.cambio = pcMovCambio_(b, hoy);
