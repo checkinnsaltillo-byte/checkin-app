@@ -59638,6 +59638,25 @@ function pcMovAlojGrupos_(cols) {
   const key = x => String(x.b.HouseId || x.aloj);
   cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
   cols[1].list.forEach(x => { const g = m.get(key(x)); if (g) g.ent.push(x); });
+  // Alojamientos SIN salida hoy cuyo estado de aseo se actualizó hoy (bot o sistema):
+  // misma card, con la reserva en curso si la hay.
+  const hoy = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const diaMx = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' }); };
+  const hids = new Set([...m.values()].map(g => g.hid).filter(Boolean));
+  const ests = Object.entries((window.ASEO && ASEO.estados) || {}).filter(([, r]) => r && r.hid && r.at && diaMx(r.at) === hoy && !hids.has(String(r.hid)))
+    .sort((a, b) => String(b[1].at).localeCompare(String(a[1].at)));
+  if (ests.length) {
+    const todas = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
+    ests.forEach(([id, r]) => {
+      const hid = String(r.hid); if (hids.has(hid)) return; hids.add(hid);
+      const deCasa = todas.filter(b => String(b.HouseId) === hid);
+      const enCurso = deCasa.filter(b => { const a = _pagosDateIso(b.DateArrival), d = _pagosDateIso(b.DateDeparture); return a <= hoy && d > hoy; });
+      const row = typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(hid) : null;
+      const nombre = row ? `${String(row.Propiedad || '').trim()} #${String(row['# Departamento'] || '').trim().replace(/^#\s*/, '')}` : (deCasa[0] ? pcMovInfo_(deCasa[0]).aloj : `Alojamiento ${hid}`);
+      const cur = enCurso.map(b => { const x = pcMovInfo_(b); x.cambio = pcMovCambio_(b, hoy); return x; });
+      m.set('x' + hid, { k: 'x' + hid, aloj: nombre, hid, sal: [], ent: cur.filter(x => x.arr === hoy), cur: cur.filter(x => x.arr !== hoy), estId: id, extra: true });
+    });
+  }
   return [...m.values()].sort((a, b) => (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0)
     || ([...b.sal, ...b.ent].some(x => x.cambio) ? 1 : 0) - ([...a.sal, ...a.ent].some(x => x.cambio) ? 1 : 0)
     || String(a.aloj).localeCompare(String(b.aloj), 'es', { numeric: true }));
@@ -59646,7 +59665,7 @@ function pcMovRow_(x, kind, hoy, o) {
   o = o || {};
   const b = x.b, st = mvStay_(b, hoy), { chips, chips2, aviso } = pcMovChips_(x, kind);
   return `<div class="mv-row ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" ${o.onclick ? `onclick="event.stopPropagation();${o.onclick}('${pcEsc(String(b.Id))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-row-k" style="color:${kind === 'ent' ? '#16a34a' : '#dc2626'}">${kind === 'ent' ? '🔑 Entrada hoy' : '🧳 Salida'}<span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
+    <div class="mv-row-k" style="color:${kind === 'ent' ? '#16a34a' : kind === 'cur' ? '#2563eb' : '#dc2626'}">${kind === 'ent' ? '🔑 Entrada hoy' : kind === 'cur' ? '🛏️ Reserva en curso' : '🧳 Salida'}<span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
     ${aviso}
     <div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
@@ -59657,9 +59676,9 @@ function pcAlojCard_(g, hoy, o) {
   o = o || {};
   const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(g.hid) : null;
   const corto = r ? String(r.device_name || r.Device_name || '').trim() : '';
-  const ids = [...g.sal, ...g.ent].map(x => String(x.b.Id));
+  const ids = [...g.sal, ...g.ent, ...(g.cur || [])].map(x => String(x.b.Id));
   const sel = o.selId && ids.includes(String(o.selId));
-  const asigId = g.sal[0] ? g.sal[0].b.Id : ids[0];
+  const asigId = g.estId || (g.sal[0] ? g.sal[0].b.Id : ids[0]);
   const listo = (aseoPubDe_(asigId) || {}).estado === 'inspeccionado';
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
     <div class="mv-ac-h"><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}</div>
@@ -59667,6 +59686,8 @@ function pcAlojCard_(g, hoy, o) {
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
     ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
+    ${(g.cur || []).map(x => pcMovRow_(x, 'cur', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
+    ${g.extra && !g.ent.length && !(g.cur || []).length ? '<div class="mv-row" style="color:#64748b;font-size:12px;font-weight:700">🏠 Sin reserva en curso</div>' : ''}
   </div>`;
 }
 function mvVista_(k) { try { return localStorage.getItem(k) || 'reserva'; } catch (_) { return 'reserva'; } }
@@ -59692,7 +59713,8 @@ function pcRenderMovs_() {
   if (elA) {
     const gs = pcMovAlojGrupos_(cols), nIn = gs.filter(g => g.ent.length).length;
     const nChgA = gs.filter(g => [...g.sal, ...g.ent].some(x => x.cambio)).length;
-    elA.innerHTML = headA(`${gs.length} alojamiento${gs.length === 1 ? '' : 's'} con salida hoy${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChgA ? ` · <b style="color:#dc2626">⚠️ ${nChgA} con cambios</b>` : ''}`) +
+    const nX = gs.filter(g => g.extra).length, nS = gs.length - nX;
+    elA.innerHTML = headA(`${nS} alojamiento${nS === 1 ? '' : 's'} con salida hoy${nX ? ` · ${nX} más con estado actualizado hoy` : ''}${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChgA ? ` · <b style="color:#dc2626">⚠️ ${nChgA} con cambios</b>` : ''}`) +
       (gs.length ? `<div class="mv-acg">${gs.map(g => pcAlojCard_(g, hoy)).join('')}</div>` : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
       `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
   }
@@ -64210,7 +64232,8 @@ function aseoRenderSide_() {
     // La reserva seleccionada puede ser la ENTRADA de una card → no mostrarla aparte.
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
-    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
+    const nX = gs.filter(g => g.extra).length;
+    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nX ? ` + ${nX} con estado actualizado hoy` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
       <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
