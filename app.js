@@ -64296,6 +64296,14 @@ function aseoEnsureCss_() {
   .mv-ac.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18)}
   .mv-ac-h{display:block;margin-bottom:6px;cursor:pointer;user-select:none}
   .mv-ac-chips{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  /* Chips homologados dentro de las cards de alojamiento: misma altura, forma y letra
+     (los de medio de reserva, clasificación, etc. traen tamaños propios en línea). */
+  .mv-ac .mv-ac-chips > :not(.mv-ac-car), .mv-ac .pc-mv-chips > *, .mv-ac .pc-mv-chips .pc-mv-chip, .mv-ac .mv-acts > *, .mv-ac .mv-ac-chips .pc-mv-chip {
+    box-sizing:border-box !important;height:22px !important;display:inline-flex !important;align-items:center !important;gap:4px !important;
+    padding:0 9px !important;font-size:10.5px !important;line-height:1 !important;border-radius:999px !important;border-width:1px !important;
+    font-weight:800 !important;white-space:nowrap !important;letter-spacing:.01em !important;vertical-align:middle}
+  .mv-ac .pc-mv-chips .mv-asig-w{display:contents !important;height:auto !important;padding:0 !important}
+  .mv-ac .mv-acts .mv-tg{padding-left:3px !important}
   .mv-ac-h .mv-ac-t{display:block;margin-top:5px;line-height:1.25}
   .mv-ac-car{display:inline-block;font-size:12px;color:#64748b;transition:transform .2s}
   .mv-ac-car.on{transform:rotate(90deg)}
