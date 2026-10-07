@@ -59718,13 +59718,13 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
 //    Aceptada → el aseo de ese alojamiento pasa al final.
 function aseoTardRec_(id) { const r = ((window.ASEO && ASEO.tardia) || {})[String(id)]; return r && r.on ? r : null; }
 function aseoHoraTxt_(h) { const m = String(h || '11:00').match(/^(\d{2}):(\d{2})$/); if (!m) return h; let H = +m[1]; const ap = H >= 12 ? 'p.m.' : 'a.m.'; H = H % 12 || 12; return `${H}:${m[2]} ${ap}`; }
-function aseoHoraInput_(id, hora, tipo) {
+function aseoHoraInput_(id, hora, tipo, corto) {
   // Lista propia de horas cada 30 min (estilo de chip; sin el selector nativo del navegador).
   const temp = tipo === 'temp', h = hora || (temp ? '12:00' : '11:00');
   const fn = temp ? `aseoTempHora_('${pcEsc(String(id))}',this.value)` : `aseoTardPost_('${pcEsc(String(id))}',{hora:this.value})`;
   const horas = []; for (let m = 6 * 60; m <= 23 * 60 + 30; m += 30) horas.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
   if (!horas.includes(h)) { horas.push(h); horas.sort(); }
-  return `<select class="mv-hora" title="Hora de ${temp ? 'entrada' : 'salida'}" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();${fn}">${horas.map(x => `<option value="${x}" ${x === h ? 'selected' : ''}>🕚 ${aseoHoraTxt_(x)}</option>`).join('')}</select>`;
+  return `<select class="mv-hora" title="Hora de ${temp ? 'entrada' : 'salida'}" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();${fn}">${horas.map(x => `<option value="${x}" ${x === h ? 'selected' : ''}>${corto ? '' : '🕚 '}${aseoHoraTxt_(x)}</option>`).join('')}</select>`;
 }
 // Chip + su hora en UNA sola pieza (para que no haya duda de a cuál corresponde).
 function aseoChipHora_(chip, input, ok, tipo) { return `<span class="mv-chg ${tipo === 'temp' ? 'ent' : 'sal'} ${ok ? 'ok' : ''}">${chip}${input}</span>`; }
@@ -59958,9 +59958,9 @@ function pcAlojCard_(g, hoy, o) {
   if (trd) {
     const sid = pcEsc(String(xs.b.Id));
     tardChip = (trd.aceptada
-      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Solicitud Salida · aceptada</button>`
-      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">🕚 Solicitud: Salida tardía</button>`);
-    tardChip = aseoChipHora_(tardChip, aseoHoraInput_(xs.b.Id, trd.hora, 'tard'), !!trd.aceptada, 'tard');
+      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Salida aceptada</button>`
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">Solicitud salida</button>`);
+    tardChip = aseoChipHora_(tardChip, aseoHoraInput_(xs.b.Id, trd.hora, 'tard', true), !!trd.aceptada, 'tard');
   }
   if (xe) {
     const t = xe.tier;
@@ -59971,14 +59971,15 @@ function pcAlojCard_(g, hoy, o) {
     const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
     prioritaria = !!(tr && tr.on && tr.aceptada);
     const tempBtn = !tr || !tr.on ? ''
-      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Solicitud Entrada · aceptada</button>`
-      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
-    const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp'), !!tr.aceptada, 'temp') : '';
+      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada aceptada</button>`
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">Solicitud entrada</button>`;
+    const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp', true), !!tr.aceptada, 'temp') : '';
     boxEnt = temp;
     hChips = medio + clas + larga;
   }
-  // Recuadros de solicitud: el primero va en la línea 1 junto al código; el segundo en la línea 2.
-  const cajas = [tardChip, boxEnt].filter(Boolean);
+  // Franja superior pegada al borde: código | entrada | salida (las dos mitades del mismo ancho).
+  const banda = corto || boxEnt || tardChip
+    ? `<div class="mv-ac-band"><span class="mv-ac-code">${pcEsc((corto || '').toUpperCase())}</span><div class="bx">${boxEnt}</div><div class="bx">${tardChip}</div></div>` : '';
   const asg = ((window.ASEO && ASEO.asig) || {})[String(asigId)] || {};
   const pA = asg.aseo || asg.personal || [], pI = asg.inspeccion || [];
   const personas = pA.length || pI.length
@@ -59989,16 +59990,14 @@ function pcAlojCard_(g, hoy, o) {
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
-  // Orden: L1 código + 1er recuadro · L2 2º recuadro · chips · alojamiento · personas · botones
+  // Orden: franja código|entrada|salida · chips · personas asignadas · botones
   // de asignar · estado · aviso · lo que muestra la guía · casilla Publicado.
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
-      <div class="mv-ac-l1"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${cajas[0] ? `<span class="mv-ac-box">${cajas[0]}</span>` : ''}</div>
-      ${cajas[1] ? `<div class="mv-ac-l2">${cajas[1]}</div>` : ''}
+      ${banda}
       <div class="mv-ac-chips">${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
-      <div class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</div>
+      ${personas}
     </div>
-    ${personas}
     <div class="pc-mv-chips" style="margin:0 0 4px">${pcAsigChip_(asigId)}</div>
     ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: true })}
     ${avisoVal}
@@ -64456,13 +64455,16 @@ function aseoEnsureCss_() {
   .mv-ac.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18)}
   .mv-ac-h{display:block;margin-bottom:6px;cursor:pointer;user-select:none}
   .mv-ac-chips{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-  .mv-ac-l1{display:flex;align-items:flex-start;gap:6px;margin-bottom:4px}
-  .mv-ac-l1 .mv-ac-car{padding-top:4px}
-  .mv-ac-l1 .mv-ac-code{flex:none;display:inline-flex;align-items:center;height:22px;padding:0 9px;font-size:10.5px}
-  .mv-ac-box{margin-left:auto;min-width:0;max-width:78%;display:flex;justify-content:flex-end}
-  .mv-ac-l2{display:flex;justify-content:flex-end;margin-bottom:4px}
-  .mv-ac-l2 .mv-chg{max-width:78%}
-  .mv-ac-h .mv-ac-chips{margin-top:2px}
+  .mv-ac{--pt:10px;--px:12px;--rd:13px}
+  .mv-cols .mv-ac{--pt:8px;--px:9px;--rd:11px}
+  .mv-ac-band{display:grid;grid-template-columns:auto 1fr 1fr;align-items:stretch;margin:calc(-1 * var(--pt)) calc(-1 * var(--px)) 7px;min-height:38px}
+  .mv-ac-band > .mv-ac-code{display:flex;align-items:center;justify-content:center;min-width:34px;padding:0 9px;font-size:11.5px;border-radius:var(--rd) 0 7px 0}
+  .mv-ac-band > .bx{display:flex;min-width:0}
+  .mv-ac-band > .bx:last-child > .mv-chg{border-top-right-radius:var(--rd) !important}
+  .mv-ac .mv-ac-band > .bx > .mv-chg{flex:1;min-width:0;width:100%;border-radius:0 !important;margin:0}
+  .mv-ac .mv-ac-band .mv-chg > .mv-temp-chip{white-space:normal !important;text-align:center;line-height:1.15;padding:3px 3px !important;font-size:9.5px !important;flex:1}
+  .mv-ac .mv-ac-band .mv-chg > select.mv-hora{padding:2px 2px;font-size:9.5px;min-height:17px}
+  .mv-ac-h .mv-pers{margin:5px 0 0}
   .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35}
   .mv-pers b{color:#0f172a}.mv-pers small{color:#64748b;font-weight:700}
   .mv-pers.no{color:#dc2626;font-weight:900}
