@@ -64308,7 +64308,27 @@ function aseoEnsureCss_() {
   .mv-tabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:800;color:#475569;white-space:nowrap}
   .mv-tabs button.on{background:#0f172a;color:#fff}
   .mv-acg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
-  .mv-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow-x:auto;align-items:start;padding-bottom:6px}
+  /* Columnas por propiedad SIN scroll horizontal: si no caben, pasan a la siguiente fila. */
+  .mv-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px;align-items:start;padding-bottom:4px}
+  /* Versión compacta de las cards dentro de las columnas */
+  .mv-cols .mv-ac{padding:8px 9px;border-radius:12px;border-left-width:4px}
+  .mv-cols .mv-ac-t{font-size:12.5px}
+  .mv-cols .mv-ac-chips{gap:4px}
+  .mv-cols .mv-ac .mv-ac-chips > :not(.mv-ac-car), .mv-cols .mv-ac .pc-mv-chips > *, .mv-cols .mv-ac .pc-mv-chips .pc-mv-chip, .mv-cols .mv-ac .mv-acts > * {
+    height:19px !important;padding:0 7px !important;font-size:9.5px !important;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .mv-cols .mv-asig{display:inline-block !important;line-height:17px !important}
+  .mv-cols .ae-btn{font-size:10.5px;padding:3px 8px}
+  .mv-cols .ae-row{gap:5px}
+  .mv-cols .ae-nota,.mv-cols .ae-guia{font-size:10px}
+  .mv-cols .ae-guia{padding:3px 6px}
+  .mv-cols .ae-listo{padding:6px 8px;gap:7px}.mv-cols .ae-listo b{font-size:11px}.mv-cols .ae-listo small{font-size:10px}.mv-cols .ae-ck{width:26px;height:26px;font-size:16px}
+  .mv-cols .mv-alert{padding:5px 7px;margin-bottom:5px}.mv-cols .mv-alert b{font-size:10.5px}.mv-cols .mv-alert span{font-size:10px}
+  .mv-cols .mv-row{padding:6px 7px}
+  .mv-cols .mv-row .pc-mv-n{font-size:12px}
+  .mv-cols .mv-row .pc-mv-s{font-size:10.5px}
+  .mv-cols .mv-prog{font-size:10px}
+  .mv-cols .mv-col-h{font-size:11px;padding:6px 9px}
+  .mv-cols .mv-col{gap:8px}
   .mv-col{display:flex;flex-direction:column;gap:10px;min-width:0}
   .mv-col-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:12px;background:#1e1b4b;color:#fff;font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;position:sticky;top:0;z-index:2}
   .mv-col-h b{font-size:12px;background:rgba(255,255,255,.18);border-radius:999px;padding:1px 9px}
