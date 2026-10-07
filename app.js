@@ -59849,7 +59849,7 @@ function pcAlojCard_(g, hoy, o) {
     const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
     const temp = !tr || !tr.on ? ''
       : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada temprana · solicitud aceptada</button>`
-      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Entrada temprana · prioridad</button>`;
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
     hChips = temp + medio + clas + larga;
   }
   let avisoVal = '';
@@ -64293,9 +64293,9 @@ function aseoEnsureCss_() {
   .mv-ac-n{font-size:10.5px;font-weight:800;color:#64748b;background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
   .mv-ac-res[hidden]{display:none}
   .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
-  .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:2px 9px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;--ac:#f97316;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
-  .mv-temp-chip:hover{filter:brightness(1.08)}
-  .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);--ac:#22c55e;animation:none}
+  .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:1px 9px;background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;white-space:nowrap}
+  .mv-temp-chip:hover{background:#ffedd5}
+  .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1.5px solid transparent;--ac:#22c55e}
   .aseo-dnav{background:#1e1b4b;border-color:#312e81}
   .aseo-dnav .pc-mlabel{color:#fff;min-width:190px}
   .mv-row-n{display:flex;align-items:flex-start;gap:8px}
