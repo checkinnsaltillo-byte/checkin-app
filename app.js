@@ -59863,6 +59863,37 @@ function pcMovRow_(x, kind, hoy, o) {
   </div>`;
 }
 // Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
+// Fecha de aseo editable: al cambiarla la card pasa a ese día (aseo/reprog.json).
+function aseoFechaCampo_(id, hid, fecha, de) {
+  const sid = pcEsc(String(id)), orig = de || fecha;
+  return `<div class="mv-fecha" onclick="event.stopPropagation()">📅 Fecha de aseo: <input type="date" value="${pcEsc(fecha)}" onclick="event.stopPropagation()" onchange="aseoReprog_('${sid}','${pcEsc(String(hid || ''))}','${pcEsc(orig)}',this)">${de ? `<span class="mv-rp">Reprogramada · era del ${pcEsc(aseoDiaTxt_(de))}</span>` : ''}</div>`;
+}
+window.aseoReprog_ = async function (id, hid, orig, inp) {
+  const f = inp.value, prev = inp.defaultValue;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || f === prev) { inp.value = prev; return; }
+  if (!confirm(`¿Mover esta card al ${aseoDiaTxt_(f)}?${f === orig ? '\n(Es su fecha original: deja de estar reprogramada.)' : ''}`)) { inp.value = prev; return; }
+  inp.disabled = true;
+  try {
+    const r = await fetch(`${BACKEND}/aseo/reprog`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, orig, fecha: f, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    ASEO.reprog = ASEO.reprog || {};
+    if (r.reprog) ASEO.reprog[id] = r.reprog; else delete ASEO.reprog[id];
+    aseoRenderSide_();
+  } catch (e) { alert('No se pudo cambiar la fecha: ' + (e.message || e)); inp.value = prev; inp.disabled = false; }
+};
+// Cards del día con la fecha de aseo editada: quita las movidas a otro día y agrega las movidas a este.
+function aseoAplicarReprog_(gs, hoy) {
+  const RP = ASEO.reprog || {};
+  const out = gs.filter(g => { const r = RP[aseoAsigIdDe_(g)]; return !(r && r.fecha && r.fecha !== hoy); });
+  const porDia = {};
+  Object.entries(RP).forEach(([id, r]) => {
+    if (!r || r.fecha !== hoy || !r.orig || r.orig === hoy) return;
+    if (!porDia[r.orig]) { try { const { cols } = pcMovCols_(r.orig); porDia[r.orig] = pcMovAlojGrupos_(cols, r.orig); } catch (_) { porDia[r.orig] = []; } }
+    const g = porDia[r.orig].find(x => aseoAsigIdDe_(x) === String(id));
+    if (g && !out.some(x => aseoAsigIdDe_(x) === String(id))) out.push(Object.assign({}, g, { reprogDe: r.orig, estId: g.estId || id }));
+  });
+  return out;
+}
 // Chip de movimiento: "Salen hoy ->" (rojo) | "<- Entran hoy" (verde); si solo hay uno, chip normal.
 function aseoMovChip_(sal, ent, hoy) {
   const h = hoy ? ' hoy' : '';
@@ -59935,7 +59966,7 @@ window.mvAcTodas_ = function () {
   ASEO.todas = !ASEO.todas;
   try { localStorage.setItem('mv-ac-todas', ASEO.todas ? '1' : ''); } catch (_) {}
   document.querySelectorAll('.mv-ac').forEach(c => { if (c.closest('#mv-ac-modal')) return; const r = c.querySelector('.mv-ac-res'); if (r) r.hidden = !ASEO.todas && !c.classList.contains('sel'); const car = c.querySelector('.mv-ac-car'); if (car) car.classList.toggle('on', !r || !r.hidden); });
-  document.querySelectorAll('.mv-ac-todas').forEach(b => { b.textContent = ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards'; });
+  document.querySelectorAll('.mv-ac-todas, #aseo-todas-btn').forEach(b => { b.textContent = ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards'; });
 };
 try { ASEO.todas = localStorage.getItem('mv-ac-todas') === '1'; } catch (_) {}
 function mvAcTodasBtn_() { return `<button type="button" class="mv-ac-todas" onclick="event.stopPropagation();mvAcTodas_()">${ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards'}</button>`; }
@@ -60025,6 +60056,7 @@ function pcAlojCard_(g, hoy, o) {
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
       ${banda}
       ${banda && !conCajas ? '' : `<div class="mv-ac-chips">${chipsH}</div>`}
+      ${o.fechaAseo ? aseoFechaCampo_(asigId, g.hid, o.fechaAseo, g.reprogDe) : ''}
       ${personas}
     </div>
     <div class="pc-mv-chips" style="margin:0 0 4px">${pcAsigChip_(asigId)}</div>
@@ -64502,6 +64534,14 @@ function aseoEnsureCss_() {
   .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > .mv-mov2{padding:0 !important;gap:0 !important;overflow:hidden;border:0 !important;background:transparent !important}
   .mv-alert.suave{background:#fee2e2;color:#7f1d1d;border:1.5px solid #e5e7eb;box-shadow:none;animation:none}
   .mv-alert.suave b{color:#991b1b}
+  .mv-fecha{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:5px 0 0;font-size:11px;font-weight:800;color:#334155}
+  .mv-fecha input{font:inherit;font-size:11px;font-weight:800;color:#0f172a;border:1px solid #cbd5e1;border-radius:7px;padding:2px 6px;background:#fff;cursor:pointer;max-width:130px}
+  .mv-fecha .mv-rp{font-size:10px;font-weight:900;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:1px 7px}
+  .mv-np{padding:10px}
+  .mv-np-ck{display:flex;align-items:center;gap:8px;margin:10px 0 2px;cursor:pointer;font-size:13px;color:#0f172a}
+  .mv-np-h{display:block;font-size:10.5px;color:#64748b;line-height:1.35;margin-bottom:6px}
+  .mv-np-cb{all:unset;box-sizing:border-box;width:100%;display:flex;justify-content:space-between;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#334155;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 9px;background:#fff}
+  .mv-np-list{margin-top:6px}
   .mv-pf{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 8px}
   .mv-pf > small{font-size:11px;font-weight:800;color:#64748b;margin-right:2px}
   .mv-pf-c{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:900;
@@ -64648,7 +64688,7 @@ async function aseoRefresh_(force) {
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
@@ -64656,10 +64696,75 @@ async function aseoRefresh_(force) {
 // Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
 const ASEO_POLL_S = 20;
 function mvSyncBar_() {
-  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button><button type="button" class="mv-sync-btn notif" onclick="event.stopPropagation();mvNotificar_(this)" title="Avisar por WhatsApp al personal cuyas limpiezas/inspecciones asignadas cambiaron">📣 Notificar actualizaciones</button></div>`;
+  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button><button type="button" class="mv-sync-btn notif" onclick="event.stopPropagation();mvNotifPop_(this)" title="Avisar por WhatsApp al personal · reenvío automático">📣 Notificar actualizaciones${(ASEO.autonotif || {}).on ? ' · 🔁 auto' : ''}</button></div>`;
 }
 // "Notificar actualizaciones": compara lo que se le envió a cada persona hoy contra sus
 // asignaciones actuales, muestra los cambios para confirmar y envía la lista actualizada.
+// Panel del botón: "Enviar ahora" + casilla "Reenvío automático" con la lista del personal.
+window.mvNotifPop_ = function (btn) {
+  aseoEnsureCss_();
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  const A = ASEO.autonotif || {};
+  ASEO._an = { on: !!A.on, sel: new Set(A.personas || []), btn };
+  const pop = document.createElement('div'); pop.className = 'pz-pop mv-np';
+  pop.innerHTML = `<button type="button" class="pz-go" style="width:100%;padding:8px 12px" onclick="document.querySelector('.mv-np').remove();mvNotificar_(ASEO._an.btn)">📣 Enviar actualizaciones ahora</button>
+    <div class="mv-np-ck ${ASEO._an.on ? 'on' : ''}" onclick="mvNpToggle_()"><span class="pz-ck sm ${ASEO._an.on ? 'on' : ''}">${ASEO._an.on ? '✓' : ''}</span><b>Reenvío automático</b></div>
+    <small class="mv-np-h">Cada cambio en las cards envía la lista de limpiezas con la marca ✏️ Modificado · 🆕 Agregada · 📅 Reprogramada.</small>
+    <div class="mv-np-dd" ${ASEO._an.on ? '' : 'hidden'}>
+      <button type="button" class="mv-np-cb" onclick="mvNpLista_()"><span class="mv-np-lbl"></span><span>▾</span></button>
+      <div class="mv-np-list" hidden><input class="pz-in" placeholder="🔎 Buscar…" oninput="mvNpFill_(this.value)"><div class="pz-plist"></div></div>
+    </div>`;
+  document.body.appendChild(pop);
+  const rc = btn.getBoundingClientRect(), w = 300;
+  pop.style.width = w + 'px';
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.right - w)) + 'px';
+  pop.style.top = (rc.bottom + 6) + 'px';
+  mvNpLabel_(); mvNpFill_('');
+  setTimeout(() => { ASEO._npOut = e => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', ASEO._npOut); } }; document.addEventListener('mousedown', ASEO._npOut); }, 0);
+};
+function mvNpLabel_() {
+  const el = document.querySelector('.mv-np .mv-np-lbl'); if (!el) return;
+  const n = [...ASEO._an.sel];
+  el.textContent = n.length ? `👥 ${n.map(aseoNombreCorto_).join(', ')}` : '👥 Elige al personal que recibe la lista';
+}
+window.mvNpLista_ = function () { const l = document.querySelector('.mv-np .mv-np-list'); if (l) { l.hidden = !l.hidden; if (!l.hidden) mvNpFill_(''); } };
+window.mvNpFill_ = function (q) {
+  const box = document.querySelector('.mv-np .pz-plist'); if (!box) return;
+  const sel = ASEO._an.sel, t = String(q || '').toLowerCase();
+  const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); sel.forEach(n => { if (!nombres.includes(n)) nombres.unshift(n); });
+  const L = nombres.filter(n => !t || n.toLowerCase().includes(t));
+  box.innerHTML = L.length ? L.map(n => `<div class="pz-opt ${sel.has(n) ? 'on' : ''}" data-n="${pcEsc(n)}" onclick="mvNpPick_(this)"><span class="pz-ck sm ${sel.has(n) ? 'on' : ''}">${sel.has(n) ? '✓' : ''}</span>${pcEsc(n)}</div>`).join('')
+    : `<div style="font-size:12px;color:#94a3b8;padding:6px">${!nombres.length ? '⏳ Cargando personal…' : 'Sin coincidencias'}</div>`;
+  if (!nombres.length) setTimeout(() => { if (document.querySelector('.mv-np')) mvNpFill_(q); }, 900);
+};
+// Marcar una persona NO re-dibuja la lista: solo su casilla y la etiqueta.
+window.mvNpPick_ = function (el) {
+  const n = el.dataset.n, sel = ASEO._an.sel, on = !sel.has(n);
+  if (on) sel.add(n); else sel.delete(n);
+  el.classList.toggle('on', on);
+  const ck = el.querySelector('.pz-ck'); if (ck) { ck.classList.toggle('on', on); ck.textContent = on ? '✓' : ''; }
+  mvNpLabel_(); mvNpGuardar_();
+};
+window.mvNpToggle_ = function () {
+  const pop = document.querySelector('.mv-np'); if (!pop) return;
+  ASEO._an.on = !ASEO._an.on;
+  const r = pop.querySelector('.mv-np-ck'), ck = r.querySelector('.pz-ck');
+  r.classList.toggle('on', ASEO._an.on); ck.classList.toggle('on', ASEO._an.on); ck.textContent = ASEO._an.on ? '✓' : '';
+  pop.querySelector('.mv-np-dd').hidden = !ASEO._an.on;
+  mvNpGuardar_();
+};
+function mvNpGuardar_() {
+  clearTimeout(ASEO._npT);
+  ASEO._npT = setTimeout(async () => {
+    try {
+      const body = { on: ASEO._an.on, personas: [...ASEO._an.sel], user: (typeof currentUser !== 'undefined' && currentUser) || '' };
+      const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Error');
+      ASEO.autonotif = r.autonotif || body;
+      document.querySelectorAll('.mv-sync-btn.notif').forEach(b => { b.textContent = '📣 Notificar actualizaciones' + (ASEO.autonotif.on ? ' · 🔁 auto' : ''); });
+    } catch (e) { alert('No se pudo guardar el reenvío automático: ' + (e.message || e)); }
+  }, 500);
+}
 window.mvNotificar_ = async function (btn) {
   if (ASEO._notificando) return;
   ASEO._notificando = true;
@@ -64761,6 +64866,7 @@ function aseoRender_() {
   const grid = document.getElementById('aseo-grid');
   if (grid) grid.classList.toggle('con-cal', !!ASEO.cal);
   const cb = document.getElementById('aseo-cal-btn'); if (cb) cb.textContent = ASEO.cal ? '✕ Ocultar calendario' : '📅 Mostrar calendario';
+  const tb = document.getElementById('aseo-todas-btn'); if (tb) tb.textContent = ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards';
   const hb = document.getElementById('aseo-hoy-btn'); if (hb) hb.style.display = '';
   // Solo se re-pinta si cambió algo (conserva el scroll del usuario).
   const cal = ASEO.cal ? document.getElementById('aseo-cal') : null;
@@ -64800,15 +64906,15 @@ function aseoRenderSide_() {
   const porAloj = true; // "Por reserva" oculto por el momento en Control de aseo
   let cuerpo;
   if (porAloj) {
-    const gs = pcMovAlojGrupos_(cols, hoy);
+    const gs = aseoAplicarReprog_(pcMovAlojGrupos_(cols, hoy), hoy);
     // La reserva seleccionada puede ser la ENTRADA de una card → no mostrarla aparte.
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
     const filtro = aseoFiltroPers_(gs);
-    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida ${diaT}${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado ${diaT}` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada ${diaT}</span>` : ''}</span>${mvAcTodasBtn_()}<b>${gs.length}</b></div>
+    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida ${diaT}${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado ${diaT}` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada ${diaT}</span>` : ''}</span><b>${gs.length}</b></div>
       ${filtro.html}
-      ${filtro.gs.length ? mvColumnas_(filtro.gs, g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy })) : `<div class="pc-mv-empty">${gs.length ? 'Nadie de las personas seleccionadas tiene alojamientos asignados' : `Ningún alojamiento con salida ${diaT}`}</div>`}`;
+      ${filtro.gs.length ? mvColumnas_(filtro.gs, g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy: esHoy && !g.reprogDe, fechaAseo: hoy })) : `<div class="pc-mv-empty">${gs.length ? 'Nadie de las personas seleccionadas tiene alojamientos asignados' : `Ningún alojamiento con salida ${diaT}`}</div>`}`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
