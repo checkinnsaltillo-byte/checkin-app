@@ -59630,6 +59630,7 @@ function pcMovCard_(x, colK, o) {
       ${colK === 'sal' ? aseoEstadoHtml_(b.Id, b.HouseId) : ''}
       <div class="pc-mv-chips">${chips2}${chips}</div>
       ${colK === 'ent' || colK === 'man' ? aseoAccionesReserva_(b, colK, x.aloj, '') : ''}
+      ${colK === 'sal' && !(x.cambio && x.cambio.k === 'cancelada') ? aseoAccionesSalida_(b) : ''}
     </div></div>`;
 }
 // ── Vista "Por alojamiento": una card por alojamiento con la reserva que SALE hoy
@@ -59691,7 +59692,8 @@ function pcMovAlojGrupos_(cols, dia) {
   const temp = g => g.ent.some(x => aseoTempOn_(x.b.Id)) ? 1 : 0;
   // Prioritarias primero: entrada temprana con solicitud ACEPTADA.
   const prio = g => g.ent.some(x => ((((window.ASEO && ASEO.temprana) || {})[String(x.b.Id)]) || {}).aceptada) ? 1 : 0;
-  return [...m.values()].sort((a, b) => prio(b) - prio(a) || (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0) || temp(b) - temp(a)
+  const tardA = g => g.sal.some(x => (aseoTardRec_(x.b.Id) || {}).aceptada) ? 1 : 0;
+  return [...m.values()].sort((a, b) => prio(b) - prio(a) || tardA(a) - tardA(b) || (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0) || temp(b) - temp(a)
     || ([...b.sal, ...b.ent].some(x => x.cambio) ? 1 : 0) - ([...a.sal, ...a.ent].some(x => x.cambio) ? 1 : 0)
     || String(a.aloj).localeCompare(String(b.aloj), 'es', { numeric: true }));
 }
@@ -59710,6 +59712,49 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
   const nota = ult ? `<span class="mv-sms-ok" title="Enviado por ${pcEsc(ult.by || '—')} a ${pcEsc(ult.to || '')}">✓ SMS enviado ${new Date(ult.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
   return `<div class="mv-acts">${tg}${sms}${nota}</div>`;
 }
+// ── Salida tardía (reserva que SALE): interruptor + hora (11:00 por defecto) + aceptación.
+//    Aceptada → el aseo de ese alojamiento pasa al final.
+function aseoTardRec_(id) { const r = ((window.ASEO && ASEO.tardia) || {})[String(id)]; return r && r.on ? r : null; }
+function aseoHoraTxt_(h) { const m = String(h || '11:00').match(/^(\d{2}):(\d{2})$/); if (!m) return h; let H = +m[1]; const ap = H >= 12 ? 'p.m.' : 'a.m.'; H = H % 12 || 12; return `${H}:${m[2]} ${ap}`; }
+function aseoHoraInput_(id, hora) {
+  return `<input type="time" class="mv-hora" value="${pcEsc(hora || '11:00')}" title="Hora de salida (${pcEsc(aseoHoraTxt_(hora))})" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();aseoTardPost_('${pcEsc(String(id))}',{hora:this.value})">`;
+}
+function aseoAccionesSalida_(b) {
+  const id = String(b.Id), r = aseoTardRec_(id), on = !!r, acep = on && !!r.aceptada;
+  const txt = !on ? 'Salida tardía' : acep ? '✓ Salida tardía · solicitud aceptada' : '🕚 Solicitud: Salida tardía';
+  const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTardPost_('${pcEsc(id)}',{on:${!on}})" title="${on ? 'Clic para quitar la solicitud de salida tardía' : 'El huésped pidió salir después de la hora oficial'}"><span class="sw"><i></i></span>${txt}</button>`;
+  return `<div class="mv-acts">${tg}${on ? aseoHoraInput_(id, r.hora) : ''}</div>`;
+}
+window.aseoTardAceptar_ = function (id, acep) {
+  const b = pcMovBookings_().find(x => String(x.Id) === String(id)) || {}, r = aseoTardRec_(id) || {};
+  const quien = b.GuestName || 'el huésped';
+  if (!confirm(acep ? `¿Aceptas la solicitud de salida tardía de ${quien} (${aseoHoraTxt_(r.hora || '11:00')})?\nSu aseo pasará al final de la lista.` : `¿Retirar la aceptación de la salida tardía de ${quien}?`)) return;
+  aseoTardPost_(id, { aceptada: !!acep });
+};
+window.aseoTardPost_ = async function (id, cambio) {
+  ASEO.tardia = ASEO.tardia || {};
+  const prev = ASEO.tardia[id] ? Object.assign({}, ASEO.tardia[id]) : null;
+  const on = cambio.on !== undefined ? !!cambio.on : true;
+  if (!on) delete ASEO.tardia[id];
+  else {
+    const cur = Object.assign({ on: true, hora: '11:00' }, prev || {}, { on: true });
+    if (cambio.hora) cur.hora = cambio.hora;
+    if (cambio.aceptada !== undefined) cur.aceptada = !!cambio.aceptada;
+    ASEO.tardia[id] = cur;
+  }
+  const repinta = () => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); };
+  repinta();
+  try {
+    const body = Object.assign({ id, on, user: (typeof currentUser !== 'undefined' && currentUser) || '' }, cambio.hora ? { hora: cambio.hora } : {}, cambio.aceptada !== undefined ? { aceptada: !!cambio.aceptada } : {});
+    const r = await fetch(`${BACKEND}/aseo/tardia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    if (r.tardia) ASEO.tardia[id] = r.tardia; else delete ASEO.tardia[id];
+    repinta();
+  } catch (e) {
+    if (prev) ASEO.tardia[id] = prev; else delete ASEO.tardia[id];
+    repinta(); alert('No se pudo guardar la salida tardía: ' + (e.message || e));
+  }
+};
 // Aceptar (o retirar la aceptación de) la solicitud de entrada temprana del huésped.
 window.aseoTempAceptar_ = async function (id, acep) {
   const b = pcMovBookings_().find(x => String(x.Id) === String(id)) || {};
@@ -59788,6 +59833,7 @@ function pcMovRow_(x, kind, hoy, o) {
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
     <div class="pc-mv-chips">${chips2}${chips}</div>
     ${kind === 'ent' ? aseoAccionesReserva_(b, hoy === aseoHoyIso_() ? 'ent' : 'man', x.aloj, '') : ''}
+    ${kind === 'sal' && !(x.cambio && x.cambio.k === 'cancelada') ? aseoAccionesSalida_(b) : ''}
   </div>`;
 }
 // Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
@@ -59863,7 +59909,16 @@ function pcAlojCard_(g, hoy, o) {
   const abierta = !!(window.ASEO && ASEO.todas);
   // Chips de la reserva que ENTRA (medio, clasificación y entrada temprana) visibles en el encabezado.
   const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
-  let hChips = '', prioritaria = false;
+  let hChips = '', prioritaria = false, tardChip = '';
+  const xs = g.sal.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
+  const trd = xs ? aseoTardRec_(xs.b.Id) : null;
+  if (trd) {
+    const sid = pcEsc(String(xs.b.Id));
+    tardChip = (trd.aceptada
+      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Salida tardía · aceptada</button>`
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">🕚 Solicitud: Salida tardía</button>`)
+      + aseoHoraInput_(xs.b.Id, trd.hora);
+  }
   if (xe) {
     const t = xe.tier;
     const clas = t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}">${t.icon} ${t.label}</span>`
@@ -59877,6 +59932,7 @@ function pcAlojCard_(g, hoy, o) {
       : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
     hChips = temp + medio + clas + larga;
   }
+  hChips = tardChip + hChips;
   let avisoVal = '';
   const esHoyC = o.esHoy !== false;
   if (!esHoyC) avisoVal = '';
@@ -64359,6 +64415,7 @@ function aseoEnsureCss_() {
   .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
   .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:1px 9px;background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;white-space:nowrap}
   .mv-temp-chip:hover{background:#ffedd5}
+  .mv-hora{box-sizing:border-box;height:22px;padding:0 6px;border:1.5px solid #fb923c;border-radius:999px;background:#fff;font:inherit;font-size:10.5px;font-weight:800;color:#c2410c;cursor:pointer;max-width:112px}
   .mv-prio{font-size:10.5px;font-weight:900;letter-spacing:.04em;padding:2px 9px;border-radius:999px;background:#7f1d1d;color:#fff;--ac:#dc2626;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
   .mv-ac.prio{border-left-color:#7f1d1d;box-shadow:0 0 0 2px rgba(127,29,29,.25),0 8px 22px -10px rgba(127,29,29,.5)}
   .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1.5px solid transparent;--ac:#22c55e}
@@ -64443,7 +64500,7 @@ async function aseoRefresh_(force) {
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
@@ -64748,7 +64805,8 @@ async function aseoTick_() {
       ASEO._baseTs = Date.now();
       try { if (typeof pagosLoad === 'function') await pagosLoad(); if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
     }
-    if (!ASEO._pop && !ASEO._estPop) {
+    const editandoHora = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('mv-hora');
+    if (!ASEO._pop && !ASEO._estPop && !editandoHora) {
       if (verPanel && typeof pcRenderMovs_ === 'function') pcRenderMovs_();
       if (verAseo) aseoRender_();
     }
