@@ -1182,7 +1182,13 @@ function showOfflineBanner_(stale){
 // ── Estado de aseo en vivo (esquina superior derecha). Se consulta cada 20 s y al
 // volver a la pestaña; muestra la fecha/hora de la última actualización.
 const ABADGE = { hid: '', ts: 0, data: null, err: '' };
-// "Pendiente" no se muestra en la guía. Terminado e Inspeccionado = puede ingresar.
+// El servidor decide el "modo" según las reservas de HOY:
+//   aseo (día de entrada/salida) · desocupa (sale hoy, aseo pendiente) · ocupado · '' (nada).
+// "Pendiente" no se muestra. Terminado e Inspeccionado = puede ingresar.
+const AB_MODO = {
+  ocupado: { c: '#64748b', t: 'Este alojamiento está actualmente ocupado', ico: '🔒' },
+  desocupa: { c: '#f59e0b', t: 'Este alojamiento se desocupa hoy. Te avisaremos en cuanto esté listo para el ingreso.', ico: '🧳' },
+};
 const AB_EST = {
   en_proceso: { c: '#f59e0b', t: 'Aseo en proceso' },
   terminado: { c: '#22c55e', t: 'Ya puedes ingresar a tu alojamiento', listo: true },
@@ -1208,14 +1214,16 @@ async function aseoBadgeLoad_() {
 function aseoBadgePaint_() {
   const el = document.getElementById('aseo-badge'); if (!el) return;
   const d = ABADGE.data;
-  if (!d || !d.estado || !AB_EST[d.estado]) { el.style.display = 'none'; return; }
-  const E = AB_EST[d.estado], listo = !!E.listo;
+  const modo = d ? (d.modo != null ? d.modo : (d.estado ? 'aseo' : '')) : '';
+  const E = modo === 'aseo' ? AB_EST[d.estado] : AB_MODO[modo];
+  if (!E) { el.style.display = 'none'; return; }
+  const listo = !!E.listo;
   const t = new Date(ABADGE.ts), seg = Math.round((Date.now() - ABADGE.ts) / 1000);
   const fecha = t.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' · ' + t.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const cambio = d.at ? new Date(d.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+  const cambio = modo === 'aseo' && d.at ? new Date(d.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
   el.className = 'aseo-badge' + (listo ? ' listo' : '');
   el.style.setProperty('--c', E.c);
-  el.innerHTML = `<div class="ab-i">${listo ? '<span class="ab-ck">✓</span>' : '<span class="ab-d"></span>'}</div>
+  el.innerHTML = `<div class="ab-i">${listo ? '<span class="ab-ck">✓</span>' : E.ico ? `<span style="font-size:22px">${E.ico}</span>` : '<span class="ab-d"></span>'}</div>
     <div style="min-width:0"><div class="ab-t">${E.t}</div>
     <div class="ab-u">${cambio ? `Desde las ${cambio} · ` : ''}Actualizado ${fecha}${seg >= 5 ? ` (hace ${seg < 60 ? seg + ' s' : Math.floor(seg / 60) + ' min'})` : ''}${ABADGE.err ? ' · ⚠️ ' + ABADGE.err : ''}</div></div>`;
   el.style.display = 'flex';
