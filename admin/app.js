@@ -59863,6 +59863,21 @@ function pcMovRow_(x, kind, hoy, o) {
   </div>`;
 }
 // Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
+// Chip del personal: nombre corto y un color fijo por persona (el mismo en todas sus cards).
+const ASEO_PERS_COLORES = ['#e11d48', '#7c3aed', '#2563eb', '#0891b2', '#059669', '#d97706', '#db2777', '#4f46e5', '#ea580c', '#0d9488', '#9333ea', '#65a30d'];
+function aseoNombreCorto_(n) {
+  const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim().split(/\s+/).filter(Boolean);
+  if (t.length <= 2) return t.join(' ');
+  return `${t[0]} ${t[t.length >= 4 ? t.length - 2 : 1]}`;
+}
+function aseoPersonaColor_(n) {
+  const k = String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  let h = 0; for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return ASEO_PERS_COLORES[h % ASEO_PERS_COLORES.length];
+}
+function aseoPersonaChip_(n, ico, rol) {
+  return `<span class="mv-pchip" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(rol + ': ' + n)}">${ico} ${pcEsc(aseoNombreCorto_(n))}</span>`;
+}
 // Lo que muestra la guía + casilla "Publicado" (marcada por defecto). Desmarcada → la guía no muestra nada.
 function aseoGuiaLinea_(id, hid) {
   const G = hid ? ((window.ASEO && ASEO.guias) || {})[String(hid)] : null;
@@ -59959,8 +59974,8 @@ function pcAlojCard_(g, hoy, o) {
   if (trd) {
     const sid = pcEsc(String(xs.b.Id));
     tardChip = (trd.aceptada
-      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Salida aceptada</button>`
-      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">Solicitud salida</button>`);
+      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">Solicitud salida: ✅ aceptada</button>`
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">Solicitud salida: ⏰ pendiente</button>`);
     tardChip = aseoChipHora_(tardChip, aseoHoraInput_(xs.b.Id, trd.hora, 'tard', true), !!trd.aceptada, 'tard');
   }
   if (xe) {
@@ -59972,8 +59987,8 @@ function pcAlojCard_(g, hoy, o) {
     const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
     prioritaria = !!(tr && tr.on && tr.aceptada);
     const tempBtn = !tr || !tr.on ? ''
-      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada aceptada</button>`
-      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">Solicitud entrada</button>`;
+      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">Solicitud entrada: ✅ aceptada</button>`
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">Solicitud entrada: ⏰ pendiente</button>`;
     const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp', true), !!tr.aceptada, 'temp') : '';
     boxEnt = temp;
     hChips = medio + clas + larga;
@@ -59989,7 +60004,7 @@ function pcAlojCard_(g, hoy, o) {
   const asg = ((window.ASEO && ASEO.asig) || {})[String(asigId)] || {};
   const pA = asg.aseo || asg.personal || [], pI = asg.inspeccion || [];
   const personas = pA.length || pI.length
-    ? `<div class="mv-pers">👥 ${[pA.length ? `<b>${pcEsc(pA.join(', '))}</b> <small>(aseo)</small>` : '', pI.length ? `<b>${pcEsc(pI.join(', '))}</b> <small>(inspección)</small>` : ''].filter(Boolean).join(' · ')}</div>`
+    ? `<div class="mv-pers">${pA.map(n => aseoPersonaChip_(n, '🧹', 'Aseo')).join('')}${pI.map(n => aseoPersonaChip_(n, '🔍', 'Inspección')).join('')}</div>`
     : '<div class="mv-pers no">👥 No asignado</div>';
   let avisoVal = '';
   if (!esHoyC) avisoVal = '';
@@ -64475,7 +64490,10 @@ function aseoEnsureCss_() {
   .mv-ac-band.solo > .mv-ac-chips{align-content:center;padding:3px 3px 0 4px;gap:3px !important}
   .mv-ac .mv-ac-band.solo > .mv-ac-chips > *, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > *{height:17px !important;padding:0 4px !important;font-size:9px !important;gap:2px !important;letter-spacing:0 !important}
   .mv-ac.mv-est{cursor:pointer;background:var(--eb) !important;border-color:color-mix(in srgb,var(--ec) 35%,#fff) !important;border-left-color:var(--ec) !important}
-  .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35}
+  .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35;display:flex;flex-wrap:wrap;gap:4px}
+  .mv-pchip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:var(--pc);color:#fff;font-size:13px;font-weight:900;letter-spacing:.01em;
+    box-shadow:0 3px 10px -3px var(--pc),inset 0 0 0 1px rgba(255,255,255,.25);text-shadow:0 1px 1px rgba(0,0,0,.2);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .mv-cols .mv-pchip{font-size:12px;padding:2px 9px}
   .mv-pers b{color:#0f172a}.mv-pers small{color:#64748b;font-weight:700}
   .mv-pers.no{color:#dc2626;font-weight:900}
   .mv-guia{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-top:5px}
