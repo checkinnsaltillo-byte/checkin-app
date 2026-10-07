@@ -64261,6 +64261,7 @@ function aseoEnsureCss_() {
   .pc-mv-h .mv-ac-todas{margin-left:auto}
   .mv-acm-c{position:relative;width:min(560px,100%);max-height:88vh;overflow:auto;border-radius:16px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.35)}
   .mv-acm-c > .mv-ac{border-radius:16px;margin:0;box-shadow:none}
+  .mv-acm-c .mv-ac-h{padding-right:36px}
   .mv-acm-x{all:unset;cursor:pointer;position:sticky;top:8px;float:right;margin:8px 8px -40px 0;z-index:2;width:30px;height:30px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
   .mv-ac-t{font-size:14.5px;font-weight:900;color:#0f172a;flex:1;min-width:0;overflow-wrap:anywhere}
   .mv-ac-code{font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#1e1b4b;color:#fff}
