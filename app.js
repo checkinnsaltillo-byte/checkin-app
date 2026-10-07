@@ -59705,25 +59705,31 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
   // Activo: mismo formato que el chip del encabezado (solicitud punteada / aceptada en verde).
   const txt = !on ? 'Entrada temprana' : acep ? '✓ Entrada temprana · solicitud aceptada' : '⏰ Solicitud: Entrada temprana';
   const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTemprana_('${pcEsc(id)}')" title="${on ? 'Clic para quitar la solicitud de entrada temprana' : 'El huésped pidió entrar antes de la hora oficial'}"><span class="sw"><i></i></span>${txt}</button>`;
-  if (kind !== 'ent') return `<div class="mv-acts">${tg}</div>`;
+  const tr0 = (((window.ASEO && ASEO.temprana) || {})[id]) || {};
+  const tgH = on ? aseoChipHora_(tg, aseoHoraInput_(id, tr0.hora, 'temp'), acep) : tg;
+  if (kind !== 'ent') return `<div class="mv-acts">${tgH}</div>`;
   const env = (((window.ASEO && ASEO.sms) || {})[id] || []);
   const ult = env[env.length - 1];
   const sms = `<button type="button" class="mv-sms" onclick="event.stopPropagation();aseoSmsPop_('${pcEsc(id)}','${pcEsc(String(hid || b.HouseId || ''))}')" title="Avisar por SMS que el alojamiento ya está listo">📱 SMS</button>`;
   const nota = ult ? `<span class="mv-sms-ok" title="Enviado por ${pcEsc(ult.by || '—')} a ${pcEsc(ult.to || '')}">✓ SMS enviado ${new Date(ult.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
-  return `<div class="mv-acts">${tg}${sms}${nota}</div>`;
+  return `<div class="mv-acts">${tgH}${sms}${nota}</div>`;
 }
 // ── Salida tardía (reserva que SALE): interruptor + hora (11:00 por defecto) + aceptación.
 //    Aceptada → el aseo de ese alojamiento pasa al final.
 function aseoTardRec_(id) { const r = ((window.ASEO && ASEO.tardia) || {})[String(id)]; return r && r.on ? r : null; }
 function aseoHoraTxt_(h) { const m = String(h || '11:00').match(/^(\d{2}):(\d{2})$/); if (!m) return h; let H = +m[1]; const ap = H >= 12 ? 'p.m.' : 'a.m.'; H = H % 12 || 12; return `${H}:${m[2]} ${ap}`; }
-function aseoHoraInput_(id, hora) {
-  return `<input type="time" class="mv-hora" value="${pcEsc(hora || '11:00')}" title="Hora de salida (${pcEsc(aseoHoraTxt_(hora))})" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();aseoTardPost_('${pcEsc(String(id))}',{hora:this.value})">`;
+function aseoHoraInput_(id, hora, tipo) {
+  const temp = tipo === 'temp', h = hora || (temp ? '12:00' : '11:00');
+  const fn = temp ? `aseoTempHora_('${pcEsc(String(id))}',this.value)` : `aseoTardPost_('${pcEsc(String(id))}',{hora:this.value})`;
+  return `<input type="time" class="mv-hora" value="${pcEsc(h)}" title="Hora de ${temp ? 'entrada' : 'salida'} (${pcEsc(aseoHoraTxt_(h))})" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();${fn}">`;
 }
+// Chip + su hora en UNA sola pieza (para que no haya duda de a cuál corresponde).
+function aseoChipHora_(chip, input, ok) { return `<span class="mv-chg ${ok ? 'ok' : ''}">${chip}${input}</span>`; }
 function aseoAccionesSalida_(b) {
   const id = String(b.Id), r = aseoTardRec_(id), on = !!r, acep = on && !!r.aceptada;
   const txt = !on ? 'Salida tardía' : acep ? '✓ Salida tardía · solicitud aceptada' : '🕚 Solicitud: Salida tardía';
   const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTardPost_('${pcEsc(id)}',{on:${!on}})" title="${on ? 'Clic para quitar la solicitud de salida tardía' : 'El huésped pidió salir después de la hora oficial'}"><span class="sw"><i></i></span>${txt}</button>`;
-  return `<div class="mv-acts">${tg}${on ? aseoHoraInput_(id, r.hora) : ''}</div>`;
+  return `<div class="mv-acts">${on ? aseoChipHora_(tg, aseoHoraInput_(id, r.hora, 'tard'), acep) : tg}</div>`;
 }
 window.aseoTardAceptar_ = function (id, acep) {
   const b = pcMovBookings_().find(x => String(x.Id) === String(id)) || {}, r = aseoTardRec_(id) || {};
@@ -59772,6 +59778,22 @@ window.aseoTempAceptar_ = async function (id, acep) {
   } catch (e) {
     if (prev) ASEO.temprana[id] = prev; else delete ASEO.temprana[id];
     repinta(); alert('No se pudo guardar: ' + (e.message || e));
+  }
+};
+window.aseoTempHora_ = async function (id, hora) {
+  if (!/^\d{2}:\d{2}$/.test(String(hora || ''))) return;
+  const prev = ASEO.temprana[id] ? Object.assign({}, ASEO.temprana[id]) : null;
+  ASEO.temprana[id] = Object.assign({ on: true }, prev || {}, { on: true, hora });
+  const repinta = () => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); };
+  repinta();
+  try {
+    const r = await fetch(`${BACKEND}/aseo/temprana`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, on: true, hora, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    if (r.temprana) ASEO.temprana[id] = r.temprana;
+    repinta();
+  } catch (e) {
+    if (prev) ASEO.temprana[id] = prev; else delete ASEO.temprana[id];
+    repinta(); alert('No se pudo guardar la hora de entrada: ' + (e.message || e));
   }
 };
 window.aseoTemprana_ = async function (id) {
@@ -59916,8 +59938,8 @@ function pcAlojCard_(g, hoy, o) {
     const sid = pcEsc(String(xs.b.Id));
     tardChip = (trd.aceptada
       ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Salida tardía · aceptada</button>`
-      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">🕚 Solicitud: Salida tardía</button>`)
-      + aseoHoraInput_(xs.b.Id, trd.hora);
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">🕚 Solicitud: Salida tardía</button>`);
+    tardChip = aseoChipHora_(tardChip, aseoHoraInput_(xs.b.Id, trd.hora, 'tard'), !!trd.aceptada);
   }
   if (xe) {
     const t = xe.tier;
@@ -59927,9 +59949,10 @@ function pcAlojCard_(g, hoy, o) {
     const medio = typeof lgSourceChipMini === 'function' ? lgSourceChipMini(xe.b.Source) : (xe.b.Source ? `<span class="pc-mv-chip">${pcEsc(xe.b.Source)}</span>` : '');
     const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
     prioritaria = !!(tr && tr.on && tr.aceptada);
-    const temp = !tr || !tr.on ? ''
+    const tempBtn = !tr || !tr.on ? ''
       : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada temprana · solicitud aceptada</button>`
       : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
+    const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp'), !!tr.aceptada) : '';
     hChips = temp + medio + clas + larga;
   }
   hChips = tardChip + hChips;
@@ -64416,7 +64439,13 @@ function aseoEnsureCss_() {
   .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:1px 9px;background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;white-space:nowrap}
   .mv-temp-chip:hover{background:#ffedd5}
   .mv-hora{box-sizing:border-box;height:22px;padding:0 6px;border:1.5px solid #fb923c;border-radius:999px;background:#fff;font:inherit;font-size:10.5px;font-weight:800;color:#c2410c;cursor:pointer;max-width:112px}
-  .mv-ac input.mv-hora{width:96px !important;max-width:96px !important;flex:none !important;padding:0 6px !important;border:1.5px solid #fb923c !important}
+  .mv-chg{display:inline-flex;align-items:stretch;border:1.5px dashed #fb923c;border-radius:999px;background:#fff7ed;overflow:hidden;max-width:100%}
+  .mv-chg.ok{border:1.5px solid #15803d;background:#16a34a}
+  .mv-ac .mv-ac-chips > .mv-chg, .mv-ac .mv-acts > .mv-chg{padding:0 !important;gap:0 !important;border-width:1.5px !important;align-items:stretch !important}
+  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{border:0 !important;border-radius:0 !important;height:auto !important;background:transparent !important;box-shadow:none !important}
+  .mv-chg.ok > .mv-temp-chip, .mv-chg.ok > .mv-tg{color:#fff !important}
+  .mv-ac .mv-chg > input.mv-hora, .mv-chg > input.mv-hora{width:84px !important;max-width:84px !important;flex:none !important;height:auto !important;border:0 !important;border-left:1.5px dashed #fb923c !important;border-radius:0 !important;padding:0 6px !important;background:#fff !important;color:#c2410c}
+  .mv-chg.ok > input.mv-hora{border-left:1.5px solid #15803d !important;color:#15803d}
   .mv-prio{font-size:10.5px;font-weight:900;letter-spacing:.04em;padding:2px 9px;border-radius:999px;background:#7f1d1d;color:#fff;--ac:#dc2626;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
   .mv-ac.prio{border-left-color:#7f1d1d;box-shadow:0 0 0 2px rgba(127,29,29,.25),0 8px 22px -10px rgba(127,29,29,.5)}
   .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1.5px solid transparent;--ac:#22c55e}
