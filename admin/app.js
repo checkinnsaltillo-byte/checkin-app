@@ -63959,7 +63959,6 @@ function aseoEnsureCss_() {
   .aseo-cal .ocup-aloj-cell{z-index:9}
   .aseo-cal .ocup-head-aloj{z-index:12}
   .aseo-cal .ocup-bar{transition:box-shadow .2s,filter .2s,opacity .2s}
-  .aseo-cal.has-sel .ocup-bar{opacity:.55}
   .aseo-cal .ocup-bar.sel{opacity:1;z-index:6;outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 6px rgba(245,158,11,.35),0 6px 16px rgba(15,23,42,.35);filter:saturate(1.25)}
   .aseo-cal .ocup-cal-row.sel{background:#fffbeb}
   .aseo-side{background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:10px;max-height:calc(100vh - 210px);overflow:auto;position:sticky;top:10px}
@@ -64000,12 +63999,15 @@ function aseoRender_() {
   if (st) st.innerHTML = ASEO.ts ? `<span class="mv-live">● En vivo</span> · actualizado ${new Date(ASEO.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · se refresca solo cada 30 s${ASEO.err ? ` · <span style="color:#b91c1c">⚠️ ${pcEsc(ASEO.err)}</span>` : ''}` : 'Conectando con Lodgify…';
   // Calendario: solo se re-pinta si cambió algo (conserva el scroll del usuario).
   const cal = document.getElementById('aseo-cal');
-  const bks = pcMovBookings_().filter(b => !/cancel|declin|delet/i.test(String(b.Status || '')));
-  const sig = bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',');
+  // Mismos criterios que el módulo Calendario: solo Booked/Tentative (como
+  // ocupLoadBookings) + los filtros elegidos ahí (Estado, Fuente, Propiedad).
+  const bks = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
+  const fCal = Object.assign({}, OCUP_STATE.calFilters || {});
+  const sig = JSON.stringify(fCal) + JSON.stringify(OCUP_STATE.colorModes || {}) + bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',');
   if (cal && sig !== ASEO.calSig) {
     const sl = cal.scrollLeft, stp = cal.scrollTop, first = !ASEO.calSig;
     ASEO.calSig = sig;
-    ocupRender({ cont: cal, bookings: bks, filters: {}, before: 1, after: 2, onBar: 'aseoSelect_', center: false });
+    ocupRender({ cont: cal, bookings: bks, filters: fCal, before: 1, after: 2, onBar: 'aseoSelect_', center: false });
     if (first || ASEO._centrar) { ASEO._centrar = false; requestAnimationFrame(() => ocupCentrarHoy_(cal)); }
     else { cal.scrollLeft = sl; cal.scrollTop = stp; }
     aseoMarcarSel_();
