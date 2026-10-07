@@ -59446,8 +59446,8 @@ function pcMovCambio_(b, hoy) {
 }
 // Columnas del día. Incluye, con su aviso, las reservas que IBAN a salir/llegar
 // ese día y cambiaron (extensión, cancelación reciente).
-function pcMovCols_() {
-  const d0 = new Date(), d1 = new Date(); d1.setDate(d1.getDate() + 1);
+function pcMovCols_(dia) {
+  const d0 = dia ? new Date(dia + 'T12:00:00') : new Date(), d1 = new Date(d0); d1.setDate(d1.getDate() + 1);
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const hoy = iso(d0), man = iso(d1);
   const lim = Date.now() - 14 * 864e5;
@@ -59486,7 +59486,7 @@ function aseoPubDe_(id) {
   return r.pub || null;
 }
 // Bloque de estado: combobox (elige) + botón circular ✓ (valida y publica) + aviso LISTO.
-function aseoEstadoHtml_(id, hid) {
+function aseoEstadoHtml_(id, hid, opt) {
   const r = aseoEstDe_(id), pub = aseoPubDe_(id);
   const k = r ? r.estado : 'pendiente';
   const validado = r ? (r.validado === undefined ? true : !!r.validado) : false;
@@ -59506,7 +59506,7 @@ function aseoEstadoHtml_(id, hid) {
     : `<span class="ae-nota pend">Sin validar · no publicado</span>`;
   // Lo que REALMENTE ve el huésped en su guía (calculado en el servidor con la misma regla que la guía).
   const G = hid ? ((window.ASEO && ASEO.guias) || {})[String(hid)] : null;
-  const guia = !G ? '' : G.texto
+  const guia = (!G || (opt && opt.sinGuia)) ? '' : G.texto
     ? `<div class="ae-guia ${G.estado === 'terminado' || G.estado === 'inspeccionado' ? 'ok' : ''}">📖 La guía muestra: <b>«${pcEsc(G.texto)}»</b></div>`
     : `<div class="ae-guia nada">📖 La guía no muestra ningún aviso</div>`;
   const listo = pub && pub.estado === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(pub.at)}${pub.by ? ' · ' + pcEsc(pub.by) : ''}</small></div></div>` : '';
@@ -59642,9 +59642,10 @@ function mvStay_(b, hoy) {
   // Mismo punto animado que las cards de Gestión de reservas.
   const pulse = k === 'activa' ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;' : k === 'salida_hoy' ? 'animation:hu-dot-pulse-strong 1s ease-in-out infinite;'
     : k === 'entrada_hoy' ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;' : k === 'proxima' ? 'animation:hu-dot-pulse 2s ease-in-out infinite;' : '';
-  return { label: m.label, color: m.border, fg: m.accentFg, pulse };
+  const otroDia = typeof aseoHoyIso_ === 'function' && hoy !== aseoHoyIso_();
+  return { label: otroDia ? String(m.label).replace(/ hoy$/, '') : m.label, color: m.border, fg: m.accentFg, pulse };
 }
-function pcMovAlojGrupos_(cols) {
+function pcMovAlojGrupos_(cols, dia) {
   const m = new Map();
   const key = x => String(x.b.HouseId || x.aloj);
   // Solo reservas confirmadas (Booked): fuera "Abierta" (Open) y tentativas. Las
@@ -59654,7 +59655,7 @@ function pcMovAlojGrupos_(cols) {
   cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
   // Entradas sin salida hoy en ese alojamiento → card propia (el estado de aseo es el de
   // su última salida, o el del alojamiento "H<hid>" si no tiene; igual que el bot y la guía).
-  const hoyE = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const hoyE = dia || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const bookedE = pcMovBookings_().filter(b => /^booked$/i.test(String(b.Status || '').trim()));
   const turnoverId = hid => {
     let u = null;
@@ -59670,7 +59671,7 @@ function pcMovAlojGrupos_(cols) {
   });
   // Alojamientos SIN salida hoy cuyo estado de aseo se actualizó hoy (bot o sistema):
   // misma card, con la reserva en curso si la hay.
-  const hoy = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const hoy = dia || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const diaMx = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-CA', { timeZone: 'America/Monterrey' }); };
   const hids = new Set([...m.values()].map(g => g.hid).filter(Boolean));
   const ests = Object.entries((window.ASEO && ASEO.estados) || {}).filter(([, r]) => r && r.hid && r.at && diaMx(r.at) === hoy && !hids.has(String(r.hid)))
@@ -59704,6 +59705,25 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
   const nota = ult ? `<span class="mv-sms-ok" title="Enviado por ${pcEsc(ult.by || '—')} a ${pcEsc(ult.to || '')}">✓ SMS enviado ${new Date(ult.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
   return `<div class="mv-acts">${tg}${sms}${nota}</div>`;
 }
+// Aceptar (o retirar la aceptación de) la solicitud de entrada temprana del huésped.
+window.aseoTempAceptar_ = async function (id, acep) {
+  const b = pcMovBookings_().find(x => String(x.Id) === String(id)) || {};
+  const quien = b.GuestName || 'el huésped';
+  if (!confirm(acep ? `¿Aceptas la solicitud de entrada temprana de ${quien}?` : `¿Retirar la aceptación de la entrada temprana de ${quien}?`)) return;
+  const prev = ASEO.temprana[id] ? Object.assign({}, ASEO.temprana[id]) : null;
+  ASEO.temprana[id] = Object.assign({}, prev || {}, { on: true }, acep ? { aceptada: true } : { aceptada: false });
+  const repinta = () => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); };
+  repinta();
+  try {
+    const r = await fetch(`${BACKEND}/aseo/temprana`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, on: true, aceptada: !!acep, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    if (r.temprana) ASEO.temprana[id] = r.temprana;
+    repinta();
+  } catch (e) {
+    if (prev) ASEO.temprana[id] = prev; else delete ASEO.temprana[id];
+    repinta(); alert('No se pudo guardar: ' + (e.message || e));
+  }
+};
 window.aseoTemprana_ = async function (id) {
   const prev = ASEO.temprana[id], on = !aseoTempOn_(id);
   if (on) ASEO.temprana[id] = { on: true }; else delete ASEO.temprana[id];
@@ -59762,7 +59782,7 @@ function pcMovRow_(x, kind, hoy, o) {
     ${aviso}
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
     <div class="pc-mv-chips">${chips2}${chips}</div>
-    ${kind === 'ent' ? aseoAccionesReserva_(b, 'ent', x.aloj, '') : ''}
+    ${kind === 'ent' ? aseoAccionesReserva_(b, hoy === aseoHoyIso_() ? 'ent' : 'man', x.aloj, '') : ''}
   </div>`;
 }
 // Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
@@ -59826,16 +59846,21 @@ function pcAlojCard_(g, hoy, o) {
       : (xe.stats && xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : '');
     const larga = xe.larga === 'mensual' ? '<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>' : xe.larga ? '<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>' : '';
     const medio = typeof lgSourceChipMini === 'function' ? lgSourceChipMini(xe.b.Source) : (xe.b.Source ? `<span class="pc-mv-chip">${pcEsc(xe.b.Source)}</span>` : '');
-    const temp = aseoTempOn_(xe.b.Id) ? '<span class="mv-temp-chip" title="El huésped pidió entrar antes de la hora oficial: prioridad en el aseo">⏰ Entrada temprana · prioridad</span>' : '';
+    const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
+    const temp = !tr || !tr.on ? ''
+      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada temprana · solicitud aceptada</button>`
+      : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Entrada temprana · prioridad</button>`;
     hChips = temp + medio + clas + larga;
   }
   let avisoVal = '';
-  if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
-  else if (!g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
+  const esHoyC = o.esHoy !== false;
+  if (!esHoyC) avisoVal = '';
+  else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
+  else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
+    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
     ${avisoVal}
-    ${aseoEstadoHtml_(asigId, g.hid)}
+    ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: !esHoyC })}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
     <div class="mv-ac-res" ${abierta ? '' : 'hidden'}>
     ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
@@ -64268,7 +64293,11 @@ function aseoEnsureCss_() {
   .mv-ac-n{font-size:10.5px;font-weight:800;color:#64748b;background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
   .mv-ac-res[hidden]{display:none}
   .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
-  .mv-temp-chip{font-size:10.5px;font-weight:900;border-radius:999px;padding:2px 9px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;--ac:#f97316;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
+  .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:2px 9px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;--ac:#f97316;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
+  .mv-temp-chip:hover{filter:brightness(1.08)}
+  .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);--ac:#22c55e;animation:none}
+  .aseo-dnav{background:#1e1b4b;border-color:#312e81}
+  .aseo-dnav .pc-mlabel{color:#fff;min-width:190px}
   .mv-row-n{display:flex;align-items:flex-start;gap:8px}
   .mv-row-n .pc-mv-n{flex:1;min-width:0}
   .mv-row-n .mv-prog{margin-left:auto;flex:none;padding-top:1px}
@@ -64461,7 +64490,9 @@ function aseoRender_() {
 function aseoRenderSide_() {
   const side = document.getElementById('aseo-side'); if (!side) return;
   if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>'; return; }
-  const { cols, hoy } = pcMovCols_();
+  aseoDnavPaint_();
+  const { cols, hoy } = pcMovCols_(ASEO.dia || null);
+  const esHoy = hoy === aseoHoyIso_(), diaT = esHoy ? 'hoy' : `el ${aseoDiaTxt_(hoy)}`;
   const sal = cols[0].list;
   const selId = ASEO.sel ? String(ASEO.sel) : '';
   let selBlock = '';
@@ -64477,13 +64508,13 @@ function aseoRenderSide_() {
   const porAloj = true; // "Por reserva" oculto por el momento en Control de aseo
   let cuerpo;
   if (porAloj) {
-    const gs = pcMovAlojGrupos_(cols);
+    const gs = pcMovAlojGrupos_(cols, hoy);
     // La reserva seleccionada puede ser la ENTRADA de una card → no mostrarla aparte.
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
-    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado hoy` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span>${mvAcTodasBtn_()}<b>${gs.length}</b></div>
-      <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
+    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida ${diaT}${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado ${diaT}` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada ${diaT}</span>` : ''}</span>${mvAcTodasBtn_()}<b>${gs.length}</b></div>
+      <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy })).join('') : `<div class="pc-mv-empty">Ningún alojamiento con salida ${diaT}</div>`}</div>`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
@@ -64521,6 +64552,26 @@ window.aseoSelect_ = function (id) {
     cal.scrollTo({ top: Math.max(0, row.offsetTop - cal.clientHeight / 2 + row.offsetHeight / 2), behavior: 'smooth' });
     ocupCentrarHoy_(cal, true);
   }
+};
+// ── Selector de día (Control de aseo): ‹ Hoy (7-oct-2026) › ──
+const ASEO_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function aseoHoyIso_() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function aseoDia_() { return ASEO.dia || aseoHoyIso_(); }
+function aseoDiaTxt_(iso) { const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]}-${ASEO_MES[+m[2] - 1]}-${m[1]}` : iso; }
+function aseoDiaLabel_(iso) {
+  const dif = Math.round((new Date(iso + 'T12:00:00') - new Date(aseoHoyIso_() + 'T12:00:00')) / 864e5);
+  const f = aseoDiaTxt_(iso);
+  return dif === 0 ? `Hoy (${f})` : dif === -1 ? `Ayer (${f})` : dif === 1 ? `Mañana (${f})` : f;
+}
+function aseoDnavPaint_() {
+  const el = document.getElementById('aseo-dnav'); if (!el) return;
+  el.innerHTML = `<button type="button" onclick="aseoSetDia_(-1)" title="Día anterior">‹</button><div class="pc-mlabel" ${ASEO.dia && ASEO.dia !== aseoHoyIso_() ? `onclick="aseoSetDia_(0)" title="Volver a hoy" style="cursor:pointer"` : ''}>${aseoDiaLabel_(aseoDia_())}</div><button type="button" onclick="aseoSetDia_(1)" title="Día siguiente">›</button>`;
+}
+window.aseoSetDia_ = function (delta) {
+  if (!delta) ASEO.dia = null;
+  else { const d = new Date(aseoDia_() + 'T12:00:00'); d.setDate(d.getDate() + delta); const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; ASEO.dia = iso === aseoHoyIso_() ? null : iso; }
+  ASEO.sel = null;
+  aseoDnavPaint_(); aseoRenderSide_();
 };
 window.aseoToggleCal_ = function () {
   ASEO.cal = !ASEO.cal;
