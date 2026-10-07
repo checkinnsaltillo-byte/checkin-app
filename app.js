@@ -26350,6 +26350,8 @@ function ocupGetAlojamientos() {
         return p || String(r['HouseName'] || '—');
       })(),
       tag: String(r['cuenta_tag'] || r['Tag'] || '').trim() || `${String(r['Propiedad'] || '?').slice(0,2).toUpperCase()}${(r['# Departamento'] || '').toString().replace(/[^\d]/g,'')}`,
+      // Nombre corto interno (ej. "JC3") — columna device_name de la hoja alojamientos.
+      corto: String(r['device_name'] || r['Device_name'] || r['Device name'] || r['DEVICE_NAME'] || '').trim(),
       raw: r,
     }))
     .filter(a => a.houseId)
@@ -26489,9 +26491,9 @@ function ocupRender(opts) {
     html += `<div class="ocup-cal-row" data-aloj-id="${esc(aloj.houseId)}">`;
     html += `<div class="ocup-aloj-cell">
       <div class="ocup-aloj-img">🏠</div>
-      <div class="ocup-aloj-info">
-        <div class="ocup-aloj-name" title="${esc(aloj.nombre)}">${esc(aloj.nombre)}</div>
-        <div class="ocup-aloj-id">${esc(aloj.tag || aloj.houseId)}</div>
+      <div class="ocup-aloj-info" title="${esc(aloj.nombre)}">
+        <div class="ocup-aloj-name">${esc(aloj.corto || aloj.nombre)}</div>
+        ${aloj.corto ? '' : `<div class="ocup-aloj-id">${esc(aloj.tag || aloj.houseId)}</div>`}
       </div>
     </div>`;
     for (let i = 0; i < totalDays; i++) {
@@ -63859,9 +63861,9 @@ function aseoEnsureCss_() {
   .aseo-btn:hover{border-color:#6366f1;color:#3730a3}
   .aseo-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
   .aseo-grid .ocup-cal-container{max-height:calc(100vh - 210px)}
-  .aseo-cal .ocup-cal{--ocup-aloj-w:170px;--ocup-day-w:52px}
-  .aseo-cal .ocup-aloj-cell{opacity:1;z-index:9;box-shadow:4px 0 8px -6px rgba(15,23,42,.25)}
-  .aseo-cal .ocup-head-aloj{opacity:1;z-index:12}
+  .aseo-cal .ocup-cal{--ocup-aloj-w:112px;--ocup-day-w:52px}
+  .aseo-cal .ocup-aloj-cell{z-index:9}
+  .aseo-cal .ocup-head-aloj{z-index:12}
   .aseo-cal .ocup-bar{transition:box-shadow .2s,filter .2s,opacity .2s}
   .aseo-cal.has-sel .ocup-bar{opacity:.55}
   .aseo-cal .ocup-bar.sel{opacity:1;z-index:6;outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 6px rgba(245,158,11,.35),0 6px 16px rgba(15,23,42,.35);filter:saturate(1.25)}
