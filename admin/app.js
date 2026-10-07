@@ -59492,10 +59492,10 @@ function aseoEstadoHtml_(id, hid) {
   const E = ASEO_EST.find(e => e.k === k) || ASEO_EST[0];
   const P = pub ? (ASEO_EST.find(e => e.k === pub.estado) || null) : null;
   const sid = pcEsc(String(id)), shid = pcEsc(String(hid || ''));
-  const tit = validado ? `«${E.t}» validado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + r.by : ''} — publicado en la guía` : `Validar «${E.t}» y publicarlo en la guía`;
+  const tit = validado ? `«${E.t}» validado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + r.by : ''} — publicado en la guía` : 'Validar';
   const circulo = `<button type="button" class="ae-val" data-checked="${validado}" title="${pcEsc(tit)}"
       onclick="event.stopPropagation();aseoValidar_('${sid}','${shid}')"
-      style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${validado ? '#16a34a' : '#e5e7eb'};background:${validado ? '#16a34a' : '#f9fafb'};color:${validado ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:${validado ? 'default' : 'pointer'};padding:0;flex-shrink:0">${validado ? '✓' : ''}</button>`;
+      style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${validado ? '#16a34a' : '#d1d5db'};background:${validado ? '#16a34a' : '#f9fafb'};color:${validado ? '#fff' : '#9ca3af'};font-size:14px;font-weight:900;line-height:1;cursor:${validado ? 'default' : 'pointer'};padding:0;flex-shrink:0">✓</button>`;
   const nota = validado
     ? `<span class="ae-nota ok">✓ Validado y publicado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + pcEsc(r.by) : ''}</span>`
     : `<span class="ae-nota pend">Sin validar · no publicado${P ? ` (la guía muestra: ${P.t})` : ''}</span>`;
