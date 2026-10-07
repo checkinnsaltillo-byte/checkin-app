@@ -59629,6 +59629,7 @@ function pcMovCard_(x, colK, o) {
       <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)})</div>
       ${colK === 'sal' ? aseoEstadoHtml_(b.Id, b.HouseId) : ''}
       <div class="pc-mv-chips">${chips2}${chips}</div>
+      ${colK === 'ent' || colK === 'man' ? aseoAccionesReserva_(b, colK, x.aloj, '') : ''}
     </div></div>`;
 }
 // ── Vista "Por alojamiento": una card por alojamiento con la reserva que SALE hoy
@@ -59686,10 +59687,73 @@ function pcMovAlojGrupos_(cols) {
       m.set('x' + hid, { k: 'x' + hid, aloj: nombre, hid, sal: [], ent: cur.filter(x => x.arr === hoy), cur: cur.filter(x => x.arr !== hoy), estId: id, extra: true });
     });
   }
-  return [...m.values()].sort((a, b) => (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0)
+  const temp = g => g.ent.some(x => aseoTempOn_(x.b.Id)) ? 1 : 0;
+  return [...m.values()].sort((a, b) => (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0) || temp(b) - temp(a)
     || ([...b.sal, ...b.ent].some(x => x.cambio) ? 1 : 0) - ([...a.sal, ...a.ent].some(x => x.cambio) ? 1 : 0)
     || String(a.aloj).localeCompare(String(b.aloj), 'es', { numeric: true }));
 }
+// ── Entrada temprana (interruptor) y SMS "tu alojamiento está listo" por reserva ──
+function aseoTempOn_(id) { return !!(((window.ASEO && ASEO.temprana) || {})[String(id)] || {}).on; }
+function aseoAccionesReserva_(b, kind, aloj, hid) {
+  const id = String(b.Id), on = aseoTempOn_(id);
+  const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''}" onclick="event.stopPropagation();aseoTemprana_('${pcEsc(id)}')" title="El huésped pidió entrar antes de la hora oficial"><span class="sw"><i></i></span>Entrada temprana</button>`;
+  if (kind !== 'ent') return `<div class="mv-acts">${tg}</div>`;
+  const env = (((window.ASEO && ASEO.sms) || {})[id] || []);
+  const ult = env[env.length - 1];
+  const sms = `<button type="button" class="mv-sms" onclick="event.stopPropagation();aseoSmsPop_('${pcEsc(id)}','${pcEsc(String(hid || b.HouseId || ''))}')" title="Avisar por SMS que el alojamiento ya está listo">📱 SMS</button>`;
+  const nota = ult ? `<span class="mv-sms-ok" title="Enviado por ${pcEsc(ult.by || '—')} a ${pcEsc(ult.to || '')}">✓ SMS enviado ${new Date(ult.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
+  return `<div class="mv-acts">${tg}${sms}${nota}</div>`;
+}
+window.aseoTemprana_ = async function (id) {
+  const prev = ASEO.temprana[id], on = !aseoTempOn_(id);
+  if (on) ASEO.temprana[id] = { on: true }; else delete ASEO.temprana[id];
+  const repinta = () => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); };
+  repinta();
+  try {
+    const r = await fetch(`${BACKEND}/aseo/temprana`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, on, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+  } catch (e) {
+    if (prev) ASEO.temprana[id] = prev; else delete ASEO.temprana[id];
+    repinta(); alert('No se pudo guardar «Entrada temprana»: ' + (e.message || e));
+  }
+};
+window.aseoSmsPop_ = async function (id, hid) {
+  aseoEnsureCss_();
+  document.getElementById('mv-sms-modal')?.remove();
+  const b = pcMovBookings_().find(x => String(x.Id) === String(id)) || {};
+  const aloj = (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : '') || 'tu alojamiento';
+  const pila = String(b.GuestName || '').trim().split(/\s+/)[0] || '';
+  const pilaF = pila ? pila.charAt(0).toUpperCase() + pila.slice(1).toLowerCase() : '';
+  const texto = `Hola${pilaF ? ' ' + pilaF : ''}, tu alojamiento ${aloj} en Check-inn Saltillo ya está listo. ¡Ya puedes ingresar! Tu guía: https://www.check-inn.mx/public/guia/?id=${hid}`;
+  const m = document.createElement('div'); m.id = 'mv-sms-modal'; m.className = 'mv-modal';
+  m.innerHTML = `<div class="mv-modal-c" onclick="event.stopPropagation()">
+    <div class="mv-modal-h">📱 Enviar SMS al huésped</div>
+    <div class="mv-modal-to" id="mv-sms-to">Para: ${pcEsc(b.GuestName || 'Huésped')} · <i>buscando teléfono…</i></div>
+    <textarea id="mv-sms-txt" rows="5" maxlength="600" oninput="document.getElementById('mv-sms-n').textContent=this.value.length+' caracteres'">${pcEsc(texto)}</textarea>
+    <div class="mv-modal-n" id="mv-sms-n">${texto.length} caracteres</div>
+    <div class="mv-modal-b"><button type="button" class="mv-mb sec" onclick="document.getElementById('mv-sms-modal').remove()">Cancelar</button><button type="button" class="mv-mb pri" id="mv-sms-go" disabled onclick="aseoSmsEnviar_('${pcEsc(String(id))}')">Enviar</button></div>
+  </div>`;
+  m.onclick = () => m.remove();
+  document.body.appendChild(m);
+  try {
+    const d = await fetch(`${BACKEND}/aseo/sms/destino?id=${encodeURIComponent(id)}&_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    const to = document.getElementById('mv-sms-to'); if (!to) return;
+    if (d.ok && d.tel) { to.innerHTML = `Para: <b>${pcEsc(d.nombre || b.GuestName || 'Huésped')}</b> · ${pcEsc(d.tel)}`; document.getElementById('mv-sms-go').disabled = false; }
+    else to.innerHTML = `Para: ${pcEsc(b.GuestName || 'Huésped')} · <span style="color:#b91c1c;font-weight:800">⚠️ La reserva no tiene teléfono</span>`;
+  } catch (e) { const to = document.getElementById('mv-sms-to'); if (to) to.innerHTML += ` · <span style="color:#b91c1c">${pcEsc(e.message)}</span>`; }
+};
+window.aseoSmsEnviar_ = async function (id) {
+  const btn = document.getElementById('mv-sms-go'), txt = (document.getElementById('mv-sms-txt') || {}).value || '';
+  if (!txt.trim()) return;
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    const r = await fetch(`${BACKEND}/aseo/sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, body: txt.trim(), user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'No se pudo enviar');
+    (ASEO.sms[id] = ASEO.sms[id] || []).push(r.sms);
+    document.getElementById('mv-sms-modal')?.remove();
+    if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_();
+  } catch (e) { btn.disabled = false; btn.textContent = 'Enviar'; alert('No se pudo enviar el SMS: ' + (e.message || e)); }
+};
 function pcMovRow_(x, kind, hoy, o) {
   o = o || {};
   const b = x.b, st = mvStay_(b, hoy), { chips, chips2, aviso } = pcMovChips_(x, kind);
@@ -59699,6 +59763,7 @@ function pcMovRow_(x, kind, hoy, o) {
     <div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
     <div class="pc-mv-chips">${chips2}${chips}</div>
+    ${kind === 'ent' ? aseoAccionesReserva_(b, 'ent', x.aloj, '') : ''}
   </div>`;
 }
 function pcAlojCard_(g, hoy, o) {
@@ -64110,6 +64175,25 @@ function aseoEnsureCss_() {
   .mv-sync-btn{all:unset;cursor:pointer;flex:none;margin-left:auto;padding:5px 12px;border-radius:999px;background:#fff;color:#0f172a;font-size:11.5px;font-weight:800;white-space:nowrap}
   .mv-sync-btn:hover{background:#e0e7ff}
   .mv-sync-btn.notif{margin-left:6px;background:#fde68a;color:#78350f}
+  .mv-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .mv-tg{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#64748b;padding:3px 9px 3px 4px;border-radius:999px;border:1px solid #e2e8f0;background:#fff}
+  .mv-tg .sw{position:relative;width:26px;height:15px;border-radius:999px;background:#cbd5e1;transition:background .2s}
+  .mv-tg .sw i{position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .mv-tg.on{color:#9a3412;border-color:#fdba74;background:#fff7ed}
+  .mv-tg.on .sw{background:#ea580c}.mv-tg.on .sw i{left:13px}
+  .mv-sms{all:unset;cursor:pointer;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:#0f172a;color:#fff}
+  .mv-sms:hover{background:#334155}
+  .mv-sms-ok{font-size:10.5px;font-weight:800;color:#15803d}
+  .mv-modal{position:fixed;inset:0;z-index:10060;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+  .mv-modal-c{width:min(460px,100%);background:#fff;border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  .mv-modal-h{font-size:16px;font-weight:900;color:#0f172a;margin-bottom:8px}
+  .mv-modal-to{font-size:12.5px;color:#475569;margin-bottom:8px}
+  .mv-modal-c textarea{width:100%;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:10px;padding:10px;font:inherit;font-size:13.5px;resize:vertical}
+  .mv-modal-n{font-size:11px;color:#94a3b8;text-align:right;margin-top:4px}
+  .mv-modal-b{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+  .mv-mb{all:unset;cursor:pointer;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:800}
+  .mv-mb.sec{background:#f1f5f9;color:#334155}.mv-mb.pri{background:#16a34a;color:#fff}
+  .mv-mb:disabled{opacity:.5;cursor:default}
   .mv-sync-btn.notif:hover{background:#fcd34d}
   .mv-sync-btn:disabled{opacity:.75;cursor:default}
   .mv-sync .d{width:10px;height:10px;border-radius:50%;flex:none;background:#22c55e;--ac:#22c55e;animation:mvPulse 1.6s ease-in-out infinite}
@@ -64191,7 +64275,7 @@ async function aseoRefresh_(force) {
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
