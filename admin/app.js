@@ -59300,6 +59300,7 @@ function pcRenderShell_() {
       <div class="pc-grid">
         <div class="pc-card s12 pz-card" id="pc-sec-pizarra"></div>
         <div class="pc-card s12" id="pc-sec-movs"></div>
+        <div class="pc-card s12" id="pc-sec-movs-aloj"></div>
         <div class="pc-card s7" id="pc-sec-asist"></div>
         <div class="pc-card s5" id="pc-sec-ophoy"></div>
         <div class="pc-card s12" id="pc-sec-reemitir"></div>
@@ -59617,7 +59618,7 @@ function pcMovCard_(x, colK, o) {
       <div class="pc-mv-n">${destacado ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
       <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)})</div>
       ${colK === 'sal' ? aseoEstadoHtml_(b.Id, b.HouseId) : ''}
-      <div class="pc-mv-chips">${pcAsigChip_(b.Id)}${chips2}${chips}</div>
+      <div class="pc-mv-chips">${chips2}${chips}</div>
     </div></div>`;
 }
 // ── Vista "Por alojamiento": una card por alojamiento con la reserva que SALE hoy
@@ -59676,21 +59677,24 @@ function mvTabs_(k) {
 }
 function pcRenderMovs_() {
   const el = document.getElementById('pc-sec-movs'); if (!el) return;
+  const elA = document.getElementById('pc-sec-movs-aloj');
   aseoEnsureCss_();
-  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvTabs_('pc-mv-vista')}<button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div></div>` + mvSyncBar_();
+  // Dos secciones: Movimientos del día (por reserva) y Aseo por alojamiento.
+  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>` + mvSyncBar_();
+  const headA = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🧽 Aseo por alojamiento <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('aseo')">Control de aseo →</button></div>` + mvSyncBar_();
   const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
-  if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); return; }
-  if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); return; }
+  if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); if (elA) elA.innerHTML = headA('reservas') + pcErr_(PC.err.cob); return; }
+  if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); if (elA) elA.innerHTML = headA('cargando…') + pcSkel_(180); return; }
   const { cols, hoy } = pcMovCols_();
   const relev = cols.reduce((a, c) => a + c.list.filter(x => x.score >= 2).length, 0);
   const nChg = cols.reduce((a, c) => a + c.list.filter(x => x.cambio).length, 0);
   PC._movs = { sal: cols[0].list.filter(x => !x.cambio || x.cambio.k !== 'cancelada'), ent: cols[1].list.filter(x => !x.cambio || x.cambio.k !== 'cancelada'), man: cols[2].list, relev };
-  if (mvVista_('pc-mv-vista') === 'aloj') {
+  if (elA) {
     const gs = pcMovAlojGrupos_(cols), nIn = gs.filter(g => g.ent.length).length;
-    el.innerHTML = head(`${gs.length} alojamiento${gs.length === 1 ? '' : 's'} con salida hoy${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) +
+    const nChgA = gs.filter(g => [...g.sal, ...g.ent].some(x => x.cambio)).length;
+    elA.innerHTML = headA(`${gs.length} alojamiento${gs.length === 1 ? '' : 's'} con salida hoy${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChgA ? ` · <b style="color:#dc2626">⚠️ ${nChgA} con cambios</b>` : ''}`) +
       (gs.length ? `<div class="mv-acg">${gs.map(g => pcAlojCard_(g, hoy)).join('')}</div>` : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
       `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
-    return;
   }
   el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) + `
     <div class="pc-mv">${cols.map(c => `<div class="pc-mv-col" style="--cc:${c.c};--cb:${c.bg}">
@@ -64199,7 +64203,7 @@ function aseoRenderSide_() {
   }
   const nChg = sal.filter(x => x.cambio).length;
   const prevTop = side.scrollTop;
-  const porAloj = mvVista_('aseo-vista') === 'aloj';
+  const porAloj = true; // "Por reserva" oculto por el momento en Control de aseo
   let cuerpo;
   if (porAloj) {
     const gs = pcMovAlojGrupos_(cols);
@@ -64213,7 +64217,7 @@ function aseoRenderSide_() {
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
     <div class="pc-mv-list">${sal.length ? sal.map(x => pcMovCard_(x, 'sal', { c: '#dc2626', sel: String(x.b.Id) === selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Nadie sale hoy</div>'}</div></div>`;
   }
-  side.innerHTML = `${mvSyncBar_()}<div style="display:flex;justify-content:flex-end;margin-bottom:8px">${mvTabs_('aseo-vista')}</div>${selBlock}${cuerpo}`;
+  side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   if (prevTop) side.scrollTop = prevTop;
 }
 function aseoMarcarSel_() {
