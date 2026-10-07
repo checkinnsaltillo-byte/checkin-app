@@ -64308,7 +64308,7 @@ function aseoEnsureCss_() {
   .mv-tabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:800;color:#475569;white-space:nowrap}
   .mv-tabs button.on{background:#0f172a;color:#fff}
   .mv-acg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
-  .mv-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(300px,1fr);gap:12px;overflow-x:auto;align-items:start;padding-bottom:6px}
+  .mv-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow-x:auto;align-items:start;padding-bottom:6px}
   .mv-col{display:flex;flex-direction:column;gap:10px;min-width:0}
   .mv-col-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:12px;background:#1e1b4b;color:#fff;font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;position:sticky;top:0;z-index:2}
   .mv-col-h b{font-size:12px;background:rgba(255,255,255,.18);border-radius:999px;padding:1px 9px}
