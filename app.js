@@ -64363,7 +64363,12 @@ function aseoEnsureCss_() {
   .aseo-btn:hover{border-color:#6366f1;color:#3730a3}
   .aseo-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
   .aseo-grid #aseo-cal{display:none}
-  .aseo-grid.con-cal{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .aseo-grid.con-cal{grid-template-columns:minmax(0,var(--cal-w,33.333%)) 12px minmax(0,1fr);gap:0 6px}
+  .aseo-split{display:none}
+  .aseo-grid.con-cal .aseo-split{display:flex;align-self:stretch;align-items:center;justify-content:center;cursor:col-resize;border-radius:8px;touch-action:none;user-select:none}
+  .aseo-split span{width:4px;height:56px;border-radius:999px;background:#cbd5e1;transition:background .15s,height .15s}
+  .aseo-split:hover span,.aseo-split.drag span{background:#6366f1;height:90px}
+  body.aseo-arrastrando{cursor:col-resize !important;user-select:none}
   .aseo-grid.con-cal #aseo-cal{display:block;animation:aseoCalIn .35s cubic-bezier(.2,.7,.3,1)}
   @keyframes aseoCalIn{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
   .aseo-grid:not(.con-cal) .aseo-side{position:static;max-height:none}
@@ -64402,7 +64407,7 @@ function aseoEnsureCss_() {
   .aseo-side .pc-mv-list{max-height:none}
   .aseo-sel{background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:8px;margin-bottom:10px}
   .aseo-sel-h{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#92400e;margin-bottom:6px}
-  @media (max-width:1000px){.aseo-grid{grid-template-columns:minmax(0,1fr)}.aseo-side{position:static;max-height:none}}`;
+  @media (max-width:1000px){.aseo-grid,.aseo-grid.con-cal{grid-template-columns:minmax(0,1fr)}.aseo-grid.con-cal .aseo-split{display:none}.aseo-side{position:static;max-height:none}}`;
   document.head.appendChild(st);
 }
 async function aseoRefresh_(force) {
@@ -64614,8 +64619,25 @@ window.aseoSetDia_ = function (delta) {
   ASEO.sel = null;
   aseoDnavPaint_(); aseoRenderSide_();
 };
+// Divisor arrastrable entre calendario y cards (ancho del calendario en %).
+window.aseoSplitSet_ = function (pct) {
+  const g = document.getElementById('aseo-grid'); if (!g) return;
+  pct = Math.max(15, Math.min(85, pct));
+  g.style.setProperty('--cal-w', pct + '%');
+};
+window.aseoSplitIni_ = function (ev) {
+  const g = document.getElementById('aseo-grid'), h = document.getElementById('aseo-split'); if (!g || !h) return;
+  ev.preventDefault();
+  h.setPointerCapture && h.setPointerCapture(ev.pointerId);
+  h.classList.add('drag'); document.body.classList.add('aseo-arrastrando');
+  const rc = g.getBoundingClientRect();
+  const mover = e => aseoSplitSet_((e.clientX - rc.left) / rc.width * 100);
+  const fin = () => { h.classList.remove('drag'); document.body.classList.remove('aseo-arrastrando'); h.removeEventListener('pointermove', mover); h.removeEventListener('pointerup', fin); h.removeEventListener('pointercancel', fin); };
+  h.addEventListener('pointermove', mover); h.addEventListener('pointerup', fin); h.addEventListener('pointercancel', fin);
+};
 window.aseoToggleCal_ = function () {
   ASEO.cal = !ASEO.cal;
+  if (ASEO.cal) aseoSplitSet_(100 / 3); // por defecto: calendario 1/3, cards 2/3
   if (ASEO.cal) { ASEO.calSig = ''; ASEO._centrar = true; }
   aseoRender_();
 };
