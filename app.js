@@ -64067,6 +64067,10 @@ function aseoEnsureCss_() {
   .mv-live{color:#16a34a;font-weight:800}
   .mv-sync{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;margin:0 0 10px;border-radius:10px;background:#0f172a;color:#cbd5e1;font-size:12px;line-height:1.35}
   .mv-sync b{color:#fff;font-weight:800}
+  .mv-sync-t{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+  .mv-sync-btn{all:unset;cursor:pointer;flex:none;margin-left:auto;padding:5px 12px;border-radius:999px;background:#fff;color:#0f172a;font-size:11.5px;font-weight:800;white-space:nowrap}
+  .mv-sync-btn:hover{background:#e0e7ff}
+  .mv-sync-btn:disabled{opacity:.75;cursor:default}
   .mv-sync .d{width:10px;height:10px;border-radius:50%;flex:none;background:#22c55e;--ac:#22c55e;animation:mvPulse 1.6s ease-in-out infinite}
   .mv-sync .d.warn{background:#f59e0b;--ac:#f59e0b}.mv-sync .d.bad{background:#ef4444;--ac:#ef4444}
   .mv-sync .h{font-weight:900;padding:1px 8px;border-radius:999px;background:rgba(34,197,94,.18);color:#86efac}
@@ -64134,10 +64138,10 @@ function aseoEnsureCss_() {
   @media (max-width:1000px){.aseo-grid{grid-template-columns:minmax(0,1fr)}.aseo-side{position:static;max-height:none}}`;
   document.head.appendChild(st);
 }
-async function aseoRefresh_() {
+async function aseoRefresh_(force) {
   try { if (typeof pzNombres_ === 'function') pzNombres_(); } catch (_) {} // precarga el personal para el chip "Asignar"
   try {
-    const j = await fetch(`${BACKEND}/aseo/live?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    const j = await fetch(`${BACKEND}/aseo/live?_cb=${Date.now()}${force ? '&force=1' : ''}`, { cache: 'no-store' }).then(r => r.json());
     if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
@@ -64149,7 +64153,26 @@ async function aseoRefresh_() {
 // Barra "Última actualización" (Panel › Movimientos del día y Control de aseo).
 // Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
 const ASEO_POLL_S = 20;
-function mvSyncBar_() { return `<div class="mv-sync" data-sync>${mvSyncTxt_()}</div>`; }
+function mvSyncBar_() {
+  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button></div>`;
+}
+// Botón "Actualizar": fuerza la consulta a Lodgify (sin esperar los 20 s) y recarga
+// estados, asignaciones y extensiones; cada 5 min también la copia completa de reservas.
+window.mvForzar_ = async function (btn) {
+  if (ASEO._forzando) return;
+  ASEO._forzando = true;
+  document.querySelectorAll('.mv-sync-btn').forEach(b => { b.disabled = true; b.textContent = '⏳ Actualizando…'; });
+  try {
+    await aseoRefresh_(true);
+    try { if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
+    if (document.getElementById('pc-sec-movs')) pcRenderMovs_();
+    if (aseoVisible_()) { ASEO.calSig = ''; aseoRender_(); }
+    document.querySelectorAll('.mv-sync-btn').forEach(b => { b.textContent = ASEO.netErr || ASEO.err ? '⚠️ Reintentar' : '✓ Actualizado'; });
+  } finally {
+    ASEO._forzando = false;
+    setTimeout(() => document.querySelectorAll('.mv-sync-btn').forEach(b => { b.disabled = false; b.textContent = '🔄 Actualizar'; }), 1800);
+  }
+};
 function mvSyncTxt_() {
   if (!ASEO.ts) return `<span class="d" style="background:#94a3b8"></span><b>Conectando con Lodgify…</b>${ASEO.netErr ? ` <span class="e">⚠️ ${pcEsc(ASEO.netErr)}</span>` : ''}`;
   const t = new Date(ASEO.ts), seg = Math.max(0, Math.round((Date.now() - ASEO.ts) / 1000));
@@ -64278,7 +64301,7 @@ window.aseoToggleCal_ = function () {
   aseoRender_();
 };
 window.aseoHoy_ = function () { const cal = document.getElementById('aseo-cal'); if (cal) ocupCentrarHoy_(cal, true); };
-window.aseoRecargar_ = async function () { await aseoRefresh_(); ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
+window.aseoRecargar_ = async function () { await aseoRefresh_(true); ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
 
 // Personal asignado (multi-selección): el popup no se cierra al marcar.
 window.aseoAsignar_ = function (id, anchor, rol) {
