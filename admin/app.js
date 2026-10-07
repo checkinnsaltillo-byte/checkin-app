@@ -59563,7 +59563,7 @@ window.aseoSetEstado_ = async function (id, hid, k, validar) {
     if (res.estado) ASEO.estados[id] = res.estado; else delete ASEO.estados[id];
     aseoPintarEstado_(id);
     // Recalcula al instante lo que muestra la guía (línea "📖 La guía muestra…").
-    aseoRefresh_(true).then(() => { aseoPintarEstado_(id); if (document.getElementById('pc-sec-movs')) mvSyncTick_(); }).catch(() => {});
+    aseoRefresh_(true).then(() => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); }).catch(() => {});
   } catch (e) {
     if (prev) ASEO.estados[id] = prev; else delete ASEO.estados[id];
     aseoPintarEstado_(id);
@@ -59573,7 +59573,7 @@ window.aseoSetEstado_ = async function (id, hid, k, validar) {
 function aseoPintarEstado_(id) {
   document.querySelectorAll(`.ae-w[data-est="${CSS.escape(String(id))}"]`).forEach(el => {
     const hid = (el.closest('[data-hid]') || {}).dataset ? el.closest('[data-hid]').dataset.hid : '';
-    el.outerHTML = aseoEstadoHtml_(id, hid || (aseoEstDe_(id) || {}).hid || '');
+    el.outerHTML = aseoEstadoHtml_(id, hid || (aseoEstDe_(id) || {}).hid || '', { sinGuia: !!el.closest('.mv-ac') });
   });
   document.querySelectorAll(`[data-listo-for="${CSS.escape(String(id))}"]`).forEach(el => el.classList.toggle('listo', (aseoPubDe_(id) || {}).estado === 'inspeccionado'));
 }
@@ -59587,7 +59587,7 @@ function pcAsigChip_(id) {
   id = String(id);
   return `<span class="mv-asig-w" data-asig="${pcEsc(id)}">${Object.entries(ASEO_ROLES).map(([rol, R]) => {
     const a = aseoAsigDe_(id, rol);
-    return `<span class="pc-mv-chip mv-asig ${a.length ? 'on' : ''} r-${rol}" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(id)}',this,'${rol}')" title="Personal de ${R.t.toLowerCase()} · clic para elegir">${R.ico} ${R.t}: ${a.length ? pcEsc(a.join(', ')) : '<i>asignar</i>'} ▾</span>`;
+    return `<span class="pc-mv-chip mv-asig ${a.length ? 'on' : ''} r-${rol}" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(id)}',this,'${rol}')" title="${a.length ? R.t + ': ' + pcEsc(a.join(', ')) + ' · clic para cambiar' : 'Asignar personal de ' + R.t.toLowerCase()}">${R.ico} Asignar ${R.t.toLowerCase()}${a.length ? ` (${a.length})` : ''} ▾</span>`;
   }).join('')}</span>`;
 }
 function pcMovChips_(x, colK) {
@@ -59862,6 +59862,24 @@ function pcMovRow_(x, kind, hoy, o) {
   </div>`;
 }
 // Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
+// Lo que muestra la guía + casilla "Publicado" (marcada por defecto). Desmarcada → la guía no muestra nada.
+function aseoGuiaLinea_(id, hid) {
+  const G = hid ? ((window.ASEO && ASEO.guias) || {})[String(hid)] : null;
+  const key = (G && G.keyPub) || String(id);
+  const noPub = !!(G && G.noPub);
+  const txt = !G ? '' : G.texto ? `<div class="ae-guia ${G.estado === 'terminado' || G.estado === 'inspeccionado' ? 'ok' : ''}">📖 La guía muestra: <b>«${pcEsc(G.texto)}»</b></div>`
+    : `<div class="ae-guia nada">📖 La guía no muestra ningún aviso</div>`;
+  const chk = `<button type="button" class="mv-pub ${noPub ? '' : 'on'}" onclick="event.stopPropagation();aseoGuiaPublicar_('${pcEsc(key)}',${noPub})" title="${noPub ? 'Marcar para volver a mostrar el aviso en la guía' : 'Desmarcar para que la guía no muestre nada'}"><span class="ck">${noPub ? '' : '✓'}</span>${noPub ? 'No publicado' : 'Publicado'}</button>`;
+  return `<div class="mv-guia">${txt}${chk}</div>`;
+}
+window.aseoGuiaPublicar_ = async function (key, publicar) {
+  try {
+    const r = await fetch(`${BACKEND}/aseo/guia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: key, publicar: !!publicar, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    await aseoRefresh_(true);
+    if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_();
+  } catch (e) { alert('No se pudo cambiar la publicación en la guía: ' + (e.message || e)); }
+};
 window.mvAcPopup_ = function (k) {
   aseoEnsureCss_();
   ASEO._popK = k;
@@ -59934,7 +59952,7 @@ function pcAlojCard_(g, hoy, o) {
   const abierta = !!(window.ASEO && ASEO.todas);
   // Chips de la reserva que ENTRA (medio, clasificación y entrada temprana) visibles en el encabezado.
   const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
-  let hChips = '', prioritaria = false, tardChip = '';
+  let hChips = '', prioritaria = false, tardChip = '', boxEnt = '';
   const xs = g.sal.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
   const trd = xs ? aseoTardRec_(xs.b.Id) : null;
   if (trd) {
@@ -59956,22 +59974,35 @@ function pcAlojCard_(g, hoy, o) {
       : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Solicitud Entrada · aceptada</button>`
       : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
     const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp'), !!tr.aceptada, 'temp') : '';
-    hChips = temp + medio + clas + larga;
+    boxEnt = temp;
+    hChips = medio + clas + larga;
   }
-  hChips = tardChip + hChips;
+  // Recuadros de solicitud: el primero va en la línea 1 junto al código; el segundo en la línea 2.
+  const cajas = [tardChip, boxEnt].filter(Boolean);
+  const asg = ((window.ASEO && ASEO.asig) || {})[String(asigId)] || {};
+  const pA = asg.aseo || asg.personal || [], pI = asg.inspeccion || [];
+  const personas = pA.length || pI.length
+    ? `<div class="mv-pers">👥 ${[pA.length ? `<b>${pcEsc(pA.join(', '))}</b> <small>(aseo)</small>` : '', pI.length ? `<b>${pcEsc(pI.join(', '))}</b> <small>(inspección)</small>` : ''].filter(Boolean).join(' · ')}</div>`
+    : '<div class="mv-pers no">👥 No asignado</div>';
   let avisoVal = '';
   const esHoyC = o.esHoy !== false;
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
+  // Orden: L1 código + 1er recuadro · L2 2º recuadro · chips · alojamiento · personas · botones
+  // de asignar · estado · aviso · lo que muestra la guía · casilla Publicado.
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
-      <div class="mv-ac-chips"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span>${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
+      <div class="mv-ac-l1"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${cajas[0] ? `<span class="mv-ac-box">${cajas[0]}</span>` : ''}</div>
+      ${cajas[1] ? `<div class="mv-ac-l2">${cajas[1]}</div>` : ''}
+      <div class="mv-ac-chips">${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
       <div class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</div>
     </div>
+    ${personas}
+    <div class="pc-mv-chips" style="margin:0 0 4px">${pcAsigChip_(asigId)}</div>
+    ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: true })}
     ${avisoVal}
-    ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: !esHoyC })}
-    <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
+    ${esHoyC ? aseoGuiaLinea_(asigId, g.hid) : ''}
     <div class="mv-ac-res" ${abierta ? '' : 'hidden'}>
     ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { sel: String(o.selId) === String(x.b.Id) })).join('')}
@@ -64425,6 +64456,21 @@ function aseoEnsureCss_() {
   .mv-ac.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18)}
   .mv-ac-h{display:block;margin-bottom:6px;cursor:pointer;user-select:none}
   .mv-ac-chips{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .mv-ac-l1{display:flex;align-items:flex-start;gap:6px;margin-bottom:4px}
+  .mv-ac-l1 .mv-ac-car{padding-top:4px}
+  .mv-ac-l1 .mv-ac-code{flex:none;display:inline-flex;align-items:center;height:22px;padding:0 9px;font-size:10.5px}
+  .mv-ac-box{margin-left:auto;min-width:0;max-width:78%;display:flex;justify-content:flex-end}
+  .mv-ac-l2{display:flex;justify-content:flex-end;margin-bottom:4px}
+  .mv-ac-l2 .mv-chg{max-width:78%}
+  .mv-ac-h .mv-ac-chips{margin-top:2px}
+  .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35}
+  .mv-pers b{color:#0f172a}.mv-pers small{color:#64748b;font-weight:700}
+  .mv-pers.no{color:#dc2626;font-weight:900}
+  .mv-guia{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-top:5px}
+  .mv-pub{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#64748b}
+  .mv-pub .ck{width:18px;height:18px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:5px;background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff}
+  .mv-pub.on{color:#15803d}.mv-pub.on .ck{background:#16a34a;border-color:#16a34a}
+  .mv-pub:not(.on){color:#b91c1c}
   /* Chips homologados dentro de las cards de alojamiento: misma altura, forma y letra
      (los de medio de reserva, clasificación, etc. traen tamaños propios en línea). */
   .mv-ac .mv-ac-chips > :not(.mv-ac-car), .mv-ac .pc-mv-chips > *, .mv-ac .pc-mv-chips .pc-mv-chip, .mv-ac .mv-acts > *, .mv-ac .mv-ac-chips .pc-mv-chip {
@@ -64835,6 +64881,7 @@ window.aseoPopOk_ = async function () {
 };
 // Actualiza solo los chips de esa reserva (Panel y Control de aseo), sin re-pintar las cards.
 function aseoPintarAsig_(id) {
+  if (document.querySelector('.mv-ac')) { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); return; }
   document.querySelectorAll(`.mv-asig-w[data-asig="${CSS.escape(String(id))}"]`).forEach(el => { el.outerHTML = pcAsigChip_(id); });
 }
 // Actualización continua (cada 20 s) mientras el Panel o Control de aseo estén a la
