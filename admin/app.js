@@ -59689,7 +59689,9 @@ function pcMovAlojGrupos_(cols, dia) {
     });
   }
   const temp = g => g.ent.some(x => aseoTempOn_(x.b.Id)) ? 1 : 0;
-  return [...m.values()].sort((a, b) => (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0) || temp(b) - temp(a)
+  // Prioritarias primero: entrada temprana con solicitud ACEPTADA.
+  const prio = g => g.ent.some(x => ((((window.ASEO && ASEO.temprana) || {})[String(x.b.Id)]) || {}).aceptada) ? 1 : 0;
+  return [...m.values()].sort((a, b) => prio(b) - prio(a) || (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0) || temp(b) - temp(a)
     || ([...b.sal, ...b.ent].some(x => x.cambio) ? 1 : 0) - ([...a.sal, ...a.ent].some(x => x.cambio) ? 1 : 0)
     || String(a.aloj).localeCompare(String(b.aloj), 'es', { numeric: true }));
 }
@@ -59840,7 +59842,7 @@ function pcAlojCard_(g, hoy, o) {
   const abierta = !!(window.ASEO && ASEO.todas);
   // Chips de la reserva que ENTRA (medio, clasificación y entrada temprana) visibles en el encabezado.
   const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
-  let hChips = '';
+  let hChips = '', prioritaria = false;
   if (xe) {
     const t = xe.tier;
     const clas = t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}">${t.icon} ${t.label}</span>`
@@ -59848,6 +59850,7 @@ function pcAlojCard_(g, hoy, o) {
     const larga = xe.larga === 'mensual' ? '<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>' : xe.larga ? '<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>' : '';
     const medio = typeof lgSourceChipMini === 'function' ? lgSourceChipMini(xe.b.Source) : (xe.b.Source ? `<span class="pc-mv-chip">${pcEsc(xe.b.Source)}</span>` : '');
     const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
+    prioritaria = !!(tr && tr.on && tr.aceptada);
     const temp = !tr || !tr.on ? ''
       : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada temprana · solicitud aceptada</button>`
       : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
@@ -59858,8 +59861,8 @@ function pcAlojCard_(g, hoy, o) {
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
-  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
-    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
+  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
+    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
     ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: !esHoyC })}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
@@ -64296,6 +64299,8 @@ function aseoEnsureCss_() {
   .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
   .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:1px 9px;background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;white-space:nowrap}
   .mv-temp-chip:hover{background:#ffedd5}
+  .mv-prio{font-size:10.5px;font-weight:900;letter-spacing:.04em;padding:2px 9px;border-radius:999px;background:#7f1d1d;color:#fff;--ac:#dc2626;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
+  .mv-ac.prio{border-left-color:#7f1d1d;box-shadow:0 0 0 2px rgba(127,29,29,.25),0 8px 22px -10px rgba(127,29,29,.5)}
   .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1.5px solid transparent;--ac:#22c55e}
   .aseo-dnav{background:#1e1b4b;border-color:#312e81}
   .aseo-dnav .pc-mlabel{color:#fff;min-width:190px}
