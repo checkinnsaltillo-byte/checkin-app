@@ -64499,7 +64499,7 @@ function aseoEnsureCss_() {
   .mv-ac .mv-ac-band.solo > .mv-ac-chips > *, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > *{height:17px !important;padding:0 4px !important;font-size:9px !important;gap:2px !important;letter-spacing:0 !important}
   .mv-ac.mv-est{cursor:pointer;background:var(--eb) !important;border-color:color-mix(in srgb,var(--ec) 35%,#fff) !important;border-left-color:var(--ec) !important}
   .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35;display:flex;flex-wrap:wrap;gap:4px}
-  .mv-ac .mv-ac-chips > .mv-mov2{padding:0 !important;gap:0 !important;overflow:hidden;border:0 !important}
+  .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > .mv-mov2{padding:0 !important;gap:0 !important;overflow:hidden;border:0 !important;background:transparent !important}
   .mv-mov2 > span{display:inline-flex;align-items:center;height:100%;padding:0 7px;color:#fff;font-weight:900}
   .mv-mov2 > .s, .mv-ac .mv-ac-chips > .mv-mov1.s{background:#dc2626 !important;color:#fff !important;border-color:#b91c1c !important}
   .mv-mov2 > .e, .mv-ac .mv-ac-chips > .mv-mov1.e{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
