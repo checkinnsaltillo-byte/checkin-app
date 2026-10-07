@@ -59758,9 +59758,8 @@ function pcMovRow_(x, kind, hoy, o) {
   o = o || {};
   const b = x.b, st = mvStay_(b, hoy), { chips, chips2, aviso } = pcMovChips_(x, kind);
   return `<div class="mv-row ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" ${o.onclick ? `onclick="event.stopPropagation();${o.onclick}('${pcEsc(String(b.Id))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-row-k"><span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
+    <div class="mv-row-n"><div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div><span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
     ${aviso}
-    <div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
     <div class="pc-mv-chips">${chips2}${chips}</div>
     ${kind === 'ent' ? aseoAccionesReserva_(b, 'ent', x.aloj, '') : ''}
@@ -59818,11 +59817,23 @@ function pcAlojCard_(g, hoy, o) {
   // Reservas plegadas por defecto (se abren con el encabezado o al seleccionar en el calendario).
   const kAc = g.hid || g.k, nRes = g.sal.length + g.ent.length + (g.cur || []).length;
   const abierta = !!((window.ASEO && ASEO.todas) || sel);
+  // Chips de la reserva que ENTRA (medio, clasificación y entrada temprana) visibles en el encabezado.
+  const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
+  let hChips = '';
+  if (xe) {
+    const t = xe.tier;
+    const clas = t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}">${t.icon} ${t.label}</span>`
+      : (xe.stats && xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : '');
+    const larga = xe.larga === 'mensual' ? '<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>' : xe.larga ? '<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>' : '';
+    const medio = typeof lgSourceChipMini === 'function' ? lgSourceChipMini(xe.b.Source) : (xe.b.Source ? `<span class="pc-mv-chip">${pcEsc(xe.b.Source)}</span>` : '');
+    const temp = aseoTempOn_(xe.b.Id) ? '<span class="mv-temp-chip" title="El huésped pidió entrar antes de la hora oficial: prioridad en el aseo">⏰ Entrada temprana · prioridad</span>' : '';
+    hChips = temp + medio + clas + larga;
+  }
   let avisoVal = '';
   if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (!g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
+    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
     ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid)}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
@@ -64256,6 +64267,11 @@ function aseoEnsureCss_() {
   .mv-ac-car.on{transform:rotate(90deg)}
   .mv-ac-n{font-size:10.5px;font-weight:800;color:#64748b;background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
   .mv-ac-res[hidden]{display:none}
+  .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+  .mv-temp-chip{font-size:10.5px;font-weight:900;border-radius:999px;padding:2px 9px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;--ac:#f97316;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
+  .mv-row-n{display:flex;align-items:flex-start;gap:8px}
+  .mv-row-n .pc-mv-n{flex:1;min-width:0}
+  .mv-row-n .mv-prog{margin-left:auto;flex:none;padding-top:1px}
   .mv-ac-todas{all:unset;cursor:pointer;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;white-space:nowrap;letter-spacing:0;text-transform:none}
   .mv-ac-todas:hover{background:#e0e7ff}
   .pc-mv-h .mv-ac-todas{margin-left:auto}
@@ -64351,7 +64367,7 @@ window.mvNotificar_ = async function (btn) {
     if (!cambios.length) { alert('No hay cambios de asignación por notificar: cada persona ya tiene su lista al día.'); return; }
     const conTel = cambios.filter(c => c.tel), sinTel = cambios.filter(c => !c.tel);
     const linea = c => `• ${c.persona}${c.primerEnvio ? ' (primer envío)' : ''}\n` +
-      (c.agregados.length ? `   ➕ ${c.agregados.join(', ')}\n` : '') + (c.quitados.length ? `   ➖ ${c.quitados.join(', ')}\n` : '') +
+      (c.agregados.length ? `   ➕ ${c.agregados.join(', ')}\n` : '') + (c.quitados.length ? `   ➖ ${c.quitados.join(', ')}\n` : '') + ((c.temprana || []).length ? `   ⏰ ${c.temprana.join(', ')}\n` : '') +
       (c.total ? '' : '   (se queda sin limpiezas asignadas)\n');
     let msg = 'Cambios en las asignaciones de aseo / inspección:\n\n' + conTel.map(linea).join('');
     if (sinTel.length) msg += `\n⚠️ Sin celular en Personal (no se les enviará): ${sinTel.map(c => c.persona).join(', ')}\n`;
