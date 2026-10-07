@@ -59436,7 +59436,10 @@ function pcMovCambio_(b, hoy) {
   const ext = typeof _pagosExt === 'function' ? _pagosExt(b) : null;
   if (ult && ult.tipo === 'acortada') return { k: 'acortada', ico: '⏪', t: 'Estancia ACORTADA', d: `salía ${pcFmtDiaC_(ult.antes.dep)} → ahora sale ${pcFmtDiaC_(dep)}${dep === hoy ? ' (HOY)' : ''}`, c: '#7c3aed' };
   if (ult && ult.tipo === 'reprogramada') return { k: 'reprogramada', ico: '📅', t: 'CAMBIO DE FECHAS', d: `antes ${pcFmtDiaC_(ult.antes.arr)} → ${pcFmtDiaC_(ult.antes.dep)} · ahora ${pcFmtDiaC_(arr)} → ${pcFmtDiaC_(dep)}`, c: '#2563eb' };
-  const antes = (ult && ult.tipo === 'extendida') ? ult.antes.dep : (ext && ext.antes) || '';
+  // Si alguna extensión movió la salida que era HOY, el aviso lo dice así (aunque haya varias).
+  const lstExt = (PAGOS_STATE.extById && PAGOS_STATE.extById.get(id)) || [];
+  const eraHoy = lstExt.some(e => e.antes === hoy) || log.some(c => c.tipo === 'extendida' && c.antes && c.antes.dep === hoy);
+  const antes = eraHoy ? hoy : (ult && ult.tipo === 'extendida') ? ult.antes.dep : (ext && ext.antes) || '';
   if (antes && dep && dep > antes) return { k: 'extendida', ico: '🔁', t: antes === hoy ? 'EXTENDIÓ · ya NO sale hoy' : 'Estancia EXTENDIDA', d: `salía ${pcFmtDiaC_(antes)} → ahora sale ${pcFmtDiaC_(dep)}`, c: '#ea580c' };
   return null;
 }
@@ -59450,7 +59453,11 @@ function pcMovCols_() {
   const todas = pcMovBookings_();
   const canc = b => /cancel|declin/i.test(String(b.Status || ''));
   const cancReciente = b => { const t = Date.parse(String(b.DateCancelled || '').replace(' ', 'T')); return canc(b) && (!isNaN(t) ? t >= lim : !!(((window.ASEO && ASEO.cambios) || {})[String(b.Id)])); };
-  const salioOrig = b => { const e = typeof _pagosExt === 'function' ? _pagosExt(b) : null; const log = ((window.ASEO && ASEO.cambios) || {})[String(b.Id)] || []; return (e && e.antes === hoy) || log.some(c => c.antes && c.antes.dep === hoy); };
+  const salioOrig = b => {
+    const lst = (PAGOS_STATE.extById && PAGOS_STATE.extById.get(String(b.Id))) || [];
+    const log = ((window.ASEO && ASEO.cambios) || {})[String(b.Id)] || [];
+    return lst.some(e => e.antes === hoy) || log.some(c => c.antes && c.antes.dep === hoy);
+  };
   const info = b => { const x = pcMovInfo_(b); x.cambio = pcMovCambio_(b, hoy); return x; };
   const grp = (fn, fnCanc) => todas.filter(b => canc(b) ? (cancReciente(b) && fnCanc(b)) : !/delet/i.test(String(b.Status || '')) && fn(b)).map(info)
     .sort((a, b) => (b.cambio ? 1 : 0) - (a.cambio ? 1 : 0) || b.score - a.score || String(a.aloj).localeCompare(String(b.aloj), 'es'));
