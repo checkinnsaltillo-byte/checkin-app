@@ -60017,7 +60017,7 @@ function pcAlojCard_(g, hoy, o) {
   let avisoVal = '';
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
-  else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#7c3aed"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
+  else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert suave"><b>⚠️ Requiere inspección</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   // Orden: franja código|entrada|salida · chips · personas asignadas · botones
   // de asignar · estado · aviso · lo que muestra la guía · casilla Publicado.
   const EC = ASEO_EST.find(e => e.k === selE) || ASEO_EST[0];
@@ -64500,6 +64500,17 @@ function aseoEnsureCss_() {
   .mv-ac.mv-est{cursor:pointer;background:var(--eb) !important;border-color:color-mix(in srgb,var(--ec) 35%,#fff) !important;border-left-color:var(--ec) !important}
   .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35;display:flex;flex-wrap:wrap;gap:4px}
   .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > .mv-mov2{padding:0 !important;gap:0 !important;overflow:hidden;border:0 !important;background:transparent !important}
+  .mv-alert.suave{background:#fee2e2;color:#7f1d1d;border:1.5px solid #e5e7eb;box-shadow:none;animation:none}
+  .mv-alert.suave b{color:#991b1b}
+  .mv-pf{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 8px}
+  .mv-pf > small{font-size:11px;font-weight:800;color:#64748b;margin-right:2px}
+  .mv-pf-c{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:900;
+    background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0}
+  .mv-pf-c i{width:9px;height:9px;border-radius:50%;background:var(--pc);flex:none}
+  .mv-pf-c:hover{background:#e2e8f0}
+  .mv-pf-c.on{background:var(--pc);color:#fff;border-color:var(--pc);box-shadow:0 3px 10px -3px var(--pc)}
+  .mv-pf-c.on i{background:#fff}
+  .mv-pf-x{all:unset;cursor:pointer;font-size:11px;font-weight:800;color:#64748b;text-decoration:underline}
   .mv-mov2 > span{display:inline-flex;align-items:center;height:100%;padding:0 7px;color:#fff;font-weight:900}
   .mv-mov2 > .s, .mv-ac .mv-ac-chips > .mv-mov1.s{background:#dc2626 !important;color:#fff !important;border-color:#b91c1c !important}
   .mv-mov2 > .e, .mv-ac .mv-ac-chips > .mv-mov1.e{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
@@ -64724,6 +64735,22 @@ async function aseoInit() {
   ASEO.calSig = ''; ASEO._centrar = true;
   aseoRender_();
 }
+// Filtro por personal (chips arriba de las columnas; varios a la vez; sin selección = todos).
+function aseoAsigIdDe_(g) { return String(g.estId || (g.sal[0] ? g.sal[0].b.Id : ([...g.ent, ...(g.cur || [])][0] || { b: {} }).b.Id) || ''); }
+function aseoPersDe_(g) { const a = ((ASEO.asig || {})[aseoAsigIdDe_(g)]) || {}; return [...(a.aseo || a.personal || []), ...(a.inspeccion || [])]; }
+function aseoFiltroPers_(gs) {
+  const sel = ASEO.fPers = ASEO.fPers || [];
+  const nombres = [...new Set(gs.flatMap(aseoPersDe_).concat(sel))].sort((a, b) => a.localeCompare(b, 'es'));
+  const out = sel.length ? gs.filter(g => aseoPersDe_(g).some(n => sel.includes(n))) : gs;
+  if (!nombres.length) return { gs: out, html: '' };
+  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i></i>${pcEsc(aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>`;
+  return { gs: out, html };
+}
+window.aseoFiltroToggle_ = function (n) {
+  const sel = ASEO.fPers = ASEO.fPers || [];
+  const i = sel.indexOf(n); if (i >= 0) sel.splice(i, 1); else sel.push(n);
+  aseoRenderSide_();
+};
 function aseoVisible_() { const m = document.getElementById('module-aseo'); return !!(m && !m.classList.contains('hidden')); }
 function aseoRender_() {
   if (!aseoVisible_()) return;
@@ -64778,8 +64805,10 @@ function aseoRenderSide_() {
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
+    const filtro = aseoFiltroPers_(gs);
     cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida ${diaT}${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado ${diaT}` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada ${diaT}</span>` : ''}</span>${mvAcTodasBtn_()}<b>${gs.length}</b></div>
-      ${gs.length ? mvColumnas_(gs, g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy })) : `<div class="pc-mv-empty">Ningún alojamiento con salida ${diaT}</div>`}`;
+      ${filtro.html}
+      ${filtro.gs.length ? mvColumnas_(filtro.gs, g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy })) : `<div class="pc-mv-empty">${gs.length ? 'Nadie de las personas seleccionadas tiene alojamientos asignados' : `Ningún alojamiento con salida ${diaT}`}</div>`}`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
