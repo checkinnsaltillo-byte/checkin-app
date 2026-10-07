@@ -6543,7 +6543,8 @@ input.bn-efe-chk[type="checkbox"], input.bn-up-chk[type="checkbox"]:checked::aft
 /* ─── Ocupación · Calendario: primera columna con FONDO semi-transparente
    (se alcanzan a ver las barras detrás) y texto sólido, color vivo ─── */
 .ocup-aloj-cell, .ocup-head-aloj { opacity: 1; background: rgba(255,255,255,.62); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
-[data-ocup-cal="continuous"] .ocup-aloj-name { color: #1e1b4b; font-weight: 900; font-size: 13px; letter-spacing: .02em; }
+[data-ocup-cal="continuous"] .ocup-aloj-name { color: #1e1b4b; font-weight: 900; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+[data-ocup-cal="continuous"] .ocup-head-aloj { white-space: nowrap; overflow: hidden; font-size: 10px; }
 [data-ocup-cal="continuous"] .ocup-head-aloj { color: #3730a3; }
 [data-ocup-cal="continuous"] { --ocup-aloj-w: 150px; }
 
