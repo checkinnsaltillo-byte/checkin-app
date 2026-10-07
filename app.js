@@ -59576,8 +59576,7 @@ function mvTabs_(k) {
 function pcRenderMovs_() {
   const el = document.getElementById('pc-sec-movs'); if (!el) return;
   aseoEnsureCss_();
-  const vivo = window.ASEO && ASEO.ts ? ` · <span class="mv-live" title="Lodgify en vivo">● en vivo ${new Date(ASEO.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>` : '';
-  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}${vivo}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvTabs_('pc-mv-vista')}<button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div></div>`;
+  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvTabs_('pc-mv-vista')}<button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div></div>` + mvSyncBar_();
   const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
   if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); return; }
   if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); return; }
@@ -59589,14 +59588,14 @@ function pcRenderMovs_() {
     const gs = pcMovAlojGrupos_(cols), nIn = gs.filter(g => g.ent.length).length;
     el.innerHTML = head(`${gs.length} alojamiento${gs.length === 1 ? '' : 's'} con salida hoy${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) +
       (gs.length ? `<div class="mv-acg">${gs.map(g => pcAlojCard_(g, hoy)).join('')}</div>` : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
-      `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza solo cada 30 s con Lodgify en vivo.</div>`;
+      `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
     return;
   }
   el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) + `
     <div class="pc-mv">${cols.map(c => `<div class="pc-mv-col" style="--cc:${c.c};--cb:${c.bg}">
       <div class="pc-mv-h"><span class="pc-mv-ico">${c.ico}</span><span>${c.t}</span><b>${c.list.length}</b></div>
       <div class="pc-mv-list">${c.list.length ? c.list.map(x => pcMovCard_(x, c.k, { c: c.c })).join('') : '<div class="pc-mv-empty">Sin movimientos</div>'}</div></div>`).join('')}</div>
-    <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Las reservas con cambios (cancelación, extensión, fechas) van primero. Se actualiza solo cada 30 s con Lodgify en vivo.</div>`;
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Las reservas con cambios (cancelación, extensión, fechas) van primero. Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
 }
 // HOY · KPIs del día (independientes del mes elegido).
 function pcRenderHoyKpis_(kPend) {
@@ -63939,6 +63938,14 @@ function aseoEnsureCss_() {
   .mv-asig-w{display:contents}
   .mv-asig:hover{border-color:#6366f1}
   .mv-live{color:#16a34a;font-weight:800}
+  .mv-sync{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;margin:0 0 10px;border-radius:10px;background:#0f172a;color:#cbd5e1;font-size:12px;line-height:1.35}
+  .mv-sync b{color:#fff;font-weight:800;text-transform:capitalize}
+  .mv-sync .d{width:10px;height:10px;border-radius:50%;flex:none;background:#22c55e;--ac:#22c55e;animation:mvPulse 1.6s ease-in-out infinite}
+  .mv-sync .d.warn{background:#f59e0b;--ac:#f59e0b}.mv-sync .d.bad{background:#ef4444;--ac:#ef4444}
+  .mv-sync .h{font-weight:900;padding:1px 8px;border-radius:999px;background:rgba(34,197,94,.18);color:#86efac}
+  .mv-sync .h.warn{background:rgba(245,158,11,.2);color:#fcd34d}.mv-sync .h.bad{background:rgba(239,68,68,.22);color:#fca5a5}
+  .mv-sync .p{color:#94a3b8}
+  .mv-sync .e{color:#fca5a5;font-weight:800}
   .mv-tabs{display:inline-flex;gap:3px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:9px;padding:2px}
   .mv-tabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:800;color:#475569;white-space:nowrap}
   .mv-tabs button.on{background:#0f172a;color:#fff}
@@ -63981,9 +63988,32 @@ async function aseoRefresh_() {
     const j = await fetch(`${BACKEND}/aseo/live?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
     if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, ts: j.ts || Date.now(), err: j.err || '' });
-  } catch (e) { ASEO.err = e.message; }
+    // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
+    const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+  } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
+  mvSyncTick_();
 }
+// Barra "Última actualización" (Panel › Movimientos del día y Control de aseo).
+// Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
+const ASEO_POLL_S = 20;
+function mvSyncBar_() { return `<div class="mv-sync" data-sync>${mvSyncTxt_()}</div>`; }
+function mvSyncTxt_() {
+  if (!ASEO.ts) return `<span class="d" style="background:#94a3b8"></span><b>Conectando con Lodgify…</b>${ASEO.netErr ? ` <span class="e">⚠️ ${pcEsc(ASEO.netErr)}</span>` : ''}`;
+  const t = new Date(ASEO.ts), seg = Math.max(0, Math.round((Date.now() - ASEO.ts) / 1000));
+  const nivel = ASEO.err || ASEO.netErr || seg > 180 ? 'bad' : seg > 75 ? 'warn' : 'ok';
+  const hace = seg < 60 ? `hace ${seg} s` : seg < 3600 ? `hace ${Math.floor(seg / 60)} min ${seg % 60} s` : `hace ${Math.floor(seg / 3600)} h`;
+  const prox = ASEO.chk ? Math.max(0, ASEO_POLL_S - Math.round((Date.now() - ASEO.chk) / 1000)) : ASEO_POLL_S;
+  const fecha = t.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+  const hora = t.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return `<span class="d ${nivel}"></span><span>Última actualización con Lodgify:</span> <b>${fecha} · ${hora}</b> <span class="h ${nivel}">${hace}</span>`
+    + (nivel === 'ok' ? ` <span class="p">· siguiente revisión en ${prox} s</span>` : '')
+    + (ASEO.err ? ` <span class="e">⚠️ Lodgify no respondió: ${pcEsc(ASEO.err)} — se muestran los últimos datos válidos</span>` : '')
+    + (ASEO.netErr ? ` <span class="e">⚠️ Sin conexión con el servidor: ${pcEsc(ASEO.netErr)}</span>` : '')
+    + (!ASEO.err && !ASEO.netErr && nivel !== 'ok' ? ' <span class="e">⚠️ Datos atrasados — oprime 🔄 Actualizar</span>' : '');
+}
+function mvSyncTick_() { document.querySelectorAll('[data-sync]').forEach(el => { el.innerHTML = mvSyncTxt_(); }); }
+if (!window.__mvSyncTick) window.__mvSyncTick = setInterval(() => { if (document.visibilityState === 'visible') mvSyncTick_(); }, 1000);
 // Carga base (copia del sistema + registros de huéspedes + extensiones), una vez.
 async function aseoEnsureBase_() {
   if (typeof PAGOS_STATE !== 'undefined' && !PAGOS_STATE.loaded && typeof pagosLoad === 'function') await pagosLoad();
@@ -64003,7 +64033,7 @@ function aseoRender_() {
   if (!aseoVisible_()) return;
   aseoEnsureCss_();
   const st = document.getElementById('aseo-status');
-  if (st) st.innerHTML = ASEO.ts ? `<span class="mv-live">● En vivo</span> · actualizado ${new Date(ASEO.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · se refresca solo cada 30 s${ASEO.err ? ` · <span style="color:#b91c1c">⚠️ ${pcEsc(ASEO.err)}</span>` : ''}` : 'Conectando con Lodgify…';
+  if (st) st.innerHTML = `<span class="mv-live">● En vivo</span> · consulta a Lodgify cada ${ASEO_POLL_S} s · la hora exacta de la última actualización está arriba de las cards`;
   // Calendario: solo se re-pinta si cambió algo (conserva el scroll del usuario).
   const cal = document.getElementById('aseo-cal');
   // Mismos criterios que el módulo Calendario: solo Booked/Tentative (como
@@ -64051,7 +64081,7 @@ function aseoRenderSide_() {
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
     <div class="pc-mv-list">${sal.length ? sal.map(x => pcMovCard_(x, 'sal', { c: '#dc2626', sel: String(x.b.Id) === selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Nadie sale hoy</div>'}</div></div>`;
   }
-  side.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px">${mvTabs_('aseo-vista')}</div>${selBlock}${cuerpo}`;
+  side.innerHTML = `${mvSyncBar_()}<div style="display:flex;justify-content:flex-end;margin-bottom:8px">${mvTabs_('aseo-vista')}</div>${selBlock}${cuerpo}`;
   if (prevTop) side.scrollTop = prevTop;
 }
 function aseoMarcarSel_() {
@@ -64145,10 +64175,11 @@ window.aseoPopOk_ = async function () {
 function aseoPintarAsig_(id) {
   document.querySelectorAll(`.mv-asig-w[data-asig="${CSS.escape(String(id))}"]`).forEach(el => { el.outerHTML = pcAsigChip_(id); });
 }
-// Actualización continua (30 s) mientras el Panel o Control de aseo estén a la vista;
-// la copia completa del sistema se recarga cada 5 min.
-if (!window.__aseoTimer) window.__aseoTimer = setInterval(async () => {
-  if (document.visibilityState !== 'visible' || ASEO._pop || ASEO._busy) return;
+// Actualización continua (cada 20 s) mientras el Panel o Control de aseo estén a la
+// vista, e inmediata al volver a la pestaña. La copia completa se recarga cada 5 min.
+// Con un selector de personal abierto se actualizan los datos pero no se re-pintan las cards.
+async function aseoTick_() {
+  if (document.visibilityState !== 'visible' || ASEO._busy) return;
   const movs = document.getElementById('pc-sec-movs');
   const verPanel = !!(movs && movs.offsetParent), verAseo = aseoVisible_();
   if (!verPanel && !verAseo) return;
@@ -64159,7 +64190,13 @@ if (!window.__aseoTimer) window.__aseoTimer = setInterval(async () => {
       ASEO._baseTs = Date.now();
       try { if (typeof pagosLoad === 'function') await pagosLoad(); if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
     }
-    if (verPanel && typeof pcRenderMovs_ === 'function') pcRenderMovs_();
-    if (verAseo) aseoRender_();
+    if (!ASEO._pop) {
+      if (verPanel && typeof pcRenderMovs_ === 'function') pcRenderMovs_();
+      if (verAseo) aseoRender_();
+    }
   } finally { ASEO._busy = false; }
-}, 30_000);
+}
+if (!window.__aseoTimer) {
+  window.__aseoTimer = setInterval(aseoTick_, ASEO_POLL_S * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - (ASEO.chk || 0) > 5000) aseoTick_(); });
+}
