@@ -144,7 +144,12 @@
             onclick="switchModule('senaletica');closeNavMenu()">
           🪧 Señalética
         </li>
-        <li class="nav-item" id="nav-item-breezeway"
+        <li class="nav-item" id="nav-item-aseo"
+            onclick="switchModule('aseo');closeNavMenu()">
+          🧽 Aseo
+        </li>
+        <!-- Breezeway es una pestaña dentro de "Aseo" -->
+        <li class="nav-item hidden" id="nav-item-breezeway"
             onclick="switchModule('breezeway');closeNavMenu()">
           🧹 Breezeway
         </li>
@@ -301,7 +306,7 @@
               <button type="button" class="hm-tile home-card-tareas" onclick="switchModule('tareas')"><span class="hm-ico">🗓️</span><span class="hm-tx"><b>Tareas programadas</b><small>Asignación y seguimiento de tareas al personal</small></span></button>
               <button type="button" class="hm-tile home-card-procesos" onclick="switchModule('procesos')"><span class="hm-ico">📘</span><span class="hm-tx"><b>Documentación de procesos</b><small>Procedimientos, checklists, roles y versiones</small></span></button>
               <button type="button" class="hm-tile home-card-senaletica" onclick="switchModule('senaletica')"><span class="hm-ico">🪧</span><span class="hm-tx"><b>Señalética</b><small>Kit editable de señales para impresión</small></span></button>
-              <button type="button" class="hm-tile home-card-breezeway" onclick="switchModule('breezeway')"><span class="hm-ico">🧹</span><span class="hm-tx"><b>Breezeway</b><small>Limpieza, mantenimiento e inspecciones</small></span></button>
+              <button type="button" class="hm-tile home-card-aseo" onclick="switchModule('aseo')"><span class="hm-ico">🧽</span><span class="hm-tx"><b>Aseo</b><small>Control de aseo del día y Breezeway</small></span></button>
               <button type="button" class="hm-tile home-card-incidencias" onclick="switchModule('incidencias')"><span class="hm-ico">🚨</span><span class="hm-tx"><b>Incidencias</b><small>Reportes con evidencia fotográfica</small></span></button>
               <button type="button" class="hm-tile home-card-reportes-tecnicos" onclick="switchModule('reportes-tecnicos')"><span class="hm-ico">🛠️</span><span class="hm-tx"><b>Reportes técnicos</b><small>Bitácora técnica y refacciones</small></span></button>
               <button type="button" class="hm-tile home-card-inventarios" onclick="switchModule('inventarios')"><span class="hm-ico">📦</span><span class="hm-tx"><b>Inventarios</b><small>Stock, órdenes de compra y reposición</small></span></button>
@@ -1643,9 +1648,13 @@
 
     <!-- ══ MÓDULO: Breezeway ═══════════════════════════════════════ -->
     <div id="module-breezeway" class="hidden" style="padding:20px 24px 60px">
+      <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🧽 Aseo</div>
+      <div style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
+        <button type="button" onclick="switchModule('breezeway')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">🧹 Breezeway</button>
+        <button type="button" onclick="switchModule('aseo')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🧽 Control de aseo</button>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <div>
-          <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em">🧹 Breezeway</div>
           <div style="font-size:13px;color:#64748b;margin-top:2px">Alertas en tiempo real de alojamientos listos / tareas de limpieza completadas.</div>
         </div>
       </div>
@@ -1787,6 +1796,24 @@
       <aside id="bzw-detail-panel" class="bzw-detail-panel hidden" aria-hidden="true"></aside>
       <div id="bzw-detail-backdrop" class="bzw-detail-backdrop hidden" onclick="bzwCloseDetailPanel()"></div>
     </div><!-- /module-breezeway -->
+
+    <!-- ══ MÓDULO: Aseo › Control de aseo ═══════════════════════════════ -->
+    <div id="module-aseo" class="hidden" style="padding:20px 24px 30px">
+      <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🧽 Aseo</div>
+      <div style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
+        <button type="button" onclick="switchModule('breezeway')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🧹 Breezeway</button>
+        <button type="button" onclick="switchModule('aseo')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">🧽 Control de aseo</button>
+      </div>
+      <div class="aseo-head">
+        <div class="st" id="aseo-status">Conectando con Lodgify…</div>
+        <button type="button" class="aseo-btn" onclick="aseoHoy_()" title="Centrar el día en curso">📍 Hoy</button>
+        <button type="button" class="aseo-btn" onclick="aseoRecargar_()" title="Actualizar ahora">🔄 Actualizar</button>
+      </div>
+      <div class="aseo-grid">
+        <div id="aseo-cal" class="ocup-cal-container aseo-cal"><div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando calendario…</div></div>
+        <aside id="aseo-side" class="aseo-side"></aside>
+      </div>
+    </div><!-- /module-aseo -->
 
     <!-- ═══════════════ MÓDULO INCIDENCIAS ═══════════════ -->
     <div id="module-incidencias" class="hidden" style="padding:20px 24px 60px">
@@ -2870,7 +2897,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1494"></script>
+  <script src="app.js?v=1496"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

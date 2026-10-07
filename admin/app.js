@@ -337,7 +337,7 @@ const SYS_MODULE_PERMS = {
   // "Huéspedes/Inquilinos" → cualquier usuario con permiso a alguno de los
   // dos debe ver la entrada. Se listan en ambos grupos.
   III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos','proveedores','dir-inquilinos'],
-  IV:   ['breezeway'],
+  IV:   ['breezeway','aseo'],
   V:    ['incidencias'],
   VI:   ['objetos'],
   VII:  ['ocupacion'],
@@ -355,7 +355,7 @@ const SYS_MODULE_LIST = [
   ['personas',         '📇 Directorio'],
   ['inquilinos',       '📑 Contratos de Larga estancia'],
   ['pagos',            '💰 Pagos'],
-  ['breezeway',        '🧹 Breezeway'],
+  ['aseo',             '🧽 Aseo (Control de aseo + Breezeway)'],
   ['incidencias',      '🚨 Incidencias'],
   ['reportes-tecnicos','🛠 Reportes técnicos'],
   ['tareas',           '🗓️ Tareas programadas'],
@@ -374,6 +374,8 @@ const SYS_MODULE_LIST = [
 const SYS_MODULE_EXTRAS = {
   registros: ['efectivo'],
   personas:  ['huespedes', 'inquilinos', 'proveedores', 'dir-inquilinos'],
+  aseo:      ['breezeway'],
+  breezeway: ['aseo'], // empleados que ya tenían Breezeway ven el módulo Aseo completo
   lodgify:   ['reservas-detalles'],
   ocupacion: ['dashboard', 'calendario'],
 };
@@ -9121,7 +9123,7 @@ function esc(v) {
 // Módulos válidos para hash-routing (incluye aliases del dashboard).
 const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
-  'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
+  'breezeway','aseo','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','proveedores','dir-inquilinos','inventarios','tuya','guias',
   'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica',
 ]);
@@ -9166,7 +9168,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "aseo", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9174,6 +9176,9 @@ function switchModule(mod) {
   try { if (typeof navSyncActive_ === 'function') navSyncActive_(); } catch (_) {}
   if (mod === 'dashboard' || mod === 'calendario') {
     setTimeout(() => { try { dashApplyMode(mod); } catch(_) {} }, 50);
+  }
+  if (mod === "aseo") {
+    if (typeof aseoInit === 'function') aseoInit();
   }
   if (mod === "breezeway") {
     // Breezeway es rápido — overlay cubre AMBOS procesos (init + sync) para
@@ -26359,20 +26364,24 @@ function ocupGetAlojamientos() {
 
 // Render principal del calendario — modo continuo: render N meses lado a lado
 // (current ± 6 meses) en un solo contenedor scrollable horizontal.
-function ocupRender() {
-  const cont = document.getElementById('ocup-cal-container');
+// opts (Aseo › Control de aseo reutiliza este calendario en otro contenedor):
+//   cont, bookings, filters, before/after (meses), onBar (nombre de función al
+//   oprimir una barra), center (centra el día en curso).
+function ocupRender(opts) {
+  opts = (opts && opts.cont) ? opts : {};
+  const cont = opts.cont || document.getElementById('ocup-cal-container');
   if (!cont) return;
   if (!OCUP_STATE.currentMonth) {
     const t = new Date();
     OCUP_STATE.currentMonth = new Date(t.getFullYear(), t.getMonth(), 1);
   }
-  ocupPopulateMonthSelect();
-  const month = OCUP_STATE.currentMonth;
+  if (!opts.cont) ocupPopulateMonthSelect();
+  const month = opts.cont ? new Date(new Date().getFullYear(), new Date().getMonth(), 1) : OCUP_STATE.currentMonth;
   const y0 = month.getFullYear(), m0 = month.getMonth();
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
   // Rango: 6 meses antes y 6 después del actual (13 meses total)
-  const MONTHS_BEFORE = 6, MONTHS_AFTER = 6;
+  const MONTHS_BEFORE = opts.before ?? 6, MONTHS_AFTER = opts.after ?? 6;
   const rangeStart = new Date(y0, m0 - MONTHS_BEFORE, 1);
   const rangeEnd = new Date(y0, m0 + MONTHS_AFTER + 1, 0); // último día del último mes
 
@@ -26385,15 +26394,15 @@ function ocupRender() {
     </div>`;
     return;
   }
-  const f = OCUP_STATE.calFilters || {};
+  const f = opts.filters || OCUP_STATE.calFilters || {};
   const alojamientos = f.propiedad ? allAlojs.filter(a => a.propiedad === f.propiedad) : allAlojs;
 
   // Poblar dropdowns de filtros con valores disponibles
-  ocupCalPopulateFilters(allAlojs);
+  if (!opts.cont) ocupCalPopulateFilters(allAlojs);
 
   // Pre-indexa bookings por HouseId (aplicando filtros de Estado y Fuente)
   const byHouse = new Map();
-  const bookings = ocupBookings();
+  const bookings = opts.bookings || ocupBookings();
   bookings.forEach(b => {
     if (f.estado) {
       if (String(b.Status || '').trim() !== f.estado) return;
@@ -26525,8 +26534,8 @@ function ocupRender() {
         if (cm.source) extraStyle = `box-shadow:inset 5px 0 0 ${c};`;
         else           extraStyle = `background:${c};`;
       }
-      html += `<div class="${cls}" style="left:${leftCalc};width:${widthCalc};${extraStyle}"
-                onclick="ocupOpenDetail('${esc(String(b.Id))}')" title="${esc(guest)}">
+      html += `<div class="${cls}" data-bid="${esc(String(b.Id))}" style="left:${leftCalc};width:${widthCalc};${extraStyle}"
+                onclick="${opts.onBar || 'ocupOpenDetail'}('${esc(String(b.Id))}')" title="${esc(guest)}">
         <span class="ocup-bar-icon">${srcIcon}</span>
         <span class="ocup-bar-name">${esc(guest)}</span>
       </div>`;
@@ -26535,6 +26544,7 @@ function ocupRender() {
   });
   html += `</div>`;
   cont.innerHTML = html;
+  if (opts.cont) { if (opts.center) requestAnimationFrame(() => ocupCentrarHoy_(cont)); return; }
 
   // Scroll fluido: detecta el mes más visible y actualiza el select
   requestAnimationFrame(() => {
@@ -26544,6 +26554,13 @@ function ocupRender() {
   });
 }
 
+// Centra horizontalmente la columna del día en curso dentro del contenedor con scroll.
+function ocupCentrarHoy_(cont, smooth) {
+  const cell = cont.querySelector('.ocup-head-cell.is-today'); if (!cell) return;
+  const alojW = (cont.querySelector('.ocup-head-aloj') || {}).offsetWidth || 0;
+  const x = cell.offsetLeft + cell.offsetWidth / 2 - (alojW + (cont.clientWidth - alojW) / 2);
+  cont.scrollTo({ left: Math.max(0, x), behavior: smooth ? 'smooth' : 'auto' });
+}
 // Listener de scroll que actualiza el select de Mes según lo visible
 let _ocupScrollBound = false;
 function ocupBindScrollMonthSync(cont) {
@@ -59122,6 +59139,7 @@ async function pcLoadCob_(force) {
   if (typeof pagosLoad === 'function' && (!PAGOS_STATE.loaded || force)) await pagosLoad();
   if (typeof lgEnsureHuespedesAndMatch === 'function') { try { await lgEnsureHuespedesAndMatch(); } catch (_) {} }
   if (typeof _pagosLoadExtensiones_ === 'function' && !PAGOS_STATE.extById) { try { await _pagosLoadExtensiones_(); } catch (_) {} }
+  if (typeof aseoRefresh_ === 'function') { try { await aseoRefresh_(); } catch (_) {} } // Lodgify en vivo + cambios + personal asignado
 }
 function pcCobMonth_(ym) {
   // Solo reservas confirmadas (Status "Booked"): sin canceladas, rechazadas ni tentativas.
@@ -59382,61 +59400,120 @@ function pcMovInfo_(b) {
   const score = (tier ? PC_TIER_W[tier.label] || 0 : 0) + (larga === 'mensual' ? 3 : larga ? 2 : 0) + (saldo > 0 ? 1 : 0);
   return { b, arr, dep, noches, tier, stats, saldo, larga, score, aloj: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName) || '—' };
 }
-function pcRenderMovs_() {
-  const el = document.getElementById('pc-sec-movs'); if (!el) return;
-  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>`;
-  const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
-  if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); return; }
-  if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); return; }
+// Reservas a usar en Movimientos del día / Control de aseo: copia del sistema
+// (PAGOS_STATE.bookings) + lo que Lodgify reporta EN VIVO (ASEO.live).
+function pcMovBookings_() {
+  const base = (typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.bookings) || [];
+  const live = (window.ASEO && ASEO.live) || null;
+  if (!live || !live.size) return base;
+  const seen = new Set();
+  const out = base.map(b => {
+    const l = live.get(String(b.Id)); if (!l) return b;
+    seen.add(String(b.Id));
+    const o = Object.assign({}, b, { Status: l.Status, DateArrival: l.DateArrival, DateDeparture: l.DateDeparture, DateCancelled: l.DateCancelled || b.DateCancelled });
+    if (!o.GuestName && l.GuestName) o.GuestName = l.GuestName;
+    return o;
+  });
+  // Reservas nuevas que aún no llegan a la copia del sistema.
+  live.forEach((l, id) => { if (!seen.has(id) && !l.Deleted && /^(booked|tentative|declined)$/i.test(l.Status)) out.push(Object.assign({ _live: true }, l)); });
+  return out;
+}
+const PC_MES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+function pcFmtDiaC_(iso) { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[3]} ${PC_MES_C[+m[2] - 1]}` : '—'; }
+// Cambio relevante de una reserva → aviso llamativo en su card (o null).
+function pcMovCambio_(b, hoy) {
+  const id = String(b.Id), st = String(b.Status || '');
+  const arr = _pagosDateIso(b.DateArrival), dep = _pagosDateIso(b.DateDeparture);
+  const log = ((window.ASEO && ASEO.cambios) || {})[id] || [];
+  const ult = log.length ? log[log.length - 1] : null;
+  if (/cancel|declin/i.test(st)) {
+    const cuando = b.DateCancelled ? ` el ${pcFmtDiaC_(_pagosDateIso(b.DateCancelled) || String(b.DateCancelled).slice(0, 10))}` : '';
+    const que = dep === hoy ? 'ya NO sale hoy' : arr === hoy ? 'ya NO llega hoy' : `era ${pcFmtDiaC_(arr)} → ${pcFmtDiaC_(dep)}`;
+    return { k: 'cancelada', ico: '⛔', t: 'Reserva CANCELADA', d: `${que} · cancelada${cuando}`, c: '#dc2626' };
+  }
+  const ext = typeof _pagosExt === 'function' ? _pagosExt(b) : null;
+  if (ult && ult.tipo === 'acortada') return { k: 'acortada', ico: '⏪', t: 'Estancia ACORTADA', d: `salía ${pcFmtDiaC_(ult.antes.dep)} → ahora sale ${pcFmtDiaC_(dep)}${dep === hoy ? ' (HOY)' : ''}`, c: '#7c3aed' };
+  if (ult && ult.tipo === 'reprogramada') return { k: 'reprogramada', ico: '📅', t: 'CAMBIO DE FECHAS', d: `antes ${pcFmtDiaC_(ult.antes.arr)} → ${pcFmtDiaC_(ult.antes.dep)} · ahora ${pcFmtDiaC_(arr)} → ${pcFmtDiaC_(dep)}`, c: '#2563eb' };
+  const antes = (ult && ult.tipo === 'extendida') ? ult.antes.dep : (ext && ext.antes) || '';
+  if (antes && dep && dep > antes) return { k: 'extendida', ico: '🔁', t: antes === hoy ? 'EXTENDIÓ · ya NO sale hoy' : 'Estancia EXTENDIDA', d: `salía ${pcFmtDiaC_(antes)} → ahora sale ${pcFmtDiaC_(dep)}`, c: '#ea580c' };
+  return null;
+}
+// Columnas del día. Incluye, con su aviso, las reservas que IBAN a salir/llegar
+// ese día y cambiaron (extensión, cancelación reciente).
+function pcMovCols_() {
   const d0 = new Date(), d1 = new Date(); d1.setDate(d1.getDate() + 1);
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const hoy = iso(d0), man = iso(d1);
-  const vivas = (PAGOS_STATE.bookings || []).filter(b => !/cancel|declin|delet/i.test(String(b.Status || '')));
-  const grp = (fn) => vivas.filter(fn).map(pcMovInfo_).sort((a, b) => b.score - a.score || String(a.aloj).localeCompare(String(b.aloj), 'es'));
-  const cols = [
-    { k: 'sal', t: 'Salen hoy', ico: '🧳', c: '#dc2626', bg: '#fef2f2', list: grp(b => _pagosDateIso(b.DateDeparture) === hoy) },
-    { k: 'ent', t: 'Entran hoy', ico: '🔑', c: '#16a34a', bg: '#f0fdf4', list: grp(b => _pagosDateIso(b.DateArrival) === hoy) },
-    { k: 'man', t: 'Entran mañana', ico: '📅', c: '#2563eb', bg: '#eff6ff', list: grp(b => _pagosDateIso(b.DateArrival) === man) },
-  ];
+  const lim = Date.now() - 14 * 864e5;
+  const todas = pcMovBookings_();
+  const canc = b => /cancel|declin/i.test(String(b.Status || ''));
+  const cancReciente = b => { const t = Date.parse(String(b.DateCancelled || '').replace(' ', 'T')); return canc(b) && (!isNaN(t) ? t >= lim : !!(((window.ASEO && ASEO.cambios) || {})[String(b.Id)])); };
+  const salioOrig = b => { const e = typeof _pagosExt === 'function' ? _pagosExt(b) : null; const log = ((window.ASEO && ASEO.cambios) || {})[String(b.Id)] || []; return (e && e.antes === hoy) || log.some(c => c.antes && c.antes.dep === hoy); };
+  const info = b => { const x = pcMovInfo_(b); x.cambio = pcMovCambio_(b, hoy); return x; };
+  const grp = (fn, fnCanc) => todas.filter(b => canc(b) ? (cancReciente(b) && fnCanc(b)) : !/delet/i.test(String(b.Status || '')) && fn(b)).map(info)
+    .sort((a, b) => (b.cambio ? 1 : 0) - (a.cambio ? 1 : 0) || b.score - a.score || String(a.aloj).localeCompare(String(b.aloj), 'es'));
+  return { hoy, man, cols: [
+    { k: 'sal', t: 'Salen hoy', ico: '🧳', c: '#dc2626', bg: '#fef2f2', list: grp(b => _pagosDateIso(b.DateDeparture) === hoy || salioOrig(b), b => _pagosDateIso(b.DateDeparture) === hoy) },
+    { k: 'ent', t: 'Entran hoy', ico: '🔑', c: '#16a34a', bg: '#f0fdf4', list: grp(b => _pagosDateIso(b.DateArrival) === hoy, b => _pagosDateIso(b.DateArrival) === hoy) },
+    { k: 'man', t: 'Entran mañana', ico: '📅', c: '#2563eb', bg: '#eff6ff', list: grp(b => _pagosDateIso(b.DateArrival) === man, b => _pagosDateIso(b.DateArrival) === man) },
+  ] };
+}
+// Chip "Personal asignado" (multi-selección) — compartido Panel / Control de aseo.
+function pcAsigChip_(id) {
+  const a = (((window.ASEO && ASEO.asig) || {})[String(id)] || {}).personal || [];
+  return `<span class="pc-mv-chip mv-asig ${a.length ? 'on' : ''}" data-asig="${pcEsc(String(id))}" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(String(id))}',this)" title="Personal asignado · clic para elegir">${a.length ? '👤 ' + pcEsc(a.join(', ')) : '👤 Asignar personal'} ▾</span>`;
+}
+function pcMovCard_(x, colK, o) {
+  o = o || {};
+  const t = x.tier, b = x.b;
+  const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const chips = [
+    t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}" title="${pcEsc(t.tooltip || '')}">${t.icon} ${t.label}</span>` : (x.stats && x.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : ''),
+    x.larga === 'mensual' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>` : x.larga ? `<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>` : '',
+    x.saldo > 0 && colK !== 'sal' ? `<span class="pc-mv-chip" style="background:#ffedd5;color:#9a3412;border-color:#fdba74">💲 Saldo ${pcFmt$(x.saldo)}</span>` : '',
+    x.saldo > 0 && colK === 'sal' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">⚠️ Sale con saldo ${pcFmt$(x.saldo)}</span>` : '',
+  ].join('');
+  // Medio de reserva · Registrado · Ticket (folio) · origen del ticket
+  const hu = typeof _pagosHuRow === 'function' ? _pagosHuRow(b) : null;
+  const tk = typeof _pagosTicket === 'function' ? _pagosTicket(b) : null;
+  const medioEm = hu ? String(hu['Medio de emisión'] || hu['Medio de emision'] || '').trim() : '';
+  const auto = /auto/i.test(medioEm);
+  const chips2 = [
+    typeof lgSourceChipMini === 'function' ? lgSourceChipMini(b.Source) : (b.Source ? `<span class="pc-mv-chip">${pcEsc(b.Source)}</span>` : ''),
+    hu ? '<span class="pc-mv-chip" style="background:#334155;color:#fff;border-color:#1e293b" title="Tiene registro de check-in">📋 Registrado</span>'
+       : '<span class="pc-mv-chip" style="background:#f8fafc;color:#94a3b8;border-color:#e2e8f0" title="Aún no tiene registro de check-in">📋 Sin registro</span>',
+    tk ? (tk.url ? `<a class="pc-mv-chip" href="${pcEsc(tk.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="background:#dcfce7;color:#166534;border-color:#86efac;text-decoration:none" title="Ver ticket">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</a>`
+             : `<span class="pc-mv-chip" style="background:#dcfce7;color:#166534;border-color:#86efac">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</span>`) : '',
+    tk && medioEm ? `<span class="pc-mv-chip" style="background:${auto ? '#ede9fe' : '#e0f2fe'};color:${auto ? '#5b21b6' : '#0369a1'};border-color:${auto ? '#c4b5fd' : '#7dd3fc'}" title="Origen del ticket">${auto ? '👤 Auto-facturación' : '🖥️ Facturación sistema'}</span>` : '',
+  ].join('');
+  const destacado = x.score >= 2, cb = x.cambio;
+  const aviso = cb ? `<div class="mv-alert" style="--ac:${cb.c}"><b>${cb.ico} ${pcEsc(cb.t)}</b><span>${pcEsc(cb.d)}</span></div>` : '';
+  return `<div class="pc-mv-it ${destacado ? 'hot' : ''} ${cb ? 'chg' : ''} ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" style="--mc:${cb ? cb.c : t ? t.border : o.c || '#e2e8f0'}${o.onclick ? ';cursor:pointer' : ''}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(b.Id))}')"` : ''} title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
+    <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
+    <div style="min-width:0;flex:1">
+      ${aviso}
+      <div class="pc-mv-n">${destacado ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
+      <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)})</div>
+      <div class="pc-mv-chips">${pcAsigChip_(b.Id)}${chips2}${chips}</div>
+    </div></div>`;
+}
+function pcRenderMovs_() {
+  const el = document.getElementById('pc-sec-movs'); if (!el) return;
+  aseoEnsureCss_();
+  const vivo = window.ASEO && ASEO.ts ? ` · <span class="mv-live" title="Lodgify en vivo">● en vivo ${new Date(ASEO.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>` : '';
+  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}${vivo}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>`;
+  const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
+  if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); return; }
+  if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); return; }
+  const { cols } = pcMovCols_();
   const relev = cols.reduce((a, c) => a + c.list.filter(x => x.score >= 2).length, 0);
-  const fmtD = s => { const d = new Date(s + 'T00:00:00'); return `${d.getDate()} ${PC_MES3[d.getMonth()]}`; };
-  const item = (x, col) => {
-    const t = x.tier, b = x.b;
-    const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-    const chips = [
-      t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}" title="${pcEsc(t.tooltip || '')}">${t.icon} ${t.label}</span>` : (x.stats && x.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : ''),
-      x.larga === 'mensual' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>` : x.larga ? `<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>` : '',
-      x.saldo > 0 && col.k !== 'sal' ? `<span class="pc-mv-chip" style="background:#ffedd5;color:#9a3412;border-color:#fdba74">💲 Saldo ${pcFmt$(x.saldo)}</span>` : '',
-      x.saldo > 0 && col.k === 'sal' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">⚠️ Sale con saldo ${pcFmt$(x.saldo)}</span>` : '',
-    ].join('');
-    // Medio de reserva · Registrado · Ticket (folio) · origen del ticket
-    const hu = typeof _pagosHuRow === 'function' ? _pagosHuRow(b) : null;
-    const tk = typeof _pagosTicket === 'function' ? _pagosTicket(b) : null;
-    const medioEm = hu ? String(hu['Medio de emisión'] || hu['Medio de emision'] || '').trim() : '';
-    const auto = /auto/i.test(medioEm);
-    const chips2 = [
-      typeof lgSourceChipMini === 'function' ? lgSourceChipMini(b.Source) : (b.Source ? `<span class="pc-mv-chip">${pcEsc(b.Source)}</span>` : ''),
-      hu ? '<span class="pc-mv-chip" style="background:#334155;color:#fff;border-color:#1e293b" title="Tiene registro de check-in">📋 Registrado</span>'
-         : '<span class="pc-mv-chip" style="background:#f8fafc;color:#94a3b8;border-color:#e2e8f0" title="Aún no tiene registro de check-in">📋 Sin registro</span>',
-      tk ? (tk.url ? `<a class="pc-mv-chip" href="${pcEsc(tk.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="background:#dcfce7;color:#166534;border-color:#86efac;text-decoration:none" title="Ver ticket">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</a>`
-               : `<span class="pc-mv-chip" style="background:#dcfce7;color:#166534;border-color:#86efac">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</span>`) : '',
-      tk && medioEm ? `<span class="pc-mv-chip" style="background:${auto ? '#ede9fe' : '#e0f2fe'};color:${auto ? '#5b21b6' : '#0369a1'};border-color:${auto ? '#c4b5fd' : '#7dd3fc'}" title="Origen del ticket">${auto ? '👤 Auto-facturación' : '🖥️ Facturación sistema'}</span>` : '',
-    ].join('');
-    const destacado = x.score >= 2;
-    return `<div class="pc-mv-it ${destacado ? 'hot' : ''}" style="--mc:${t ? t.border : col.c}" title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
-      <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
-      <div style="min-width:0;flex:1">
-        <div class="pc-mv-n">${destacado ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
-        <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${fmtD(x.arr)} → ${fmtD(x.dep)})</div>
-        <div class="pc-mv-chips">${chips2}${chips}</div>
-      </div></div>`;
-  };
-  PC._movs = { sal: cols[0].list, ent: cols[1].list, man: cols[2].list, relev };
-  el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}`) + `
+  const nChg = cols.reduce((a, c) => a + c.list.filter(x => x.cambio).length, 0);
+  PC._movs = { sal: cols[0].list.filter(x => !x.cambio || x.cambio.k !== 'cancelada'), ent: cols[1].list.filter(x => !x.cambio || x.cambio.k !== 'cancelada'), man: cols[2].list, relev };
+  el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) + `
     <div class="pc-mv">${cols.map(c => `<div class="pc-mv-col" style="--cc:${c.c};--cb:${c.bg}">
       <div class="pc-mv-h"><span class="pc-mv-ico">${c.ico}</span><span>${c.t}</span><b>${c.list.length}</b></div>
-      <div class="pc-mv-list">${c.list.length ? c.list.map(x => item(x, c)).join('') : '<div class="pc-mv-empty">Sin movimientos</div>'}</div></div>`).join('')}</div>
-    <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Ordenados por relevancia.</div>`;
+      <div class="pc-mv-list">${c.list.length ? c.list.map(x => pcMovCard_(x, c.k, { c: c.c })).join('') : '<div class="pc-mv-empty">Sin movimientos</div>'}</div></div>`).join('')}</div>
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Las reservas con cambios (cancelación, extensión, fechas) van primero. Se actualiza solo cada 30 s con Lodgify en vivo.</div>`;
 }
 // HOY · KPIs del día (independientes del mes elegido).
 function pcRenderHoyKpis_(kPend) {
@@ -61561,9 +61638,12 @@ const NAV_TREE = {
     { t: '📚 Catálogo de procesos', go: () => { if (window.DP && DP.view !== 'catalogo') dpVolver_(); } },
     { t: '＋ Nuevo proceso', go: () => dpNuevo_() },
   ],
-  breezeway: [
-    { t: '📋 Lista de tasks', go: () => bzwSetView('list') },
-    { t: '📅 Calendario', go: () => { bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
+  aseo: [
+    { t: '🧽 Control de aseo', go: () => {} },
+    { t: '🧹 Breezeway', mod: 'breezeway', go: () => bzwSetView('list'), subs: [
+      { t: '📋 Lista de tasks', go: () => bzwSetView('list') },
+      { t: '📅 Calendario', go: () => { bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
+    ] },
   ],
   'reportes-tecnicos': [
     { t: '🗂️ Por estado', go: () => rtSetView_('estado') },
@@ -63750,3 +63830,215 @@ function dxSearchMount_(cont, id, st, ph, onInput) {
   if (hero) hero.after(box); else cont.prepend(box);
   if (st && st.focus) { inp.focus(); try { inp.setSelectionRange(st.pos, st.pos); } catch (_) {} }
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASEO › CONTROL DE ASEO — calendario (mitad izquierda, día en curso al centro)
+// + panel lateral con las cards de "Salen hoy" (mismo diseño que Movimientos
+// del día). Barra ↔ card interactúan. Datos en vivo de Lodgify cada 30 s.
+// ═══════════════════════════════════════════════════════════════════════════
+window.ASEO = window.ASEO || { live: null, cambios: {}, asig: {}, ts: 0, sel: null, calSig: '', _baseTs: Date.now() };
+function aseoEnsureCss_() {
+  if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
+  if (document.getElementById('aseo-css')) return;
+  const st = document.createElement('style'); st.id = 'aseo-css';
+  st.textContent = `
+  .mv-alert{display:flex;flex-direction:column;gap:1px;margin:0 0 6px;padding:6px 9px;border-radius:8px;background:linear-gradient(90deg,var(--ac),color-mix(in srgb,var(--ac) 75%,#000));color:#fff;box-shadow:0 4px 14px -4px var(--ac);animation:mvPulse 1.6s ease-in-out infinite}
+  .mv-alert b{font-size:11.5px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+  .mv-alert span{font-size:11px;font-weight:700;opacity:.95}
+  @keyframes mvPulse{0%,100%{box-shadow:0 4px 14px -4px var(--ac)}50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--ac) 30%,transparent),0 4px 18px -2px var(--ac)}}
+  .pc-mv-it.chg{border-left-color:var(--mc);border-color:color-mix(in srgb,var(--mc) 45%,#fff);background:color-mix(in srgb,var(--mc) 5%,#fff)}
+  .pc-mv-it.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18),0 8px 22px -8px rgba(15,23,42,.3)}
+  .mv-asig{cursor:pointer;background:#fff;color:#475569;border-style:dashed;border-color:#94a3b8}
+  .mv-asig.on{background:#eef2ff;color:#3730a3;border-style:solid;border-color:#a5b4fc}
+  .mv-asig:hover{border-color:#6366f1}
+  .mv-live{color:#16a34a;font-weight:800}
+  .aseo-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .aseo-head .st{font-size:12px;color:#64748b;flex:1;min-width:200px}
+  .aseo-btn{all:unset;cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:800;background:#fff;border:1px solid #e2e8f0;color:#334155}
+  .aseo-btn:hover{border-color:#6366f1;color:#3730a3}
+  .aseo-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+  .aseo-grid .ocup-cal-container{max-height:calc(100vh - 210px)}
+  .aseo-cal .ocup-cal{--ocup-aloj-w:170px;--ocup-day-w:52px}
+  .aseo-cal .ocup-aloj-cell{opacity:1;z-index:9;box-shadow:4px 0 8px -6px rgba(15,23,42,.25)}
+  .aseo-cal .ocup-head-aloj{opacity:1;z-index:12}
+  .aseo-cal .ocup-bar{transition:box-shadow .2s,filter .2s,opacity .2s}
+  .aseo-cal.has-sel .ocup-bar{opacity:.55}
+  .aseo-cal .ocup-bar.sel{opacity:1;z-index:6;outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 6px rgba(245,158,11,.35),0 6px 16px rgba(15,23,42,.35);filter:saturate(1.25)}
+  .aseo-cal .ocup-cal-row.sel{background:#fffbeb}
+  .aseo-side{background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:10px;max-height:calc(100vh - 210px);overflow:auto;position:sticky;top:10px}
+  .aseo-side .pc-mv-list{max-height:none}
+  .aseo-sel{background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:8px;margin-bottom:10px}
+  .aseo-sel-h{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#92400e;margin-bottom:6px}
+  @media (max-width:1000px){.aseo-grid{grid-template-columns:minmax(0,1fr)}.aseo-side{position:static;max-height:none}}`;
+  document.head.appendChild(st);
+}
+async function aseoRefresh_() {
+  try {
+    const j = await fetch(`${BACKEND}/aseo/live?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
+    const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, ts: j.ts || Date.now(), err: j.err || '' });
+  } catch (e) { ASEO.err = e.message; }
+}
+// Carga base (copia del sistema + registros de huéspedes + extensiones), una vez.
+async function aseoEnsureBase_() {
+  if (typeof PAGOS_STATE !== 'undefined' && !PAGOS_STATE.loaded && typeof pagosLoad === 'function') await pagosLoad();
+  if (typeof _pagosLoadExtensiones_ === 'function' && !PAGOS_STATE.extById) await _pagosLoadExtensiones_();
+  if (typeof lgEnsureHuespedesAndMatch === 'function' && !ASEO._huOk) { ASEO._huOk = true; lgEnsureHuespedesAndMatch().then(() => { aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); }).catch(() => {}); }
+}
+async function aseoInit() {
+  aseoEnsureCss_();
+  const side = document.getElementById('aseo-side');
+  if (side && !side.innerHTML.trim()) side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>';
+  await Promise.all([aseoEnsureBase_(), aseoRefresh_()]);
+  ASEO.calSig = ''; ASEO._centrar = true;
+  aseoRender_();
+}
+function aseoVisible_() { const m = document.getElementById('module-aseo'); return !!(m && !m.classList.contains('hidden')); }
+function aseoRender_() {
+  if (!aseoVisible_()) return;
+  aseoEnsureCss_();
+  const st = document.getElementById('aseo-status');
+  if (st) st.innerHTML = ASEO.ts ? `<span class="mv-live">● En vivo</span> · actualizado ${new Date(ASEO.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · se refresca solo cada 30 s${ASEO.err ? ` · <span style="color:#b91c1c">⚠️ ${pcEsc(ASEO.err)}</span>` : ''}` : 'Conectando con Lodgify…';
+  // Calendario: solo se re-pinta si cambió algo (conserva el scroll del usuario).
+  const cal = document.getElementById('aseo-cal');
+  const bks = pcMovBookings_().filter(b => !/cancel|declin|delet/i.test(String(b.Status || '')));
+  const sig = bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',');
+  if (cal && sig !== ASEO.calSig) {
+    const sl = cal.scrollLeft, stp = cal.scrollTop, first = !ASEO.calSig;
+    ASEO.calSig = sig;
+    ocupRender({ cont: cal, bookings: bks, filters: {}, before: 1, after: 2, onBar: 'aseoSelect_', center: false });
+    if (first || ASEO._centrar) { ASEO._centrar = false; requestAnimationFrame(() => ocupCentrarHoy_(cal)); }
+    else { cal.scrollLeft = sl; cal.scrollTop = stp; }
+    aseoMarcarSel_();
+  }
+  aseoRenderSide_();
+}
+function aseoRenderSide_() {
+  const side = document.getElementById('aseo-side'); if (!side) return;
+  if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>'; return; }
+  const { cols, hoy } = pcMovCols_();
+  const sal = cols[0].list;
+  const selId = ASEO.sel ? String(ASEO.sel) : '';
+  let selBlock = '';
+  if (selId && !sal.some(x => String(x.b.Id) === selId)) {
+    const b = pcMovBookings_().find(x => String(x.Id) === selId);
+    if (b) {
+      const x = pcMovInfo_(b); x.cambio = pcMovCambio_(b, hoy);
+      selBlock = `<div class="aseo-sel"><div class="aseo-sel-h"><span>📌 Reserva seleccionada en el calendario</span><button class="aseo-btn" style="padding:3px 9px" onclick="aseoSelect_(null)">✕</button></div>${pcMovCard_(x, 'sel', { sel: true, onclick: 'aseoSelect_' })}</div>`;
+    }
+  }
+  const nChg = sal.filter(x => x.cambio).length;
+  const prevTop = (side.querySelector('.pc-mv-list') || {}).scrollTop;
+  side.innerHTML = `${selBlock}<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
+    <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
+    <div class="pc-mv-list">${sal.length ? sal.map(x => pcMovCard_(x, 'sal', { c: '#dc2626', sel: String(x.b.Id) === selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Nadie sale hoy</div>'}</div></div>`;
+  if (prevTop) { const l = side.querySelector('.pc-mv-list'); if (l) l.scrollTop = prevTop; }
+}
+function aseoMarcarSel_() {
+  const cal = document.getElementById('aseo-cal'); if (!cal) return;
+  const id = ASEO.sel ? String(ASEO.sel) : '';
+  cal.classList.toggle('has-sel', !!id);
+  cal.querySelectorAll('.ocup-bar.sel').forEach(e => e.classList.remove('sel'));
+  cal.querySelectorAll('.ocup-cal-row.sel').forEach(e => e.classList.remove('sel'));
+  if (!id) return null;
+  const bar = cal.querySelector(`.ocup-bar[data-bid="${CSS.escape(id)}"]`);
+  if (bar) { bar.classList.add('sel'); const row = bar.closest('.ocup-cal-row'); if (row) row.classList.add('sel'); }
+  return bar;
+}
+// Selección compartida: barra del calendario ↔ card del panel lateral.
+window.aseoSelect_ = function (id) {
+  const desdeCal = !!(window.event && window.event.target && window.event.target.closest && window.event.target.closest('.ocup-bar'));
+  const same = id && String(ASEO.sel) === String(id);
+  ASEO.sel = same || !id ? null : String(id);
+  const bar = aseoMarcarSel_();
+  aseoRenderSide_();
+  if (!ASEO.sel) return;
+  const card = document.querySelector(`#aseo-side .pc-mv-it[data-bid="${CSS.escape(ASEO.sel)}"]`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Desde una card: lleva el calendario a la fila de esa reserva (vertical) y
+  // mantiene el día en curso al centro (horizontal).
+  if (bar && !desdeCal) {
+    const cal = document.getElementById('aseo-cal'), row = bar.closest('.ocup-cal-row') || bar;
+    cal.scrollTo({ top: Math.max(0, row.offsetTop - cal.clientHeight / 2 + row.offsetHeight / 2), behavior: 'smooth' });
+    ocupCentrarHoy_(cal, true);
+  }
+};
+window.aseoHoy_ = function () { const cal = document.getElementById('aseo-cal'); if (cal) ocupCentrarHoy_(cal, true); };
+window.aseoRecargar_ = async function () { await aseoRefresh_(); ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
+
+// Personal asignado (multi-selección): el popup no se cierra al marcar.
+window.aseoAsignar_ = function (id, anchor) {
+  aseoEnsureCss_();
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  const cur = ((ASEO.asig || {})[id] || {}).personal || [];
+  ASEO._pop = { id, sel: new Set(cur), orig: cur.join('|') };
+  const pop = document.createElement('div'); pop.className = 'pz-pop';
+  pop.innerHTML = `<div style="font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">👤 Personal asignado</div>
+    <input class="pz-in" placeholder="🔎 Buscar…" oninput="aseoPopFill_(this.value)">
+    <div class="pz-plist"></div>
+    <div style="display:flex;justify-content:space-between;gap:6px;margin-top:8px"><button class="pc-link" style="color:#64748b" onclick="ASEO._pop.sel.clear();aseoPopFill_()">Quitar todos</button><button class="pz-go" style="padding:6px 14px" onclick="aseoPopOk_()">Listo</button></div>`;
+  document.body.appendChild(pop);
+  const rc = anchor.getBoundingClientRect(), w = 280;
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px';
+  pop.style.top = (rc.bottom + 6 + 330 > window.innerHeight ? Math.max(8, rc.top - 336) : rc.bottom + 6) + 'px';
+  aseoPopFill_();
+  setTimeout(() => { ASEO._popOut = e => { if (!pop.contains(e.target)) aseoPopOk_(); }; document.addEventListener('mousedown', ASEO._popOut); }, 0);
+};
+window.aseoPopFill_ = function (q) {
+  const pop = document.querySelector('.pz-pop'); if (!pop || !ASEO._pop) return;
+  const box = pop.querySelector('.pz-plist');
+  if (q == null) q = (pop.querySelector('.pz-in') || {}).value || '';
+  const sel = ASEO._pop.sel, t = String(q || '').toLowerCase();
+  const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); sel.forEach(n => { if (!nombres.includes(n)) nombres.unshift(n); });
+  const L = nombres.filter(n => !t || n.toLowerCase().includes(t));
+  box.innerHTML = L.length ? L.map(n => `<div class="pz-opt ${sel.has(n) ? 'on' : ''}" data-n="${pcEsc(n)}" onclick="aseoPopToggle_(this)"><span class="pz-ck sm ${sel.has(n) ? 'on' : ''}">${sel.has(n) ? '✓' : ''}</span>${pcEsc(n)}</div>`).join('')
+    : `<div style="font-size:12px;color:#94a3b8;padding:6px">${!nombres.length ? '⏳ Cargando personal…' : 'Sin coincidencias'}</div>`;
+  if (!nombres.length) setTimeout(() => { if (ASEO._pop) aseoPopFill_(); }, 900);
+};
+window.aseoPopToggle_ = function (el) {
+  const n = el.dataset.n, sel = ASEO._pop.sel, on = !sel.has(n);
+  if (on) sel.add(n); else sel.delete(n);
+  el.classList.toggle('on', on); const c = el.querySelector('.pz-ck'); c.classList.toggle('on', on); c.textContent = on ? '✓' : '';
+};
+window.aseoPopOk_ = async function () {
+  const st = ASEO._pop; document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  if (ASEO._popOut) { document.removeEventListener('mousedown', ASEO._popOut); ASEO._popOut = null; }
+  if (!st) return; ASEO._pop = null;
+  const arr = Array.from(st.sel);
+  if (arr.join('|') === st.orig) return;
+  const prev = ASEO.asig[st.id];
+  if (arr.length) ASEO.asig[st.id] = { personal: arr }; else delete ASEO.asig[st.id];
+  aseoPintarAsig_(st.id);
+  try {
+    const r = await fetch(`${BACKEND}/aseo/asignar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: st.id, personal: arr, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+  } catch (e) {
+    if (prev) ASEO.asig[st.id] = prev; else delete ASEO.asig[st.id];
+    aseoPintarAsig_(st.id);
+    alert('No se pudo guardar el personal asignado: ' + (e.message || e));
+  }
+};
+// Actualiza solo los chips de esa reserva (Panel y Control de aseo), sin re-pintar las cards.
+function aseoPintarAsig_(id) {
+  document.querySelectorAll(`.mv-asig[data-asig="${CSS.escape(String(id))}"]`).forEach(el => { el.outerHTML = pcAsigChip_(id); });
+}
+// Actualización continua (30 s) mientras el Panel o Control de aseo estén a la vista;
+// la copia completa del sistema se recarga cada 5 min.
+if (!window.__aseoTimer) window.__aseoTimer = setInterval(async () => {
+  if (document.visibilityState !== 'visible' || ASEO._pop || ASEO._busy) return;
+  const movs = document.getElementById('pc-sec-movs');
+  const verPanel = !!(movs && movs.offsetParent), verAseo = aseoVisible_();
+  if (!verPanel && !verAseo) return;
+  ASEO._busy = true;
+  try {
+    await aseoRefresh_();
+    if (Date.now() - (ASEO._baseTs || 0) > 5 * 60_000) {
+      ASEO._baseTs = Date.now();
+      try { if (typeof pagosLoad === 'function') await pagosLoad(); if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
+    }
+    if (verPanel && typeof pcRenderMovs_ === 'function') pcRenderMovs_();
+    if (verAseo) aseoRender_();
+  } finally { ASEO._busy = false; }
+}, 30_000);
