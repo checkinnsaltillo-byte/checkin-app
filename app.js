@@ -59482,7 +59482,14 @@ function aseoEstadoHtml_(id, hid) {
   const r = aseoEstDe_(id), k = r ? r.estado : 'pendiente';
   const E = ASEO_EST.find(e => e.k === k) || ASEO_EST[0];
   const h = (r && r.hist) || {};
-  const pasos = ASEO_EST.slice(1).map(e => `<span class="ae-p ${h[e.k] ? 'on' : ''}" style="--c:${e.c}" title="${h[e.k] ? `${e.t} · ${aseoHora_(h[e.k].at)}${h[e.k].by ? ' · ' + pcEsc(h[e.k].by) : ''}` : e.t + ' (pendiente)'}"><i>${h[e.k] ? '✓' : ''}</i>${e.t}${h[e.k] ? ` <small>${aseoHora_(h[e.k].at)}</small>` : ''}</span>`).join('<span class="ae-l"></span>');
+  // Botón circular de validación por etapa (idéntico al ✓ "Validado" de las cards de Registros contables).
+  const pasos = ASEO_EST.slice(1).map((e, i) => {
+    const on = !!h[e.k], prev = ASEO_EST[i].k; // al quitar una etapa se regresa a la anterior
+    const tit = on ? `${e.t} · validado ${aseoHora_(h[e.k].at)}${h[e.k].by ? ' · ' + h[e.k].by : ''} — clic para quitar` : `Validar «${e.t}»`;
+    return `<span class="ae-p ${on ? 'on' : ''}"><button type="button" class="ae-val" data-checked="${on}" title="${pcEsc(tit)}"
+      onclick="event.stopPropagation();aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${on ? prev : e.k}')"
+      style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${on ? '#16a34a' : '#e5e7eb'};background:${on ? '#16a34a' : '#f9fafb'};color:${on ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:pointer;padding:0;flex-shrink:0">✓</button>${e.t}${on ? ` <small>${aseoHora_(h[e.k].at)}</small>` : ''}</span>`;
+  }).join('<span class="ae-l"></span>');
   const listo = k === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(r.at)}${r.by ? ' · ' + pcEsc(r.by) : ''}</small></div></div>` : '';
   return `<div class="ae-w" data-est="${pcEsc(String(id))}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button><div class="ae-ps">${pasos}</div></div></div>`;
 }
@@ -64048,9 +64055,10 @@ function aseoEnsureCss_() {
   .ae-btn{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--c);border:1.5px solid color-mix(in srgb,var(--c) 45%,#fff)}
   .ae-btn:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent)}
   .ae-ps{display:flex;align-items:center;gap:0;flex-wrap:wrap}
-  .ae-p{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#94a3b8;white-space:nowrap}
+  .ae-p{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap}
+  .ae-p.on{color:#166534}
+  .ae-val:hover{box-shadow:0 0 0 3px rgba(22,163,74,.18)}
   .ae-p i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1.5px solid #cbd5e1;font-size:9px;color:#fff}
-  .ae-p.on{color:var(--c)}.ae-p.on i{background:var(--c);border-color:var(--c)}
   .ae-p small{font-size:9.5px;opacity:.8}
   .ae-l{width:14px;height:2px;background:#e2e8f0;margin:0 4px}
   .ae-listo{display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:8px 12px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 8px 20px -8px rgba(22,163,74,.7);--ac:#22c55e;animation:mvPulse 2s ease-in-out infinite}
