@@ -34264,7 +34264,7 @@ function guiasRenderContent() {
   if (hasRecos) quicknavItems.push(['gu-reco','🍽️ Recomendaciones']);
   quicknavItems.push(['gu-emerg','🚨 Emergencias']); // siempre al final
   const quicknavHtml = isReadOne ? `
-    <nav id="guias-quicknav" style="position:sticky;top:0;z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 -8px 14px" onwheel="if(!event.shiftKey&&event.deltaY!==0){this.scrollLeft+=event.deltaY;event.preventDefault();}">
+    <nav id="guias-quicknav" style="position:sticky;top:var(--gb-h,0px);z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 -8px 14px" onwheel="if(!event.shiftKey&&event.deltaY!==0){this.scrollLeft+=event.deltaY;event.preventDefault();}">
       ${quicknavItems.map(([id,t]) => `<a href="#${id}" onclick="return guiasJumpTo_('${id}')" style="display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px">${t}</a>`).join('')}
     </nav>` : '';
   // En modo EDICIÓN se conserva el layout de tabs (formulario por campo).
@@ -58729,7 +58729,7 @@ function pcEnsureStyles_() {
   .pc-band-mes .pc-band-k{color:#3730a3}
   .pc-band-t{font-size:20px;font-weight:900;color:#0f172a;line-height:1.15}
   .pc-band-n{font-size:12px;color:#64748b;flex:1;min-width:200px}
-  .pc-band-sticky{position:sticky;top:0;z-index:5;background:rgba(238,242,255,.94);backdrop-filter:blur(6px);margin:-14px -14px 12px;padding:12px 14px;border-radius:20px 20px 0 0;border-bottom:1px solid #c7d2fe}
+  .pc-band-sticky{position:sticky;top:var(--gb-h,0px);z-index:5;background:rgba(238,242,255,.94);backdrop-filter:blur(6px);margin:-14px -14px 12px;padding:12px 14px;border-radius:20px 20px 0 0;border-bottom:1px solid #c7d2fe}
   .pc-band-mes .pc-mnav{background:#1e1b4b}
   .pc-band-mes .pc-mnav .pc-mlabel{color:#fff}
   .pc-band .pc-grp{border-top-width:3px}
@@ -64545,3 +64545,11 @@ if (!window.__aseoTimer) {
   window.__aseoTimer = setInterval(aseoTick_, ASEO_POLL_S * 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - (ASEO.chk || 0) > 5000) aseoTick_(); });
 }
+
+
+// Altura de la barra superior fija → variable CSS --gb-h (la usan otros elementos sticky).
+(function () {
+  const set = () => { const g = document.getElementById('user-greeting'); const h = g && !g.classList.contains('hidden') && g.offsetParent !== null ? g.offsetHeight : 0; document.documentElement.style.setProperty('--gb-h', h + 'px'); };
+  const init = () => { const g = document.getElementById('user-greeting'); if (!g) return; set(); try { new ResizeObserver(set).observe(g); new MutationObserver(set).observe(g, { attributes: true, attributeFilter: ['class', 'style'] }); } catch (_) {} window.addEventListener('resize', set); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();

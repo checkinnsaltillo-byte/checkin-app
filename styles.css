@@ -6737,3 +6737,7 @@ body{padding-left:0 !important;padding-right:0 !important;padding-top:0 !importa
   .hm-tx b{white-space:normal !important;line-height:1.2}
 }
 body.dark .hm-tile:hover{background:#172036 !important}
+
+/* Barra superior (saludo + menú de accesos) fija al hacer scroll. --gb-h = su altura,
+   para que otros elementos "sticky" de página se acomoden debajo de ella. */
+.user-greeting.gb{position:sticky;top:0;z-index:950}
