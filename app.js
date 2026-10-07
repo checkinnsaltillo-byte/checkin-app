@@ -63874,6 +63874,7 @@ function aseoEnsureCss_() {
   document.head.appendChild(st);
 }
 async function aseoRefresh_() {
+  try { if (typeof pzNombres_ === 'function') pzNombres_(); } catch (_) {} // precarga el personal para el chip "Asignar"
   try {
     const j = await fetch(`${BACKEND}/aseo/live?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
     if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
