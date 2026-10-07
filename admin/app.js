@@ -59468,6 +59468,73 @@ function pcMovCols_() {
   ] };
 }
 // Chip "Personal asignado" (multi-selección) — compartido Panel / Control de aseo.
+// ── Estado de aseo de la salida: En proceso → Terminado → Inspeccionado (= listo).
+const ASEO_EST = [
+  { k: 'pendiente', t: 'Pendiente', ico: '⏳', c: '#64748b', bg: '#f1f5f9' },
+  { k: 'en_proceso', t: 'En proceso', ico: '🧽', c: '#b45309', bg: '#fef3c7' },
+  { k: 'terminado', t: 'Terminado', ico: '🧹', c: '#1d4ed8', bg: '#dbeafe' },
+  { k: 'inspeccionado', t: 'Inspeccionado', ico: '✅', c: '#15803d', bg: '#dcfce7' },
+];
+function aseoEstDe_(id) { return ((window.ASEO && ASEO.estados) || {})[String(id)] || null; }
+function aseoHora_(iso) { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); }
+// Bloque de estado (chip-combobox + avance por etapas + palomita de LISTO) para una salida.
+function aseoEstadoHtml_(id, hid) {
+  const r = aseoEstDe_(id), k = r ? r.estado : 'pendiente';
+  const E = ASEO_EST.find(e => e.k === k) || ASEO_EST[0];
+  const h = (r && r.hist) || {};
+  const pasos = ASEO_EST.slice(1).map(e => `<span class="ae-p ${h[e.k] ? 'on' : ''}" style="--c:${e.c}" title="${h[e.k] ? `${e.t} · ${aseoHora_(h[e.k].at)}${h[e.k].by ? ' · ' + pcEsc(h[e.k].by) : ''}` : e.t + ' (pendiente)'}"><i>${h[e.k] ? '✓' : ''}</i>${e.t}${h[e.k] ? ` <small>${aseoHora_(h[e.k].at)}</small>` : ''}</span>`).join('<span class="ae-l"></span>');
+  const listo = k === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(r.at)}${r.by ? ' · ' + pcEsc(r.by) : ''}</small></div></div>` : '';
+  return `<div class="ae-w" data-est="${pcEsc(String(id))}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button><div class="ae-ps">${pasos}</div></div></div>`;
+}
+window.aseoEstadoPop_ = function (id, hid, anchor) {
+  aseoEnsureCss_();
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  const cur = (aseoEstDe_(id) || {}).estado || 'pendiente';
+  const pop = document.createElement('div'); pop.className = 'pz-pop';
+  pop.innerHTML = `<div style="font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🧽 Estado de aseo</div>
+    ${ASEO_EST.map(e => `<div class="pz-opt ${e.k === cur ? 'on' : ''}" onclick="aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${e.k}')"><span class="pz-ck sm ${e.k === cur ? 'on' : ''}" style="border-radius:50%">${e.k === cur ? '✓' : ''}</span>${e.ico} ${e.t}</div>`).join('')}
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;line-height:1.35">Marcar una etapa completa las anteriores. «Inspeccionado» = listo para recibir huéspedes (se muestra en la guía de bienvenida).</div>`;
+  document.body.appendChild(pop);
+  const rc = anchor.getBoundingClientRect(), w = 280;
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px';
+  pop.style.top = (rc.bottom + 6 + 240 > window.innerHeight ? Math.max(8, rc.top - 246) : rc.bottom + 6) + 'px';
+  ASEO._estPop = true;
+  setTimeout(() => { ASEO._popOut = e => { if (!pop.contains(e.target)) aseoCerrarPop_(); }; document.addEventListener('mousedown', ASEO._popOut); }, 0);
+};
+function aseoCerrarPop_() {
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  if (ASEO._popOut) { document.removeEventListener('mousedown', ASEO._popOut); ASEO._popOut = null; }
+  ASEO._estPop = false;
+}
+window.aseoSetEstado_ = async function (id, hid, k) {
+  aseoCerrarPop_();
+  const prev = ASEO.estados[id];
+  const now = new Date().toISOString(), user = (typeof currentUser !== 'undefined' && currentUser) || '';
+  if (k === 'pendiente') delete ASEO.estados[id];
+  else {
+    const hist = Object.assign({}, (prev && prev.hist) || {}), n = ASEO_EST.findIndex(e => e.k === k);
+    ASEO_EST.slice(1).forEach((e, i) => { if (i + 1 <= n) { if (!hist[e.k]) hist[e.k] = { at: now, by: user }; } else delete hist[e.k]; });
+    ASEO.estados[id] = { estado: k, at: now, by: user, hid, hist };
+  }
+  aseoPintarEstado_(id);
+  try {
+    const r = await fetch(`${BACKEND}/aseo/estado`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, estado: k, user }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    if (r.estado) ASEO.estados[id] = r.estado; else delete ASEO.estados[id];
+    aseoPintarEstado_(id);
+  } catch (e) {
+    if (prev) ASEO.estados[id] = prev; else delete ASEO.estados[id];
+    aseoPintarEstado_(id);
+    alert('No se pudo guardar el estado de aseo: ' + (e.message || e));
+  }
+};
+function aseoPintarEstado_(id) {
+  document.querySelectorAll(`.ae-w[data-est="${CSS.escape(String(id))}"]`).forEach(el => {
+    const hid = (el.closest('[data-hid]') || {}).dataset ? el.closest('[data-hid]').dataset.hid : '';
+    el.outerHTML = aseoEstadoHtml_(id, hid || (aseoEstDe_(id) || {}).hid || '');
+  });
+  document.querySelectorAll(`[data-listo-for="${CSS.escape(String(id))}"]`).forEach(el => el.classList.toggle('listo', (aseoEstDe_(id) || {}).estado === 'inspeccionado'));
+}
 // Dos roles por reserva: personal de ASEO y personal de INSPECCIÓN (multi-selección).
 const ASEO_ROLES = { aseo: { ico: '🧹', t: 'Aseo' }, inspeccion: { ico: '🔍', t: 'Inspección' } };
 function aseoAsigDe_(id, rol) {
@@ -59512,12 +59579,13 @@ function pcMovCard_(x, colK, o) {
   const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const { chips, chips2, aviso } = pcMovChips_(x, colK);
   const destacado = x.score >= 2, cb = x.cambio;
-  return `<div class="pc-mv-it ${destacado ? 'hot' : ''} ${cb ? 'chg' : ''} ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" style="--mc:${cb ? cb.c : t ? t.border : o.c || '#e2e8f0'}${o.onclick ? ';cursor:pointer' : ''}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(b.Id))}')"` : ''} title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
+  return `<div class="pc-mv-it ${destacado ? 'hot' : ''} ${cb ? 'chg' : ''} ${o.sel ? 'sel' : ''} ${colK === 'sal' && (aseoEstDe_(b.Id) || {}).estado === 'inspeccionado' ? 'listo' : ''}" data-listo-for="${pcEsc(String(b.Id))}" data-hid="${pcEsc(String(b.HouseId || ''))}" data-bid="${pcEsc(String(b.Id))}" style="--mc:${cb ? cb.c : t ? t.border : o.c || '#e2e8f0'}${o.onclick ? ';cursor:pointer' : ''}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(b.Id))}')"` : ''} title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
     <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
     <div style="min-width:0;flex:1">
       ${aviso}
       <div class="pc-mv-n">${destacado ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
       <div class="pc-mv-s">🏠 ${pcEsc(x.aloj)} · ${x.noches} noche${x.noches === 1 ? '' : 's'} (${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)})</div>
+      ${colK === 'sal' ? aseoEstadoHtml_(b.Id, b.HouseId) : ''}
       <div class="pc-mv-chips">${pcAsigChip_(b.Id)}${chips2}${chips}</div>
     </div></div>`;
 }
@@ -59560,8 +59628,10 @@ function pcAlojCard_(g, hoy, o) {
   const ids = [...g.sal, ...g.ent].map(x => String(x.b.Id));
   const sel = o.selId && ids.includes(String(o.selId));
   const asigId = g.sal[0] ? g.sal[0].b.Id : ids[0];
-  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
+  const listo = (aseoEstDe_(asigId) || {}).estado === 'inspeccionado';
+  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
     <div class="mv-ac-h"><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}</div>
+    ${aseoEstadoHtml_(asigId, g.hid)}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
     ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
     ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
@@ -63967,7 +64037,28 @@ function aseoEnsureCss_() {
   .aseo-head .st{font-size:12px;color:#64748b;flex:1;min-width:200px}
   .aseo-btn{all:unset;cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:800;background:#fff;border:1px solid #e2e8f0;color:#334155}
   .aseo-btn:hover{border-color:#6366f1;color:#3730a3}
-  .aseo-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+  .aseo-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+  .aseo-grid #aseo-cal{display:none}
+  .aseo-grid.con-cal{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .aseo-grid.con-cal #aseo-cal{display:block;animation:aseoCalIn .35s cubic-bezier(.2,.7,.3,1)}
+  @keyframes aseoCalIn{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+  .aseo-grid:not(.con-cal) .aseo-side{position:static;max-height:none}
+  .ae-w{margin:2px 0 6px}
+  .ae-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ae-btn{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--c);border:1.5px solid color-mix(in srgb,var(--c) 45%,#fff)}
+  .ae-btn:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent)}
+  .ae-ps{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+  .ae-p{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#94a3b8;white-space:nowrap}
+  .ae-p i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1.5px solid #cbd5e1;font-size:9px;color:#fff}
+  .ae-p.on{color:var(--c)}.ae-p.on i{background:var(--c);border-color:var(--c)}
+  .ae-p small{font-size:9.5px;opacity:.8}
+  .ae-l{width:14px;height:2px;background:#e2e8f0;margin:0 4px}
+  .ae-listo{display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:8px 12px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 8px 20px -8px rgba(22,163,74,.7);--ac:#22c55e;animation:mvPulse 2s ease-in-out infinite}
+  .ae-listo b{display:block;font-size:13px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+  .ae-listo small{font-size:11px;opacity:.9}
+  .ae-ck{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#fff;color:#16a34a;font-size:22px;font-weight:900;box-shadow:0 0 0 4px rgba(255,255,255,.35);animation:aeCk .5s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes aeCk{from{transform:scale(0) rotate(-45deg)}to{transform:none}}
+  .mv-ac.listo,.pc-mv-it.listo{border-color:#4ade80;box-shadow:0 0 0 2px rgba(34,197,94,.35),0 8px 20px -10px rgba(22,163,74,.5)}
   .aseo-grid .ocup-cal-container{max-height:calc(100vh - 210px)}
   .aseo-cal .ocup-cal{--ocup-aloj-w:112px;--ocup-day-w:52px}
   .aseo-cal .ocup-aloj-cell{z-index:9}
@@ -63990,7 +64081,7 @@ async function aseoRefresh_() {
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
@@ -64035,8 +64126,13 @@ function aseoRender_() {
   aseoEnsureCss_();
   const st = document.getElementById('aseo-status');
   if (st) st.innerHTML = `<span class="mv-live">● En vivo</span> · consulta a Lodgify cada ${ASEO_POLL_S} s · la hora exacta de la última actualización está arriba de las cards`;
-  // Calendario: solo se re-pinta si cambió algo (conserva el scroll del usuario).
-  const cal = document.getElementById('aseo-cal');
+  // Calendario: oculto por defecto; se despliega a la izquierda con el botón.
+  const grid = document.getElementById('aseo-grid');
+  if (grid) grid.classList.toggle('con-cal', !!ASEO.cal);
+  const cb = document.getElementById('aseo-cal-btn'); if (cb) cb.textContent = ASEO.cal ? '✕ Ocultar calendario' : '📅 Mostrar calendario';
+  const hb = document.getElementById('aseo-hoy-btn'); if (hb) hb.style.display = ASEO.cal ? '' : 'none';
+  // Solo se re-pinta si cambió algo (conserva el scroll del usuario).
+  const cal = ASEO.cal ? document.getElementById('aseo-cal') : null;
   // Mismos criterios que el módulo Calendario: solo Booked/Tentative (como
   // ocupLoadBookings) + los filtros elegidos ahí (Estado, Fuente, Propiedad).
   const bks = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
@@ -64076,7 +64172,7 @@ function aseoRenderSide_() {
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
-      <div class="mv-acg one">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
+      <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
@@ -64113,6 +64209,11 @@ window.aseoSelect_ = function (id) {
     cal.scrollTo({ top: Math.max(0, row.offsetTop - cal.clientHeight / 2 + row.offsetHeight / 2), behavior: 'smooth' });
     ocupCentrarHoy_(cal, true);
   }
+};
+window.aseoToggleCal_ = function () {
+  ASEO.cal = !ASEO.cal;
+  if (ASEO.cal) { ASEO.calSig = ''; ASEO._centrar = true; }
+  aseoRender_();
 };
 window.aseoHoy_ = function () { const cal = document.getElementById('aseo-cal'); if (cal) ocupCentrarHoy_(cal, true); };
 window.aseoRecargar_ = async function () { await aseoRefresh_(); ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
@@ -64191,7 +64292,7 @@ async function aseoTick_() {
       ASEO._baseTs = Date.now();
       try { if (typeof pagosLoad === 'function') await pagosLoad(); if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
     }
-    if (!ASEO._pop) {
+    if (!ASEO._pop && !ASEO._estPop) {
       if (verPanel && typeof pcRenderMovs_ === 'function') pcRenderMovs_();
       if (verAseo) aseoRender_();
     }

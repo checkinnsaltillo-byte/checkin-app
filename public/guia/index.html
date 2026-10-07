@@ -27,6 +27,15 @@ a{color:inherit}
 .logo-bar img.pn{height:36px}
 .hero{position:relative;color:#fff;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b;min-height:280px;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px 18px}
 .hero-bg{position:absolute;inset:0;background:#1e293b}
+/* Estado de aseo del alojamiento (esquina superior derecha) — mismo código de color que el sistema */
+.aseo-badge{position:absolute;top:12px;right:12px;z-index:3;max-width:min(230px,58vw);text-align:left;padding:8px 11px;border-radius:14px;background:rgba(15,23,42,.62);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 8px 22px -8px rgba(0,0,0,.5)}
+.aseo-badge .ab-t{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;line-height:1.2;color:#fff}
+.aseo-badge .ab-d{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 0 var(--c);animation:abPulse 1.6s ease-in-out infinite}
+.aseo-badge .ab-u{margin-top:4px;font-size:10px;color:rgba(255,255,255,.75);line-height:1.3}
+.aseo-badge.listo{background:linear-gradient(135deg,#16a34a,#15803d);border-color:rgba(255,255,255,.45)}
+.aseo-badge .ab-ck{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#fff;color:#16a34a;font-size:17px;font-weight:900;animation:abCk .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes abPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 70%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+@keyframes abCk{from{transform:scale(0) rotate(-45deg)}to{transform:none}}
 .hero-card{position:relative;z-index:2;max-width:360px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:16px;padding:14px 18px}
 .hero-badge{display:inline-block;font-size:10px;letter-spacing:1.3px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:4px 10px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:10px}
 .hero h1{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.2;margin:0 0 4px;text-shadow:0 2px 8px rgba(0,0,0,.35)}
@@ -126,6 +135,7 @@ details.section>summary::-webkit-details-marker{display:none}
   </div>
   <header class="hero">
     <div id="hero-bg" class="hero-bg"></div>
+    <div id="aseo-badge" class="aseo-badge" style="display:none"></div>
     <div class="hero-card">
       <span class="hero-badge">Guía de Bienvenida</span>
       <h1 id="hero-title">—</h1>
@@ -1165,6 +1175,47 @@ function showOfflineBanner_(stale){
   } catch(_){}
 }
 
+// ── Estado de aseo en vivo (esquina superior derecha). Se consulta cada 20 s y al
+// volver a la pestaña; muestra la fecha/hora de la última actualización.
+const ABADGE = { hid: '', ts: 0, data: null, err: '' };
+const AB_EST = {
+  pendiente: { c: '#94a3b8', t: 'Aseo pendiente' },
+  en_proceso: { c: '#f59e0b', t: 'Aseo en proceso' },
+  terminado: { c: '#3b82f6', t: 'Aseo terminado · por inspeccionar' },
+  inspeccionado: { c: '#22c55e', t: 'Listo para recibir huéspedes' },
+};
+function aseoBadgeStart_(hid) {
+  ABADGE.hid = String(hid || '').replace(/\D/g, '');
+  if (!ABADGE.hid) return;
+  aseoBadgeLoad_();
+  setInterval(() => { if (document.visibilityState === 'visible') aseoBadgeLoad_(); }, 20000);
+  setInterval(aseoBadgePaint_, 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') aseoBadgeLoad_(); });
+}
+async function aseoBadgeLoad_() {
+  try {
+    const r = await fetchWithTimeout_(`${BACKEND}/aseo/estado-aloj?hid=${encodeURIComponent(ABADGE.hid)}&_=${Date.now()}`, 12000);
+    const j = await r.json();
+    if (!j || !j.ok) throw new Error((j && j.error) || 'sin respuesta');
+    ABADGE.data = j; ABADGE.ts = Date.now(); ABADGE.err = '';
+  } catch (e) { ABADGE.err = 'sin conexión'; }
+  aseoBadgePaint_();
+}
+function aseoBadgePaint_() {
+  const el = document.getElementById('aseo-badge'); if (!el) return;
+  const d = ABADGE.data;
+  if (!d || !d.estado || !AB_EST[d.estado]) { el.style.display = 'none'; return; }
+  const E = AB_EST[d.estado], listo = d.estado === 'inspeccionado';
+  const t = new Date(ABADGE.ts), seg = Math.round((Date.now() - ABADGE.ts) / 1000);
+  const fecha = t.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' · ' + t.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const cambio = d.at ? new Date(d.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
+  el.className = 'aseo-badge' + (listo ? ' listo' : '');
+  el.style.setProperty('--c', E.c);
+  el.innerHTML = `<div class="ab-t">${listo ? '<span class="ab-ck">✓</span>' : '<span class="ab-d"></span>'}<span>${E.t}</span></div>
+    <div class="ab-u">${cambio ? `Desde las ${cambio} · ` : ''}Actualizado ${fecha}${seg >= 5 ? ` (hace ${seg < 60 ? seg + ' s' : Math.floor(seg / 60) + ' min'})` : ''}${ABADGE.err ? ' · ⚠️ ' + ABADGE.err : ''}</div>`;
+  el.style.display = 'block';
+}
+
 (async function () {
   const params = new URLSearchParams(location.search);
   const id = (params.get('id') || '').trim();
@@ -1200,6 +1251,7 @@ function showOfflineBanner_(stale){
     buildGuide(target);
     $('loader').style.display = 'none';
     $('root').style.display = 'block';
+    try { aseoBadgeStart_(id); } catch (_) {}
     $('checkin-fab').style.display = 'block';
     // Tour de bienvenida: apunta a los botones Check-in / Check-out con un
     // callout arriba. Sólo la primera vez por navegador (localStorage flag).
