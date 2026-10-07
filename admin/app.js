@@ -59545,6 +59545,9 @@ window.aseoSetEstado_ = async function (id, hid, k, validar) {
   // Actualización optimista (el servidor confirma y responde el registro final).
   const r = JSON.parse(JSON.stringify(prev || { hist: {} }));
   if (r.validado === undefined && r.estado) { r.validado = true; r.pub = { estado: r.estado, at: r.at, by: r.by }; }
+  // Etapa ya validada antes (o una posterior) → se conserva validada (igual que el servidor).
+  const ET = ['en_proceso', 'terminado', 'inspeccionado'];
+  if (!validar && r.pub && ET.indexOf(r.pub.estado) >= ET.indexOf(k)) validar = true;
   Object.assign(r, { estado: k, at: now, by: user, hid: hid || r.hid || '', validado: validar });
   if (validar) { if (k === 'pendiente') delete r.pub; else r.pub = { estado: k, at: now, by: user }; }
   if (k === 'pendiente' && !r.pub) delete ASEO.estados[id]; else ASEO.estados[id] = r;
