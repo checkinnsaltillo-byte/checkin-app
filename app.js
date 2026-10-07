@@ -59863,6 +59863,14 @@ function pcMovRow_(x, kind, hoy, o) {
   </div>`;
 }
 // Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
+// Chip de movimiento: "Salen hoy ->" (rojo) | "<- Entran hoy" (verde); si solo hay uno, chip normal.
+function aseoMovChip_(sal, ent, hoy) {
+  const h = hoy ? ' hoy' : '';
+  if (sal && ent) return `<span class="mv-mov2"><span class="s">Salen${h} →</span><span class="e">← Entran${h}</span></span>`;
+  if (sal) return `<span class="mv-mov1 s">Salen${h} →</span>`;
+  if (ent) return `<span class="mv-mov1 e">← Entran${h}</span>`;
+  return '';
+}
 // Chip del personal: nombre corto y un color fijo por persona (el mismo en todas sus cards).
 const ASEO_PERS_COLORES = ['#e11d48', '#7c3aed', '#2563eb', '#0891b2', '#059669', '#d97706', '#db2777', '#4f46e5', '#ea580c', '#0d9488', '#9333ea', '#65a30d'];
 function aseoNombreCorto_(n) {
@@ -59964,7 +59972,7 @@ function pcAlojCard_(g, hoy, o) {
   const horaMx = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24;
   const vivosEnt = g.ent.filter(x => !(x.cambio && x.cambio.k === 'cancelada')).length;
   // Reservas plegadas por defecto (se abren con el encabezado o al seleccionar en el calendario).
-  const kAc = g.hid || g.k, nRes = g.sal.length + g.ent.length + (g.cur || []).length;
+  const kAc = g.hid || g.k;
   const abierta = !!(window.ASEO && ASEO.todas);
   // Chips de la reserva que ENTRA (medio, clasificación y entrada temprana) visibles en el encabezado.
   const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
@@ -59995,7 +60003,7 @@ function pcAlojCard_(g, hoy, o) {
   }
   // Franja superior pegada al borde: código | entrada | salida (las dos mitades del mismo ancho).
   const esHoyC = o.esHoy !== false;
-  const chipsH = `${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>`;
+  const chipsH = `${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${aseoMovChip_(g.sal.length, g.ent.length, esHoyC)}${hChips}`;
   // Sin recuadros de entrada/salida: los chips ocupan ese espacio (2 líneas = alto del código).
   const conCajas = !!(boxEnt || tardChip);
   const banda = !(corto || conCajas) ? ''
@@ -64491,6 +64499,12 @@ function aseoEnsureCss_() {
   .mv-ac .mv-ac-band.solo > .mv-ac-chips > *, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > *{height:17px !important;padding:0 4px !important;font-size:9px !important;gap:2px !important;letter-spacing:0 !important}
   .mv-ac.mv-est{cursor:pointer;background:var(--eb) !important;border-color:color-mix(in srgb,var(--ec) 35%,#fff) !important;border-left-color:var(--ec) !important}
   .mv-pers{font-size:11px;color:#334155;margin:4px 0 3px;line-height:1.35;display:flex;flex-wrap:wrap;gap:4px}
+  .mv-ac .mv-ac-chips > .mv-mov2{padding:0 !important;gap:0 !important;overflow:hidden;border:0 !important}
+  .mv-mov2 > span{display:inline-flex;align-items:center;height:100%;padding:0 7px;color:#fff;font-weight:900}
+  .mv-mov2 > .s, .mv-ac .mv-ac-chips > .mv-mov1.s{background:#dc2626 !important;color:#fff !important;border-color:#b91c1c !important}
+  .mv-mov2 > .e, .mv-ac .mv-ac-chips > .mv-mov1.e{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
+  .mv-ac .mv-ac-band.solo > .mv-ac-chips > .mv-mov2{padding:0 !important}
+  .mv-ac .mv-ac-band.solo .mv-mov2 > span{padding:0 5px}
   .mv-pchip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:var(--pc);color:#fff;font-size:13px;font-weight:900;letter-spacing:.01em;
     box-shadow:0 3px 10px -3px var(--pc),inset 0 0 0 1px rgba(255,255,255,.25);text-shadow:0 1px 1px rgba(0,0,0,.2);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .mv-cols .mv-pchip{font-size:12px;padding:2px 9px}
