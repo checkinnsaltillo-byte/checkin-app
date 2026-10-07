@@ -59862,7 +59862,10 @@ function pcAlojCard_(g, hoy, o) {
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')" style="cursor:pointer">
-    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>${hChips ? `<div class="mv-ac-hchips">${hChips}</div>` : ''}</div>
+    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
+      <div class="mv-ac-chips"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span>${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
+      <div class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</div>
+    </div>
     ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid, { sinGuia: !esHoyC })}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
@@ -64291,7 +64294,9 @@ function aseoEnsureCss_() {
   .mv-ac{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #cbd5e1;border-radius:14px;padding:10px 12px;box-shadow:0 2px 10px rgba(15,23,42,.05);min-width:0}
   .mv-ac.in{background:linear-gradient(180deg,#fecaca,#fee2e2 60%,#fef2f2);border-color:#f87171;border-left-color:#dc2626;box-shadow:0 6px 18px -8px rgba(220,38,38,.45)}
   .mv-ac.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18)}
-  .mv-ac-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;cursor:pointer;user-select:none}
+  .mv-ac-h{display:block;margin-bottom:6px;cursor:pointer;user-select:none}
+  .mv-ac-chips{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .mv-ac-h .mv-ac-t{display:block;margin-top:5px;line-height:1.25}
   .mv-ac-car{display:inline-block;font-size:12px;color:#64748b;transition:transform .2s}
   .mv-ac-car.on{transform:rotate(90deg)}
   .mv-ac-n{font-size:10.5px;font-weight:800;color:#64748b;background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
@@ -64314,7 +64319,7 @@ function aseoEnsureCss_() {
   .mv-acm-c > .mv-ac{border-radius:16px;margin:0;box-shadow:none}
   .mv-acm-c .mv-ac-h{padding-right:36px}
   .mv-acm-x{all:unset;cursor:pointer;position:sticky;top:8px;float:right;margin:8px 8px -40px 0;z-index:2;width:30px;height:30px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
-  .mv-ac-t{font-size:14.5px;font-weight:900;color:#0f172a;flex:1;min-width:0;overflow-wrap:anywhere}
+  .mv-ac-t{font-size:14.5px;font-weight:900;color:#0f172a;min-width:0;overflow-wrap:break-word}
   .mv-ac-code{font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#1e1b4b;color:#fff}
   .mv-ac-in{font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dc2626;color:#fff;animation:mvPulse 1.6s ease-in-out infinite;--ac:#dc2626}
   .mv-row{padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.82);border:1px solid #eef2f7;margin-top:6px}
