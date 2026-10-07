@@ -59465,10 +59465,8 @@ function pcAsigChip_(id) {
   const a = (((window.ASEO && ASEO.asig) || {})[String(id)] || {}).personal || [];
   return `<span class="pc-mv-chip mv-asig ${a.length ? 'on' : ''}" data-asig="${pcEsc(String(id))}" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(String(id))}',this)" title="Personal asignado · clic para elegir">${a.length ? '👤 ' + pcEsc(a.join(', ')) : '👤 Asignar personal'} ▾</span>`;
 }
-function pcMovCard_(x, colK, o) {
-  o = o || {};
+function pcMovChips_(x, colK) {
   const t = x.tier, b = x.b;
-  const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const chips = [
     t ? `<span class="pc-mv-chip" style="background:${t.bg};color:${t.fg};border-color:${t.border}" title="${pcEsc(t.tooltip || '')}">${t.icon} ${t.label}</span>` : (x.stats && x.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '<span class="pc-mv-chip" style="background:#f8fafc;color:#64748b">🆕 Primera visita</span>' : ''),
     x.larga === 'mensual' ? `<span class="pc-mv-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">📆 Estancia mensual</span>` : x.larga ? `<span class="pc-mv-chip" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">🗓️ Estancia larga</span>` : '',
@@ -59488,8 +59486,16 @@ function pcMovCard_(x, colK, o) {
              : `<span class="pc-mv-chip" style="background:#dcfce7;color:#166534;border-color:#86efac">🧾 Ticket Folio #${pcEsc(tk.folio || '—')}</span>`) : '',
     tk && medioEm ? `<span class="pc-mv-chip" style="background:${auto ? '#ede9fe' : '#e0f2fe'};color:${auto ? '#5b21b6' : '#0369a1'};border-color:${auto ? '#c4b5fd' : '#7dd3fc'}" title="Origen del ticket">${auto ? '👤 Auto-facturación' : '🖥️ Facturación sistema'}</span>` : '',
   ].join('');
-  const destacado = x.score >= 2, cb = x.cambio;
+  const cb = x.cambio;
   const aviso = cb ? `<div class="mv-alert" style="--ac:${cb.c}"><b>${cb.ico} ${pcEsc(cb.t)}</b><span>${pcEsc(cb.d)}</span></div>` : '';
+  return { chips, chips2, aviso };
+}
+function pcMovCard_(x, colK, o) {
+  o = o || {};
+  const t = x.tier, b = x.b;
+  const ini = String(b.GuestName || '?').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const { chips, chips2, aviso } = pcMovChips_(x, colK);
+  const destacado = x.score >= 2, cb = x.cambio;
   return `<div class="pc-mv-it ${destacado ? 'hot' : ''} ${cb ? 'chg' : ''} ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" style="--mc:${cb ? cb.c : t ? t.border : o.c || '#e2e8f0'}${o.onclick ? ';cursor:pointer' : ''}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(b.Id))}')"` : ''} title="#${pcEsc(b.Id)} · ${pcEsc(b.Source || '')}">
     <div class="pc-mv-av" style="${t ? `background:${t.bg};color:${t.fg};border-color:${t.border}` : ''}">${pcEsc(ini)}</div>
     <div style="min-width:0;flex:1">
@@ -59499,18 +59505,77 @@ function pcMovCard_(x, colK, o) {
       <div class="pc-mv-chips">${pcAsigChip_(b.Id)}${chips2}${chips}</div>
     </div></div>`;
 }
+// ── Vista "Por alojamiento": una card por alojamiento con la reserva que SALE hoy
+// y, si la hay, la que ENTRA hoy. Las que tienen entrada hoy van primero (fondo rojo).
+function mvStay_(b, hoy) {
+  const arr = _pagosDateIso(b.DateArrival), dep = _pagosDateIso(b.DateDeparture);
+  if (/cancel|declin/i.test(String(b.Status || ''))) return { label: 'Cancelada', color: '#94a3b8', fg: '#64748b', pulse: '' };
+  const k = dep && dep < hoy ? 'concluida' : dep === hoy ? 'salida_hoy' : arr === hoy ? 'entrada_hoy' : arr > hoy ? 'proxima' : 'activa';
+  const m = (typeof LG_STATE_META !== 'undefined' && LG_STATE_META[k]) || { label: k, border: '#cbd5e1', accentFg: '#475569' };
+  // Mismo punto animado que las cards de Gestión de reservas.
+  const pulse = k === 'activa' ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;' : k === 'salida_hoy' ? 'animation:hu-dot-pulse-strong 1s ease-in-out infinite;'
+    : k === 'entrada_hoy' ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;' : k === 'proxima' ? 'animation:hu-dot-pulse 2s ease-in-out infinite;' : '';
+  return { label: m.label, color: m.border, fg: m.accentFg, pulse };
+}
+function pcMovAlojGrupos_(cols) {
+  const m = new Map();
+  const key = x => String(x.b.HouseId || x.aloj);
+  cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
+  cols[1].list.forEach(x => { const g = m.get(key(x)); if (g) g.ent.push(x); });
+  return [...m.values()].sort((a, b) => (b.ent.length ? 1 : 0) - (a.ent.length ? 1 : 0)
+    || ([...b.sal, ...b.ent].some(x => x.cambio) ? 1 : 0) - ([...a.sal, ...a.ent].some(x => x.cambio) ? 1 : 0)
+    || String(a.aloj).localeCompare(String(b.aloj), 'es', { numeric: true }));
+}
+function pcMovRow_(x, kind, hoy, o) {
+  o = o || {};
+  const b = x.b, st = mvStay_(b, hoy), { chips, chips2, aviso } = pcMovChips_(x, kind);
+  return `<div class="mv-row ${o.sel ? 'sel' : ''}" data-bid="${pcEsc(String(b.Id))}" ${o.onclick ? `onclick="event.stopPropagation();${o.onclick}('${pcEsc(String(b.Id))}')" style="cursor:pointer"` : ''}>
+    <div class="mv-row-k" style="color:${kind === 'ent' ? '#16a34a' : '#dc2626'}">${kind === 'ent' ? '🔑 Entrada hoy' : '🧳 Salida'}<span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
+    ${aviso}
+    <div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div>
+    <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
+    <div class="pc-mv-chips">${chips2}${chips}</div>
+  </div>`;
+}
+function pcAlojCard_(g, hoy, o) {
+  o = o || {};
+  const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(g.hid) : null;
+  const corto = r ? String(r.device_name || r.Device_name || '').trim() : '';
+  const ids = [...g.sal, ...g.ent].map(x => String(x.b.Id));
+  const sel = o.selId && ids.includes(String(o.selId));
+  const asigId = g.sal[0] ? g.sal[0].b.Id : ids[0];
+  return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
+    <div class="mv-ac-h"><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}</div>
+    <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
+    ${g.sal.map(x => pcMovRow_(x, 'sal', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
+    ${g.ent.map(x => pcMovRow_(x, 'ent', hoy, { onclick: o.onclick, sel: String(o.selId) === String(x.b.Id) })).join('')}
+  </div>`;
+}
+function mvVista_(k) { try { return localStorage.getItem(k) || 'reserva'; } catch (_) { return 'reserva'; } }
+window.mvSetVista_ = function (k, v) { try { localStorage.setItem(k, v); } catch (_) {} if (k === 'pc-mv-vista') pcRenderMovs_(); else aseoRenderSide_(); };
+function mvTabs_(k) {
+  const v = mvVista_(k);
+  return `<span class="mv-tabs" onclick="event.stopPropagation()"><button type="button" class="${v === 'reserva' ? 'on' : ''}" onclick="mvSetVista_('${k}','reserva')">🧾 Por reserva</button><button type="button" class="${v === 'aloj' ? 'on' : ''}" onclick="mvSetVista_('${k}','aloj')">🏠 Por alojamiento</button></span>`;
+}
 function pcRenderMovs_() {
   const el = document.getElementById('pc-sec-movs'); if (!el) return;
   aseoEnsureCss_();
   const vivo = window.ASEO && ASEO.ts ? ` · <span class="mv-live" title="Lodgify en vivo">● en vivo ${new Date(ASEO.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>` : '';
-  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}${vivo}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>`;
+  const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}${vivo}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvTabs_('pc-mv-vista')}<button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div></div>`;
   const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
   if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); return; }
   if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); return; }
-  const { cols } = pcMovCols_();
+  const { cols, hoy } = pcMovCols_();
   const relev = cols.reduce((a, c) => a + c.list.filter(x => x.score >= 2).length, 0);
   const nChg = cols.reduce((a, c) => a + c.list.filter(x => x.cambio).length, 0);
   PC._movs = { sal: cols[0].list.filter(x => !x.cambio || x.cambio.k !== 'cancelada'), ent: cols[1].list.filter(x => !x.cambio || x.cambio.k !== 'cancelada'), man: cols[2].list, relev };
+  if (mvVista_('pc-mv-vista') === 'aloj') {
+    const gs = pcMovAlojGrupos_(cols), nIn = gs.filter(g => g.ent.length).length;
+    el.innerHTML = head(`${gs.length} alojamiento${gs.length === 1 ? '' : 's'} con salida hoy${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) +
+      (gs.length ? `<div class="mv-acg">${gs.map(g => pcAlojCard_(g, hoy)).join('')}</div>` : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
+      `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza solo cada 30 s con Lodgify en vivo.</div>`;
+    return;
+  }
   el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) + `
     <div class="pc-mv">${cols.map(c => `<div class="pc-mv-col" style="--cc:${c.c};--cb:${c.bg}">
       <div class="pc-mv-h"><span class="pc-mv-ico">${c.ico}</span><span>${c.t}</span><b>${c.list.length}</b></div>
@@ -63855,6 +63920,23 @@ function aseoEnsureCss_() {
   .mv-asig.on{background:#eef2ff;color:#3730a3;border-style:solid;border-color:#a5b4fc}
   .mv-asig:hover{border-color:#6366f1}
   .mv-live{color:#16a34a;font-weight:800}
+  .mv-tabs{display:inline-flex;gap:3px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:9px;padding:2px}
+  .mv-tabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:800;color:#475569;white-space:nowrap}
+  .mv-tabs button.on{background:#0f172a;color:#fff}
+  .mv-acg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+  .mv-acg.one{grid-template-columns:minmax(0,1fr)}
+  .mv-ac{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #cbd5e1;border-radius:14px;padding:10px 12px;box-shadow:0 2px 10px rgba(15,23,42,.05);min-width:0}
+  .mv-ac.in{background:linear-gradient(180deg,#fecaca,#fee2e2 60%,#fef2f2);border-color:#f87171;border-left-color:#dc2626;box-shadow:0 6px 18px -8px rgba(220,38,38,.45)}
+  .mv-ac.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18)}
+  .mv-ac-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .mv-ac-t{font-size:14.5px;font-weight:900;color:#0f172a;flex:1;min-width:0;overflow-wrap:anywhere}
+  .mv-ac-code{font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#1e1b4b;color:#fff}
+  .mv-ac-in{font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dc2626;color:#fff;animation:mvPulse 1.6s ease-in-out infinite;--ac:#dc2626}
+  .mv-row{padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.82);border:1px solid #eef2f7;margin-top:6px}
+  .mv-row.sel{outline:2px solid #f59e0b}
+  .mv-row-k{display:flex;align-items:center;gap:8px;font-size:10.5px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+  .mv-prog{display:inline-flex;align-items:center;gap:5px;margin-left:auto;text-transform:none;letter-spacing:0;font-size:11px;font-weight:800}
+  .mv-dot{display:inline-block;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
   .aseo-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
   .aseo-head .st{font-size:12px;color:#64748b;flex:1;min-width:200px}
   .aseo-btn{all:unset;cursor:pointer;padding:7px 12px;border-radius:9px;font-size:12px;font-weight:800;background:#fff;border:1px solid #e2e8f0;color:#334155}
@@ -63933,11 +64015,23 @@ function aseoRenderSide_() {
     }
   }
   const nChg = sal.filter(x => x.cambio).length;
-  const prevTop = (side.querySelector('.pc-mv-list') || {}).scrollTop;
-  side.innerHTML = `${selBlock}<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
+  const prevTop = side.scrollTop;
+  const porAloj = mvVista_('aseo-vista') === 'aloj';
+  let cuerpo;
+  if (porAloj) {
+    const gs = pcMovAlojGrupos_(cols);
+    // La reserva seleccionada puede ser la ENTRADA de una card → no mostrarla aparte.
+    if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
+    const nIn = gs.filter(g => g.ent.length).length;
+    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
+      <div class="mv-acg one">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
+  } else {
+    cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
     <div class="pc-mv-list">${sal.length ? sal.map(x => pcMovCard_(x, 'sal', { c: '#dc2626', sel: String(x.b.Id) === selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Nadie sale hoy</div>'}</div></div>`;
-  if (prevTop) { const l = side.querySelector('.pc-mv-list'); if (l) l.scrollTop = prevTop; }
+  }
+  side.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px">${mvTabs_('aseo-vista')}</div>${selBlock}${cuerpo}`;
+  if (prevTop) side.scrollTop = prevTop;
 }
 function aseoMarcarSel_() {
   const cal = document.getElementById('aseo-cal'); if (!cal) return;
@@ -63958,7 +64052,7 @@ window.aseoSelect_ = function (id) {
   const bar = aseoMarcarSel_();
   aseoRenderSide_();
   if (!ASEO.sel) return;
-  const card = document.querySelector(`#aseo-side .pc-mv-it[data-bid="${CSS.escape(ASEO.sel)}"]`);
+  const card = document.querySelector(`#aseo-side .pc-mv-it[data-bid="${CSS.escape(ASEO.sel)}"], #aseo-side .mv-row[data-bid="${CSS.escape(ASEO.sel)}"]`);
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   // Desde una card: lleva el calendario a la fila de esa reserva (vertical) y
   // mantiene el día en curso al centro (horizontal).
