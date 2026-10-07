@@ -59636,6 +59636,10 @@ function mvStay_(b, hoy) {
 function pcMovAlojGrupos_(cols) {
   const m = new Map();
   const key = x => String(x.b.HouseId || x.aloj);
+  // Solo reservas confirmadas (Booked): fuera "Abierta" (Open) y tentativas. Las
+  // canceladas se conservan únicamente para mostrar su aviso de cancelación.
+  const okB = x => /^booked$/i.test(String(x.b.Status || '').trim()) || (x.cambio && x.cambio.k === 'cancelada');
+  cols = cols.map(c => Object.assign({}, c, { list: c.list.filter(okB) }));
   cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
   cols[1].list.forEach(x => { const g = m.get(key(x)); if (g) g.ent.push(x); });
   // Alojamientos SIN salida hoy cuyo estado de aseo se actualizó hoy (bot o sistema):
@@ -59646,7 +59650,7 @@ function pcMovAlojGrupos_(cols) {
   const ests = Object.entries((window.ASEO && ASEO.estados) || {}).filter(([, r]) => r && r.hid && r.at && diaMx(r.at) === hoy && !hids.has(String(r.hid)))
     .sort((a, b) => String(b[1].at).localeCompare(String(a[1].at)));
   if (ests.length) {
-    const todas = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
+    const todas = pcMovBookings_().filter(b => /^booked$/i.test(String(b.Status || '').trim()));
     ests.forEach(([id, r]) => {
       const hid = String(r.hid); if (hids.has(hid)) return; hids.add(hid);
       const deCasa = todas.filter(b => String(b.HouseId) === hid);
