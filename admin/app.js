@@ -59766,17 +59766,41 @@ function pcMovRow_(x, kind, hoy, o) {
     ${kind === 'ent' ? aseoAccionesReserva_(b, 'ent', x.aloj, '') : ''}
   </div>`;
 }
-window.mvAcToggle_ = function (k) {
-  ASEO.abiertas = ASEO.abiertas || new Set();
-  if (ASEO.abiertas.has(k)) ASEO.abiertas.delete(k); else ASEO.abiertas.add(k);
-  // Solo esta card (todas sus copias: Panel y Control de aseo), sin re-pintar el resto.
-  document.querySelectorAll('.mv-ac').forEach(c => {
-    if ((c.dataset.hid || '') !== k && c.dataset.k !== k) return;
-    const on = ASEO.abiertas.has(k);
-    const r = c.querySelector('.mv-ac-res'); if (r) r.hidden = !on;
-    const car = c.querySelector('.mv-ac-car'); if (car) car.classList.toggle('on', on);
-  });
+// Encabezado de la card → ventana con todos los detalles del alojamiento (reservas incluidas).
+window.mvAcPopup_ = function (k) {
+  aseoEnsureCss_();
+  ASEO._popK = k;
+  let m = document.getElementById('mv-ac-modal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'mv-ac-modal'; m.className = 'mv-modal';
+    m.onclick = e => { if (e.target === m) mvAcPopupCerrar_(); };
+    document.body.appendChild(m);
+  }
+  mvAcPopupRefresh_();
 };
+window.mvAcPopupCerrar_ = function () { ASEO._popK = null; document.getElementById('mv-ac-modal')?.remove(); };
+// Re-pinta la ventana con la versión más reciente de la card (tras cada actualización).
+function mvAcPopupRefresh_() {
+  const m = document.getElementById('mv-ac-modal'); if (!m || !ASEO._popK) return;
+  const src = [...document.querySelectorAll('.mv-ac')].find(c => c.dataset.k === ASEO._popK && !c.closest('#mv-ac-modal'));
+  if (!src) { mvAcPopupCerrar_(); return; }
+  const c = src.cloneNode(true);
+  c.removeAttribute('onclick'); c.style.cursor = 'default';
+  const r = c.querySelector('.mv-ac-res'); if (r) r.hidden = false;
+  const h = c.querySelector('.mv-ac-h'); if (h) { h.removeAttribute('onclick'); h.style.cursor = 'default'; h.querySelector('.mv-ac-car')?.remove(); }
+  const prev = m.querySelector('.mv-acm-c'), top = prev ? prev.scrollTop : 0;
+  m.innerHTML = `<div class="mv-acm-c"><button type="button" class="mv-acm-x" onclick="mvAcPopupCerrar_()" title="Cerrar">✕</button></div>`;
+  m.querySelector('.mv-acm-c').appendChild(c);
+  m.querySelector('.mv-acm-c').scrollTop = top;
+}
+window.mvAcTodas_ = function () {
+  ASEO.todas = !ASEO.todas;
+  try { localStorage.setItem('mv-ac-todas', ASEO.todas ? '1' : ''); } catch (_) {}
+  document.querySelectorAll('.mv-ac').forEach(c => { if (c.closest('#mv-ac-modal')) return; const r = c.querySelector('.mv-ac-res'); if (r) r.hidden = !ASEO.todas && !c.classList.contains('sel'); const car = c.querySelector('.mv-ac-car'); if (car) car.classList.toggle('on', !r || !r.hidden); });
+  document.querySelectorAll('.mv-ac-todas').forEach(b => { b.textContent = ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards'; });
+};
+try { ASEO.todas = localStorage.getItem('mv-ac-todas') === '1'; } catch (_) {}
+function mvAcTodasBtn_() { return `<button type="button" class="mv-ac-todas" onclick="event.stopPropagation();mvAcTodas_()">${ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards'}</button>`; }
 function pcAlojCard_(g, hoy, o) {
   o = o || {};
   const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(g.hid) : null;
@@ -59793,12 +59817,12 @@ function pcAlojCard_(g, hoy, o) {
   const vivosEnt = g.ent.filter(x => !(x.cambio && x.cambio.k === 'cancelada')).length;
   // Reservas plegadas por defecto (se abren con el encabezado o al seleccionar en el calendario).
   const kAc = g.hid || g.k, nRes = g.sal.length + g.ent.length + (g.cur || []).length;
-  const abierta = !!((window.ASEO && ASEO.abiertas && ASEO.abiertas.has(kAc)) || sel);
+  const abierta = !!((window.ASEO && ASEO.todas) || sel);
   let avisoVal = '';
   if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (!g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#ea580c"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   return `<div class="mv-ac ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" ${o.onclick ? `onclick="${o.onclick}('${pcEsc(String(asigId))}')" style="cursor:pointer"` : ''}>
-    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcToggle_('${pcEsc(kAc)}')" title="${abierta ? 'Ocultar' : 'Ver'} reservas"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
+    <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles"><span class="mv-ac-car ${abierta ? 'on' : ''}">▸</span><span class="mv-ac-t">🏠 ${pcEsc(g.aloj)}</span>${corto ? `<span class="mv-ac-code">${pcEsc(corto.toUpperCase())}</span>` : ''}${g.ent.length ? '<span class="mv-ac-in">🔑 Entra hoy</span>' : ''}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span></div>
     ${avisoVal}
     ${aseoEstadoHtml_(asigId, g.hid)}
     <div class="pc-mv-chips" style="margin:0 0 2px">${pcAsigChip_(asigId)}</div>
@@ -59822,7 +59846,7 @@ function pcRenderMovs_() {
   aseoEnsureCss_();
   // Dos secciones: Movimientos del día (por reserva) y Aseo por alojamiento.
   const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>` + mvSyncBar_();
-  const headA = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🧽 Aseo por alojamiento <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('aseo')">Control de aseo →</button></div>` + mvSyncBar_();
+  const headA = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🧽 Aseo por alojamiento <small>· ${sub}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvAcTodasBtn_()}<button class="pc-link" onclick="pcGo('aseo')">Control de aseo →</button></div></div>` + mvSyncBar_();
   const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
   if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); if (elA) elA.innerHTML = headA('reservas') + pcErr_(PC.err.cob); return; }
   if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); if (elA) elA.innerHTML = headA('cargando…') + pcSkel_(180); return; }
@@ -59843,6 +59867,7 @@ function pcRenderMovs_() {
       <div class="pc-mv-h"><span class="pc-mv-ico">${c.ico}</span><span>${c.t}</span><b>${c.list.length}</b></div>
       <div class="pc-mv-list">${c.list.length ? c.list.map(x => pcMovCard_(x, c.k, { c: c.c })).join('') : '<div class="pc-mv-empty">Sin movimientos</div>'}</div></div>`).join('')}</div>
     <div style="font-size:10.5px;color:#94a3b8;margin-top:8px">⭐ Atención = huésped Oro/Plata/Bronce, estancia de 7+ noches (larga) o 28+ (mensual), o saldo pendiente. Las reservas con cambios (cancelación, extensión, fechas) van primero. Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
+  mvAcPopupRefresh_();
 }
 // HOY · KPIs del día (independientes del mes elegido).
 function pcRenderHoyKpis_(kPend) {
@@ -64231,6 +64256,12 @@ function aseoEnsureCss_() {
   .mv-ac-car.on{transform:rotate(90deg)}
   .mv-ac-n{font-size:10.5px;font-weight:800;color:#64748b;background:rgba(255,255,255,.7);border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px}
   .mv-ac-res[hidden]{display:none}
+  .mv-ac-todas{all:unset;cursor:pointer;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;white-space:nowrap;letter-spacing:0;text-transform:none}
+  .mv-ac-todas:hover{background:#e0e7ff}
+  .pc-mv-h .mv-ac-todas{margin-left:auto}
+  .mv-acm-c{position:relative;width:min(560px,100%);max-height:88vh;overflow:auto;border-radius:16px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  .mv-acm-c > .mv-ac{border-radius:16px;margin:0;box-shadow:none}
+  .mv-acm-x{all:unset;cursor:pointer;position:sticky;top:8px;float:right;margin:8px 8px -40px 0;z-index:2;width:30px;height:30px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900}
   .mv-ac-t{font-size:14.5px;font-weight:900;color:#0f172a;flex:1;min-width:0;overflow-wrap:anywhere}
   .mv-ac-code{font-size:10.5px;font-weight:900;letter-spacing:.06em;padding:2px 8px;border-radius:999px;background:#1e1b4b;color:#fff}
   .mv-ac-in{font-size:10.5px;font-weight:900;padding:2px 8px;border-radius:999px;background:#dc2626;color:#fff;animation:mvPulse 1.6s ease-in-out infinite;--ac:#dc2626}
@@ -64434,7 +64465,7 @@ function aseoRenderSide_() {
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
-    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado hoy` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span><b>${gs.length}</b></div>
+    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida hoy${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado hoy` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada hoy</span>` : ''}</span>${mvAcTodasBtn_()}<b>${gs.length}</b></div>
       <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>'}</div>`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
@@ -64443,6 +64474,7 @@ function aseoRenderSide_() {
   }
   side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   if (prevTop) side.scrollTop = prevTop;
+  mvAcPopupRefresh_();
 }
 function aseoMarcarSel_() {
   const cal = document.getElementById('aseo-cal'); if (!cal) return;
