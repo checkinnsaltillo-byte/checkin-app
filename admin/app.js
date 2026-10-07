@@ -64535,7 +64535,7 @@ function aseoRender_() {
   const grid = document.getElementById('aseo-grid');
   if (grid) grid.classList.toggle('con-cal', !!ASEO.cal);
   const cb = document.getElementById('aseo-cal-btn'); if (cb) cb.textContent = ASEO.cal ? '✕ Ocultar calendario' : '📅 Mostrar calendario';
-  const hb = document.getElementById('aseo-hoy-btn'); if (hb) hb.style.display = ASEO.cal ? '' : 'none';
+  const hb = document.getElementById('aseo-hoy-btn'); if (hb) hb.style.display = '';
   // Solo se re-pinta si cambió algo (conserva el scroll del usuario).
   const cal = ASEO.cal ? document.getElementById('aseo-cal') : null;
   // Mismos criterios que el módulo Calendario: solo Booked/Tentative (como
@@ -64661,7 +64661,12 @@ window.aseoToggleCal_ = function () {
   if (ASEO.cal) { ASEO.calSig = ''; ASEO._centrar = true; }
   aseoRender_();
 };
-window.aseoHoy_ = function () { const cal = document.getElementById('aseo-cal'); if (cal) ocupCentrarHoy_(cal, true); };
+window.aseoHoy_ = function () {
+  // Regresa el selector de día a HOY y, si el calendario está abierto, lo centra en hoy.
+  aseoSetDia_(0);
+  const cal = document.getElementById('aseo-cal');
+  if (ASEO.cal && cal) ocupCentrarHoy_(cal, true);
+};
 window.aseoRecargar_ = async function () { await aseoRefresh_(true); ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
 
 // Personal asignado (multi-selección): el popup no se cierra al marcar.
