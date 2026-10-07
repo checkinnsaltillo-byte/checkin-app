@@ -59461,9 +59461,18 @@ function pcMovCols_() {
   ] };
 }
 // Chip "Personal asignado" (multi-selección) — compartido Panel / Control de aseo.
+// Dos roles por reserva: personal de ASEO y personal de INSPECCIÓN (multi-selección).
+const ASEO_ROLES = { aseo: { ico: '🧹', t: 'Aseo' }, inspeccion: { ico: '🔍', t: 'Inspección' } };
+function aseoAsigDe_(id, rol) {
+  const a = ((window.ASEO && ASEO.asig) || {})[String(id)] || {};
+  return (rol === 'aseo' ? (a.aseo || a.personal) : a[rol]) || [];
+}
 function pcAsigChip_(id) {
-  const a = (((window.ASEO && ASEO.asig) || {})[String(id)] || {}).personal || [];
-  return `<span class="pc-mv-chip mv-asig ${a.length ? 'on' : ''}" data-asig="${pcEsc(String(id))}" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(String(id))}',this)" title="Personal asignado · clic para elegir">${a.length ? '👤 ' + pcEsc(a.join(', ')) : '👤 Asignar personal'} ▾</span>`;
+  id = String(id);
+  return `<span class="mv-asig-w" data-asig="${pcEsc(id)}">${Object.entries(ASEO_ROLES).map(([rol, R]) => {
+    const a = aseoAsigDe_(id, rol);
+    return `<span class="pc-mv-chip mv-asig ${a.length ? 'on' : ''} r-${rol}" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(id)}',this,'${rol}')" title="Personal de ${R.t.toLowerCase()} · clic para elegir">${R.ico} ${R.t}: ${a.length ? pcEsc(a.join(', ')) : '<i>asignar</i>'} ▾</span>`;
+  }).join('')}</span>`;
 }
 function pcMovChips_(x, colK) {
   const t = x.tier, b = x.b;
@@ -63918,6 +63927,9 @@ function aseoEnsureCss_() {
   .pc-mv-it.sel{outline:3px solid #f59e0b;outline-offset:1px;box-shadow:0 0 0 7px rgba(245,158,11,.18),0 8px 22px -8px rgba(15,23,42,.3)}
   .mv-asig{cursor:pointer;background:#fff;color:#475569;border-style:dashed;border-color:#94a3b8}
   .mv-asig.on{background:#eef2ff;color:#3730a3;border-style:solid;border-color:#a5b4fc}
+  .mv-asig.r-inspeccion.on{background:#ecfeff;color:#155e75;border-color:#67e8f9}
+  .mv-asig i{font-style:normal;color:#94a3b8;font-weight:700}
+  .mv-asig-w{display:contents}
   .mv-asig:hover{border-color:#6366f1}
   .mv-live{color:#16a34a;font-weight:800}
   .mv-tabs{display:inline-flex;gap:3px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:9px;padding:2px}
@@ -64066,13 +64078,14 @@ window.aseoHoy_ = function () { const cal = document.getElementById('aseo-cal');
 window.aseoRecargar_ = async function () { await aseoRefresh_(); ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
 
 // Personal asignado (multi-selección): el popup no se cierra al marcar.
-window.aseoAsignar_ = function (id, anchor) {
+window.aseoAsignar_ = function (id, anchor, rol) {
   aseoEnsureCss_();
+  rol = rol === 'inspeccion' ? 'inspeccion' : 'aseo';
   document.querySelectorAll('.pz-pop').forEach(p => p.remove());
-  const cur = ((ASEO.asig || {})[id] || {}).personal || [];
-  ASEO._pop = { id, sel: new Set(cur), orig: cur.join('|') };
+  const cur = aseoAsigDe_(id, rol);
+  ASEO._pop = { id, rol, sel: new Set(cur), orig: cur.join('|') };
   const pop = document.createElement('div'); pop.className = 'pz-pop';
-  pop.innerHTML = `<div style="font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">👤 Personal asignado</div>
+  pop.innerHTML = `<div style="font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${ASEO_ROLES[rol].ico} Personal de ${ASEO_ROLES[rol].t.toLowerCase()}</div>
     <input class="pz-in" placeholder="🔎 Buscar…" oninput="aseoPopFill_(this.value)">
     <div class="pz-plist"></div>
     <div style="display:flex;justify-content:space-between;gap:6px;margin-top:8px"><button class="pc-link" style="color:#64748b" onclick="ASEO._pop.sel.clear();aseoPopFill_()">Quitar todos</button><button class="pz-go" style="padding:6px 14px" onclick="aseoPopOk_()">Listo</button></div>`;
@@ -64106,10 +64119,12 @@ window.aseoPopOk_ = async function () {
   const arr = Array.from(st.sel);
   if (arr.join('|') === st.orig) return;
   const prev = ASEO.asig[st.id];
-  if (arr.length) ASEO.asig[st.id] = { personal: arr }; else delete ASEO.asig[st.id];
+  const nuevo = Object.assign({}, prev || {}); if (nuevo.personal && !nuevo.aseo) nuevo.aseo = nuevo.personal; delete nuevo.personal;
+  nuevo[st.rol] = arr;
+  ASEO.asig[st.id] = nuevo;
   aseoPintarAsig_(st.id);
   try {
-    const r = await fetch(`${BACKEND}/aseo/asignar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: st.id, personal: arr, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    const r = await fetch(`${BACKEND}/aseo/asignar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: st.id, rol: st.rol, personal: arr, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!r.ok) throw new Error(r.error || 'Error');
   } catch (e) {
     if (prev) ASEO.asig[st.id] = prev; else delete ASEO.asig[st.id];
@@ -64119,7 +64134,7 @@ window.aseoPopOk_ = async function () {
 };
 // Actualiza solo los chips de esa reserva (Panel y Control de aseo), sin re-pintar las cards.
 function aseoPintarAsig_(id) {
-  document.querySelectorAll(`.mv-asig[data-asig="${CSS.escape(String(id))}"]`).forEach(el => { el.outerHTML = pcAsigChip_(id); });
+  document.querySelectorAll(`.mv-asig-w[data-asig="${CSS.escape(String(id))}"]`).forEach(el => { el.outerHTML = pcAsigChip_(id); });
 }
 // Actualización continua (30 s) mientras el Panel o Control de aseo estén a la vista;
 // la copia completa del sistema se recarga cada 5 min.
