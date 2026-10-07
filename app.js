@@ -59979,6 +59979,7 @@ function pcAlojCard_(g, hoy, o) {
     hChips = medio + clas + larga;
   }
   // Franja superior pegada al borde: código | entrada | salida (las dos mitades del mismo ancho).
+  const esHoyC = o.esHoy !== false;
   const chipsH = `${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${g.ent.length ? `<span class="mv-ac-in">🔑 Entra${esHoyC ? ' hoy' : ''}</span>` : ''}${hChips}<span class="mv-ac-n">${nRes ? `${nRes} reserva${nRes === 1 ? '' : 's'}` : 'sin reserva'}</span>`;
   // Sin recuadros de entrada/salida: los chips ocupan ese espacio (2 líneas = alto del código).
   const conCajas = !!(boxEnt || tardChip);
@@ -59991,7 +59992,6 @@ function pcAlojCard_(g, hoy, o) {
     ? `<div class="mv-pers">👥 ${[pA.length ? `<b>${pcEsc(pA.join(', '))}</b> <small>(aseo)</small>` : '', pI.length ? `<b>${pcEsc(pI.join(', '))}</b> <small>(inspección)</small>` : ''].filter(Boolean).join(' · ')}</div>`
     : '<div class="mv-pers no">👥 No asignado</div>';
   let avisoVal = '';
-  const esHoyC = o.esHoy !== false;
   if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert" style="--ac:#7c3aed"><b>⚠️ Requiere validación</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
