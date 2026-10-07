@@ -59719,9 +59719,12 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
 function aseoTardRec_(id) { const r = ((window.ASEO && ASEO.tardia) || {})[String(id)]; return r && r.on ? r : null; }
 function aseoHoraTxt_(h) { const m = String(h || '11:00').match(/^(\d{2}):(\d{2})$/); if (!m) return h; let H = +m[1]; const ap = H >= 12 ? 'p.m.' : 'a.m.'; H = H % 12 || 12; return `${H}:${m[2]} ${ap}`; }
 function aseoHoraInput_(id, hora, tipo) {
+  // Lista propia de horas cada 30 min (estilo de chip; sin el selector nativo del navegador).
   const temp = tipo === 'temp', h = hora || (temp ? '12:00' : '11:00');
   const fn = temp ? `aseoTempHora_('${pcEsc(String(id))}',this.value)` : `aseoTardPost_('${pcEsc(String(id))}',{hora:this.value})`;
-  return `<input type="time" class="mv-hora" value="${pcEsc(h)}" title="Hora de ${temp ? 'entrada' : 'salida'} (${pcEsc(aseoHoraTxt_(h))})" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();${fn}">`;
+  const horas = []; for (let m = 6 * 60; m <= 23 * 60 + 30; m += 30) horas.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+  if (!horas.includes(h)) { horas.push(h); horas.sort(); }
+  return `<select class="mv-hora" title="Hora de ${temp ? 'entrada' : 'salida'}" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();${fn}">${horas.map(x => `<option value="${x}" ${x === h ? 'selected' : ''}>🕚 ${aseoHoraTxt_(x)}</option>`).join('')}</select>`;
 }
 // Chip + su hora en UNA sola pieza (para que no haya duda de a cuál corresponde).
 function aseoChipHora_(chip, input, ok) { return `<span class="mv-chg ${ok ? 'ok' : ''}">${chip}${input}</span>`; }
@@ -64438,19 +64441,21 @@ function aseoEnsureCss_() {
   .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
   .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:1px 9px;background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;white-space:nowrap}
   .mv-temp-chip:hover{background:#ffedd5}
-  .mv-hora{box-sizing:border-box;height:22px;padding:0 6px;border:1.5px solid #fb923c;border-radius:999px;background:#fff;font:inherit;font-size:10.5px;font-weight:800;color:#c2410c;cursor:pointer;max-width:112px}
-  .mv-chg{display:inline-flex;align-items:stretch;border:1.5px dashed #fb923c;border-radius:999px;background:#fff7ed;overflow:hidden;max-width:100%}
+  /* Chip + hora: una sola píldora ovalada; la hora es un segmento con su propia lista. */
+  .mv-chg{display:inline-flex;align-items:stretch;border:1.5px dashed #fb923c;border-radius:999px;background:#fff7ed;overflow:hidden;max-width:100%;vertical-align:middle}
   .mv-chg.ok{border:1.5px solid #15803d;background:#16a34a}
-  .mv-ac .mv-ac-chips > .mv-chg, .mv-ac .mv-acts > .mv-chg{padding:0 !important;gap:0 !important;border-width:1.5px !important;align-items:stretch !important}
-  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{border:0 !important;border-radius:0 !important;height:auto !important;background:transparent !important;box-shadow:none !important}
+  .mv-ac .mv-ac-chips > .mv-chg, .mv-ac .mv-acts > .mv-chg{padding:0 !important;gap:0 !important;border-width:1.5px !important;align-items:stretch !important;overflow:hidden !important}
+  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{border:0 !important;border-radius:0 !important;height:auto !important;background:transparent !important;box-shadow:none !important;flex:1 1 auto !important;min-width:0 !important;overflow:hidden !important;white-space:nowrap !important;animation:none !important}
+  .mv-chg > .mv-temp-chip{display:block !important;text-overflow:ellipsis !important;line-height:19px !important;padding:0 8px !important}
   .mv-chg.ok > .mv-temp-chip, .mv-chg.ok > .mv-tg{color:#fff !important}
-  .mv-ac .mv-chg > input.mv-hora, .mv-chg > input.mv-hora{width:84px !important;max-width:84px !important;flex:none !important;height:auto !important;border:0 !important;border-left:1.5px dashed #fb923c !important;border-radius:0 !important;padding:0 6px !important;background:#fff !important;color:#c2410c}
-  .mv-chg.ok > input.mv-hora{border-left:1.5px solid #15803d !important;color:#15803d}
-  /* La hora siempre visible: si no cabe, se recorta el texto del chip/interruptor con "…" */
-  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{flex:1 1 auto !important;min-width:0 !important;overflow:hidden !important}
-  .mv-chg > .mv-temp-chip{display:block !important;text-overflow:ellipsis !important;line-height:19px !important}
   .mv-tg .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mv-chg > .mv-tg .sw{flex:none}
+  select.mv-hora{appearance:none;-webkit-appearance:none;flex:none;cursor:pointer;margin:0;height:auto;border:0;border-left:1.5px dashed #fb923c;border-radius:0 999px 999px 0;background:#fff;color:#c2410c;font:inherit;font-size:10.5px;font-weight:900;padding:0 10px 0 7px;line-height:1;white-space:nowrap;outline:none;box-shadow:none}
+  select.mv-hora:hover{background:#ffedd5}
+  .mv-chg.ok > select.mv-hora{border-left:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.18);color:#fff}
+  .mv-chg.ok > select.mv-hora:hover{background:rgba(255,255,255,.3)}
+  select.mv-hora option{color:#0f172a;background:#fff}
+  .mv-cols select.mv-hora{font-size:9.5px;padding:0 8px 0 6px}
   .mv-prio{font-size:10.5px;font-weight:900;letter-spacing:.04em;padding:2px 9px;border-radius:999px;background:#7f1d1d;color:#fff;--ac:#dc2626;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
   .mv-ac.prio{border-left-color:#7f1d1d;box-shadow:0 0 0 2px rgba(127,29,29,.25),0 8px 22px -10px rgba(127,29,29,.5)}
   .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1.5px solid transparent;--ac:#22c55e}
