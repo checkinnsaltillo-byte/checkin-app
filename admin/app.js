@@ -59496,11 +59496,15 @@ function aseoEstadoHtml_(id, hid) {
   const circulo = `<button type="button" class="ae-val" data-checked="${validado}" title="${pcEsc(tit)}"
       onclick="event.stopPropagation();aseoValidar_('${sid}','${shid}')"
       style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${validado ? '#16a34a' : '#d1d5db'};background:${validado ? '#16a34a' : '#f9fafb'};color:${validado ? '#fff' : '#9ca3af'};font-size:14px;font-weight:900;line-height:1;cursor:${validado ? 'default' : 'pointer'};padding:0;flex-shrink:0">✓</button>`;
-  const nota = validado
+  // Solo Terminado e Inspeccionado llevan botón de validación; En proceso / Pendiente se publican directo.
+  const requiere = k === 'terminado' || k === 'inspeccionado';
+  const nota = !requiere
+    ? (k === 'en_proceso' && r ? `<span class="ae-nota ok">Publicado${r.at ? ' ' + aseoHora_(r.at) : ''}${r.by ? ' · ' + pcEsc(r.by) : ''}</span>` : '')
+    : validado
     ? `<span class="ae-nota ok">✓ Validado y publicado${r && r.at ? ' ' + aseoHora_(r.at) : ''}${r && r.by ? ' · ' + pcEsc(r.by) : ''}</span>`
     : `<span class="ae-nota pend">Sin validar · no publicado${P ? ` (la guía muestra: ${P.t})` : ''}</span>`;
   const listo = pub && pub.estado === 'inspeccionado' ? `<div class="ae-listo"><span class="ae-ck">✓</span><div><b>Listo para recibir huéspedes</b><small>Inspeccionado ${aseoHora_(pub.at)}${pub.by ? ' · ' + pcEsc(pub.by) : ''}</small></div></div>` : '';
-  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${circulo}${nota}</div></div>`;
+  return `<div class="ae-w" data-est="${sid}">${listo}<div class="ae-row"><button type="button" class="ae-btn" style="--c:${E.c};--bg:${E.bg}" onclick="event.stopPropagation();aseoEstadoPop_('${sid}','${shid}',this)">${E.ico} Estado de aseo: <b>${E.t}</b> ▾</button>${requiere ? circulo : ''}${nota}</div></div>`;
 }
 window.aseoValidar_ = function (id, hid) {
   const r = aseoEstDe_(id);
@@ -59517,7 +59521,7 @@ window.aseoEstadoPop_ = function (id, hid, anchor) {
   const pop = document.createElement('div'); pop.className = 'pz-pop';
   pop.innerHTML = `<div style="font-size:11px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🧽 Estado de aseo</div>
     ${ASEO_EST.map(e => `<div class="pz-opt ${e.k === cur ? 'on' : ''}" onclick="aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${e.k}',false)"><span class="pz-ck sm ${e.k === cur ? 'on' : ''}" style="border-radius:50%">${e.k === cur ? '✓' : ''}</span>${e.ico} ${e.t}</div>`).join('')}
-    <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;line-height:1.35">Elegir un estado NO lo publica: queda en gris hasta validarlo con el botón circular ✓. Solo lo validado se muestra en la guía de bienvenida.</div>`;
+    <div style="font-size:10.5px;color:#94a3b8;margin-top:6px;line-height:1.35">«En proceso» se publica directo en la guía. «Terminado» e «Inspeccionado» quedan en gris hasta validarlos con el botón circular ✓; solo entonces se publican.</div>`;
   document.body.appendChild(pop);
   const rc = anchor.getBoundingClientRect(), w = 280;
   pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px';
@@ -59532,7 +59536,7 @@ function aseoCerrarPop_() {
 }
 window.aseoSetEstado_ = async function (id, hid, k, validar) {
   aseoCerrarPop_();
-  validar = !!validar;
+  validar = !!validar || !(k === 'terminado' || k === 'inspeccionado'); // En proceso / Pendiente: directo
   const prev = ASEO.estados[id];
   const cur0 = aseoEstDe_(id);
   if (!validar && cur0 && cur0.estado === k) return; // mismo estado: nada que cambiar
