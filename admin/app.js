@@ -59823,6 +59823,24 @@ window.mvAcTodas_ = function () {
 };
 try { ASEO.todas = localStorage.getItem('mv-ac-todas') === '1'; } catch (_) {}
 function mvAcTodasBtn_() { return `<button type="button" class="mv-ac-todas" onclick="event.stopPropagation();mvAcTodas_()">${ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards'}</button>`; }
+// Cards agrupadas en columnas por PROPIEDAD. Dentro de cada columna se respeta el orden
+// por prioridad (gs ya viene ordenado); las columnas con lo más prioritario van primero.
+function mvPropiedadDe_(g) {
+  const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(String(g.hid)) : null;
+  const p = r ? String(r.Propiedad || '').trim() : '';
+  if (p) return p;
+  const m = String(g.aloj || '').match(/^(.*?)\s*#\s*\S+$/);
+  return m && m[1] && !/^houseid/i.test(m[1]) ? m[1].trim() : 'Otros';
+}
+function mvColumnas_(gs, render) {
+  const cols = new Map();
+  gs.forEach((g, i) => { const p = mvPropiedadDe_(g); if (!cols.has(p)) cols.set(p, { p, items: [], first: i }); cols.get(p).items.push(g); });
+  const lista = [...cols.values()].sort((a, b) => (a.p === 'Otros') - (b.p === 'Otros') || a.first - b.first);
+  return `<div class="mv-cols">${lista.map(c => `<div class="mv-col">
+    <div class="mv-col-h"><span>🏘️ ${pcEsc(c.p.replace(/^Calle\s+/i, ''))}</span><b>${c.items.length}</b></div>
+    ${c.items.map(render).join('')}
+  </div>`).join('')}</div>`;
+}
 function pcAlojCard_(g, hoy, o) {
   o = o || {};
   const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(g.hid) : null;
@@ -59902,7 +59920,7 @@ function pcRenderMovs_() {
     const nChgA = gs.filter(g => [...g.sal, ...g.ent].some(x => x.cambio)).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length, nS = gs.length - nX - nE;
     elA.innerHTML = headA(`${nS} alojamiento${nS === 1 ? '' : 's'} con salida hoy${nE ? ` · ${nE} solo con entrada` : ''}${nX ? ` · ${nX} más con estado actualizado hoy` : ''}${nIn ? ` · <b style="color:#dc2626">🔑 ${nIn} con entrada hoy</b>` : ''}${nChgA ? ` · <b style="color:#dc2626">⚠️ ${nChgA} con cambios</b>` : ''}`) +
-      (gs.length ? `<div class="mv-acg">${gs.map(g => pcAlojCard_(g, hoy)).join('')}</div>` : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
+      (gs.length ? mvColumnas_(gs, g => pcAlojCard_(g, hoy)) : '<div class="pc-mv-empty">Ningún alojamiento con salida hoy</div>') +
       `<div style="font-size:10.5px;color:#94a3b8;margin-top:8px">Una card por alojamiento: la reserva que sale hoy y, si la hay, la que entra hoy. En rojo y primero, los que tienen entrada hoy (aseo urgente). Se actualiza sola cada 20 s con Lodgify en vivo.</div>`;
   }
   el.innerHTML = head(`salen hoy · entran hoy · entran mañana${relev ? ` · <b style="color:#b45309">⭐ ${relev} que requieren atención</b>` : ''}${nChg ? ` · <b style="color:#dc2626">⚠️ ${nChg} con cambios</b>` : ''}`) + `
@@ -64290,6 +64308,10 @@ function aseoEnsureCss_() {
   .mv-tabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:800;color:#475569;white-space:nowrap}
   .mv-tabs button.on{background:#0f172a;color:#fff}
   .mv-acg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+  .mv-cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(300px,1fr);gap:12px;overflow-x:auto;align-items:start;padding-bottom:6px}
+  .mv-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .mv-col-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:12px;background:#1e1b4b;color:#fff;font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;position:sticky;top:0;z-index:2}
+  .mv-col-h b{font-size:12px;background:rgba(255,255,255,.18);border-radius:999px;padding:1px 9px}
   .mv-acg.one{grid-template-columns:minmax(0,1fr)}
   .mv-ac{background:#fff;border:1px solid #e2e8f0;border-left:5px solid #cbd5e1;border-radius:14px;padding:10px 12px;box-shadow:0 2px 10px rgba(15,23,42,.05);min-width:0}
   .mv-ac.in{background:linear-gradient(180deg,#fecaca,#fee2e2 60%,#fef2f2);border-color:#f87171;border-left-color:#dc2626;box-shadow:0 6px 18px -8px rgba(220,38,38,.45)}
@@ -64533,7 +64555,7 @@ function aseoRenderSide_() {
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
     cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida ${diaT}${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado ${diaT}` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada ${diaT}</span>` : ''}</span>${mvAcTodasBtn_()}<b>${gs.length}</b></div>
-      <div class="mv-acg ${ASEO.cal ? 'one' : ''}">${gs.length ? gs.map(g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy })).join('') : `<div class="pc-mv-empty">Ningún alojamiento con salida ${diaT}</div>`}</div>`;
+      ${gs.length ? mvColumnas_(gs, g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy })) : `<div class="pc-mv-empty">Ningún alojamiento con salida ${diaT}</div>`}`;
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
