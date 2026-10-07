@@ -59703,10 +59703,10 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
   const id = String(b.Id), on = aseoTempOn_(id);
   const acep = on && !!((((window.ASEO && ASEO.temprana) || {})[id]) || {}).aceptada;
   // Activo: mismo formato que el chip del encabezado (solicitud punteada / aceptada en verde).
-  const txt = !on ? 'Entrada temprana' : acep ? '✓ Entrada temprana · solicitud aceptada' : '⏰ Solicitud: Entrada temprana';
+  const txt = !on ? 'Entrada temprana' : acep ? '✓ Solicitud Entrada · aceptada' : '⏰ Solicitud: Entrada temprana';
   const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTemprana_('${pcEsc(id)}')" title="${on ? 'Clic para quitar la solicitud de entrada temprana' : 'El huésped pidió entrar antes de la hora oficial'}"><span class="sw"><i></i></span><span class="tx">${txt}</span></button>`;
   const tr0 = (((window.ASEO && ASEO.temprana) || {})[id]) || {};
-  const tgH = on ? aseoChipHora_(tg, aseoHoraInput_(id, tr0.hora, 'temp'), acep) : tg;
+  const tgH = on ? aseoChipHora_(tg, aseoHoraInput_(id, tr0.hora, 'temp'), acep, 'temp') : tg;
   if (kind !== 'ent') return `<div class="mv-acts">${tgH}</div>`;
   const env = (((window.ASEO && ASEO.sms) || {})[id] || []);
   const ult = env[env.length - 1];
@@ -59727,12 +59727,12 @@ function aseoHoraInput_(id, hora, tipo) {
   return `<select class="mv-hora" title="Hora de ${temp ? 'entrada' : 'salida'}" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" onchange="event.stopPropagation();${fn}">${horas.map(x => `<option value="${x}" ${x === h ? 'selected' : ''}>🕚 ${aseoHoraTxt_(x)}</option>`).join('')}</select>`;
 }
 // Chip + su hora en UNA sola pieza (para que no haya duda de a cuál corresponde).
-function aseoChipHora_(chip, input, ok) { return `<span class="mv-chg ${ok ? 'ok' : ''}">${chip}${input}</span>`; }
+function aseoChipHora_(chip, input, ok, tipo) { return `<span class="mv-chg ${tipo === 'temp' ? 'ent' : 'sal'} ${ok ? 'ok' : ''}">${chip}${input}</span>`; }
 function aseoAccionesSalida_(b) {
   const id = String(b.Id), r = aseoTardRec_(id), on = !!r, acep = on && !!r.aceptada;
-  const txt = !on ? 'Salida tardía' : acep ? '✓ Salida tardía · solicitud aceptada' : '🕚 Solicitud: Salida tardía';
+  const txt = !on ? 'Salida tardía' : acep ? '✓ Solicitud Salida · aceptada' : '🕚 Solicitud: Salida tardía';
   const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTardPost_('${pcEsc(id)}',{on:${!on}})" title="${on ? 'Clic para quitar la solicitud de salida tardía' : 'El huésped pidió salir después de la hora oficial'}"><span class="sw"><i></i></span><span class="tx">${txt}</span></button>`;
-  return `<div class="mv-acts">${on ? aseoChipHora_(tg, aseoHoraInput_(id, r.hora, 'tard'), acep) : tg}</div>`;
+  return `<div class="mv-acts">${on ? aseoChipHora_(tg, aseoHoraInput_(id, r.hora, 'tard'), acep, 'tard') : tg}</div>`;
 }
 window.aseoTardAceptar_ = function (id, acep) {
   const b = pcMovBookings_().find(x => String(x.Id) === String(id)) || {}, r = aseoTardRec_(id) || {};
@@ -59940,9 +59940,9 @@ function pcAlojCard_(g, hoy, o) {
   if (trd) {
     const sid = pcEsc(String(xs.b.Id));
     tardChip = (trd.aceptada
-      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Salida tardía · aceptada</button>`
+      ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',false)" title="Aceptada${trd.aceptadaPor ? ' por ' + pcEsc(trd.aceptadaPor) : ''} · su aseo va al final · clic para retirar">✓ Solicitud Salida · aceptada</button>`
       : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTardAceptar_('${sid}',true)" title="El huésped pidió salir más tarde · clic para aceptar la solicitud">🕚 Solicitud: Salida tardía</button>`);
-    tardChip = aseoChipHora_(tardChip, aseoHoraInput_(xs.b.Id, trd.hora, 'tard'), !!trd.aceptada);
+    tardChip = aseoChipHora_(tardChip, aseoHoraInput_(xs.b.Id, trd.hora, 'tard'), !!trd.aceptada, 'tard');
   }
   if (xe) {
     const t = xe.tier;
@@ -59953,9 +59953,9 @@ function pcAlojCard_(g, hoy, o) {
     const tr = (((window.ASEO && ASEO.temprana) || {})[String(xe.b.Id)]) || null;
     prioritaria = !!(tr && tr.on && tr.aceptada);
     const tempBtn = !tr || !tr.on ? ''
-      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Entrada temprana · solicitud aceptada</button>`
+      : tr.aceptada ? `<button type="button" class="mv-temp-chip ok" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',false)" title="Aceptada${tr.aceptadaPor ? ' por ' + pcEsc(tr.aceptadaPor) : ''} · clic para retirar la aceptación">✓ Solicitud Entrada · aceptada</button>`
       : `<button type="button" class="mv-temp-chip" onclick="event.stopPropagation();aseoTempAceptar_('${pcEsc(String(xe.b.Id))}',true)" title="El huésped pidió entrar antes de la hora oficial · clic para aceptar la solicitud">⏰ Solicitud: Entrada temprana</button>`;
-    const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp'), !!tr.aceptada) : '';
+    const temp = tempBtn ? aseoChipHora_(tempBtn, aseoHoraInput_(xe.b.Id, tr.hora, 'temp'), !!tr.aceptada, 'temp') : '';
     hChips = temp + medio + clas + larga;
   }
   hChips = tardChip + hChips;
@@ -64441,29 +64441,28 @@ function aseoEnsureCss_() {
   .mv-ac-hchips{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
   .mv-temp-chip{all:unset;cursor:pointer;font-size:10.5px;font-weight:900;border-radius:999px;padding:1px 9px;background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;white-space:nowrap}
   .mv-temp-chip:hover{background:#ffedd5}
-  /* Chip + hora: una sola píldora ovalada; la hora es un segmento con su propia lista. */
-  .mv-chg{display:inline-flex;align-items:stretch;border:1.5px dashed #fb923c;border-radius:999px;background:#fff7ed;overflow:hidden;max-width:100%;vertical-align:middle}
-  .mv-chg.ok{border:1.5px solid #15803d;background:#16a34a}
-  .mv-ac .mv-ac-chips > .mv-chg, .mv-ac .mv-acts > .mv-chg{padding:0 !important;gap:0 !important;border-width:1.5px !important;align-items:stretch !important;overflow:hidden !important}
-  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{border:0 !important;border-radius:0 !important;height:auto !important;background:transparent !important;box-shadow:none !important;flex:1 1 auto !important;min-width:0 !important;overflow:hidden !important;white-space:nowrap !important;animation:none !important}
-  .mv-chg > .mv-temp-chip{display:block !important;text-overflow:ellipsis !important;line-height:19px !important;padding:0 8px !important}
-  .mv-chg.ok > .mv-temp-chip, .mv-chg.ok > .mv-tg{color:#fff !important}
-  .mv-tg .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .mv-chg > .mv-tg .sw{flex:none}
-  select.mv-hora{appearance:none;-webkit-appearance:none;flex:none;cursor:pointer;margin:0;height:auto;border:0;border-left:1.5px dashed #fb923c;border-radius:0 999px 999px 0;background:#fff;color:#c2410c;font:inherit;font-size:10.5px;font-weight:900;padding:0 10px 0 7px;line-height:1;white-space:nowrap;outline:none;box-shadow:none}
-  select.mv-hora:hover{background:#ffedd5}
-  .mv-chg.ok > select.mv-hora{border-left:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.18);color:#fff}
-  .mv-chg.ok > select.mv-hora:hover{background:rgba(255,255,255,.3)}
-  select.mv-hora option{color:#0f172a;background:#fff}
-  .mv-cols select.mv-hora{font-size:9.5px;padding:0 8px 0 6px}
-  /* Sin recortes: si no cabe en una línea, texto arriba y hora abajo en el mismo recuadro. */
-  .mv-chg{flex-wrap:wrap !important;border-radius:12px !important;height:auto !important;min-height:22px}
-  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{flex:1 0 auto !important;overflow:visible !important;text-overflow:clip !important;min-height:19px}
+  /* Chip + hora: recuadro con el texto arriba (a todo lo ancho) y la hora abajo.
+     Entrada = verde · Salida = rojo. Solicitud: punteado y claro · Aceptada: intenso. */
+  .mv-chg{--c:#15803d;--bd:#22c55e;--bg:#f0fdf4;--bgx:#16a34a;--bdx:#15803d;
+    display:inline-flex !important;flex-direction:column !important;align-items:stretch !important;max-width:100% !important;height:auto !important;
+    border:1.5px dashed var(--bd) !important;border-radius:7px !important;background:var(--bg) !important;overflow:hidden !important;padding:0 !important;gap:0 !important;vertical-align:middle}
+  .mv-chg.sal{--c:#b91c1c;--bd:#f87171;--bg:#fef2f2;--bgx:#dc2626;--bdx:#b91c1c}
+  .mv-chg.ok{border:1.5px solid var(--bdx) !important;background:var(--bgx) !important;--c:#fff}
+  .mv-chg > .mv-temp-chip, .mv-chg > .mv-tg{display:flex !important;align-items:center !important;justify-content:center !important;gap:5px !important;width:100% !important;
+    box-sizing:border-box !important;border:0 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;animation:none !important;
+    color:var(--c) !important;font-size:10.5px !important;font-weight:900 !important;padding:3px 8px !important;height:auto !important;min-height:20px !important;white-space:nowrap !important;overflow:visible !important}
   .mv-chg > .mv-tg .tx{overflow:visible;text-overflow:clip}
-  .mv-chg > select.mv-hora{width:auto !important;min-width:0 !important;max-width:none !important;flex:1 0 auto !important;min-height:19px;
-    border:0 !important;border-radius:0 !important;box-shadow:inset 1.5px 0 0 #fb923c;text-align:center;text-align-last:center}
-  .mv-chg.ok > select.mv-hora{box-shadow:inset 1.5px 0 0 rgba(255,255,255,.55)}
-  .mv-ac .mv-ac-chips > .mv-chg, .mv-ac .mv-acts > .mv-chg, .mv-cols .mv-ac .mv-ac-chips > .mv-chg, .mv-cols .mv-ac .mv-acts > .mv-chg{height:auto !important;max-width:100% !important;overflow:hidden !important}
+  .mv-chg .mv-tg .sw{flex:none;background:#cbd5e1}
+  .mv-chg.ent .mv-tg.on .sw{background:#16a34a}.mv-chg.sal .mv-tg.on .sw{background:#dc2626}
+  .mv-chg.ok .mv-tg.on .sw{background:rgba(255,255,255,.5)}
+  .mv-chg > select.mv-hora{appearance:none;-webkit-appearance:none;width:100% !important;max-width:none !important;flex:none !important;box-sizing:border-box;margin:0;cursor:pointer;
+    border:0 !important;border-top:1.5px dashed var(--bd) !important;border-radius:0 !important;box-shadow:none !important;background:#fff;color:var(--c);
+    font:inherit;font-size:10.5px;font-weight:900;padding:3px 8px;min-height:20px;text-align:center;text-align-last:center;outline:none}
+  .mv-chg > select.mv-hora:hover{filter:brightness(.97)}
+  .mv-chg.ok > select.mv-hora{border-top:1.5px solid rgba(255,255,255,.45) !important;background:rgba(0,0,0,.12);color:#fff}
+  select.mv-hora option{color:#0f172a;background:#fff}
+  .mv-cols .mv-chg > .mv-temp-chip, .mv-cols .mv-chg > .mv-tg, .mv-cols .mv-chg > select.mv-hora{font-size:9.5px !important}
+  .mv-ac .mv-ac-chips > .mv-chg, .mv-ac .mv-acts > .mv-chg, .mv-cols .mv-ac .mv-ac-chips > .mv-chg, .mv-cols .mv-ac .mv-acts > .mv-chg{height:auto !important;padding:0 !important;font-size:inherit !important;line-height:normal !important;border-radius:7px !important}
   .mv-prio{font-size:10.5px;font-weight:900;letter-spacing:.04em;padding:2px 9px;border-radius:999px;background:#7f1d1d;color:#fff;--ac:#dc2626;animation:mvPulse 1.6s ease-in-out infinite;white-space:nowrap}
   .mv-ac.prio{border-left-color:#7f1d1d;box-shadow:0 0 0 2px rgba(127,29,29,.25),0 8px 22px -10px rgba(127,29,29,.5)}
   .mv-temp-chip.ok{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:1.5px solid transparent;--ac:#22c55e}
