@@ -59562,8 +59562,10 @@ window.aseoSetEstado_ = async function (id, hid, k, validar) {
     const res = await fetch(`${BACKEND}/aseo/estado`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, estado: k, validar, user }) }).then(r => r.json());
     if (!res.ok) throw new Error(res.error || 'Error');
     if (res.estado) ASEO.estados[id] = res.estado; else delete ASEO.estados[id];
+    (ASEO._pend = ASEO._pend || {})['e:' + id] = { tipo: 'est', id, rec: res.estado || null, campos: ['estado', 'validado'], t: Date.now() };
     aseoPintarEstado_(id);
-    // Recalcula al instante lo que muestra la guía (línea "📖 La guía muestra…").
+    // Card completa al instante (color, avisos); luego la guía ("📖 La guía muestra…") con datos del servidor.
+    if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_();
     aseoRefresh_(true).then(() => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); }).catch(() => {});
   } catch (e) {
     if (prev) ASEO.estados[id] = prev; else delete ASEO.estados[id];
@@ -64691,6 +64693,18 @@ async function aseoRefresh_(force) {
     const m = new Map(); (j.rows || []).forEach(r => m.set(String(r.Id), r));
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
+    // ¿Cambió algo? (si no, no se re-dibujan las cards: evita perder clicks y que "se trabe").
+    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif]);
+    ASEO.cambio = sig !== ASEO._sig; ASEO._sig = sig;
+    // Cambios guardados hace poco desde esta pantalla: una respuesta vieja (otra copia del
+    // servidor o una consulta que salió antes de guardar) no los regresa a como estaban.
+    const pend = ASEO._pend || {};
+    Object.keys(pend).forEach(k => {
+      const p = pend[k], src = p.tipo === 'asig' ? (j.asig = j.asig || {}) : (j.estados = j.estados || {});
+      if (Date.now() - p.t > 45_000 || JSON.stringify(src[p.id] && p.campos.map(c => src[p.id][c])) === JSON.stringify(p.rec && p.campos.map(c => p.rec[c]))) { delete pend[k]; return; }
+      if (p.rec) src[p.id] = p.rec; else delete src[p.id];
+      ASEO.cambio = true;
+    });
     Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
@@ -65055,6 +65069,8 @@ window.aseoPopOk_ = async function () {
   try {
     const r = await fetch(`${BACKEND}/aseo/asignar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: st.id, rol: st.rol, personal: arr, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!r.ok) throw new Error(r.error || 'Error');
+    if (r.asig) ASEO.asig[st.id] = r.asig; else delete ASEO.asig[st.id];
+    (ASEO._pend = ASEO._pend || {})['a:' + st.id] = { tipo: 'asig', id: st.id, rec: r.asig || null, campos: ['aseo', 'inspeccion'], t: Date.now() };
   } catch (e) {
     if (prev) ASEO.asig[st.id] = prev; else delete ASEO.asig[st.id];
     aseoPintarAsig_(st.id);
@@ -65081,8 +65097,14 @@ async function aseoTick_() {
       ASEO._baseTs = Date.now();
       try { if (typeof pagosLoad === 'function') await pagosLoad(); if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
     }
-    const editandoHora = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('mv-hora');
-    if (!ASEO._pop && !ASEO._estPop && !editandoHora) {
+    const ae = document.activeElement;
+    const editando = !!(ae && ae.closest && ae.closest('.mv-ac, .pz-pop, .mv-np') && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName));
+    const tocando = Date.now() - (ASEO._toque || 0) < 4000; // click reciente: no mover la pantalla bajo el cursor
+    const recarga = Date.now() - (ASEO._baseTs || 0) < 3000; // acaba de recargar reservas
+    if (ASEO.cambio || recarga) ASEO._dirty = true;
+    if (Date.now() - (ASEO._lastRender || 0) > 5 * 60_000) ASEO._dirty = true; // avisos que dependen de la hora (2 pm / 3 pm)
+    if (ASEO._dirty && !tocando && !ASEO._pop && !ASEO._estPop && !editando && !document.querySelector('.pz-pop')) {
+      ASEO._dirty = false; ASEO._lastRender = Date.now();
       if (verPanel && typeof pcRenderMovs_ === 'function') pcRenderMovs_();
       if (verAseo) aseoRender_();
     }
@@ -65090,6 +65112,7 @@ async function aseoTick_() {
 }
 if (!window.__aseoTimer) {
   window.__aseoTimer = setInterval(aseoTick_, ASEO_POLL_S * 1000);
+  document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('.mv-ac, .pz-pop, .mv-np, #aseo-side')) ASEO._toque = Date.now(); }, true);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - (ASEO.chk || 0) > 5000) aseoTick_(); });
 }
 
