@@ -59953,7 +59953,7 @@ function aseoGuiaLinea_(id, hid) {
   const noPub = !!(G && G.noPub);
   const txt = !G ? '' : G.texto ? `<div class="ae-guia ${G.estado === 'terminado' || G.estado === 'inspeccionado' ? 'ok' : ''}">📖 La guía muestra: <b>«${pcEsc(G.texto)}»</b></div>`
     : `<div class="ae-guia nada">📖 La guía no muestra ningún aviso</div>`;
-  const chk = `<button type="button" class="mv-pub ${noPub ? '' : 'on'}" onclick="event.stopPropagation();aseoGuiaPublicar_('${pcEsc(key)}',${noPub})" title="${noPub ? 'Marcar para volver a mostrar el aviso en la guía' : 'Desmarcar para que la guía no muestre nada'}"><span class="ck">${noPub ? '' : '✓'}</span>${noPub ? 'No publicado' : 'Publicado'}</button>`;
+  const chk = `<button type="button" class="mv-pub ${noPub ? '' : 'on'}" data-key="${pcEsc(key)}" onclick="event.stopPropagation();aseoGuiaPublicar_('${pcEsc(key)}',${noPub})" title="${noPub ? 'Marcar para volver a mostrar el aviso en la guía' : 'Desmarcar para que la guía no muestre nada'}"><span class="ck">${noPub ? '' : '✓'}</span>${noPub ? 'No publicado' : 'Publicado'}</button>`;
   return `<div class="mv-guia">${txt}${chk}</div>`;
 }
 window.aseoGuiaPublicar_ = async function (key, publicar) {
@@ -59963,6 +59963,31 @@ window.aseoGuiaPublicar_ = async function (key, publicar) {
     await aseoRefresh_(true);
     if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_();
   } catch (e) { alert('No se pudo cambiar la publicación en la guía: ' + (e.message || e)); }
+};
+// Botón de la barra "Publicar en guías": marca o desmarca la casilla Publicado de TODAS las cards en pantalla.
+function aseoPubTodasPaint_() {
+  const b = document.getElementById('aseo-pub-btn'); if (!b) return;
+  const els = [...document.querySelectorAll('#aseo-side .mv-ac .mv-pub[data-key]')];
+  const on = els.filter(e => e.classList.contains('on')).length;
+  const est = !els.length ? 'none' : on === els.length ? 'on' : on ? 'mix' : 'off';
+  b.className = `aseo-btn mv-pubt ${est}`; b.disabled = !els.length;
+  b.innerHTML = `<span class="ck">${est === 'on' ? '✓' : est === 'mix' ? '–' : ''}</span>Publicar en guías`;
+  b.title = !els.length ? 'No hay cards con aviso de guía en pantalla' : est === 'on' ? 'Todas publicadas · clic para que ninguna guía muestre aviso' : 'Clic para publicar el aviso en las guías de todas las cards';
+}
+window.aseoPubTodas_ = async function () {
+  const els = [...document.querySelectorAll('#aseo-side .mv-ac .mv-pub[data-key]')];
+  if (!els.length) return;
+  const publicar = !els.every(e => e.classList.contains('on'));
+  if (!confirm(publicar ? `¿Publicar en las guías el aviso de las ${els.length} cards en pantalla?` : `¿Dejar de publicar en las guías (ninguna mostrará aviso) en las ${els.length} cards en pantalla?`)) return;
+  const ids = [...new Set(els.map(e => e.dataset.key))];
+  const b = document.getElementById('aseo-pub-btn'); if (b) { b.disabled = true; b.innerHTML = '⏳ Guardando…'; }
+  try {
+    const r = await fetch(`${BACKEND}/aseo/guia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, publicar, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    await aseoRefresh_(true);
+    if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_();
+  } catch (e) { alert('No se pudo cambiar la publicación en las guías: ' + (e.message || e)); }
+  finally { aseoPubTodasPaint_(); }
 };
 window.mvAcPopup_ = function (k) {
   aseoEnsureCss_();
@@ -64569,6 +64594,12 @@ function aseoEnsureCss_() {
   .mv-ac .mv-ac-chips > .mv-ns, .mv-cols .mv-ac .mv-ac-chips > .mv-ns{height:19px !important;padding:0 7px !important}
   .mv-ac .mv-ac-chips > .mv-ns.on, .mv-cols .mv-ac .mv-ac-chips > .mv-ns.on{background:linear-gradient(135deg,#dc2626,#991b1b) !important;color:#fff !important;border-color:#7f1d1d !important}
   .mv-ac.mv-est.nosale{box-shadow:0 0 0 3px #dc2626,0 10px 26px -10px rgba(220,38,38,.7) !important}
+  .aseo-btn.mv-pubt{display:inline-flex;align-items:center;gap:7px}
+  .mv-pubt .ck{width:18px;height:18px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:5px;background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff}
+  .mv-pubt.on{color:#15803d}.mv-pubt.on .ck{background:#16a34a;border-color:#16a34a}
+  .mv-pubt.mix .ck{background:#94a3b8;border-color:#94a3b8}
+  .mv-pubt.off{color:#b91c1c}
+  .mv-pubt:disabled{opacity:.5;cursor:default}
   .mv-fecha{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:5px 0 0;font-size:11px;font-weight:800;color:#334155}
   .mv-fecha input{font:inherit;font-size:11px;font-weight:800;color:#0f172a;border:1px solid #cbd5e1;border-radius:7px;padding:2px 6px;background:#fff;cursor:pointer;max-width:130px}
   .mv-fecha .mv-rp{font-size:10px;font-weight:900;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:1px 7px}
@@ -64968,6 +64999,7 @@ function aseoRenderSide_() {
     <div class="pc-mv-list">${sal.length ? sal.map(x => pcMovCard_(x, 'sal', { c: '#dc2626', sel: String(x.b.Id) === selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Nadie sale hoy</div>'}</div></div>`;
   }
   side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
+  aseoPubTodasPaint_();
   if (prevTop) side.scrollTop = prevTop;
   mvAcPopupRefresh_();
 }
