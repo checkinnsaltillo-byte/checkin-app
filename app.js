@@ -59859,7 +59859,7 @@ function pcMovRow_(x, kind, hoy, o) {
     <div class="mv-row-n"><div class="pc-mv-n">${x.score >= 2 ? '⭐ ' : ''}${pcEsc(b.GuestName || 'Sin nombre')}</div><span class="mv-prog" style="color:${st.fg}"><i class="mv-dot" style="background:${st.color};${st.pulse}"></i>${pcEsc(st.label)}</span></div>
     ${aviso}
     <div class="pc-mv-s">${x.noches} noche${x.noches === 1 ? '' : 's'} · ${pcFmtDiaC_(x.arr)} → ${pcFmtDiaC_(x.dep)}</div>
-    <div class="pc-mv-chips">${chips2}${chips}</div>
+    <div class="pc-mv-chips">${kind === 'sal' && x.dep === aseoHoyIso_() && !(x.cambio && x.cambio.k === 'cancelada') ? aseoNoSaleChip_(b.Id, b.HouseId) : ''}${chips2}${chips}</div>
     ${kind === 'ent' ? aseoAccionesReserva_(b, hoy === aseoHoyIso_() ? 'ent' : 'man', x.aloj, '') : ''}
     ${kind === 'sal' && !(x.cambio && x.cambio.k === 'cancelada') ? aseoAccionesSalida_(b) : ''}
   </div>`;
@@ -59901,6 +59901,28 @@ function aseoAplicarReprog_(gs, hoy) {
   });
   return out;
 }
+// Alerta "No ha desalojado" (reserva que sale hoy): chip que se activa/desactiva con click.
+function aseoNoSaleOn_(id) { return !!(((window.ASEO && ASEO.nosale) || {})[String(id)] || {}).on; }
+function aseoNoSaleChip_(id, hid) {
+  const on = aseoNoSaleOn_(id), sid = pcEsc(String(id)), shid = pcEsc(String(hid || ''));
+  return `<button type="button" class="mv-ns ${on ? 'on' : ''}" onclick="event.stopPropagation();aseoNoSale_('${sid}','${shid}',${!on})" title="${on ? 'El huésped aún no desaloja · clic cuando ya haya salido' : 'Clic si el huésped que sale hoy aún no desaloja'}">${on ? '🚨 NO HA DESALOJADO' : '🚪 ¿Desalojó?'}</button>`;
+}
+window.aseoNoSale_ = async function (id, hid, on) {
+  if (!confirm(on ? '¿Marcar ALERTA: el huésped que sale hoy aún NO ha desalojado?' : '¿Quitar la alerta? (el huésped ya desalojó)')) return;
+  const prev = (ASEO.nosale = ASEO.nosale || {})[id];
+  if (on) ASEO.nosale[id] = { on: true, hid }; else delete ASEO.nosale[id];
+  const pintar = () => { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); try { mvAcPopupRefresh_(); } catch (_) {} };
+  pintar();
+  try {
+    const r = await fetch(`${BACKEND}/aseo/nosale`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, on, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    (ASEO._pend = ASEO._pend || {})['n:' + id] = { tipo: 'nosale', id, rec: r.nosale || null, campos: ['on'], t: Date.now() };
+  } catch (e) {
+    if (prev) ASEO.nosale[id] = prev; else delete ASEO.nosale[id];
+    pintar();
+    alert('No se pudo guardar la alerta: ' + (e.message || e));
+  }
+};
 // Chip de movimiento: "Salen hoy ->" (rojo) | "<- Entran hoy" (verde); si solo hay uno, chip normal.
 function aseoMovChip_(sal, ent, hoy) {
   const h = hoy ? ' hoy' : '';
@@ -60047,7 +60069,8 @@ function pcAlojCard_(g, hoy, o) {
   const rpChip = esCopia ? `<span class="mv-rpchip">📅 Reprogramado para ${o.fechaAseo === aseoHoyIso_() ? 'hoy' : 'este día'}</span>` : '';
   // Fantasma: salió hoy, no entra nadie y sigue "Pendiente" después de las 3 pm (o ya se reprogramó).
   const fantasma = !!g.fantasma || (esHoyC && !esCopia && g.sal.length && !vivosEnt && selE === 'pendiente' && horaMx >= 15);
-  const chipsH = `${rpChip}${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${diasSal > 0 && g.sal.length ? `<span class="mv-mov1 s">Salida hace ${diasSal} día${diasSal === 1 ? '' : 's'}</span>${g.ent.length ? aseoMovChip_(0, g.ent.length, false) : ''}` : aseoMovChip_(g.sal.length, g.ent.length, esHoyC)}${hChips}`;
+  const nsChip = xs && esHoyC && !esCopia ? aseoNoSaleChip_(xs.b.Id, g.hid) : '';
+  const chipsH = `${nsChip}${rpChip}${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${diasSal > 0 && g.sal.length ? `<span class="mv-mov1 s">Salida hace ${diasSal} día${diasSal === 1 ? '' : 's'}</span>${g.ent.length ? aseoMovChip_(0, g.ent.length, false) : ''}` : aseoMovChip_(g.sal.length, g.ent.length, esHoyC)}${hChips}`;
   // Sin recuadros de entrada/salida: los chips ocupan ese espacio (2 líneas = alto del código).
   const conCajas = !!(boxEnt || tardChip);
   const banda = !(corto || conCajas) ? ''
@@ -60066,7 +60089,8 @@ function pcAlojCard_(g, hoy, o) {
   // Orden: franja código|entrada|salida · chips · personas asignadas · botones
   // de asignar · estado · aviso · lo que muestra la guía · casilla Publicado.
   const EC = ASEO_EST.find(e => e.k === selE) || ASEO_EST[0];
-  return `<div class="mv-ac mv-est ${fantasma ? 'fantasma' : ''} ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" style="--eb:${EC.card};--ec:${EC.bd || EC.c}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')">
+  const noSale = !!(xs && esHoyC && aseoNoSaleOn_(xs.b.Id));
+  return `<div class="mv-ac mv-est ${noSale ? 'nosale' : ''} ${fantasma ? 'fantasma' : ''} ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" style="--eb:${EC.card};--ec:${EC.bd || EC.c}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')">
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
       ${banda}
       ${banda && !conCajas ? '' : `<div class="mv-ac-chips">${chipsH}</div>`}
@@ -64539,6 +64563,12 @@ function aseoEnsureCss_() {
   .mv-ac.mv-est.fantasma{background:#fff !important;border:2px dashed #94a3b8 !important;box-shadow:none !important}
   .mv-ac.fantasma .mv-ac-band > .mv-ac-code{background:#64748b}
   .mv-ac .mv-ac-chips > .mv-rpchip, .mv-cols .mv-ac .mv-ac-chips > .mv-rpchip{background:#7c3aed !important;color:#fff !important;border-color:#6d28d9 !important}
+  .mv-ns{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;border:1.5px dashed #94a3b8;color:#475569;background:#fff;white-space:nowrap}
+  .mv-ns:hover{border-color:#dc2626;color:#b91c1c}
+  .mv-ns.on{border:1.5px solid #7f1d1d;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;letter-spacing:.03em;--ac:#dc2626;animation:mvPulse 1.2s ease-in-out infinite;box-shadow:0 0 0 3px rgba(220,38,38,.25)}
+  .mv-ac .mv-ac-chips > .mv-ns, .mv-cols .mv-ac .mv-ac-chips > .mv-ns{height:19px !important;padding:0 7px !important}
+  .mv-ac .mv-ac-chips > .mv-ns.on, .mv-cols .mv-ac .mv-ac-chips > .mv-ns.on{background:linear-gradient(135deg,#dc2626,#991b1b) !important;color:#fff !important;border-color:#7f1d1d !important}
+  .mv-ac.mv-est.nosale{box-shadow:0 0 0 3px #dc2626,0 10px 26px -10px rgba(220,38,38,.7) !important}
   .mv-fecha{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:5px 0 0;font-size:11px;font-weight:800;color:#334155}
   .mv-fecha input{font:inherit;font-size:11px;font-weight:800;color:#0f172a;border:1px solid #cbd5e1;border-radius:7px;padding:2px 6px;background:#fff;cursor:pointer;max-width:130px}
   .mv-fecha .mv-rp{font-size:10px;font-weight:900;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:1px 7px}
@@ -64694,18 +64724,18 @@ async function aseoRefresh_(force) {
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
     // ¿Cambió algo? (si no, no se re-dibujan las cards: evita perder clicks y que "se trabe").
-    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif]);
+    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale]);
     ASEO.cambio = sig !== ASEO._sig; ASEO._sig = sig;
     // Cambios guardados hace poco desde esta pantalla: una respuesta vieja (otra copia del
     // servidor o una consulta que salió antes de guardar) no los regresa a como estaban.
     const pend = ASEO._pend || {};
     Object.keys(pend).forEach(k => {
-      const p = pend[k], src = p.tipo === 'asig' ? (j.asig = j.asig || {}) : (j.estados = j.estados || {});
+      const p = pend[k], key = p.tipo === 'asig' ? 'asig' : p.tipo === 'nosale' ? 'nosale' : 'estados', src = (j[key] = j[key] || {});
       if (Date.now() - p.t > 45_000 || JSON.stringify(src[p.id] && p.campos.map(c => src[p.id][c])) === JSON.stringify(p.rec && p.campos.map(c => p.rec[c]))) { delete pend[k]; return; }
       if (p.rec) src[p.id] = p.rec; else delete src[p.id];
       ASEO.cambio = true;
     });
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
