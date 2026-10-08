@@ -59574,6 +59574,7 @@ window.aseoSetEstado_ = async function (id, hid, k, validar) {
   }
 };
 function aseoPintarEstado_(id) {
+  if (ASEO._dr) { try { adPintar_(); } catch (_) {} }
   document.querySelectorAll(`.ae-w[data-est="${CSS.escape(String(id))}"]`).forEach(el => {
     const hid = (el.closest('[data-hid]') || {}).dataset ? el.closest('[data-hid]').dataset.hid : '';
     el.outerHTML = aseoEstadoHtml_(id, hid || (aseoEstDe_(id) || {}).hid || '', { sinGuia: !!el.closest('.mv-ac') });
@@ -59967,7 +59968,7 @@ window.aseoGuiaPublicar_ = async function (key, publicar) {
 // Botón de la barra "Publicar en guías": marca o desmarca la casilla Publicado de TODAS las cards en pantalla.
 function aseoPubTodasPaint_() {
   const b = document.getElementById('aseo-pub-btn'); if (!b) return;
-  const els = [...document.querySelectorAll('#aseo-side .mv-ac .mv-pub[data-key]')];
+  const els = (ASEO._pubKeys || []).map(x => ({ dataset: { key: x.key }, classList: { contains: () => x.on } }));
   const on = els.filter(e => e.classList.contains('on')).length;
   const est = !els.length ? 'none' : on === els.length ? 'on' : on ? 'mix' : 'off';
   b.className = `aseo-btn mv-pubt ${est}`; b.disabled = !els.length;
@@ -59975,7 +59976,7 @@ function aseoPubTodasPaint_() {
   b.title = !els.length ? 'No hay cards con aviso de guía en pantalla' : est === 'on' ? 'Todas publicadas · clic para que ninguna guía muestre aviso' : 'Clic para publicar el aviso en las guías de todas las cards';
 }
 window.aseoPubTodas_ = async function () {
-  const els = [...document.querySelectorAll('#aseo-side .mv-ac .mv-pub[data-key]')];
+  const els = (ASEO._pubKeys || []).map(x => ({ dataset: { key: x.key }, classList: { contains: () => x.on } }));
   if (!els.length) return;
   const publicar = !els.every(e => e.classList.contains('on'));
   if (!confirm(publicar ? `¿Publicar en las guías el aviso de las ${els.length} cards en pantalla?` : `¿Dejar de publicar en las guías (ninguna mostrará aviso) en las ${els.length} cards en pantalla?`)) return;
@@ -64600,6 +64601,120 @@ function aseoEnsureCss_() {
   .mv-pubt.mix .ck{background:#94a3b8;border-color:#94a3b8}
   .mv-pubt.off{color:#b91c1c}
   .mv-pubt:disabled{opacity:.5;cursor:default}
+  /* ── Control de aseo · tablero (v1568) ── */
+  #module-aseo{--ad-line:#e8eaee;--ad-line2:#f0f1f4;--ad-tx:#0f1729;--ad-mut:#6b7280;--ad-mut2:#9aa1ad;font-feature-settings:"cv11","ss01"}
+  #module-aseo .aseo-head .st{font-size:11.5px;color:var(--ad-mut)}
+  #module-aseo .aseo-btn{font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px;border-color:var(--ad-line)}
+  #aseo-side.ad-v2{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:12.5px;color:var(--ad-tx);background:transparent;border:0;padding:0}
+  #aseo-side.ad-v2 .mv-sync{background:#fff;color:var(--ad-mut);border:1px solid var(--ad-line);border-radius:10px;padding:7px 10px;font-size:11.5px}
+  #aseo-side.ad-v2 .mv-sync b{color:var(--ad-tx);font-weight:600}
+  #aseo-side.ad-v2 .mv-sync .h{background:#ecfdf5;color:#047857;font-weight:600}
+  #aseo-side.ad-v2 .mv-sync-btn{background:#fff !important;color:#374151 !important;border:1px solid var(--ad-line) !important;font-weight:600 !important;border-radius:7px !important}
+  #aseo-side.ad-v2 .mv-sync-btn.notif{background:var(--ad-tx) !important;color:#fff !important;border-color:var(--ad-tx) !important}
+  .ad-kpis{display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:10px;margin:0 0 14px}
+  .ad-kpi{background:#fff;border:1px solid var(--ad-line);border-radius:12px;padding:10px 13px;min-width:0}
+  .ad-kpi small{display:block;font-size:10.5px;font-weight:500;color:var(--ad-mut);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ad-kpi .n{font-size:21px;font-weight:600;letter-spacing:-.02em;margin-top:2px;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
+  .ad-kpi .n em{font-style:normal;font-size:11.5px;font-weight:500;color:var(--ad-mut);overflow:hidden;text-overflow:ellipsis}
+  .ad-kpi.al{border-color:#fecaca;background:linear-gradient(180deg,#fff,#fff5f5)}.ad-kpi.al .n{color:#dc2626}
+  .ad-prog{display:flex;height:6px;border-radius:4px;overflow:hidden;margin-top:9px;background:#e5e7eb}.ad-prog i{display:block}
+  #aseo-side.ad-v2 .mv-pf{margin:0 0 12px;gap:6px}
+  #aseo-side.ad-v2 .mv-pf > small{font-size:11.5px;font-weight:500;color:var(--ad-mut)}
+  #aseo-side.ad-v2 .mv-pf-c{font-size:11.5px;font-weight:500;padding:3px 10px 3px 4px;background:#fff;border:1px solid var(--ad-line);color:#374151;gap:6px}
+  #aseo-side.ad-v2 .mv-pf-c i{width:18px;height:18px;font-style:normal;color:#fff;font-size:8.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+  #aseo-side.ad-v2 .mv-pf-c.on{background:#fff;color:var(--ad-tx);border-color:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 18%,transparent)}
+  #aseo-side.ad-v2 .mv-pf-c.on i{background:var(--pc)}
+  .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:start}
+  .ad-col{background:#eef0f3;border-radius:12px;padding:7px;min-width:0}
+  .ad-colh{display:flex;align-items:center;gap:7px;padding:4px 6px 9px;font-weight:600;font-size:12.5px}
+  .ad-colh i{width:8px;height:8px;border-radius:50%}.ad-colh span{color:var(--ad-mut);font-weight:500}
+  .ad-empty{color:var(--ad-mut2);text-align:center;padding:10px 0 12px;font-size:12px}
+  .ad-card{position:relative;background:#fff;border:1px solid var(--ad-line);border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.04);transition:box-shadow .15s,border-color .15s}
+  .ad-card:hover{box-shadow:0 4px 14px rgba(16,24,40,.09)}
+  .ad-card.sel{border-color:#4f46e5;box-shadow:0 0 0 3px #e0e7ff}
+  .ad-card.alert{border-color:#fca5a5;box-shadow:0 0 0 3px #fee2e2}
+  .ad-card.ghost{background:transparent;border:1px dashed #c4c9d2;box-shadow:none;opacity:.85}
+  .ad-card.prio:before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:3px;border-radius:3px;background:#4f46e5}
+  .ad-card .r1{display:flex;align-items:center;gap:7px;min-width:0}
+  .ad-card .code{font:600 12px ui-monospace,"JetBrains Mono",SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+  .ad-card .prop{color:var(--ad-mut);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .ad-card .mv{margin-left:auto;display:flex;gap:6px;flex:none;font-size:10.5px;font-weight:600}
+  .ad-card .mv .s{color:#ef4444}.ad-card .mv .e{color:#16a34a}
+  .ad-card .flag{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:600}
+  .ad-card .flag i,.ad-badge i{width:6px;height:6px;border-radius:50%;flex:none}
+  .flag.red,.ad-badge.red{color:#dc2626}.flag.red i,.ad-badge.red i{background:#dc2626;box-shadow:0 0 0 3px #fee2e2}
+  .flag.orange,.ad-badge.orange{color:#9a3412}.flag.orange i,.ad-badge.orange i{background:#f97316;box-shadow:0 0 0 3px #ffedd5}
+  .flag.violet,.ad-badge.violet{color:#6d28d9}.flag.violet i,.ad-badge.violet i{background:#8b5cf6;box-shadow:0 0 0 3px #ede9fe}
+  .ad-card.alert .flag.red i{animation:mvPulse 1.2s ease-in-out infinite;--ac:#dc2626}
+  .ad-card .r2{display:flex;flex-wrap:wrap;align-items:center;gap:3px 0;margin-top:6px;color:var(--ad-mut);font-size:11.5px}
+  .ad-card .r2 b{color:var(--ad-tx);font-weight:600}
+  .ad-card .r2 .sep{width:1px;height:10px;background:var(--ad-line);margin:0 8px}
+  .ad-card .ok{color:#16a34a}.ad-card .pd{color:#b45309}.ad-card .vi{color:#6d28d9}
+  .ad-card .r3{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:7px;border-top:1px solid var(--ad-line2)}
+  .ad-card .r3 .sp{flex:1}
+  .ad-av{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:600;border:2px solid #fff;flex:none}
+  .ad-avs{display:flex}.ad-avs .ad-av+.ad-av{margin-left:-6px}
+  .ad-un{color:#dc2626;font-size:11.5px;font-weight:500}
+  .ad-gd{font-size:11px;color:#c0c6d0;white-space:nowrap}.ad-gd.on{color:#10b981}
+  .ad-det{all:unset;cursor:pointer;font-size:11px;font-weight:600;color:#4f46e5;padding:2px 4px;border-radius:5px}
+  .ad-det:hover{background:#eef2ff}
+  #ad-dim{position:fixed;inset:0;background:rgba(15,23,41,.18);z-index:8990;animation:adFade .15s ease}
+  #ad-drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);background:#fff;z-index:9000;box-shadow:-20px 0 50px rgba(15,23,41,.18);display:flex;flex-direction:column;
+    font:12.5px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ad-tx,#0f1729);animation:adIn .22s cubic-bezier(.2,.7,.3,1)}
+  @keyframes adIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}@keyframes adFade{from{opacity:0}}
+  #ad-drawer .ad-dh{padding:16px 20px 12px;border-bottom:1px solid #e8eaee}
+  #ad-drawer .ad-dh .r{display:flex;align-items:center;gap:10px}
+  #ad-drawer .code{font:600 15px ui-monospace,"JetBrains Mono",SFMono-Regular,Menlo,monospace}
+  #ad-drawer .ad-dh .t{color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ad-close{all:unset;cursor:pointer;margin-left:auto;color:#9aa1ad;font-size:15px;padding:2px 6px;border-radius:6px}.ad-close:hover{background:#f3f4f6;color:#0f1729}
+  .ad-sub{display:flex;align-items:center;gap:6px;color:#6b7280;font-size:11.5px;margin-top:4px}.ad-sub i{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .ad-badge{display:inline-flex;align-items:center;gap:7px;margin-top:9px;padding:5px 10px;border-radius:8px;background:#fafafa;border:1px solid #eceef2;font-weight:600;font-size:11.5px}
+  .ad-badge.red{background:#fef2f2;border-color:#fecaca}.ad-badge.orange{background:#fff7ed;border-color:#fed7aa}.ad-badge.violet{background:#f5f3ff;border-color:#ddd6fe}
+  .ad-db{padding:6px 20px 18px;overflow:auto;flex:1}
+  .ad-db .lab{font-size:10.5px;font-weight:600;color:#9aa1ad;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 7px}
+  .ad-steps{display:grid;grid-template-columns:repeat(4,1fr);background:#f0f1f4;border-radius:10px;padding:3px;gap:3px}
+  .ad-steps button{all:unset;cursor:pointer;text-align:center;padding:7px 2px;border-radius:8px;color:#6b7280;font-weight:500;font-size:11.5px}
+  .ad-steps button:hover{color:#0f1729}
+  .ad-steps button.on{background:#fff;color:#0f1729;font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+  .ad-steps button.on:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:1px}
+  .ad-hint{color:#6b7280;font-size:11.5px;margin-top:7px}
+  .ad-val{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 10px;border-radius:9px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:11.5px}
+  .ad-val button{all:unset;cursor:pointer;flex:none;background:#10b981;color:#fff;font-weight:600;padding:5px 10px;border-radius:7px}
+  .ad-tl{position:relative;padding-left:18px}
+  .ad-tl:before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;background:#e8eaee}
+  .ad-tl .ev{position:relative;display:flex;gap:8px;padding:4px 0 8px}
+  .ad-tl .ev:before{content:"";position:absolute;left:-17px;top:8px;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid #9aa1ad;box-sizing:border-box}
+  .ad-tl .ev.s:before{border-color:#ef4444}.ad-tl .ev.e:before{border-color:#16a34a}.ad-tl .ev.a:before{border-color:#dc2626;background:#dc2626}
+  .ad-tl .h{font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#6b7280;min-width:62px;padding-top:1px}
+  .ad-tl b{font-weight:600}.ad-tl small{display:block;color:#6b7280;font-size:11px;margin-top:1px}
+  .ad-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ad-box{border:1px solid #e8eaee;border-radius:10px;padding:9px 11px;min-width:0}
+  .ad-box.mute{background:#fafafa}.ad-box .k{display:flex;align-items:center;font-size:11px;color:#6b7280}
+  .ad-box .v{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;font-weight:600}
+  .ad-box select.mv-hora{all:unset;cursor:pointer;font:600 12px Inter,system-ui,sans-serif;color:#0f1729;border:1px solid #e8eaee;border-radius:7px;padding:3px 7px;background:#fff}
+  .ad-x{all:unset;cursor:pointer;margin-left:auto;color:#c0c6d0;font-size:11px;padding:0 3px}.ad-x:hover{color:#dc2626}
+  .ad-st{all:unset;cursor:pointer;font-size:11px;font-weight:600;color:#b45309;padding:3px 8px;border-radius:7px;background:#fffbeb}
+  .ad-st.ok{color:#047857;background:#ecfdf5}
+  .ad-link{all:unset;cursor:pointer;color:#4f46e5;font-weight:600;font-size:11.5px;padding:3px 2px}
+  .ad-ppl{display:flex;flex-direction:column;gap:6px}
+  .ad-pp{display:flex;align-items:center;gap:9px;padding:6px 10px;border:1px solid #e8eaee;border-radius:9px}
+  .ad-pp .ad-av{width:24px;height:24px;border:0}.ad-pp em{margin-left:auto;font-style:normal;color:#6b7280;font-size:11px}
+  .ad-addrow{display:flex;gap:14px}
+  .ad-tgl{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid #e8eaee;border-radius:10px;cursor:pointer}
+  .ad-tgl:hover{background:#fafafa}.ad-tgl small{display:block;color:#6b7280;font-size:11px;margin-top:1px}
+  .ad-sw{width:30px;height:17px;border-radius:9px;background:#10b981;position:relative;flex:none}
+  .ad-sw:after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .ad-sw.off{background:#d1d5db}.ad-sw.off:after{left:2px;right:auto}.ad-sw.red{background:#dc2626}
+  .ad-guide{margin-top:8px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:9px 12px;color:#334155;font-size:12px}
+  #ad-drawer .mv-fecha{margin:0;font-weight:500;color:#6b7280}
+  #ad-drawer .mv-fecha input{font-weight:600;border-color:#e8eaee}
+  .ad-res{margin-top:16px;border-top:1px solid #f0f1f4;padding-top:10px}
+  .ad-res summary{cursor:pointer;font-size:11.5px;font-weight:600;color:#4f46e5;list-style:none}
+  .ad-res .mv-row{margin-top:8px}
+  .ad-ft{display:flex;gap:8px;padding:12px 20px;border-top:1px solid #e8eaee}
+  .ad-bt{all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 6px;border-radius:9px;border:1px solid #e8eaee;font-weight:600;color:#374151;font-size:12px}
+  .ad-bt:hover{background:#fafafa}.ad-bt.pri{background:#0f1729;color:#fff;border-color:#0f1729}.ad-bt.ok{color:#047857;background:#ecfdf5;border-color:#a7f3d0;cursor:default}
+  @media (max-width:900px){.ad-kpis{grid-template-columns:repeat(3,1fr)}.ad-kpi.big{grid-column:1/-1}}
   .mv-fecha{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:5px 0 0;font-size:11px;font-weight:800;color:#334155}
   .mv-fecha input{font:inherit;font-size:11px;font-weight:800;color:#0f172a;border:1px solid #cbd5e1;border-radius:7px;padding:2px 6px;background:#fff;cursor:pointer;max-width:130px}
   .mv-fecha .mv-rp{font-size:10px;font-weight:900;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:1px 7px}
@@ -64926,7 +65041,7 @@ function aseoFiltroPers_(gs) {
   const nombres = [...new Set(gs.flatMap(aseoPersDe_).concat(sel))].sort((a, b) => a.localeCompare(b, 'es'));
   const out = sel.length ? gs.filter(g => aseoPersDe_(g).some(n => sel.includes(n))) : gs;
   if (!nombres.length) return { gs: out, html: '' };
-  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i></i>${pcEsc(aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>`;
+  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i>${pcEsc(adIni_(n))}</i>${pcEsc(aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>`;
   return { gs: out, html };
 }
 window.aseoFiltroToggle_ = function (n) {
@@ -64963,6 +65078,190 @@ function aseoRender_() {
   }
   aseoRenderSide_();
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// Control de aseo · diseño "tablero" (v1568): columnas por ESTADO, cards compactas
+// y ventana lateral derecha con todos los detalles (card, botón "Detalles" o barra del calendario).
+// ═══════════════════════════════════════════════════════════════════════════
+const AD_EST = [
+  { k: 'pendiente', t: 'Pendiente', c: '#94a3b8' },
+  { k: 'en_proceso', t: 'En proceso', c: '#f59e0b' },
+  { k: 'terminado', t: 'Terminado', c: '#10b981' },
+  { k: 'inspeccionado', t: 'Inspeccionado', c: '#047857' },
+];
+function adHoraMx_() { return Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24; }
+function adIni_(n) { return String(n || '?').replace(/\s*\(WhatsApp\)\s*$/, '').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+function adAv_(n, rol) { return `<span class="ad-av" style="background:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + n)}">${pcEsc(adIni_(n))}</span>`; }
+// Todo lo que se necesita de una card (mismas reglas que pcAlojCard_ y que el bot).
+function adInfo_(g, hoy, o) {
+  o = o || {};
+  const r = g.hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId ? ALOJ_STATE.byHouseId.get(g.hid) : null;
+  const corto = r ? String(r.device_name || r.Device_name || '').trim().toUpperCase() : '';
+  const ids = [...g.sal, ...g.ent, ...(g.cur || [])].map(x => String(x.b.Id));
+  const asigId = String(g.estId || (g.sal[0] ? g.sal[0].b.Id : ids[0]) || '');
+  const reg = aseoEstDe_(asigId);
+  const selE = (reg || {}).estado || 'pendiente', pubE = (aseoPubDe_(asigId) || {}).estado || '';
+  const validado = reg ? (reg.validado === undefined ? true : !!reg.validado) : false;
+  const xs = g.sal.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
+  const xe = g.ent.find(x => !(x.cambio && x.cambio.k === 'cancelada'));
+  const vivosEnt = g.ent.filter(x => !(x.cambio && x.cambio.k === 'cancelada')).length;
+  const trd = xs ? aseoTardRec_(xs.b.Id) : null;
+  const tr = xe ? (((ASEO.temprana || {})[String(xe.b.Id)]) || null) : null;
+  const temp = tr && tr.on ? tr : null;
+  const esHoyC = o.esHoy !== false;
+  const esCopia = !!(g.reprogDe && !g.fantasma);
+  const diasSal = esCopia ? Math.round((Date.parse(hoy) - Date.parse(g.reprogDe)) / 864e5) : 0;
+  const h = adHoraMx_();
+  const fantasma = !!g.fantasma || (esHoyC && !esCopia && g.sal.length && !vivosEnt && selE === 'pendiente' && h >= 15);
+  const noSale = !!(xs && esHoyC && aseoNoSaleOn_(xs.b.Id));
+  let aviso = null;
+  if (noSale) aviso = { c: 'red', t: 'No ha desalojado' };
+  else if (fantasma) aviso = { c: 'violet', t: 'Pasó al día siguiente · cerrar fecha en calendario' };
+  else if (esHoyC && g.sal.length && vivosEnt && selE === 'pendiente' && h >= 14) aviso = { c: 'red', t: 'Urge · entra hoy y sigue pendiente' };
+  else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') aviso = { c: 'orange', t: 'Requiere inspección antes de la entrada' };
+  const asg = (ASEO.asig || {})[asigId] || {};
+  const G = g.hid ? (ASEO.guias || {})[String(g.hid)] : null;
+  const pubKey = (G && G.keyPub) || asigId;
+  return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso,
+    prioritaria: !!(temp && temp.aceptada), pA: asg.aseo || asg.personal || [], pI: asg.inspeccion || [], G, pubKey, noPub: !!(G && G.noPub) };
+}
+// ── Card compacta del tablero ──
+function adCard_(I) {
+  const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
+  const meta = [];
+  if (I.trd) meta.push(`Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span>`);
+  if (I.temp) meta.push(`Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span>`);
+  if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
+  if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
+  if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
+  if (!meta.length && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push(pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · '))); }
+  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
+  const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
+  const sel = ASEO._dr && ASEO._dr.k === I.k;
+  return `<div class="ad-card ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${I.prioritaria ? 'prio' : ''} ${sel ? 'sel' : ''}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')">
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
+    ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
+    ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
+    <div class="r3">${equipo}<span class="sp"></span>${guia}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+  </div>`;
+}
+// ── Tablero: indicadores + filtro de personal + 4 columnas por estado ──
+function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
+  const infos = gs.map(g => adInfo_(g, hoy, { esHoy: esHoy && !g.reprogDe }));
+  const vis = new Set(gsF.map(g => String(g.hid || g.k)));
+  const ver = infos.filter(I => vis.has(I.k));
+  ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
+  const vivos = infos.filter(I => !I.fantasma);
+  const n = k => vivos.filter(I => I.selE === k).length;
+  const listos = vivos.filter(I => I.pubE === 'inspeccionado' || I.pubE === 'terminado').length;
+  const pct = vivos.length ? Math.round(listos / vivos.length * 100) : 0;
+  const alertas = infos.filter(I => I.aviso && I.aviso.c !== 'violet').length, sinDes = infos.filter(I => I.noSale).length;
+  const ent = vivos.filter(I => I.g.ent.length).length, temp = vivos.filter(I => I.temp).length;
+  const porV = vivos.filter(I => I.selE === 'terminado' && !I.validado).length;
+  const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
+  const kpi = (t, v, s, cls) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div></div>`;
+  const kpis = `<div class="ad-kpis">
+    <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
+      <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
+    ${kpi('Pendientes', n('pendiente'))}${kpi('En proceso', n('en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '')}
+    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas, sinDes ? `${sinDes} sin desalojar` : '', alertas ? 'al' : '')}
+  </div>`;
+  const cols = AD_EST.map(E => {
+    const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
+    return `<div class="ad-col"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(adCard_).join('') || '<div class="ad-empty">—</div>'}</div>`;
+  }).join('');
+  return `${kpis}${filtroHtml}${gs.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}</div>`}`;
+}
+// Grupos (cards) de un día, con reprogramaciones aplicadas.
+function adGrupos_(dia) {
+  const { cols, hoy } = pcMovCols_(dia || null);
+  return { hoy, gs: aseoAplicarReprog_(pcMovAlojGrupos_(cols, hoy), hoy) };
+}
+// ── Ventana lateral ──
+window.adAbrir_ = function (k, dia) {
+  ASEO._dr = { k: String(k), dia: dia || aseoDia_() };
+  const I = adDrawerInfo_();
+  if (I && ASEO.cal) { ASEO.sel = String((I.xs || I.xe || {}).b ? (I.xs || I.xe).b.Id : ''); aseoMarcarSel_(); }
+  document.querySelectorAll('#aseo-side .ad-card').forEach(c => c.classList.toggle('sel', c.dataset.k === String(k)));
+  adPintar_(true);
+};
+window.adCerrar_ = function () {
+  ASEO._dr = null;
+  document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove();
+  document.querySelectorAll('#aseo-side .ad-card.sel').forEach(c => c.classList.remove('sel'));
+};
+function adDrawerInfo_() {
+  const D = ASEO._dr; if (!D) return null;
+  const { hoy, gs } = adGrupos_(D.dia);
+  const g = gs.find(x => String(x.hid || x.k) === D.k); if (!g) return null;
+  const esHoy = hoy === aseoHoyIso_();
+  return Object.assign(adInfo_(g, hoy, { esHoy: esHoy && !g.reprogDe }), { hoy });
+}
+function adEv_(cls, h, tit, sub) { return `<div class="ev ${cls}"><span class="h">${h}</span><div><b>${tit}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`; }
+function adPintar_(nuevo) {
+  if (!ASEO._dr) return;
+  aseoEnsureCss_();
+  const I = adDrawerInfo_();
+  let dr = document.getElementById('ad-drawer');
+  if (!I) { adCerrar_(); return; }
+  if (!document.getElementById('ad-dim')) { const dim = document.createElement('div'); dim.id = 'ad-dim'; dim.onclick = adCerrar_; document.body.appendChild(dim); }
+  if (!dr) { dr = document.createElement('aside'); dr.id = 'ad-drawer'; document.body.appendChild(dr); }
+  const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
+  const id = pcEsc(I.asigId), hid = pcEsc(String(I.hid || ''));
+  const E = AD_EST.find(e => e.k === I.selE) || AD_EST[0];
+  // Estado: selector de 4 posiciones
+  const pasos = AD_EST.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${id}','${hid}','${e.k}',false)">${e.t}</button>`).join('');
+  const nota = I.selE === 'terminado' && !I.validado
+    ? `<div class="ad-val"><span>«Terminado» aún no se publica en la guía.</span><button type="button" onclick="aseoValidar_('${id}','${hid}')">✓ Validar y publicar</button></div>`
+    : I.reg && I.reg.at ? `<div class="ad-hint">${I.validado ? '✓ Publicado' : 'Guardado'} ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : '';
+  // Línea del día
+  const evs = [];
+  I.g.sal.forEach(x => {
+    const t = aseoTardRec_(x.b.Id), canc = x.cambio && x.cambio.k === 'cancelada';
+    evs.push(adEv_('s', t ? aseoHoraTxt_(t.hora) : 'Sale', `${canc ? 'Cancelada · ' : 'Sale '}${pcEsc(x.b.GuestName || 'Sin nombre')}`, [`${x.noches} noche${x.noches === 1 ? '' : 's'}`, x.b.Source, t ? `salida tardía ${t.aceptada ? 'aceptada' : 'pendiente'}` : '', I.esCopia ? `salió el ${aseoDiaTxt_(I.g.reprogDe)}` : ''].filter(Boolean).map(pcEsc).join(' · ')));
+  });
+  if (I.noSale) { const r = (ASEO.nosale || {})[String(I.xs.b.Id)] || {}; evs.push(adEv_('a', r.at ? aseoHora_(r.at) : 'Ahora', '<span style="color:#dc2626">Aún no desaloja</span>', r.by ? 'Reportado por ' + pcEsc(String(r.by)) : '')); }
+  I.g.ent.forEach(x => {
+    const t = (ASEO.temprana || {})[String(x.b.Id)], canc = x.cambio && x.cambio.k === 'cancelada';
+    evs.push(adEv_('e', t && t.on ? aseoHoraTxt_(t.hora || '12:00') : 'Entra', `${canc ? 'Cancelada · ' : 'Entra '}${pcEsc(x.b.GuestName || 'Sin nombre')}`, [`${x.noches} noche${x.noches === 1 ? '' : 's'}`, x.b.Source, x.tier ? x.tier.label : (x.stats && x.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : ''), x.larga === 'mensual' ? 'estancia mensual' : x.larga ? 'estancia larga' : '', t && t.on ? `entrada temprana ${t.aceptada ? 'aceptada' : 'pendiente'}` : ''].filter(Boolean).map(pcEsc).join(' · ')));
+  });
+  (I.g.cur || []).forEach(x => evs.push(adEv_('c', '—', `Hospedado ${pcEsc(x.b.GuestName || '')}`, `hasta ${pcFmtDiaC_(x.dep)}`)));
+  // Solicitudes
+  const sol = (tipo, x, rec) => {
+    if (!x) return `<div class="ad-box mute"><div class="k">${tipo === 'tard' ? 'Salida tardía' : 'Entrada temprana'}</div><div class="v">—</div></div>`;
+    const bid = pcEsc(String(x.b.Id));
+    if (!rec) return `<div class="ad-box"><div class="k">${tipo === 'tard' ? 'Salida tardía' : 'Entrada temprana'}</div><button type="button" class="ad-link" onclick="${tipo === 'tard' ? `aseoTardPost_('${bid}',{on:true})` : `aseoTemprana_('${bid}')`}">＋ Registrar solicitud</button></div>`;
+    const acc = tipo === 'tard' ? `aseoTardAceptar_('${bid}',${!rec.aceptada})` : `aseoTempAceptar_('${bid}',${!rec.aceptada})`;
+    const quitar = tipo === 'tard' ? `aseoTardPost_('${bid}',{on:false})` : `aseoTemprana_('${bid}')`;
+    return `<div class="ad-box"><div class="k">${tipo === 'tard' ? 'Salida tardía' : 'Entrada temprana'}<button type="button" class="ad-x" title="Quitar solicitud" onclick="${quitar}">✕</button></div>
+      <div class="v">${aseoHoraInput_(x.b.Id, rec.hora, tipo === 'tard' ? 'tard' : 'temp', true)}<button type="button" class="ad-st ${rec.aceptada ? 'ok' : ''}" onclick="${acc}" title="${rec.aceptada ? 'Clic para retirar la aceptación' : 'Clic para aceptar'}">${rec.aceptada ? 'Aceptada' : 'Pendiente · aceptar'}</button></div></div>`;
+  };
+  const per = (n, rol) => `<div class="ad-pp">${adAv_(n, rol)}<span>${pcEsc(String(n).replace(/\s*\(WhatsApp\)\s*$/, ''))}</span><em>${rol}</em></div>`;
+  const G = I.G;
+  const guiaTxt = !I.esHoyC ? '<div class="ad-hint">La guía solo muestra avisos del día en curso.</div>' : `<div class="ad-guide">📖 ${G && G.texto ? `«${pcEsc(G.texto)}»` : 'La guía no muestra ningún aviso'}</div>`;
+  const reservas = [...I.g.sal.map(x => pcMovRow_(x, 'sal', I.hoy, {})), ...I.g.ent.map(x => pcMovRow_(x, 'ent', I.hoy, {})), ...(I.g.cur || []).map(x => pcMovRow_(x, 'cur', I.hoy, {}))].join('');
+  const sig = AD_EST[Math.min(AD_EST.length - 1, AD_EST.findIndex(e => e.k === I.selE) + 1)];
+  const smsId = I.xe ? pcEsc(String(I.xe.b.Id)) : '';
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj || '')}</span><button type="button" class="ad-close" onclick="adCerrar_()" title="Cerrar">✕</button></div>
+      <div class="ad-sub">${I.esHoyC ? 'Hoy' : aseoDiaTxt_(I.hoy)} · <i style="background:${E.c}"></i>${E.t}${I.prioritaria ? ' · <b style="color:#4f46e5">Prioritaria</b>' : ''}</div>
+      ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
+    <div class="ad-db">
+      <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${nota}
+      ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
+      <div class="lab">Solicitudes</div><div class="ad-grid2">${sol('tard', I.xs, I.trd)}${sol('temp', I.xe, I.temp)}</div>
+      <div class="lab">Equipo</div><div class="ad-ppl">${I.pA.map(n => per(n, 'Aseo')).join('')}${I.pI.map(n => per(n, 'Inspección')).join('')}${!I.pA.length && !I.pI.length ? '<div class="ad-un">Sin asignar</div>' : ''}
+        <div class="ad-addrow"><button type="button" class="ad-link" onclick="aseoAsignar_('${id}',this,'aseo')">＋ Asignar aseo</button><button type="button" class="ad-link" onclick="aseoAsignar_('${id}',this,'inspeccion')">＋ Asignar inspección</button></div></div>
+      ${I.xs && I.esHoyC && !I.esCopia ? `<div class="lab">Desalojo</div><div class="ad-tgl" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})"><div><b>${I.noSale ? 'El huésped NO ha desalojado' : '¿No ha desalojado?'}</b><small>${I.noSale ? 'Clic cuando ya haya salido' : 'Activa la alerta si el huésped sigue adentro'}</small></div><span class="ad-sw ${I.noSale ? 'red' : 'off'}"></span></div>` : ''}
+      <div class="lab">Guía del huésped</div>
+      ${I.esHoyC && G ? `<div class="ad-tgl" onclick="aseoGuiaPublicar_('${pcEsc(I.pubKey)}',${I.noPub})"><div><b>Publicar en la guía</b><small>${I.noPub ? 'No publicado: la guía no muestra nada' : 'El huésped ve el estado de su alojamiento'}</small></div><span class="ad-sw ${I.noPub ? 'off' : ''}"></span></div>` : ''}
+      ${guiaTxt}
+      <div class="lab">Fecha de aseo</div>${aseoFechaCampo_(I.asigId, I.hid, I.hoy, I.g.reprogDe)}
+      ${reservas ? `<details class="ad-res"><summary>Reservas y acciones (${I.ids.length})</summary>${reservas}</details>` : ''}
+    </div>
+    <div class="ad-ft">${smsId ? `<button type="button" class="ad-bt" onclick="aseoSmsPop_('${smsId}','${hid}')">Enviar SMS</button>` : ''}
+      ${I.xs && I.esHoyC && !I.esCopia ? `<button type="button" class="ad-bt" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})">${I.noSale ? 'Ya desalojó' : 'No ha desalojado'}</button>` : ''}
+      ${I.selE !== 'inspeccionado' ? `<button type="button" class="ad-bt pri" onclick="aseoSetEstado_('${id}','${hid}','${sig.k}',false)">Marcar ${sig.t.toLowerCase()}</button>` : '<button type="button" class="ad-bt ok" disabled>✓ Listo para recibir</button>'}</div>`;
+  if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
+}
 function aseoRenderSide_() {
   const side = document.getElementById('aseo-side'); if (!side) return;
   if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>'; return; }
@@ -64990,16 +65289,17 @@ function aseoRenderSide_() {
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
     const filtro = aseoFiltroPers_(gs);
-    cuerpo = `<div class="pc-mv-h"><span class="pc-mv-ico">🏠</span><span>Alojamientos con salida ${diaT}${nE ? ` + ${nE} solo con entrada` : ''}${nX ? ` + ${nX} con estado actualizado ${diaT}` : ''}${nIn ? ` · <span style="color:#dc2626">🔑 ${nIn} con entrada ${diaT}</span>` : ''}</span><b>${gs.length}</b></div>
-      ${filtro.html}
-      ${filtro.gs.length ? mvColumnas_(filtro.gs, g => pcAlojCard_(g, hoy, { selId, onclick: 'aseoSelect_', esHoy: esHoy && !g.reprogDe, fechaAseo: hoy })) : `<div class="pc-mv-empty">${gs.length ? 'Nadie de las personas seleccionadas tiene alojamientos asignados' : `Ningún alojamiento con salida ${diaT}`}</div>`}`;
+    selBlock = ''; // la reserva elegida en el calendario se abre en la ventana lateral
+    cuerpo = adTablero_(gs, filtro.gs, hoy, esHoy, filtro.html);
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
     <div class="pc-mv-list">${sal.length ? sal.map(x => pcMovCard_(x, 'sal', { c: '#dc2626', sel: String(x.b.Id) === selId, onclick: 'aseoSelect_' })).join('') : '<div class="pc-mv-empty">Nadie sale hoy</div>'}</div></div>`;
   }
   side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
+  side.classList.add('ad-v2');
   aseoPubTodasPaint_();
+  if (ASEO._dr) adPintar_();
   if (prevTop) side.scrollTop = prevTop;
   mvAcPopupRefresh_();
 }
@@ -65017,6 +65317,16 @@ function aseoMarcarSel_() {
 // Selección compartida: barra del calendario ↔ card del panel lateral.
 window.aseoSelect_ = function (id) {
   const desdeCal = !!(window.event && window.event.target && window.event.target.closest && window.event.target.closest('.ocup-bar'));
+  // Barra del calendario → ventana lateral de la card de esa reserva (día mostrado; si no, su salida o su llegada).
+  if (desdeCal && id) {
+    const b = pcMovBookings_().find(x => String(x.Id) === String(id));
+    const dias = [aseoDia_(), b && _pagosDateIso(b.DateDeparture), b && _pagosDateIso(b.DateArrival)].filter(Boolean);
+    for (const d of dias) {
+      const { gs } = adGrupos_(d);
+      const g = gs.find(x => [...x.sal, ...x.ent, ...(x.cur || [])].some(y => String(y.b.Id) === String(id)));
+      if (g) { ASEO.sel = String(id); aseoMarcarSel_(); adAbrir_(String(g.hid || g.k), d); return; }
+    }
+  }
   const same = id && String(ASEO.sel) === String(id);
   ASEO.sel = same || !id ? null : String(id);
   const bar = aseoMarcarSel_();
@@ -65141,7 +65451,7 @@ window.aseoPopOk_ = async function () {
 };
 // Actualiza solo los chips de esa reserva (Panel y Control de aseo), sin re-pintar las cards.
 function aseoPintarAsig_(id) {
-  if (document.querySelector('.mv-ac')) { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); return; }
+  if (document.querySelector('.mv-ac, .ad-card')) { if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); if (aseoVisible_()) aseoRenderSide_(); return; }
   document.querySelectorAll(`.mv-asig-w[data-asig="${CSS.escape(String(id))}"]`).forEach(el => { el.outerHTML = pcAsigChip_(id); });
 }
 // Actualización continua (cada 20 s) mientras el Panel o Control de aseo estén a la
@@ -65160,7 +65470,7 @@ async function aseoTick_() {
       try { if (typeof pagosLoad === 'function') await pagosLoad(); if (typeof _pagosLoadExtensiones_ === 'function') await _pagosLoadExtensiones_(); } catch (_) {}
     }
     const ae = document.activeElement;
-    const editando = !!(ae && ae.closest && ae.closest('.mv-ac, .pz-pop, .mv-np') && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName));
+    const editando = !!(ae && ae.closest && ae.closest('.mv-ac, .pz-pop, .mv-np, #ad-drawer') && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName));
     const tocando = Date.now() - (ASEO._toque || 0) < 4000; // click reciente: no mover la pantalla bajo el cursor
     const recarga = Date.now() - (ASEO._baseTs || 0) < 3000; // acaba de recargar reservas
     if (ASEO.cambio || recarga) ASEO._dirty = true;
@@ -65174,7 +65484,8 @@ async function aseoTick_() {
 }
 if (!window.__aseoTimer) {
   window.__aseoTimer = setInterval(aseoTick_, ASEO_POLL_S * 1000);
-  document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('.mv-ac, .pz-pop, .mv-np, #aseo-side')) ASEO._toque = Date.now(); }, true);
+  document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('.mv-ac, .pz-pop, .mv-np, #aseo-side, #ad-drawer')) ASEO._toque = Date.now(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ASEO._dr && !document.querySelector('.pz-pop')) adCerrar_(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - (ASEO.chk || 0) > 5000) aseoTick_(); });
 }
 

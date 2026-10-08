@@ -78,6 +78,7 @@
     body.dark table th, body.dark table td { border-color: #334155 !important; }
     body.dark .classify-tab { background: #1e293b !important; color: #e5e7eb !important; }
   </style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -1810,7 +1811,6 @@
         <button type="button" class="aseo-btn" id="aseo-hoy-btn" onclick="aseoHoy_()" title="Ir al día de hoy">📍 Hoy</button>
         <div class="pc-mnav aseo-dnav" id="aseo-dnav"></div>
         <button type="button" class="aseo-btn" id="aseo-cal-btn" onclick="aseoToggleCal_()" title="Mostrar/ocultar el calendario a la izquierda">📅 Mostrar calendario</button>
-        <button type="button" class="aseo-btn" id="aseo-todas-btn" onclick="mvAcTodas_()" title="Abrir o cerrar el detalle de todas las cards">▸ Expandir todas las cards</button>
         <button type="button" class="aseo-btn mv-pubt" id="aseo-pub-btn" onclick="aseoPubTodas_()" title="Publicar o no el aviso en las guías de todas las cards"><span class="ck"></span>Publicar en guías</button>
         <button type="button" class="aseo-btn" onclick="aseoRecargar_()" title="Actualizar ahora">🔄 Actualizar</button>
       </div>
@@ -2903,7 +2903,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1567"></script>
+  <script src="app.js?v=1568"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
