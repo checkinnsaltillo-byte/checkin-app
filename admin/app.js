@@ -64659,8 +64659,12 @@ function aseoEnsureCss_() {
   .oc-task .t2 .un{margin-left:0}.oc-task .t1 .rp{color:#6d28d9;font-weight:700;margin-left:auto}.oc-task .t1 .rp+.al{margin-left:2px}.oc-task .ad-av{width:17px;height:17px;font-size:8px;border-width:1.5px}
   .oc-task .t3{font-size:10px;margin-top:1px}.oc-task .vi{color:#6d28d9;font-weight:600;font-size:10px;white-space:normal;line-height:1.2}
   .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
-  .ad-card.tarea{border-left:3px solid #6366f1}
-  .oc-task.tarea{border-left:3px solid #6366f1}
+  .ad-card.tipo{border-left:4px solid var(--tc)}
+  .ad-card.tipo.ghost{border-left:4px dashed var(--tc)}
+  .ad-card.tipo.alert,.ad-card.tipo.sel{border-left-color:var(--tc)}
+  .ad-card .r2 .ty{font-weight:600}.ad-card .r2 .pr{color:#4f46e5;font-weight:600}
+  .oc-task.ty-limpieza{border-left:3px solid #0ea5e9}.oc-task.ty-inspeccion{border-left:3px solid #8b5cf6}.oc-task.ty-mantenimiento{border-left:3px solid #f97316}
+  #aseo-side.ad-v2 .mv-pf-c.ad-ty i{width:9px;height:9px;border-radius:3px;background:var(--tc)}
   .ad-tt{font-size:14px;font-weight:600;margin-top:6px}
   .ad-desc{color:#374151;font-size:12.5px;line-height:1.5;background:#fafafa;border:1px solid #eceef2;border-radius:9px;padding:9px 11px}
   .ad-kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:12px}.ad-kv span{color:#6b7280}.ad-kv b{font-weight:500}
@@ -64708,7 +64712,6 @@ function aseoEnsureCss_() {
   .ad-card.sel{border-color:#4f46e5;box-shadow:0 0 0 3px #e0e7ff}
   .ad-card.alert{border-color:#fca5a5;box-shadow:0 0 0 3px #fee2e2}
   .ad-card.ghost{background:transparent;border:1px dashed #c4c9d2;box-shadow:none;opacity:.85}
-  .ad-card.prio:before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:3px;border-radius:3px;background:#4f46e5}
   .ad-card .r1{display:flex;align-items:center;gap:7px;min-width:0}
   .ad-card .code{font:600 12px ui-monospace,"JetBrains Mono",SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
   .ad-card .prop{color:var(--ad-mut);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -65206,14 +65209,16 @@ function adCard_(I) {
   const meta = [];
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
+  meta.unshift(`<span class="ty" style="color:${AT_DEPTO.limpieza.c}">Limpieza</span>`);
+  if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
-  if (!meta.length && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
+  if (meta.length === 1 && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
   const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
-  return `<div class="ad-card ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${I.prioritaria ? 'prio' : ''} ${sel ? 'sel' : ''}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')">
+  return `<div class="ad-card tipo ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO.limpieza.c}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
@@ -65234,6 +65239,12 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const ver = infos.filter(I => vis.has(I.k) && (!fP.length || fP.includes(propDe(I))))
     .concat(tInfos.filter(I => (!fPers.length || I.pA.some(n => fPers.includes(n))) && (!fP.length || fP.includes(propDe(I)))));
   const pinta = I => I.tarea ? atCard_(I) : adCard_(I);
+  const tipoDe = I => I.tarea ? (I.t.depto || 'limpieza') : 'limpieza';
+  const fT = ASEO.fTipo || [];
+  const verT = ver.filter(I => !fT.length || fT.includes(tipoDe(I)));
+  const todos = infos.concat(tInfos);
+  const tipoHtml = `<div class="mv-pf ad-prf"><small>🏷️ Tipo:</small>${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fT.includes(k) ? 'on' : ''}" style="--tc:${D.c}" onclick="adTipoToggle_('${k}')"><i></i>${D.t}<b>${todos.filter(I => tipoDe(I) === k).length}</b></button>`).join('')}${fT.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fTipo=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>`;
+  ver.length = 0; verT.forEach(I => ver.push(I));
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>` : '';
   const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
@@ -65265,10 +65276,11 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(pinta).join('')}</div>`;
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
-  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}${tipoHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
+window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRenderSide_(); };
 window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRenderSide_(); };
 // ── Calendario de Control de aseo: una tarjeta por aseo (salida Booked) en su fecha programada.
 //    Reprogramación automática (3 pm) → punteada en el/los días que no se hizo + la nueva fecha.
@@ -65283,7 +65295,7 @@ function aseoCalTareas_() {
     const dep = _pagosDateIso(b.DateDeparture); if (!dep) return;
     const id = String(b.Id), r = RP[id], fecha = (r && r.fecha) || dep;
     if (fecha < lim && !E[id] && !r) return; // aseos viejos sin registro: no se muestran
-    const t = { id, hid: String(b.HouseId || ''), dia: fecha, orig: (r && r.orig) || dep, reprog: !!(r && fecha !== ((r && r.orig) || dep)) };
+    const t = { id, hid: String(b.HouseId || ''), dia: fecha, orig: (r && r.orig) || dep, reprog: !!(r && fecha !== ((r && r.orig) || dep)), cls: 'ty-limpieza' };
     t.onclick = `adAbrir_('${pcEsc(t.hid)}','${fecha}')`;
     add(b.HouseId, t);
     if (r && r.auto) [...new Set([r.orig, ...(r.fantasmas || [])])].filter(x => x && x !== fecha).forEach(dia =>
@@ -65295,7 +65307,7 @@ function aseoCalTareas_() {
     const d = new Date(Math.max(atD_(tk.fecha), atD_(lim)));
     for (; d <= fin; d.setDate(d.getDate() + 1)) {
       const dia = atIso_(d); if (!atToca_(tk, dia)) continue;
-      add(tk.hid, { id: 'T:' + tk.id, hid: String(tk.hid), dia, orig: tk.fecha, tarea: tk, cls: 'tarea', noDrag: !!tk.repite, onclick: `atAbrir_('${pcEsc(tk.id)}','${dia}')` });
+      add(tk.hid, { id: 'T:' + tk.id, hid: String(tk.hid), dia, orig: tk.fecha, tarea: tk, cls: 'tarea ty-' + (tk.depto || 'limpieza'), noDrag: !!tk.repite, onclick: `atAbrir_('${pcEsc(tk.id)}','${dia}')` });
       if (!tk.repite) break;
     }
   });
@@ -65477,7 +65489,8 @@ function adPintar_(nuevo) {
 // Tareas manuales de Control de aseo ("＋ Nueva tarea", estilo Breezeway).
 // Viven en aseo/tareas.json; su estado por día en aseo/estados.json con llave "T<id>-<fecha>".
 // ═══════════════════════════════════════════════════════════════════════════
-const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹' }, inspeccion: { t: 'Inspección', ico: '📋' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧' } };
+// Tipo de tarea: franja izquierda de color en cards y tarjetas del calendario (los aseos por reserva son Limpieza).
+const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
 const AT_PRIO = [null, { t: 'El más bajo', ico: '⇊', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '⇈', c: '#dc2626' }];
 const AT_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const AT_ORD = ['', '1.º', '2.º', '3.º', '4.º', '5.º'];
@@ -65516,10 +65529,10 @@ function atInfo_(t, dia) {
 function atCard_(I) {
   const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
-  return `<div class="ad-card tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')">
+  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${P.t}">${P.ico} ${P.t}</span></span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
-    <div class="r2"><span>${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
+    <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
   </div>`;
 }
