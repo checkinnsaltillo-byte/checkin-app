@@ -65600,13 +65600,20 @@ window.axIncMenu_ = function (anchor, k, hid, dia) {
   m.style.cssText = 'position:fixed;z-index:10060;background:#fff;border:1px solid #e8eaee;border-radius:10px;box-shadow:0 14px 34px rgba(15,23,42,.2);padding:5px;min-width:210px;font:12.5px Inter,system-ui,sans-serif';
   const op = (ico, t, fn) => `<button type="button" style="all:unset;display:flex;gap:8px;align-items:center;width:100%;box-sizing:border-box;padding:8px 10px;border-radius:7px;cursor:pointer;font-weight:600;color:#0f1729" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''" onclick="event.stopPropagation();this.closest('.ax-menu').remove();${fn}">${ico} ${t}</button>`;
   const a = s => String(s).replace(/'/g, "\\'");
-  m.innerHTML = op('🗄', 'Archivar', `axArchivar_('${a(k)}','${a(hid)}')`) + op('＋', 'Reportar otra incidencia', `axReportar_('${a(k)}','${a(hid)}','${a(dia)}')`);
+  m.innerHTML = op('🗄', 'Archivar', `axArchivar_('${a(k)}','${a(hid)}')`) + (axEx_(k).incId ? op('✏️', 'Editar', `axIncEditar_('${a(k)}')`) : '') + op('＋', 'Reportar otra incidencia', `axReportar_('${a(k)}','${a(hid)}','${a(dia)}')`);
   m.onclick = e => e.stopPropagation();
   document.body.appendChild(m);
   const rc = anchor.getBoundingClientRect();
   m.style.left = Math.max(8, Math.min(window.innerWidth - 226, rc.left)) + 'px';
   m.style.top = (rc.bottom + 4 + 90 > window.innerHeight ? rc.top - 94 : rc.bottom + 4) + 'px';
   setTimeout(() => { const out = e => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', out); } }; document.addEventListener('mousedown', out); }, 0);
+};
+// Editar: abre el formulario de la incidencia ligada.
+window.axIncEditar_ = async function (k) {
+  const id = axEx_(k).incId; if (!id) return;
+  if (!(INC_STATE.list || []).some(x => String(x.ID) === String(id))) await incLoadIncidencias();
+  if (!(INC_STATE.list || []).some(x => String(x.ID) === String(id))) return alert('No se encontró la incidencia ligada.');
+  icForm_(String(id));
 };
 // Archivar: la incidencia ligada queda «Archivada» y su tarea (reporte levantado) sale del tablero; las cards quedan sin marca.
 window.axArchivar_ = async function (k, hid) {
