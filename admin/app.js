@@ -9145,10 +9145,11 @@ if (!window._rtHashListener) {
   });
 }
 // Check-list: A) Operación (Check-inn, Breezeway) · B) Administración (Tareas programadas).
+const CL_BZW_OFF = true; // Breezeway desactivado por el momento (botón gris, sin acción)
 function clPuede_(m) { return !window.SYS_ALLOWED || window.SYS_ALLOWED.has(m); }
 function clNavHtml_(act) {
   const b = (k, l, mod) => `<button type="button" class="cl-b ${act === k ? 'on' : ''}" onclick="switchModule('${mod}')">${l}</button>`;
-  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Check-inn', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? b('breezeway', '🧹 Breezeway', 'breezeway') : ''].join('');
+  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Check-inn', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
   const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
   return `<div class="cl-nav">${op ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}</div>`;
 }
@@ -9160,6 +9161,7 @@ function clNavPaint_() {
       .cl-l{font-size:10.5px;font-weight:600;color:#9aa1ad;text-transform:uppercase;letter-spacing:.08em;padding:0 8px 0 6px}
       .cl-b{all:unset;cursor:pointer;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:#6b7280;white-space:nowrap}
       .cl-b:hover{color:#0f1729;background:#f3f4f6}.cl-b.on{background:#0f1729;color:#fff}
+      .cl-b.off,.cl-b.off:hover{color:#c0c6d0;background:transparent;cursor:not-allowed;text-decoration:line-through}
       .cl-title{font-size:22px;font-weight:700;color:#0f1729;letter-spacing:-.01em;margin-bottom:10px;font-family:Inter,system-ui,sans-serif}`;
     document.head.appendChild(st);
   }
@@ -62551,8 +62553,7 @@ const NAV_TREE = {
   aseo: [
     { t: '🧭 Operación', go: () => {}, subs: [
       { t: '🧽 Check-inn', go: () => switchModule('aseo') },
-      { t: '🧹 Breezeway', go: () => { switchModule('breezeway'); bzwSetView('list'); } },
-      { t: '📅 Breezeway · calendario', go: () => { switchModule('breezeway'); bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
+      // Breezeway desactivado por el momento (ver CL_BZW_OFF).
     ] },
     { t: '🗂️ Administración', mod: 'tareas', go: () => {}, subs: [
       { t: '🗓️ Tareas programadas', mod: 'tareas', go: () => {} },
