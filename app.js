@@ -9144,7 +9144,32 @@ if (!window._rtHashListener) {
     try { _bootModuleFromHash_(); } finally { window._rtSyncingHash = false; }
   });
 }
+// Check-list: A) Operación (Check-inn, Breezeway) · B) Administración (Tareas programadas).
+function clPuede_(m) { return !window.SYS_ALLOWED || window.SYS_ALLOWED.has(m); }
+function clNavHtml_(act) {
+  const b = (k, l, mod) => `<button type="button" class="cl-b ${act === k ? 'on' : ''}" onclick="switchModule('${mod}')">${l}</button>`;
+  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Check-inn', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? b('breezeway', '🧹 Breezeway', 'breezeway') : ''].join('');
+  const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
+  return `<div class="cl-nav">${op ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}</div>`;
+}
+function clNavPaint_() {
+  if (!document.getElementById('cl-css')) {
+    const st = document.createElement('style'); st.id = 'cl-css';
+    st.textContent = `.cl-nav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 14px;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+      .cl-g{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1px solid #e8eaee;border-radius:10px;padding:3px}
+      .cl-l{font-size:10.5px;font-weight:600;color:#9aa1ad;text-transform:uppercase;letter-spacing:.08em;padding:0 8px 0 6px}
+      .cl-b{all:unset;cursor:pointer;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:#6b7280;white-space:nowrap}
+      .cl-b:hover{color:#0f1729;background:#f3f4f6}.cl-b.on{background:#0f1729;color:#fff}
+      .cl-title{font-size:22px;font-weight:700;color:#0f1729;letter-spacing:-.01em;margin-bottom:10px;font-family:Inter,system-ui,sans-serif}`;
+    document.head.appendChild(st);
+  }
+  document.querySelectorAll('.cl-nav-slot').forEach(el => { el.innerHTML = clNavHtml_(el.dataset.act); });
+  // «Tareas programadas» ahora vive dentro de Check-list; su entrada propia del menú solo queda para quien no ve Check-list.
+  const nt = document.getElementById('nav-item-tareas');
+  if (nt && clPuede_('tareas')) { const solo = !clPuede_('aseo') && !clPuede_('breezeway'); nt.style.display = solo ? '' : 'none'; const bx = document.querySelector('.nav-secs[data-for="tareas"]'); if (bx && !solo) bx.style.display = 'none'; }
+}
 function switchModule(mod) {
+  setTimeout(() => { try { clNavPaint_(); } catch (_) {} }, 0);
   // «Reportes técnicos» vive ahora dentro de Aseo (tareas de Mantenimiento).
   if (mod === 'reportes-tecnicos') { if (typeof ASEO !== 'undefined') { ASEO.fTipo = ['mantenimiento']; ASEO.calSig = ''; } mod = 'aseo'; }
   // Permisos: un módulo no asignado (p. ej. por enlace #modulo) manda a Inicio.
@@ -57621,7 +57646,7 @@ function tdRender_() {
   const dia = tdDia_(), hoy = tarIso_(tarToday_());
   const sec = TAR_STATE.section === 'registro' ? 'registro' : 'tablero';
   const lbl = typeof aseoDiaLabel_ === 'function' ? aseoDiaLabel_(dia) : tarFmtFecha_(dia);
-  const head = `<div class="td-h1"><h1>🗓️ Tareas programadas</h1>
+  const head = `<div class="cl-title">✅ Check-list</div>${typeof clNavHtml_ === 'function' ? clNavHtml_('tareas') : ''}<div class="td-h1"><h1 style="font-size:16px">🗓️ Tareas programadas</h1>
       <div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="tarSetSection('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="tarSetSection('registro')">Registro</button></div></div>
     <div class="aseo-head">
       ${sec === 'tablero' ? `<button type="button" class="aseo-btn" onclick="tdSetDia_(0)" title="Ir al día de hoy">📍 Hoy</button>
@@ -57639,7 +57664,7 @@ function tdRender_() {
     root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}
       <div class="ad-v2">${tdKpis_(todos, dia)}${tdFiltros_(todos)}</div>
       ${TAR_STATE.cal ? `<div class="td-cal">${tarCalendarioHtml_()}</div>` : ''}
-      <div class="ad-v2">${tdTablero_(L, dia)}</div></div>`;
+      <div class="ad-v2 td-board">${tdTablero_(L, dia)}</div></div>`;
   }
   if (typeof pzRender_ === 'function') pzRender_();
   if (TAR_STATE.dr) tdPintar_();
@@ -57715,7 +57740,7 @@ function tdCard_(r, dia) {
     <div class="r1"><span class="ttl">${esc(r.Nombre || 'Sin nombre')}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
-    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}${prio4Html_(r.Prioridad || 'Medio')}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
+    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}${prio4Html_(r.Prioridad || 'Medio', false, `tdPrioCiclo_('${esc(r.ID)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
     ${qs}
   </div>`;
 }
@@ -57790,6 +57815,16 @@ function tdPintar_(nuevo) {
   if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
   if (!TAR_STATE.hist && typeof tarLoadHist_ === 'function') tarLoadHist_().then(() => { if (TAR_STATE.dr && TAR_STATE.dr.id === r.ID) tdPintar_(); });
 }
+// Tareas programadas: clic en la prioridad = siguiente nivel (se guarda en la hoja Tareas).
+window.tdPrioCiclo_ = function (id) {
+  const r = TAR_STATE.list.find(x => x.ID === id); if (!r) return;
+  const M = { baja: 'Bajo', media: 'Medio', alta: 'Alto', critica: 'Crítico' };
+  const antes = r.Prioridad || 'Medio', nuevo = M[prio4Sig_(antes)];
+  r.Prioridad = nuevo; tarRender();
+  tarSaveRow_({ ID: id, Updated_at: new Date().toISOString(), Prioridad: nuevo })
+    .then(() => { try { tarHistAdd_([{ Tarea_ID: id, Fecha: '', Campo: 'Prioridad', Antes: antes, Despues: nuevo, Usuario: tarUser_(), Timestamp: new Date().toISOString() }]); } catch (_) {} })
+    .catch(e => { r.Prioridad = antes; tarRender(); alert('No se pudo guardar la prioridad: ' + (e.message || e)); });
+};
 window.tdComentario_ = function (id, iso, v) {
   Promise.resolve(tarSaveOcur_(id, iso, { Comentarios: v })).then(() => tarRender()).catch(e => alert('No se pudo guardar el comentario: ' + (e.message || e)));
 };
@@ -62514,10 +62549,13 @@ const NAV_TREE = {
     { t: '＋ Nuevo proceso', go: () => dpNuevo_() },
   ],
   aseo: [
-    { t: '✅ Check-list', go: () => {} },
-    { t: '🧹 Breezeway', mod: 'breezeway', go: () => bzwSetView('list'), subs: [
-      { t: '📋 Lista de tasks', go: () => bzwSetView('list') },
-      { t: '📅 Calendario', go: () => { bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
+    { t: '🧭 Operación', go: () => {}, subs: [
+      { t: '🧽 Check-inn', go: () => switchModule('aseo') },
+      { t: '🧹 Breezeway', go: () => { switchModule('breezeway'); bzwSetView('list'); } },
+      { t: '📅 Breezeway · calendario', go: () => { switchModule('breezeway'); bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
+    ] },
+    { t: '🗂️ Administración', mod: 'tareas', go: () => {}, subs: [
+      { t: '🗓️ Tareas programadas', mod: 'tareas', go: () => {} },
     ] },
   ],
   'reportes-tecnicos': [
@@ -64920,9 +64958,15 @@ function aseoEnsureCss_() {
   .ad-seg button.on{background:var(--ad-tx);color:#fff;font-weight:600}
   .ad-pts{margin-left:auto;display:flex;gap:3px;font-style:normal}.ad-pts i{width:7px;height:7px;border-radius:50%}
   @media (max-width:900px){.ad-fil{flex-direction:column}}
-  .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:stretch}
-  .ad-board .ad-col{display:flex;flex-direction:column;min-height:240px}
+  .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:start}
   .ad-board.est{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  /* Responsivo: según el ancho disponible (también con el calendario abierto) las columnas bajan una debajo de otra. */
+  #aseo-side,#module-tareas .td-board{container-type:inline-size}
+  @container (max-width:780px){.ad-board.est{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @container (max-width:460px){.ad-board,.ad-board.est{grid-template-columns:minmax(0,1fr)}}
+  @media (max-width:640px){.ad-board,.ad-board.est{grid-template-columns:minmax(0,1fr)}.ad-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ad-kpi.big{grid-column:1/-1}.ad-fil{flex-direction:column;align-items:stretch}}
+  .p4e{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;padding:2px 5px;border-radius:6px}
+  .p4e:hover{background:color-mix(in srgb,var(--c) 14%,#fff)}.p4e b{font-weight:600;color:var(--c)}
   .ad-col{background:#eef0f3;border-radius:12px;padding:7px;min-width:0}
   .ad-colh{display:flex;align-items:center;gap:7px;padding:8px 6px 9px;margin:-7px -7px 0;font-weight:600;font-size:12.5px;
     position:sticky;top:var(--gb-h,0px);z-index:6;background:#eef0f3;border-radius:12px 12px 0 0;box-shadow:0 6px 8px -8px rgba(15,23,41,.25)}
@@ -65173,18 +65217,19 @@ async function aseoRefresh_(force) {
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
     // ¿Cambió algo? (si no, no se re-dibujan las cards: evita perder clicks y que "se trabe").
-    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale, j.tareas]);
+    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale, j.tareas, j.prio]);
     ASEO.cambio = sig !== ASEO._sig; ASEO._sig = sig;
     // Cambios guardados hace poco desde esta pantalla: una respuesta vieja (otra copia del
     // servidor o una consulta que salió antes de guardar) no los regresa a como estaban.
     const pend = ASEO._pend || {};
     Object.keys(pend).forEach(k => {
-      const p = pend[k], key = p.tipo === 'asig' ? 'asig' : p.tipo === 'nosale' ? 'nosale' : 'estados', src = (j[key] = j[key] || {});
+      const p = pend[k], key = p.tipo === 'asig' ? 'asig' : p.tipo === 'nosale' ? 'nosale' : p.tipo === 'prio' ? 'prio' : 'estados', src = (j[key] = j[key] || {});
+      if (p.tipo === 'prio') { if (src[p.id] === p.rec || Date.now() - p.t > 45_000) delete pend[k]; else { src[p.id] = p.rec; ASEO.cambio = true; } return; }
       if (Date.now() - p.t > 45_000 || JSON.stringify(src[p.id] && p.campos.map(c => src[p.id][c])) === JSON.stringify(p.rec && p.campos.map(c => p.rec[c]))) { delete pend[k]; return; }
       if (p.rec) src[p.id] = p.rec; else delete src[p.id];
       ASEO.cambio = true;
     });
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, tareas: j.tareas || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, tareas: j.tareas || {}, prio: j.prio || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
@@ -65428,7 +65473,7 @@ function adInfo_(g, hoy, o) {
   else if (esHoyC && g.sal.length && vivosEnt && selE === 'pendiente' && h >= 14) aviso = { c: 'red', t: 'Urge · entra hoy y sigue pendiente' };
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') aviso = { c: 'orange', t: 'Requiere inspección antes de la entrada' };
   // Prioridad del aseo: crítica si urge o no ha desalojado con entrada; alta si entra huésped; media si solo sale.
-  const prio = aviso && aviso.c === 'red' && vivosEnt ? 'critica' : (vivosEnt || (temp && temp.aceptada)) ? 'alta' : g.sal.length && !fantasma ? 'media' : 'baja';
+  const prio = (ASEO.prio || {})[asigId] || (aviso && aviso.c === 'red' && vivosEnt ? 'critica' : (vivosEnt || (temp && temp.aceptada)) ? 'alta' : g.sal.length && !fantasma ? 'media' : 'baja');
   const mant = g.hid ? rtAvisoImpacto_(g.hid) : null;
   const asg = (ASEO.asig || {})[asigId] || {};
   const G = g.hid ? (ASEO.guias || {})[String(g.hid)] : null;
@@ -65486,7 +65531,7 @@ function adCard_(I) {
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
-    <div class="r3">${equipo}<span class="sp"></span>${guia}${prio4Html_(I.prio)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    <div class="r3">${equipo}<span class="sp"></span>${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
@@ -65877,7 +65922,7 @@ function rtCardA_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
     ${flags.join('')}
     <div class="r2"><span class="ty" style="color:${D.c}">Mantenimiento</span><span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
-    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
     <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
   </div>`;
 }
@@ -65890,7 +65935,7 @@ function atCard_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
-    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
 }
@@ -66092,10 +66137,26 @@ function prio4Key_(v) {
   return 'media';
 }
 // Indicador de barras (1 a 4) + texto.
-function prio4Html_(v, sinTexto) {
+function prio4Html_(v, sinTexto, onclick) {
   const k = prio4Key_(v), P = PRIO4[k];
+  if (onclick) return `<button type="button" class="p4 p4e" style="--c:${P.c}" title="Prioridad ${P.t} · clic para cambiar" onclick="event.stopPropagation();${onclick}"><span class="p4b">${[1, 2, 3, 4].map(i => `<i class="${i <= P.n ? 'on' : ''}"></i>`).join('')}</span>${sinTexto ? '' : `<b>${P.t}</b>`}</button>`;
   return `<span class="p4" style="--c:${P.c}" title="Prioridad ${P.t}"><span class="p4b">${[1, 2, 3, 4].map(i => `<i class="${i <= P.n ? 'on' : ''}"></i>`).join('')}</span>${sinTexto ? '' : `<b>${P.t}</b>`}</span>`;
 }
+function prio4Sig_(v) { return PRIO4_ORD[(PRIO4_ORD.indexOf(prio4Key_(v)) + 1) % 4]; }
+// Card de aseo: la prioridad elegida a mano reemplaza la calculada (aseo/prioridad.json).
+window.adPrioCiclo_ = function (id, cur) {
+  const k = prio4Sig_(cur); (ASEO.prio = ASEO.prio || {})[id] = k; aseoRender_();
+  fetch(`${BACKEND}/aseo/prioridad`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, prioridad: k }) })
+    .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); (ASEO._pend = ASEO._pend || {})['p:' + id] = { tipo: 'prio', id, rec: k, campos: [], t: Date.now() }; })
+    .catch(e => alert('No se pudo guardar la prioridad: ' + (e.message || e)));
+};
+window.atPrioCiclo_ = function (id) {
+  const t = (ASEO.tareas || {})[id]; if (!t) return;
+  const prev = t.prioridad; t.prioridad = prio4Sig_(prev); ASEO.calSig = ''; aseoRender_();
+  fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: t, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) })
+    .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); }).catch(e => { t.prioridad = prev; aseoRender_(); alert('No se pudo guardar la prioridad: ' + (e.message || e)); });
+};
+window.rtPrioCiclo_ = function (rtId) { const row = (ASEO.rt || []).find(r => String(r.ID) === String(rtId)); if (row) rtPatch_(rtId, { Prioridad: prio4Sig_(row.Prioridad) }); };
 // Selector de prioridad para formularios (4 botones con su indicador).
 function prio4Sel_(k, fn) {
   return `<div class="at-prio" style="grid-template-columns:repeat(4,1fr)">${PRIO4_ORD.map(x => `<button type="button" class="${x === k ? 'on' : ''}" style="--c:${PRIO4[x].c}" onclick="${fn}('${x}')">${prio4Html_(x, true)} ${PRIO4[x].t}</button>`).join('')}</div>`;
