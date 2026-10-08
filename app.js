@@ -24173,6 +24173,7 @@ async function incLoadIncidencias() {
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'backend error');
       INC_STATE.list = data.rows || [];
+      if (data.catalogo) icSetCatalogo_(data.catalogo);
       if (cont) { incInitFilters(); incRenderCards(); }
       if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc');
       return; // éxito
@@ -66881,7 +66882,14 @@ const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, Mantenimiento: { c: '#
 const IC_NIV = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica' };
 const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo', 'Todo']];
 const IC = { fx: { mot: new Set(), pers: new Set(), prio: '', per: '30' }, dr: null, sec: 'tablero', q: '', cargando: false, cargado: false };
-function icMotC_(m) { return (IC_MOT[m] || { c: '#8b5cf6', ico: '🚨' }); }
+const IC_PAL = ['#8b5cf6', '#e11d48', '#0d9488', '#ca8a04', '#2563eb', '#db2777', '#65a30d', '#7c3aed'];
+function icMotC_(m) { if (IC_MOT[m]) return IC_MOT[m]; let h = 0; for (const ch of String(m || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return { c: IC_PAL[h % IC_PAL.length], ico: '🚨' }; }
+// Catálogo editable «Motivo › Sub-motivos» (Clasificaciones). Vive en Google Cloud (incidencias/catalogo.json).
+function icCatalogo_() { return (typeof INC_STATE !== 'undefined' && INC_STATE.catalogo) || INC_CLASIF_POR_MOTIVO; }
+function icSetCatalogo_(cat) {
+  INC_STATE.catalogo = cat;
+  INC_STATE.motivos = Object.keys(cat); INC_STATE.clasificaciones = [...new Set(Object.values(cat).flat())];
+}
 function icSplit_(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
 function icEstK_(v) { const s = incNormalizeEstatus(v); return IC_EST.some(e => e.k === s) ? s : /cancel/i.test(s) ? 'Cancelado' : /resuel|cerr/i.test(s) ? 'Resuelto' : /proceso|espera/i.test(s) ? 'En proceso' : 'Nuevo'; }
 function icCerrada_(x) { return x.est === 'Resuelto' || x.est === 'Cancelado'; }
@@ -66957,6 +66965,7 @@ function icRender_() {
     <div class="td-h1"><h1>🚨 Incidencias</h1><div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="icSec_('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="icSec_('registro')">Registro</button></div></div>
     <div class="aseo-head"><input class="ic-q" type="search" placeholder="🔎 Buscar alojamiento, motivo, persona…" value="${pcEsc(IC.q)}" oninput="IC.q=this.value;clearTimeout(IC._qt);IC._qt=setTimeout(()=>{icRender_();const i=document.querySelector('#ic-root .ic-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
       <span style="flex:1"></span>${IC.cargando ? '<span class="ad-hint" style="margin:0">⏳ Actualizando…</span>' : `<button type="button" class="aseo-btn" onclick="icInit_()" title="Volver a cargar las incidencias">↻ Actualizar</button>`}
+      <button type="button" class="aseo-btn" onclick="icClasif_()">⚙️ Clasificaciones</button>
       <button type="button" class="aseo-btn at-nueva" onclick="icForm_(null)">＋ Nueva incidencia</button></div>`;
   const vacio = !todas.length ? `<div class="pc-mv-empty">${IC.cargado ? 'Aún no hay incidencias registradas.' : '⏳ Cargando incidencias…'}</div>` : '';
   if (sec === 'registro') {
@@ -66991,7 +67000,7 @@ function icFiltros_(base, sinPer) {
   const fx = IC.fx;
   const pers = [...new Set(base.flatMap(x => x.pers).concat([...fx.pers].filter(v => v !== TAR_SIN_PERS)))].sort((a, b) => a.localeCompare(b, 'es'));
   const sinAsig = base.some(x => !x.pers.length) || fx.pers.has(TAR_SIN_PERS);
-  const mots = [...new Set(Object.keys(IC_MOT).concat(base.flatMap(x => x.mot)))];
+  const mots = [...new Set(Object.keys(icCatalogo_()).concat(base.flatMap(x => x.mot)))];
   const cuenta = f => base.filter(x => (sinPer || !icCerrada_(x) || fx.per === 'todo' || x.fecha >= icHaceDias_(+fx.per)) && f(x)).length;
   const fila = (ico, t, chips, k) => chips ? `<div class="mv-pf ad-prf"><small>${ico} ${t}:</small>${chips}${k ? `<button type="button" class="mv-pf-x" onclick="${k}">Quitar filtro</button>` : ''}</div>` : '';
   const pChips = pers.map(nm => `<button type="button" class="mv-pf-c ${fx.pers.has(nm) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(nm)}" title="${pcEsc(nm)}" data-n="${pcEsc(nm)}" onclick="icFx_('pers',this.dataset.n)"><i>${pcEsc(adIni_(nm))}</i>${pcEsc(aseoNombreCorto_(nm))}</button>`).join('')
@@ -67034,7 +67043,7 @@ function icTablero_(L) {
 }
 function icRegistro_(L) {
   if (!L.length) return '<div class="pc-mv-empty">Ninguna incidencia coincide con los filtros</div>';
-  return `<div class="ad-hint" style="margin:0 0 8px">${L.length} incidencia${L.length === 1 ? '' : 's'}</div><div class="ic-tbw"><table class="ic-tb"><thead><tr>${['Fecha', 'Alojamiento', 'Motivo', 'Clasificación', 'Prioridad', 'Estado', 'Personas', 'Reportó', 'Folio'].map(h => `<th>${h}</th>`).join('')}</tr></thead>
+  return `<div class="ad-hint" style="margin:0 0 8px">${L.length} incidencia${L.length === 1 ? '' : 's'}</div><div class="ic-tbw"><table class="ic-tb"><thead><tr>${['Fecha', 'Alojamiento', 'Motivo', 'Sub-motivo', 'Prioridad', 'Estado', 'Personas', 'Reportó', 'Folio'].map(h => `<th>${h}</th>`).join('')}</tr></thead>
     <tbody>${L.map(x => { const E = IC_EST.find(e => e.k === x.est); return `<tr onclick="icAbrir_('${pcEsc(x.id)}')"><td style="white-space:nowrap">${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</td><td><b>${pcEsc(x.corto || '')}</b> ${pcEsc(x.aloj)}</td><td style="color:${icMotC_(x.mot[0]).c};font-weight:600">${pcEsc(x.mot.join(', ') || '—')}</td><td>${pcEsc(x.clas.join(', ') || '—')}</td><td style="white-space:nowrap">${prio4Html_(x.prio)}</td><td class="est" style="white-space:nowrap"><i style="background:${E.c}"></i>${E.k}</td><td>${pcEsc(x.pers.join(', ') || '—')}</td><td>${pcEsc(x.rep || '—')}</td><td style="color:#9aa1ad;white-space:nowrap">${pcEsc(x.id)}</td></tr>`; }).join('')}</tbody></table></div>`;
 }
 // ── Guardado (siempre por /update-incidencia, optimista) ──
@@ -67084,7 +67093,7 @@ function icPintar_(nuevo) {
       <div class="lab">Seguimiento requerido</div>
       <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
       <div class="lab">Detalles</div>
-      <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Clasificación</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
+      <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
         <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b><span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
@@ -67105,8 +67114,8 @@ window.icForm_ = function (id, pre) {
   icFormPintar_();
 };
 function icClasDe_(mots) {
-  const base = mots.length ? mots.flatMap(m => INC_CLASIF_POR_MOTIVO[m] || []) : Object.values(INC_CLASIF_POR_MOTIVO).flat();
-  return [...new Set(base.concat((INC_STATE.clasificaciones || []).filter(c => !Object.values(INC_CLASIF_POR_MOTIVO).flat().includes(c))).concat(IC.f ? IC.f.clas : []))];
+  const C = icCatalogo_(), base = mots.length ? mots.flatMap(m => C[m] || []) : Object.values(C).flat();
+  return [...new Set(base.concat(IC.f ? IC.f.clas : []))];
 }
 function icPersChips_() { return IC.f.pers.map(n => `<span class="at-chip" data-n="${pcEsc(n)}">${adAv_(n)}${pcEsc(n)}<b onclick="IC.f.pers=IC.f.pers.filter(x=>x!==this.parentNode.dataset.n);document.getElementById('ic-pers').innerHTML=icPersChips_()">✕</b></span>`).join('') || '<span class="at-hint">Sin personas</span>'; }
 function icFotosForm_() {
@@ -67118,7 +67127,7 @@ function icFormPintar_() {
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
   const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); if (F.rep && !nombres.includes(F.rep)) nombres.unshift(F.rep);
-  const mots = [...new Set(Object.keys(INC_CLASIF_POR_MOTIVO).concat(INC_STATE.motivos || [], F.mot))];
+  const mots = [...new Set(Object.keys(icCatalogo_()).concat(F.mot))];
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
     <div class="ad-db at-f">
       <label class="at-l">Alojamiento <i>*</i></label>
@@ -67126,7 +67135,7 @@ function icFormPintar_() {
       <div class="at-row"><span class="at-k">Fecha</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" onchange="IC.f.fecha=this.value"></div>
       <label class="at-l">Motivo <i>*</i></label>
       <div class="ic-mots">${mots.map(m => `<button type="button" class="ic-mot ${F.mot.includes(m) ? 'on' : ''}" style="--c:${icMotC_(m).c}" data-m="${pcEsc(m)}" onclick="icFormTog_('mot',this.dataset.m)">${icMotC_(m).ico} ${pcEsc(m)}</button>`).join('')}</div>
-      <label class="at-l">Clasificación</label>
+      <label class="at-l">Sub-motivo</label>
       <div class="ic-mots">${icClasDe_(F.mot).map(c => `<button type="button" class="ic-mot ${F.clas.includes(c) ? 'on' : ''}" style="--c:#4f46e5" data-c="${pcEsc(c)}" onclick="icFormTog_('clas',this.dataset.c)">${pcEsc(c)}</button>`).join('')}
         <input class="at-in at-tagin" style="max-width:170px" placeholder="＋ Otra y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.clas.includes(v)){IC.f.clas.push(v);icFormPintar_();}}"></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F.prio, 'icFormPrio_')}
@@ -67202,4 +67211,79 @@ window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
   if (typeof incInit === 'function') { try { incInit(); } catch (_) {} }
   const hid = rtHid_({ Propiedad: propRaw, '# Departamento': String(deptRaw || '').replace(/^#/, '') });
   icForm_(null, { hid, fecha: fechaIso ? String(fechaIso).slice(0, 10) : '' });
+};
+// ── «⚙️ Clasificaciones» de Incidencias: Motivos (clasificación) › Sub-motivos (sub-clasificación).
+// Mismo formato que la ventana de Tareas programadas. También lo usa el bot para clasificar lo que llega por WhatsApp.
+window.icClasif_ = function () {
+  IC._cat = JSON.parse(JSON.stringify(icCatalogo_()));
+  let m = document.getElementById('ic-clasif-modal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'ic-clasif-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.onclick = e => { if (e.target === m) icClasifCerrar_(); };
+    document.body.appendChild(m);
+  }
+  m.style.display = 'flex';
+  icClasifPintar_();
+};
+window.icClasifCerrar_ = function () { const m = document.getElementById('ic-clasif-modal'); if (m) m.style.display = 'none'; };
+function icClasifPintar_() {
+  const m = document.getElementById('ic-clasif-modal'); if (!m) return;
+  const C = IC._cat, ks = Object.keys(C);
+  const inp = 'padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit';
+  m.innerHTML = `
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:620px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0">
+        <div><div style="font-size:15px;font-weight:900;color:#0f172a">⚙️ Clasificaciones de incidencias</div><div style="font-size:11.5px;color:#64748b;margin-top:2px">Motivos (clasificación) y sub-motivos (sub-clasificación). También los usa el bot de WhatsApp.</div></div>
+        <button type="button" onclick="icClasifCerrar_()" style="width:32px;height:32px;border:none;background:#f1f5f9;border-radius:8px;font-weight:900;cursor:pointer">✕</button>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+        ${ks.map((c, ci) => `
+          <div style="border:1px solid #e2e8f0;border-left:4px solid ${icMotC_(c).c};border-radius:10px;padding:10px 12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+              <span style="font-size:13px;font-weight:900;color:${icMotC_(c).c}">${icMotC_(c).ico} ${pcEsc(c)} <small style="font-weight:600;color:#9aa1ad">· motivo</small></span>
+              <button type="button" onclick="icClasifDel_(${ci})" style="all:unset;cursor:pointer;font-size:11px;font-weight:800;color:#b91c1c">Quitar motivo</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+              ${C[c].map((x, si) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:#ccfbf1;border:1px solid #5eead4;font-size:11.5px;font-weight:700;color:#0f766e">${pcEsc(x)}<button type="button" onclick="icSubDel_(${ci},${si})" style="all:unset;cursor:pointer;color:#b91c1c;font-weight:900">✕</button></span>`).join('')}
+              <input type="text" id="ic-sub-new-${ci}" placeholder="Nuevo sub-motivo" onkeydown="if(event.key==='Enter')icSubAdd_(${ci})" style="${inp};width:170px">
+              <button type="button" onclick="icSubAdd_(${ci})" style="all:unset;cursor:pointer;padding:6px 10px;border-radius:8px;background:#f0fdfa;color:#0f766e;font-size:12px;font-weight:800">＋</button>
+            </div>
+          </div>`).join('')}
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="ic-clasif-new" placeholder="Nuevo motivo" onkeydown="if(event.key==='Enter')icClasifAdd_()" style="${inp};flex:1">
+          <button type="button" onclick="icClasifAdd_()" style="all:unset;cursor:pointer;padding:8px 12px;border-radius:8px;background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:800">＋ Agregar motivo</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc">
+        <button type="button" onclick="icClasifCerrar_()" style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;border:1.5px solid #cbd5e1;background:#fff;font-size:13px;font-weight:800;color:#334155">Cancelar</button>
+        <button type="button" id="ic-clasif-ok" onclick="icClasifGuardar_()" style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-size:13px;font-weight:900">💾 Guardar</button>
+      </div>
+    </div>`;
+}
+window.icClasifAdd_ = function () {
+  const v = String(document.getElementById('ic-clasif-new')?.value || '').trim(); if (!v) return;
+  if (!IC._cat[v]) IC._cat[v] = [];
+  icClasifPintar_(); setTimeout(() => document.getElementById('ic-clasif-new')?.focus(), 0);
+};
+window.icClasifDel_ = function (ci) {
+  const k = Object.keys(IC._cat)[ci], n = icTodas_().filter(x => x.mot.includes(k)).length;
+  if (!confirm(`¿Quitar el motivo "${k}" y sus sub-motivos?${n ? `\n\n${n} incidencia(s) lo usan; conservarán el texto.` : ''}`)) return;
+  delete IC._cat[k]; icClasifPintar_();
+};
+window.icSubAdd_ = function (ci) {
+  const k = Object.keys(IC._cat)[ci], v = String(document.getElementById('ic-sub-new-' + ci)?.value || '').trim(); if (!v) return;
+  if (!IC._cat[k].includes(v)) IC._cat[k].push(v);
+  icClasifPintar_(); setTimeout(() => document.getElementById('ic-sub-new-' + ci)?.focus(), 0);
+};
+window.icSubDel_ = function (ci, si) { const k = Object.keys(IC._cat)[ci]; IC._cat[k].splice(si, 1); icClasifPintar_(); };
+window.icClasifGuardar_ = async function () {
+  if (!Object.keys(IC._cat).length) return alert('Debe haber al menos un motivo.');
+  const b = document.getElementById('ic-clasif-ok'); if (b) b.textContent = '⏳ Guardando…';
+  try {
+    const r = await fetch(`${BACKEND}/incidencias/catalogo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motivos: IC._cat, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    icSetCatalogo_(r.catalogo); icClasifCerrar_(); icRender_();
+    if (IC.f) icFormPintar_();
+  } catch (e) { if (b) b.textContent = '💾 Guardar'; alert('No se pudo guardar: ' + (e.message || e)); }
 };
