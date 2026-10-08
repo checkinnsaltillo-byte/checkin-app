@@ -67150,10 +67150,10 @@ function icFotosForm_() {
   return IC.f.keep.map((u, i) => `<span><img src="${pcEsc(icFoto_(u, 300))}" alt=""><b onclick="IC.f.keep.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('')
     + IC.f.nuevas.map((f, i) => `<span><img src="data:${f.mimeType};base64,${f.base64}" alt=""><b onclick="IC.f.nuevas.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('');
 }
-// Reservas del alojamiento que entran o salen en la fecha de la incidencia.
+// Reservas confirmadas (Booked, las mismas del calendario) que entran o salen del alojamiento en la fecha de la incidencia.
 function icReservas_(hid, fecha) {
   if (!hid || !fecha || typeof pcMovBookings_ !== 'function') return [];
-  return pcMovBookings_().filter(b => String(b.HouseId) === String(hid) && !/cancel|declin/i.test(String(b.Status || '')) && (_pagosDateIso(b.DateArrival) === fecha || _pagosDateIso(b.DateDeparture) === fecha))
+  return pcMovBookings_().filter(b => String(b.HouseId) === String(hid) && /^booked$/i.test(String(b.Status || '').trim()) && (_pagosDateIso(b.DateArrival) === fecha || _pagosDateIso(b.DateDeparture) === fecha))
     .map(b => ({ b, sale: _pagosDateIso(b.DateDeparture) === fecha })).sort((a, b) => Number(b.sale) - Number(a.sale));
 }
 function icResSelect_() {
