@@ -64759,6 +64759,7 @@ function aseoEnsureCss_() {
   .mv-live{color:#16a34a;font-weight:800}
   .mv-sync{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;margin:0 0 10px;border-radius:10px;background:#0f172a;color:#cbd5e1;font-size:12px;line-height:1.35}
   .mv-sync .mv-sync-t{flex:1 1 100%;display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;min-width:0}
+  .mv-sync .mv-sync-btn{margin-left:0 !important}
   .mv-sync b{color:#fff;font-weight:800}
   .mv-sync-t{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
   .mv-sync-btn{all:unset;cursor:pointer;flex:none;margin-left:auto;padding:5px 12px;border-radius:999px;background:#fff;color:#0f172a;font-size:11.5px;font-weight:800;white-space:nowrap}
