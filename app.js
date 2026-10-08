@@ -26501,7 +26501,7 @@ function ocupRender(opts) {
       L.forEach(t => {
         let c = fin.findIndex(x => x < t.idx); if (c < 0) { c = fin.length; fin.push(0); }
         fin[c] = t.idx + 1;
-        tareasHtml += `<div class="oc-task ${t.ghost ? 'ghost' : ''} ${t.cls || ''}" ${t.ghost ? '' : 'draggable="true"'} data-tid="${esc(String(t.id))}" data-orig="${esc(String(t.orig || ''))}" data-dia="${esc(t.dia)}"
+        tareasHtml += `<div class="oc-task ${t.ghost ? 'ghost' : ''} ${t.cls || ''}" ${t.ghost || t.noDrag ? '' : 'draggable="true"'} data-tid="${esc(String(t.id))}" data-orig="${esc(String(t.orig || ''))}" data-dia="${esc(t.dia)}"
           style="left:calc(var(--ocup-aloj-w) + ${t.idx} * var(--ocup-day-w) + 3px);top:${50 + c * 58}px"
           onclick="event.stopPropagation();${t.onclick || ''}">${opts.tareaHtml ? opts.tareaHtml(t) : ''}</div>`;
       });
@@ -64659,6 +64659,31 @@ function aseoEnsureCss_() {
   .oc-task .t2 .un{margin-left:0}.oc-task .t1 .rp{color:#6d28d9;font-weight:700;margin-left:auto}.oc-task .t1 .rp+.al{margin-left:2px}.oc-task .ad-av{width:17px;height:17px;font-size:8px;border-width:1.5px}
   .oc-task .t3{font-size:10px;margin-top:1px}.oc-task .vi{color:#6d28d9;font-weight:600;font-size:10px;white-space:normal;line-height:1.2}
   .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
+  .ad-card.tarea{border-left:3px solid #6366f1}
+  .oc-task.tarea{border-left:3px solid #6366f1}
+  .ad-tt{font-size:14px;font-weight:600;margin-top:6px}
+  .ad-desc{color:#374151;font-size:12.5px;line-height:1.5;background:#fafafa;border:1px solid #eceef2;border-radius:9px;padding:9px 11px}
+  .ad-kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:12px}.ad-kv span{color:#6b7280}.ad-kv b{font-weight:500}
+  .ad-tag,.at-chip{display:inline-flex;align-items:center;gap:5px;font-style:normal;font-size:11px;background:#eef2ff;color:#3730a3;border-radius:6px;padding:2px 7px;margin:0 3px 3px 0}
+  .at-chip b{cursor:pointer;color:#818cf8;font-weight:600}.at-chip .ad-av{width:16px;height:16px;font-size:7.5px;border:0}
+  .ad-adjs{display:flex;flex-wrap:wrap;gap:8px}
+  .ad-adj{display:flex;align-items:center;gap:7px;max-width:100%;border:1px solid #e8eaee;border-radius:9px;padding:5px 9px 5px 5px;font-size:11.5px;color:#0f1729;text-decoration:none;background:#fff}
+  .ad-adj img{width:34px;height:34px;object-fit:cover;border-radius:6px}.ad-adj .fi{font-size:20px}.ad-adj b{cursor:pointer;color:#9aa1ad;margin-left:4px}
+  .ad-ftit{font-size:16px;font-weight:600}
+  .at-f .at-l{display:block;font-size:11.5px;font-weight:600;color:#374151;margin:12px 0 5px}.at-f .at-l i{color:#dc2626;font-style:normal}
+  .at-in{box-sizing:border-box;width:100%;font:12.5px Inter,system-ui,sans-serif;color:#0f1729;border:1px solid #e3e6eb;border-radius:8px;padding:7px 10px;background:#f8f9fb;outline:none}
+  .at-in:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px #e0e7ff}
+  textarea.at-in{margin-top:8px;resize:vertical}
+  .at-sec{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 8px;padding-top:14px;border-top:1px solid #f0f1f4;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
+  .at-tg{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:#374151}.at-tg .ad-sw{cursor:pointer}
+  .at-prio{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid #e3e6eb;border-radius:8px;overflow:hidden}
+  .at-prio button{all:unset;cursor:pointer;text-align:center;font-size:11px;font-weight:600;color:#374151;padding:6px 2px;border-right:1px solid #e3e6eb}
+  .at-prio button:last-child{border-right:0}.at-prio button b{color:var(--c)}
+  .at-prio button.on{background:var(--c);color:#fff}.at-prio button.on b{color:#fff}
+  .at-row{display:flex;align-items:center;gap:8px;margin-top:8px}.at-row .at-in{flex:1;min-width:0}.at-k{flex:none;width:72px;font-size:12px;color:#6b7280}
+  .at-hint{font-size:11px;color:#6b7280;margin-top:6px}
+  .at-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.at-tagin{flex:1;min-width:150px;margin-top:4px}
+  .aseo-btn.at-nueva{background:#4f46e5;color:#fff;border-color:#4f46e5}
   .ad-fil{display:flex;align-items:flex-start;gap:12px;margin:0 0 12px}
   .ad-fil-l{flex:1;min-width:0}
   #aseo-side.ad-v2 .ad-fil .mv-pf{margin:0 0 7px}
@@ -64918,7 +64943,7 @@ async function aseoRefresh_(force) {
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
     // ¿Cambió algo? (si no, no se re-dibujan las cards: evita perder clicks y que "se trabe").
-    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale]);
+    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale, j.tareas]);
     ASEO.cambio = sig !== ASEO._sig; ASEO._sig = sig;
     // Cambios guardados hace poco desde esta pantalla: una respuesta vieja (otra copia del
     // servidor o una consulta que salió antes de guardar) no los regresa a como estaban.
@@ -64929,7 +64954,7 @@ async function aseoRefresh_(force) {
       if (p.rec) src[p.id] = p.rec; else delete src[p.id];
       ASEO.cambio = true;
     });
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, tareas: j.tareas || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
@@ -65199,12 +65224,17 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const infos = gs.map(g => adInfo_(g, hoy, { esHoy: esHoy && !g.reprogDe }));
   // Filtro de propiedad (varias a la vez; sin selección = todas) + vista por estado o por propiedad.
   const propDe = I => mvPropiedadDe_(I.g).replace(/^Calle\s+/i, '');
-  const props = [...new Set(infos.map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
+  // Tareas manuales del día (filtro de personal = sus asignados).
+  const fPers = ASEO.fPers || [];
+  const tInfos = atLista_().filter(t => atToca_(t, hoy)).map(t => atInfo_(t, hoy));
+  const props = [...new Set(infos.concat(tInfos).map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
   const fP = (ASEO.fProp || []).filter(p => props.includes(p));
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
-  const ver = infos.filter(I => vis.has(I.k) && (!fP.length || fP.includes(propDe(I))));
+  const ver = infos.filter(I => vis.has(I.k) && (!fP.length || fP.includes(propDe(I))))
+    .concat(tInfos.filter(I => (!fPers.length || I.pA.some(n => fPers.includes(n))) && (!fP.length || fP.includes(propDe(I)))));
+  const pinta = I => I.tarea ? atCard_(I) : adCard_(I);
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
-  const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>` : '';
+  const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>` : '';
   const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
@@ -65226,14 +65256,14 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
       const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
-      return `<div class="ad-col"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(adCard_).join('') || '<div class="ad-empty">—</div>'}</div>`;
+      return `<div class="ad-col"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(pinta).join('') || '<div class="ad-empty">—</div>'}</div>`;
     }).join('')
     : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
       const L = ver.filter(I => propDe(I) === p);
       const pts = AD_EST.map(E => { const c = L.filter(I => !I.fantasma && I.selE === E.k).length; return c ? `<i style="background:${E.c}" title="${E.t}: ${c}"></i>` : ''; }).join('');
-      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(adCard_).join('')}</div>`;
+      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(pinta).join('')}</div>`;
     }).join('');
-  const vacio = gs.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
+  const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
@@ -65258,9 +65288,25 @@ function aseoCalTareas_() {
     if (r && r.auto) [...new Set([r.orig, ...(r.fantasmas || [])])].filter(x => x && x !== fecha).forEach(dia =>
       add(b.HouseId, { id, hid: t.hid, dia, ghost: true, orig: t.orig, onclick: `adAbrir_('${pcEsc(t.hid)}','${dia}')` }));
   });
+  // Tareas manuales (las que se repiten no se arrastran).
+  const fin = new Date(hoy + 'T12:00:00'); fin.setDate(fin.getDate() + 75);
+  atLista_().forEach(tk => {
+    const d = new Date(Math.max(atD_(tk.fecha), atD_(lim)));
+    for (; d <= fin; d.setDate(d.getDate() + 1)) {
+      const dia = atIso_(d); if (!atToca_(tk, dia)) continue;
+      add(tk.hid, { id: 'T:' + tk.id, hid: String(tk.hid), dia, orig: tk.fecha, tarea: tk, cls: 'tarea', noDrag: !!tk.repite, onclick: `atAbrir_('${pcEsc(tk.id)}','${dia}')` });
+      if (!tk.repite) break;
+    }
+  });
   return m;
 }
 function aseoCalTareaHtml_(t) {
+  if (t.tarea) {
+    const tk = t.tarea, reg = aseoEstDe_(`T${tk.id}-${t.dia}`), E = AD_EST.find(e => e.k === ((reg || {}).estado || 'pendiente')) || AD_EST[0];
+    const D = AT_DEPTO[tk.depto] || AT_DEPTO.limpieza, P = AT_PRIO[tk.prioridad || 3];
+    return `<div class="t1"><i style="background:${E.c}"></i><b>${D.ico} ${pcEsc(tk.titulo)}</b>${tk.repite ? '<span class="rp" title="Se repite">↻</span>' : ''}</div>
+      <div class="t2"><span style="color:${P.c};font-weight:600" title="Prioridad ${P.t}">${P.ico}</span>${(tk.asignados || []).length ? `<span class="ad-avs">${tk.asignados.slice(0, 4).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}</div>`;
+  }
   const reg = aseoEstDe_(t.id), k = (reg || {}).estado || 'pendiente';
   const E = AD_EST.find(e => e.k === k) || AD_EST[0];
   const a = (ASEO.asig || {})[t.id] || {}, pp = [...(a.aseo || a.personal || []), ...(a.inspeccion || [])];
@@ -65308,6 +65354,16 @@ function aseoCalDnD_(cal) {
     const d = diaDe(row, e.clientX), D = drag; drag = null;
     cal.querySelectorAll('.oc-drop').forEach(x => x.remove()); D.el.classList.remove('dragging');
     if (!d || d.iso === D.dia) return;
+    if (String(D.id).startsWith('T:')) {
+      const tk = (ASEO.tareas || {})[D.id.slice(2)]; if (!tk) return;
+      if (tk.reserva) { const b = pcMovBookings_().find(x => String(x.Id) === String(tk.reserva)); if (b && !(d.iso >= _pagosDateIso(b.DateArrival) && d.iso <= _pagosDateIso(b.DateDeparture))) { alert('La tarea está enlazada a una reserva: su fecha debe quedar dentro de la estancia.'); return; } }
+      const prevF = tk.fecha; tk.fecha = d.iso; ASEO.calSig = ''; aseoRender_();
+      try {
+        const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: tk, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+        if (!r.ok) throw new Error(r.error || 'Error');
+      } catch (err) { tk.fecha = prevF; alert('No se pudo mover la tarea: ' + (err.message || err)); }
+      ASEO.calSig = ''; aseoRender_(); return;
+    }
     // Optimista: se ve en su nuevo día de inmediato.
     const prev = (ASEO.reprog = ASEO.reprog || {})[D.id];
     const orig = (prev && prev.orig) || D.orig;
@@ -65338,7 +65394,7 @@ window.adAbrir_ = function (k, dia) {
   adPintar_(true);
 };
 window.adCerrar_ = function () {
-  ASEO._dr = null;
+  ASEO._dr = null; ASEO._tf = null;
   document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove();
   document.querySelectorAll('#aseo-side .ad-card.sel').forEach(c => c.classList.remove('sel'));
 };
@@ -65351,7 +65407,8 @@ function adDrawerInfo_() {
 }
 function adEv_(cls, h, tit, sub) { return `<div class="ev ${cls}"><span class="h">${h}</span><div><b>${tit}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`; }
 function adPintar_(nuevo) {
-  if (!ASEO._dr) return;
+  if (!ASEO._dr || ASEO._dr.form) return; // el formulario no se re-dibuja con los refrescos
+  if (ASEO._dr.tarea) return atPintar_(nuevo);
   aseoEnsureCss_();
   const I = adDrawerInfo_();
   let dr = document.getElementById('ad-drawer');
@@ -65415,6 +65472,228 @@ function adPintar_(nuevo) {
       ${I.selE !== 'inspeccionado' ? `<button type="button" class="ad-bt pri" onclick="aseoSetEstado_('${id}','${hid}','${sig.k}',false)">Marcar ${sig.t.toLowerCase()}</button>` : '<button type="button" class="ad-bt ok" disabled>✓ Listo para recibir</button>'}</div>`;
   if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// Tareas manuales de Control de aseo ("＋ Nueva tarea", estilo Breezeway).
+// Viven en aseo/tareas.json; su estado por día en aseo/estados.json con llave "T<id>-<fecha>".
+// ═══════════════════════════════════════════════════════════════════════════
+const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹' }, inspeccion: { t: 'Inspección', ico: '📋' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧' } };
+const AT_PRIO = [null, { t: 'El más bajo', ico: '⇊', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '⇈', c: '#dc2626' }];
+const AT_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const AT_ORD = ['', '1.º', '2.º', '3.º', '4.º', '5.º'];
+function atD_(iso) { return new Date(iso + 'T12:00:00'); }
+function atIso_(d) { return d.toISOString().slice(0, 10); }
+// ¿La tarea toca en ese día? (una vez o con repetición)
+function atToca_(t, dia) {
+  if (!t || !t.fecha || dia < t.fecha) return false;
+  const r = t.repite;
+  if (!r) return dia === t.fecha;
+  if (r.fin && dia > r.fin) return false;
+  const a = atD_(t.fecha), b = atD_(dia), dd = Math.round((b - a) / 864e5);
+  if (r.tipo === 'diario') return true;
+  if (r.tipo === 'cada') return dd % (r.n || 1) === 0;
+  if (r.tipo === 'semanal') return a.getDay() === b.getDay();
+  if (r.tipo === 'mensual') return a.getDay() === b.getDay() && Math.ceil(a.getDate() / 7) === Math.ceil(b.getDate() / 7);
+  if (r.tipo === 'anual') return a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return false;
+}
+function atRepTxt_(r, fecha) {
+  if (!r) return '';
+  const a = atD_(fecha);
+  const txt = { diario: 'Diariamente', semanal: `Semanalmente los ${AT_DIAS[a.getDay()]}`, mensual: `Mensualmente el ${AT_ORD[Math.ceil(a.getDate() / 7)]} ${AT_DIAS[a.getDay()]}`,
+    anual: `Anualmente el ${a.getDate()} de ${a.toLocaleDateString('es-MX', { month: 'long' })}`, cada: `Cada ${r.n || 1} día${(r.n || 1) === 1 ? '' : 's'}` }[r.tipo] || '';
+  return txt + (r.fin ? ` · hasta ${aseoDiaTxt_(r.fin)}` : '');
+}
+function atLista_() { return Object.values(ASEO.tareas || {}); }
+function atAloj_(hid) { const a = ocupGetAlojamientos().find(x => x.houseId === String(hid)); return a || { houseId: String(hid), nombre: 'Alojamiento ' + hid, corto: '' }; }
+// Info de una tarea en un día (para el tablero, la ventana y el calendario).
+function atInfo_(t, dia) {
+  const key = `T${t.id}-${dia}`, reg = aseoEstDe_(key);
+  const a = atAloj_(t.hid);
+  return { tarea: true, t, dia, key, k: 'T' + t.id, hid: t.hid, selE: (reg || {}).estado || 'pendiente', reg, corto: String(a.corto || '').toUpperCase(), aloj: a.nombre,
+    g: { hid: t.hid, aloj: a.nombre, sal: [], ent: [] }, fantasma: false, pA: t.asignados || [], pI: [] };
+}
+function atCard_(I) {
+  const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
+  const sel = ASEO._dr && ASEO._dr.tarea === t.id;
+  return `<div class="ad-card tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')">
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${P.t}">${P.ico} ${P.t}</span></span></div>
+    ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
+    <div class="r2"><span>${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
+    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+  </div>`;
+}
+window.atAbrir_ = function (id, dia) { ASEO._dr = { k: 'T' + id, tarea: String(id), dia: dia || aseoDia_() }; adPintar_(true); };
+function atShell_() {
+  aseoEnsureCss_();
+  if (!document.getElementById('ad-dim')) { const dim = document.createElement('div'); dim.id = 'ad-dim'; dim.onclick = adCerrar_; document.body.appendChild(dim); }
+  let dr = document.getElementById('ad-drawer');
+  if (!dr) { dr = document.createElement('aside'); dr.id = 'ad-drawer'; document.body.appendChild(dr); }
+  return dr;
+}
+// ── Ventana de detalle de una tarea ──
+function atPintar_(nuevo) {
+  const D0 = ASEO._dr, t = (ASEO.tareas || {})[D0.tarea];
+  if (!t) { adCerrar_(); return; }
+  const I = atInfo_(t, D0.dia), dr = atShell_();
+  const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
+  const D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
+  const pasos = AD_EST.filter(e => t.depto === 'limpieza' || e.k !== 'inspeccionado');
+  const E = AD_EST.find(e => e.k === I.selE) || AD_EST[0];
+  const res = t.reserva ? pcMovBookings_().find(b => String(b.Id) === String(t.reserva)) : null;
+  const sig = pasos[Math.min(pasos.length - 1, pasos.findIndex(e => e.k === I.selE) + 1)];
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj)}</span><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
+      <div class="ad-tt">${D.ico} ${pcEsc(t.titulo)}</div>
+      <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · <span style="color:${P.c};font-weight:600">${P.ico} ${P.t}</span></div>
+      ${t.problema ? '<div class="ad-badge red"><i></i>Creada como problema</div>' : ''}</div>
+    <div class="ad-db">
+      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
+      ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
+      ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
+      <div class="lab">Detalles</div>
+      <div class="ad-kv"><span>Departamento</span><b>${D.ico} ${D.t}</b><span>Programada</span><b>${aseoDiaTxt_(t.fecha)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''}</b>
+        ${t.repite ? `<span>Se repite</span><b>${pcEsc(atRepTxt_(t.repite, t.fecha))}</b>` : ''}
+        ${res ? `<span>Reserva</span><b>${pcEsc(res.GuestName || '')} · ${pcFmtDiaC_(_pagosDateIso(res.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(res.DateDeparture))}</b>` : ''}
+        ${(t.etiquetas || []).length ? `<span>Etiquetas</span><b>${t.etiquetas.map(x => `<em class="ad-tag">${pcEsc(x)}</em>`).join(' ')}</b>` : ''}
+        <span>Creada</span><b>${t.at ? new Date(t.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : ''}${t.by ? ' · ' + pcEsc(t.by) : ''}</b></div>
+      <div class="lab">Asignados</div><div class="ad-ppl">${(t.asignados || []).map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin asignar</div>'}</div>
+      ${(t.adjuntos || []).length ? `<div class="lab">Adjuntos</div><div class="ad-adjs">${t.adjuntos.map(a => `<a class="ad-adj" href="${BACKEND}${a.url}" target="_blank" rel="noopener">${/^image\//.test(a.tipo) ? `<img src="${BACKEND}${a.url}" alt="">` : '<span class="fi">📄</span>'}<span>${pcEsc(a.nombre)}</span></a>`).join('')}</div>` : ''}
+    </div>
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="atForm_('${pcEsc(t.id)}')">Editar</button><button type="button" class="ad-bt" onclick="atBorrar_('${pcEsc(t.id)}')">Eliminar</button>
+      ${I.selE !== sig.k ? `<button type="button" class="ad-bt pri" onclick="aseoSetEstado_('${I.key}','','${sig.k}',true)">Marcar ${sig.t.toLowerCase()}</button>` : '<button type="button" class="ad-bt ok" disabled>✓ Completada</button>'}</div>`;
+  if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
+}
+window.atBorrar_ = async function (id) {
+  const t = (ASEO.tareas || {})[id]; if (!t) return;
+  if (!confirm(`¿Eliminar la tarea «${t.titulo}»${t.repite ? ' y todas sus repeticiones' : ''}?`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/aseo/tarea/borrar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    delete ASEO.tareas[id]; adCerrar_(); ASEO.calSig = ''; aseoRender_();
+  } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+};
+// ── Formulario "Crea una tarea" ──
+window.atForm_ = function (id, hid, dia) {
+  const t = id ? (ASEO.tareas || {})[id] : null;
+  ASEO._tf = t ? JSON.parse(JSON.stringify(t)) : { hid: hid || '', depto: '', problema: false, prioridad: 3, titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
+  ASEO._dr = { form: true, k: 'form' };
+  atFormPintar_();
+};
+function atFormPintar_() {
+  const F = ASEO._tf, dr = atShell_();
+  const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
+  const horas = ['']; for (let m = 6 * 60; m <= 23 * 60 + 30; m += 30) horas.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+  const sw = (on, fn) => `<span class="ad-sw ${on ? '' : 'off'}" onclick="${fn}"></span>`;
+  const a = F.fecha ? atD_(F.fecha) : new Date();
+  const rOpts = [['diario', 'Diariamente'], ['semanal', `Semanalmente los ${AT_DIAS[a.getDay()]}`], ['mensual', `Mensualmente el ${AT_ORD[Math.ceil(a.getDate() / 7)]} ${AT_DIAS[a.getDay()]}`], ['anual', `Anualmente el ${a.getDate()} de ${a.toLocaleDateString('es-MX', { month: 'long' })}`], ['cada', 'Personalizado…']];
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar tarea' : 'Crea una tarea'}</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div></div>
+    <div class="ad-db at-f">
+      <label class="at-l">Alojamiento <i>*</i></label>
+      <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
+      <label class="at-l">Departamento <i>*</i></label>
+      <select class="at-in" onchange="ASEO._tf.depto=this.value"><option value="">Selecciona un departamento</option>${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${F.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
+      <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
+      <div class="at-prio">${AT_PRIO.slice(1).map((P, i) => `<button type="button" class="${F.prioridad === i + 1 ? 'on' : ''}" style="--c:${P.c}" onclick="ASEO._tf.prioridad=${i + 1};atFormPintar_()"><b>${P.ico}</b> ${P.t}</button>`).join('')}</div>
+      <label class="at-l">Título de la tarea <i>*</i></label>
+      <input class="at-in" placeholder="Introduce un título" value="${pcEsc(F.titulo)}" oninput="ASEO._tf.titulo=this.value">
+      <textarea class="at-in" rows="4" placeholder="Añade una descripción…" oninput="ASEO._tf.desc=this.value">${pcEsc(F.desc)}</textarea>
+      <div class="at-sec"><span>📅 Programar</span><label class="at-tg">Hacer que se repita ${sw(!!F.repite, "ASEO._tf.repite=ASEO._tf.repite?null:{tipo:'diario',n:1,fin:''};atFormPintar_()")}</label></div>
+      <div class="at-row"><span class="at-k">Vence el</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" ${atResRango_()} onchange="ASEO._tf.fecha=this.value;atFormPintar_()">
+        <select class="at-in" onchange="ASEO._tf.hora=this.value">${horas.map(h => `<option value="${h}" ${h === (F.hora || '') ? 'selected' : ''}>${h ? aseoHoraTxt_(h) : 'Sin hora'}</option>`).join('')}</select></div>
+      ${F.repite ? `<div class="at-row"><span class="at-k">Se repite</span><select class="at-in" onchange="ASEO._tf.repite.tipo=this.value;atFormPintar_()">${rOpts.map(([k, l]) => `<option value="${k}" ${F.repite.tipo === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <input type="date" class="at-in" title="Fecha de finalización (opcional)" value="${pcEsc(F.repite.fin || '')}" onchange="ASEO._tf.repite.fin=this.value"></div>
+        ${F.repite.tipo === 'cada' ? `<div class="at-row"><span class="at-k">Cada</span><input type="number" min="1" max="365" class="at-in" style="max-width:80px" value="${F.repite.n || 1}" oninput="ASEO._tf.repite.n=Math.max(1,+this.value||1)"><span class="at-k">días</span></div>` : ''}
+        <div class="at-hint">Nota: las personas asignadas lo estarán en todas las repeticiones.</div>` : ''}
+      <div class="at-sec"><span>👤 Asignados</span><button type="button" class="ad-link" onclick="atAsignar_(this)">＋ Añadir asignado</button></div>
+      <div class="at-chips" id="at-asig">${atAsigChips_()}</div>
+      <div class="at-sec"><span>📎 Adjuntos</span><label class="ad-link">＋ Añadir archivo adjunto<input type="file" multiple hidden onchange="atSubir_(this)"></label></div>
+      <div class="ad-adjs" id="at-adjs">${atAdjsHtml_()}</div>
+      <div class="at-sec"><span>🏷️ Etiquetas de tareas</span></div>
+      <div class="at-chips">${(F.etiquetas || []).map((x, i) => `<span class="at-chip">#${pcEsc(x)}<b onclick="ASEO._tf.etiquetas.splice(${i},1);atFormPintar_()">✕</b></span>`).join('')}
+        <input class="at-in at-tagin" placeholder="Añadir etiqueta y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!ASEO._tf.etiquetas.includes(v)){ASEO._tf.etiquetas.push(v);atFormPintar_();}}"></div>
+      <div class="at-sec"><span>🛏️ Enlazado reservas</span></div>
+      ${atResSelect_()}
+    </div>
+    <div class="ad-ft"><button type="button" class="ad-bt pri" id="at-ok" onclick="atGuardar_()">${F.id ? 'Guardar cambios' : 'Crear tarea'}</button><button type="button" class="ad-bt" onclick="${F.id ? `atAbrir_('${pcEsc(F.id)}','${F.fecha}')` : 'adCerrar_()'}">Cancelar</button></div>`;
+}
+// Reservas activas (Booked) del alojamiento elegido que aún no terminan.
+function atReservas_() {
+  const F = ASEO._tf, hoy = aseoHoyIso_();
+  if (!F.hid) return [];
+  return pcMovBookings_().filter(b => String(b.HouseId) === String(F.hid) && /^booked$/i.test(String(b.Status || '').trim()) && _pagosDateIso(b.DateDeparture) >= hoy)
+    .sort((a, b) => _pagosDateIso(a.DateArrival).localeCompare(_pagosDateIso(b.DateArrival)));
+}
+function atResSelect_() {
+  const F = ASEO._tf, L = atReservas_();
+  if (!F.hid) return '<div class="at-hint">Elige primero el alojamiento.</div>';
+  return `<select class="at-in" onchange="atResElegir_(this.value)"><option value="">Sin reserva enlazada</option>${L.map(b => `<option value="${pcEsc(String(b.Id))}" ${String(b.Id) === String(F.reserva) ? 'selected' : ''}>${pcEsc(b.GuestName || 'Sin nombre')} · ${pcFmtDiaC_(_pagosDateIso(b.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(b.DateDeparture))}</option>`).join('')}</select>
+    ${F.reserva ? '<div class="at-hint">La fecha de la tarea debe quedar dentro de la estancia.</div>' : L.length ? '' : '<div class="at-hint">Este alojamiento no tiene reservas activas.</div>'}`;
+}
+function atResRango_() {
+  const F = ASEO._tf; if (!F.reserva) return '';
+  const b = pcMovBookings_().find(x => String(x.Id) === String(F.reserva)); if (!b) return '';
+  return `min="${_pagosDateIso(b.DateArrival)}" max="${_pagosDateIso(b.DateDeparture)}"`;
+}
+window.atResElegir_ = function (id) {
+  const F = ASEO._tf; F.reserva = id;
+  const b = id ? pcMovBookings_().find(x => String(x.Id) === String(id)) : null;
+  if (b) { const a = _pagosDateIso(b.DateArrival), d = _pagosDateIso(b.DateDeparture), hoy = aseoHoyIso_(); if (!(F.fecha >= a && F.fecha <= d)) F.fecha = a > hoy ? a : hoy; }
+  atFormPintar_();
+};
+function atAsigChips_() { return (ASEO._tf.asignados || []).map(n => `<span class="at-chip">${adAv_(n)}${pcEsc(n)}<b onclick="atQuitarAsig_(this.parentNode.dataset.n)">✕</b></span>`).map((h, i) => h.replace('<span class="at-chip">', `<span class="at-chip" data-n="${pcEsc(ASEO._tf.asignados[i])}">`)).join('') || '<span class="at-hint">Sin asignar</span>'; }
+window.atQuitarAsig_ = function (n) { ASEO._tf.asignados = ASEO._tf.asignados.filter(x => x !== n); const c = document.getElementById('at-asig'); if (c) c.innerHTML = atAsigChips_(); };
+// Lista del personal (marcar NO re-dibuja la lista: solo su casilla y los chips).
+window.atAsignar_ = function (anchor) {
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  const pop = document.createElement('div'); pop.className = 'pz-pop';
+  const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice();
+  const sel = new Set(ASEO._tf.asignados || []);
+  pop.innerHTML = `<input class="pz-in" placeholder="🔎 Buscar…" oninput="this.nextElementSibling.querySelectorAll('.pz-opt').forEach(o=>o.style.display=o.dataset.n.toLowerCase().includes(this.value.toLowerCase())?'':'none')">
+    <div class="pz-plist">${nombres.map(n => `<div class="pz-opt ${sel.has(n) ? 'on' : ''}" data-n="${pcEsc(n)}" onclick="atAsigPick_(this)"><span class="pz-ck sm ${sel.has(n) ? 'on' : ''}">${sel.has(n) ? '✓' : ''}</span>${pcEsc(n)}</div>`).join('') || '<div style="font-size:12px;color:#94a3b8;padding:6px">⏳ Cargando personal…</div>'}</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="pz-go" style="padding:6px 14px" onclick="this.closest('.pz-pop').remove()">Listo</button></div>`;
+  document.body.appendChild(pop);
+  const rc = anchor.getBoundingClientRect(), w = 280;
+  pop.style.zIndex = 9100; pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.right - w)) + 'px';
+  pop.style.top = (rc.bottom + 6 + 330 > window.innerHeight ? Math.max(8, rc.top - 336) : rc.bottom + 6) + 'px';
+  setTimeout(() => { const out = e => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', out); } }; document.addEventListener('mousedown', out); }, 0);
+};
+window.atAsigPick_ = function (el) {
+  const n = el.dataset.n, L = ASEO._tf.asignados = ASEO._tf.asignados || [], on = !L.includes(n);
+  if (on) L.push(n); else L.splice(L.indexOf(n), 1);
+  el.classList.toggle('on', on); const ck = el.querySelector('.pz-ck'); ck.classList.toggle('on', on); ck.textContent = on ? '✓' : '';
+  const c = document.getElementById('at-asig'); if (c) c.innerHTML = atAsigChips_();
+};
+function atAdjsHtml_() { return (ASEO._tf.adjuntos || []).map((a, i) => `<span class="ad-adj">${/^image\//.test(a.tipo) && a.url ? `<img src="${BACKEND}${a.url}" alt="">` : '<span class="fi">📄</span>'}<span>${pcEsc(a.nombre)}</span><b onclick="ASEO._tf.adjuntos.splice(${i},1);document.getElementById('at-adjs').innerHTML=atAdjsHtml_()">✕</b></span>`).join(''); }
+window.atSubir_ = async function (inp) {
+  const files = [...(inp.files || [])]; inp.value = '';
+  const box = document.getElementById('at-adjs');
+  for (const f of files) {
+    if (f.size > 15 * 1024 * 1024) { alert(`«${f.name}» pesa más de 15 MB.`); continue; }
+    const tmp = document.createElement('span'); tmp.className = 'ad-adj'; tmp.textContent = '⏳ ' + f.name; box && box.appendChild(tmp);
+    try {
+      const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+      const r = await fetch(`${BACKEND}/aseo/adjunto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: f.name, tipo: f.type, data }) }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Error');
+      ASEO._tf.adjuntos.push(r.adjunto);
+    } catch (e) { alert(`No se pudo subir «${f.name}»: ${e.message || e}`); }
+    if (box) box.innerHTML = atAdjsHtml_();
+  }
+};
+window.atGuardar_ = async function () {
+  const F = ASEO._tf;
+  if (!F.hid) return alert('Elige el alojamiento.');
+  if (!F.depto) return alert('Elige el departamento.');
+  if (!String(F.titulo || '').trim()) return alert('Escribe el título de la tarea.');
+  if (!F.fecha) return alert('Elige la fecha.');
+  if (F.reserva) { const b = pcMovBookings_().find(x => String(x.Id) === String(F.reserva)); if (b && !(F.fecha >= _pagosDateIso(b.DateArrival) && F.fecha <= _pagosDateIso(b.DateDeparture))) return alert('La fecha debe quedar dentro de la estancia de la reserva enlazada.'); }
+  const btn = document.getElementById('at-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  try {
+    const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: F, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    (ASEO.tareas = ASEO.tareas || {})[r.tarea.id] = Object.assign(r.tarea, { adjuntos: F.adjuntos });
+    ASEO._tf = null; ASEO.calSig = ''; aseoRender_();
+    atAbrir_(r.tarea.id, r.tarea.fecha);
+  } catch (e) { alert('No se pudo guardar la tarea: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear tarea'; } }
+};
 function aseoRenderSide_() {
   const side = document.getElementById('aseo-side'); if (!side) return;
   if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>'; return; }
