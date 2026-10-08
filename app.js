@@ -23389,8 +23389,9 @@ const INC_PERSONAL = [
 ];
 const INC_CLASIF_POR_MOTIVO = {
   'Limpieza':       ['Baño sucio', 'Sábanas sucias', 'Basura detectada', 'Plaga o insectos'],
-  'Mantenimiento':  ['Fuga de agua', 'Falla eléctrica', 'Falla de electrodomésticos', 'Ausencia de controles'],
+  'Inspección':     [],
   'Insumos':        ['Toallas faltantes', 'Pilas faltantes', 'Productos de limpieza faltantes'],
+  'Mantenimiento':  ['Fuga de agua', 'Falla eléctrica', 'Falla de electrodomésticos', 'Ausencia de controles'],
 };
 const INC_STATE = {
   initialized: false,
@@ -65959,11 +65960,12 @@ function adPintar_(nuevo) {
 // Viven en aseo/tareas.json; su estado por día en aseo/estados.json con llave "T<id>-<fecha>".
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipo de tarea: franja izquierda de color en cards y tarjetas del calendario (los aseos por reserva son Limpieza).
-// Selector visible «Tipo de tarea»: Aseo · Inspección · Mantenimiento.
+// Selector visible «Tipo de tarea»: Limpieza · Inspección · Insumos · Mantenimiento.
 function atDeptoSeg_(cur, fn) {
-  return `<label class="at-l">Tipo de tarea <i>*</i></label><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${D.c}" onclick="${fn}('${k}')">${D.ico} ${D.t}</button>`).join('')}</div>`;
+  return `<label class="at-l">Tipo de tarea <i>*</i></label><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${D.c}" onclick="${fn}('${k}')">${D.ico} ${D.t}</button>`).join('')}</div>`;
 }
-const AT_DEPTO = { limpieza: { t: 'Aseo', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
+// Homologado con los motivos de Incidencias: Limpieza · Inspección · Insumos · Mantenimiento.
+const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, insumos: { t: 'Insumos', ico: '📦', c: '#16a34a' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
 const AT_PRIO = [null, { t: 'El más bajo', ico: '↓↓', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '‼', c: '#dc2626' }];
 const AT_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const AT_ORD = ['', '1.º', '2.º', '3.º', '4.º', '5.º'];
@@ -66068,7 +66070,7 @@ function atPintar_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
-      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
+      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
       ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
       <div class="lab">Detalles</div>
@@ -66372,7 +66374,7 @@ function rtPintarA_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="adRtEst_('${id}','${p[0]}')">${p[1]}</button>`).join('')}</div>
       ${row.Updated_at || row.Updated_by ? `<div class="ad-hint">Actualizado ${pcEsc(String(row.Updated_at || '').replace('T', ' ').slice(0, 16))}${row.Updated_by ? ' · ' + pcEsc(row.Updated_by) : ''}</div>` : ''}
-      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${k === 'mantenimiento' ? 'on' : ''}" style="--c:${X.c}" onclick="${k === 'mantenimiento' ? '' : `rtFormA_('${id}');rtFormCambiarDepto_('${k}')`}">${X.ico} ${X.t}</button>`).join('')}</div>
+      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${k === 'mantenimiento' ? 'on' : ''}" style="--c:${X.c}" onclick="${k === 'mantenimiento' ? '' : `rtFormA_('${id}');rtFormCambiarDepto_('${k}')`}">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('R' + t.rtId, false, t.hid, t.fecha)}
       <div class="lab">Descripción de la falla</div><div class="ad-desc">${pcEsc(t.desc || '—').replace(/\n/g, '<br>')}</div>
       <div class="lab">Impacto en el alojamiento</div>
@@ -66897,7 +66899,7 @@ if (!window.__aseoTimer) {
 // /incidencias-list · /save-incidencia · /update-incidencia.
 // ═══════════════════════════════════════════════════════════════════════════
 const IC_EST = [{ k: 'Nuevo', c: '#94a3b8', s: 'Nuevo' }, { k: 'En proceso', c: '#f59e0b', s: 'Proceso' }, { k: 'Resuelto', c: '#10b981', s: 'Resuelto' }, { k: 'Cancelado', c: '#64748b', s: 'Cancel.' }];
-const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, Mantenimiento: { c: '#f97316', ico: '🔧' }, Insumos: { c: '#16a34a', ico: '📦' } };
+const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Inspección': { c: '#8b5cf6', ico: '📋' }, Insumos: { c: '#16a34a', ico: '📦' }, Mantenimiento: { c: '#f97316', ico: '🔧' } }; // = AT_DEPTO
 const IC_NIV = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica' };
 const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo', 'Todo']];
 const IC = { fx: { mot: new Set(), pers: new Set(), prio: '', per: '30' }, dr: null, sec: 'tablero', q: '', cargando: false, cargado: false };
@@ -67340,8 +67342,8 @@ window.icClasifGuardar_ = async function () {
 };
 // ── «Levantar reporte»: desde la incidencia se crea la tarea en «Aseo y Mantenimiento» ──
 // Ya se conocen alojamiento, reserva, prioridad, fecha, título y descripción; el tipo de tarea se infiere del motivo
-// (Mantenimiento → reporte técnico; lo demás → Aseo) y el tipo de servicio es «Correctivo».
-function icLevInfer_(F) { return F.mot.some(m => /manten/i.test(m)) ? 'mantenimiento' : 'limpieza'; }
+// (mismo nombre: Limpieza · Inspección · Insumos · Mantenimiento → reporte técnico) y el tipo de servicio es «Correctivo».
+function icLevInfer_(F) { const t = F.mot.join(' '); return /manten/i.test(t) ? 'mantenimiento' : /inspec/i.test(t) ? 'inspeccion' : /insumo/i.test(t) ? 'insumos' : 'limpieza'; } // motivo = tipo de tarea
 window.icLev_ = function () {
   const F = IC.f; F.lev = !F.lev;
   if (F.lev && !F.L) F.L = { depto: icLevInfer_(F), manual: false, srv: 'correctivo', problema: false, repite: null, asig: [], etiq: [], cat: 'otros', bloq: false, rein: false, comp: '' };
