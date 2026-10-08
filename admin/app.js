@@ -65168,7 +65168,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const ver = infos.filter(I => vis.has(I.k) && (!fP.length || fP.includes(propDe(I))));
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>` : '';
-  const seg = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
+  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -65197,7 +65197,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(adCard_).join('')}</div>`;
     }).join('');
   const vacio = gs.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
-  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}</div>${seg}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
