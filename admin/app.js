@@ -26397,7 +26397,8 @@ function ocupRender(opts) {
     return;
   }
   const f = opts.filters || OCUP_STATE.calFilters || {};
-  const alojamientos = f.propiedad ? allAlojs.filter(a => a.propiedad === f.propiedad) : allAlojs;
+  let alojamientos = f.propiedad ? allAlojs.filter(a => a.propiedad === f.propiedad) : allAlojs;
+  if (opts.alojFilter) alojamientos = alojamientos.filter(opts.alojFilter);
 
   // Poblar dropdowns de filtros con valores disponibles
   if (!opts.cont) ocupCalPopulateFilters(allAlojs);
@@ -64719,6 +64720,8 @@ function aseoEnsureCss_() {
     position:sticky;top:var(--gb-h,0px);z-index:6;background:#eef0f3;border-radius:12px 12px 0 0;box-shadow:0 6px 8px -8px rgba(15,23,41,.25)}
   .ad-colh{padding-left:13px;padding-right:13px}
   @media (min-width:1001px){.aseo-grid.con-cal .ad-colh{top:-10px}}
+  #aseo-top .ad-gfil{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+  #aseo-top .ad-gfil .mv-pf{margin:0}
   #aseo-top{margin:0 0 12px}#aseo-top .mv-sync{margin-bottom:10px}#aseo-top .ad-kpis{margin-bottom:0}
   .ad-colh i{width:8px;height:8px;border-radius:50%}.ad-colh span{color:var(--ad-mut);font-weight:500}
   .ad-empty{color:var(--ad-mut2);text-align:center;padding:10px 0 12px;font-size:12px}
@@ -65128,18 +65131,19 @@ async function aseoInit() {
 // Filtro por personal (chips arriba de las columnas; varios a la vez; sin selección = todos).
 function aseoAsigIdDe_(g) { return String(g.estId || (g.sal[0] ? g.sal[0].b.Id : ([...g.ent, ...(g.cur || [])][0] || { b: {} }).b.Id) || ''); }
 function aseoPersDe_(g) { const a = ((ASEO.asig || {})[aseoAsigIdDe_(g)]) || {}; return [...(a.aseo || a.personal || []), ...(a.inspeccion || [])]; }
-function aseoFiltroPers_(gs) {
+function aseoFiltroPers_(gs, hoy) {
   const sel = ASEO.fPers = ASEO.fPers || [];
-  const nombres = [...new Set(gs.flatMap(aseoPersDe_).concat(sel))].sort((a, b) => a.localeCompare(b, 'es'));
+  const deTareas = hoy && typeof atLista_ === 'function' ? atLista_().filter(t => atToca_(t, hoy)).flatMap(t => t.asignados || []) : [];
+  const nombres = [...new Set(gs.flatMap(aseoPersDe_).concat(deTareas, sel))].sort((a, b) => a.localeCompare(b, 'es'));
   const out = sel.length ? gs.filter(g => aseoPersDe_(g).some(n => sel.includes(n))) : gs;
   if (!nombres.length) return { gs: out, html: '' };
-  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i>${pcEsc(adIni_(n))}</i>${pcEsc(aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>`;
+  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i>${pcEsc(adIni_(n))}</i>${pcEsc(aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   return { gs: out, html };
 }
 window.aseoFiltroToggle_ = function (n) {
   const sel = ASEO.fPers = ASEO.fPers || [];
   const i = sel.indexOf(n); if (i >= 0) sel.splice(i, 1); else sel.push(n);
-  aseoRenderSide_();
+  aseoRender_();
 };
 function aseoVisible_() { const m = document.getElementById('module-aseo'); return !!(m && !m.classList.contains('hidden')); }
 function aseoRender_() {
@@ -65160,11 +65164,12 @@ function aseoRender_() {
   const bks = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
   const fCal = Object.assign({}, OCUP_STATE.calFilters || {});
   const sig = JSON.stringify(fCal) + JSON.stringify(OCUP_STATE.colorModes || {}) + bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',')
-    + JSON.stringify([ASEO.estados, ASEO.asig, ASEO.reprog, ASEO.nosale]);
+    + JSON.stringify([ASEO.estados, ASEO.asig, ASEO.reprog, ASEO.nosale, ASEO.tareas, ASEO.fPers, ASEO.fProp, ASEO.fTipo]);
   if (cal && sig !== ASEO.calSig) {
     const sl = cal.scrollLeft, stp = cal.scrollTop, first = !ASEO.calSig;
     ASEO.calSig = sig;
-    ocupRender({ cont: cal, bookings: bks, filters: fCal, before: 1, after: 2, onBar: 'aseoSelect_', center: false, tareas: aseoCalTareas_(), tareaHtml: aseoCalTareaHtml_ });
+    const fil = aseoCalFiltrar_(aseoCalTareas_());
+    ocupRender({ cont: cal, bookings: bks, filters: fCal, before: 1, after: 2, onBar: 'aseoSelect_', center: false, tareas: fil.tareas, tareaHtml: aseoCalTareaHtml_, alojFilter: fil.alojFilter });
     aseoCalDnD_(cal);
     adMarcarCal_(false);
     if (first || ASEO._centrar) { ASEO._centrar = false; requestAnimationFrame(() => ocupCentrarHoy_(cal)); }
@@ -65289,10 +65294,10 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const fT = ASEO.fTipo || [];
   const verT = ver.filter(I => !fT.length || fT.includes(tipoDe(I)));
   const todos = infos.concat(tInfos);
-  const tipoHtml = `<div class="mv-pf ad-prf"><small>🏷️ Tipo:</small>${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fT.includes(k) ? 'on' : ''}" style="--tc:${D.c}" onclick="adTipoToggle_('${k}')"><i></i>${D.t}<b>${todos.filter(I => tipoDe(I) === k).length}</b></button>`).join('')}${fT.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fTipo=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>`;
+  const tipoHtml = `<div class="mv-pf ad-prf"><small>🏷️ Tipo:</small>${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fT.includes(k) ? 'on' : ''}" style="--tc:${D.c}" onclick="adTipoToggle_('${k}')"><i></i>${D.t}<b>${todos.filter(I => tipoDe(I) === k).length}</b></button>`).join('')}${fT.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fTipo=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   ver.length = 0; verT.forEach(I => ver.push(I));
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
-  const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>` : '';
+  const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
   const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
@@ -65323,12 +65328,13 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
-  return `<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}${tipoHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  ASEO._filtrosHtml = `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}</div>`; // filtros generales (cards + calendario)
+  return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
-window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRenderSide_(); };
-window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRenderSide_(); };
+window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
+window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRender_(); };
 // ── Calendario de Control de aseo: una tarjeta por aseo (salida Booked) en su fecha programada.
 //    Reprogramación automática (3 pm) → punteada en el/los días que no se hizo + la nueva fecha.
 //    Se arrastra a otro día del mismo alojamiento → cambia la fecha (sin copia punteada).
@@ -65359,6 +65365,21 @@ function aseoCalTareas_() {
     }
   });
   return m;
+}
+// Filtros generales aplicados al calendario.
+function aseoCalFiltrar_(m) {
+  const fPers = ASEO.fPers || [], fProp = ASEO.fProp || [], fTipo = ASEO.fTipo || [];
+  const pers = t => { if (t.tarea) return t.tarea.asignados || []; const a = (ASEO.asig || {})[String(t.id)] || {}; return [...(a.aseo || a.personal || []), ...(a.inspeccion || [])]; };
+  const tipo = t => t.tarea ? (t.tarea.depto || 'limpieza') : 'limpieza';
+  const out = new Map();
+  m.forEach((L, hid) => {
+    const F = L.filter(t => (!fPers.length || pers(t).some(n => fPers.includes(n))) && (!fTipo.length || fTipo.includes(tipo(t))));
+    if (F.length) out.set(hid, F);
+  });
+  const propDe = a => String(a.propiedad || '').replace(/^Calle\s+/i, '') || 'Otros';
+  const conTareas = fPers.length || fTipo.length;
+  const alojFilter = fProp.length || conTareas ? a => (!fProp.length || fProp.includes(propDe(a))) && (!conTareas || out.has(String(a.houseId))) : null;
+  return { tareas: out, alojFilter };
 }
 function aseoCalTareaHtml_(t) {
   if (t.tarea) {
@@ -65827,7 +65848,7 @@ function aseoRenderSide_() {
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
-    const filtro = aseoFiltroPers_(gs);
+    const filtro = aseoFiltroPers_(gs, hoy);
     selBlock = ''; // la reserva elegida en el calendario se abre en la ventana lateral
     cuerpo = adTablero_(gs, filtro.gs, hoy, esHoy, filtro.html);
   } else {
@@ -65837,7 +65858,7 @@ function aseoRenderSide_() {
   }
   // Barra de Lodgify + KPIs arriba de calendario y cards; el tablero en el panel derecho.
   const top = document.getElementById('aseo-top');
-  if (top) { top.innerHTML = `${mvSyncBar_()}${ASEO._kpisHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
+  if (top) { top.innerHTML = `${mvSyncBar_()}${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
   else side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   side.classList.add('ad-v2');
   aseoPubTodasPaint_();
