@@ -64713,6 +64713,7 @@ function aseoEnsureCss_() {
   @media (max-width:900px){.ad-fil{flex-direction:column}}
   .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:stretch}
   .ad-board .ad-col{display:flex;flex-direction:column;min-height:240px}
+  .ad-board.est{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
   .ad-col{background:#eef0f3;border-radius:12px;padding:7px;min-width:0}
   .ad-colh{display:flex;align-items:center;gap:7px;padding:4px 6px 9px;font-weight:600;font-size:12.5px}
   .ad-colh i{width:8px;height:8px;border-radius:50%}.ad-colh span{color:var(--ad-mut);font-weight:500}
@@ -65317,7 +65318,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(pinta).join('')}</div>`;
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
-  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}${tipoHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}${tipoHtml}</div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
