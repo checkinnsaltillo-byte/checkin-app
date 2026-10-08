@@ -375,6 +375,7 @@ const SYS_MODULE_EXTRAS = {
   registros: ['efectivo'],
   personas:  ['huespedes', 'inquilinos', 'proveedores', 'dir-inquilinos'],
   aseo:      ['breezeway'],
+  'reportes-tecnicos': ['aseo'], // quien tenía Reportes técnicos ve Aseo (ahí vive Mantenimiento)
   breezeway: ['aseo'], // empleados que ya tenían Breezeway ven el módulo Aseo completo
   lodgify:   ['reservas-detalles'],
   ocupacion: ['dashboard', 'calendario'],
@@ -9144,6 +9145,8 @@ if (!window._rtHashListener) {
   });
 }
 function switchModule(mod) {
+  // «Reportes técnicos» vive ahora dentro de Aseo (tareas de Mantenimiento).
+  if (mod === 'reportes-tecnicos') { if (typeof ASEO !== 'undefined') { ASEO.fTipo = ['mantenimiento']; ASEO.calSig = ''; } mod = 'aseo'; }
   // Permisos: un módulo no asignado (p. ej. por enlace #modulo) manda a Inicio.
   if (window.SYS_ALLOWED && mod !== 'home') {
     const permKey = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
@@ -57670,7 +57673,7 @@ function tdFiltros_(base) {
     + (sinAsig ? chip(fx.pers.has(TAR_SIN_PERS), `<i style="background:#94a3b8">—</i>Sin asignar`, `tdFx_('pers','${TAR_SIN_PERS}')`) : '');
   const cChips = clas.map(c => `<button type="button" class="mv-pf-c ad-pr ${fx.clas.has(c) ? 'on' : ''}" data-c="${esc(c)}" onclick="tdFx_('clas',this.dataset.c)">${esc(c)}<b>${cuenta(r => (r.Clasificacion || TAR_SIN) === c)}</b></button>`).join('');
   const tChips = Object.entries(TD_TIPO).map(([k, T]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fx.tipo === T.t ? 'on' : ''}" style="--tc:${T.c}" onclick="tdFx_('tipo','${T.t}')"><i></i>${k === 'rec' ? 'Recordatorio' : 'Tarea'}<b>${cuenta(r => tdTipoK_(r) === k)}</b></button>`).join('');
-  const prChips = Object.entries(TD_PRIO).map(([k, P]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fx.prio === k ? 'on' : ''}" style="--tc:${P.c}" onclick="tdFx_('prio','${k}')"><i></i>${P.ico} ${k}<b>${cuenta(r => (r.Prioridad || 'Medio') === k)}</b></button>`).join('');
+  const prChips = Object.entries(TD_PRIO).map(([k, P]) => `<button type="button" class="mv-pf-c ad-pr ${fx.prio === k ? 'on' : ''}" onclick="tdFx_('prio','${k}')">${prio4Html_(k, true)} ${PRIO4[prio4Key_(k)].t}<b>${cuenta(r => (r.Prioridad || 'Medio') === k)}</b></button>`).join('');
   return `<div class="ad-gfil" style="display:flex;flex-direction:column;gap:6px;margin:12px 0">
     ${fila('👥', 'Personal', pChips, fx.pers.size ? "tdFxClr_('pers')" : '')}
     ${fila('🗂️', 'Clasificación', cChips, fx.clas.size ? "tdFxClr_('clas')" : '')}
@@ -57709,10 +57712,10 @@ function tdCard_(r, dia) {
   const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${TAR_ESTADOS.map(e => `<button type="button" class="${e.k === est ? 'on' : ''}" style="--c:${TD_EST[e.k]}" title="${e.k}" onclick="event.stopPropagation();${e.k === est ? '' : `tdSetEst_('${esc(r.ID)}','${dia}','${e.k}')`}"><i></i>${TD_CORTO[e.k]}</button>`).join('')}</div>`;
   return `<div class="ad-card tipo td-card ${sel ? 'sel' : ''} ${est === 'Cancelado' ? 'ghost' : ''}" data-k="${esc(r.ID)}" style="--tc:${T.c}" onclick="tdAbrir_('${esc(r.ID)}')"
       draggable="true" ondragstart="tdDragStart_(event,'${esc(r.ID)}')" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="ttl">${esc(r.Nombre || 'Sin nombre')}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${esc(r.Prioridad || 'Medio')}">${P.ico} ${esc(r.Prioridad || 'Medio')}</span></span></div>
+    <div class="r1"><span class="ttl">${esc(r.Nombre || 'Sin nombre')}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
-    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
+    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}${prio4Html_(r.Prioridad || 'Medio')}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
     ${qs}
   </div>`;
 }
@@ -57762,7 +57765,7 @@ function tdPintar_(nuevo) {
   const id = esc(r.ID);
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="ty" style="font-weight:600;color:${T.c}">${T.t}</span><button type="button" class="ad-close" onclick="tdCerrar_()">✕</button></div>
       <div class="ad-tt">${esc(r.Nombre || 'Sin nombre')}</div>
-      <div class="ad-sub">${aseoDiaTxt_(dia)} · <i style="background:${TD_EST[est]}"></i>${est} · <span style="color:${P.c};font-weight:600">${P.ico} ${esc(r.Prioridad || 'Medio')}</span></div>
+      <div class="ad-sub">${aseoDiaTxt_(dia)} · <i style="background:${TD_EST[est]}"></i>${est} · ${prio4Html_(r.Prioridad || 'Medio')}</div>
       ${r.Fecha_limite === 'Sí' && !['Resuelto', 'Cancelado'].includes(est) ? `<div class="ad-badge orange"><i></i>${esc(tarLimiteTxt_(r, est).replace(/^⏳\s*/, ''))}</div>` : ''}</div>
     <div class="ad-db">
       <div class="lab">Estado de este día</div>
@@ -64858,6 +64861,15 @@ function aseoEnsureCss_() {
   .oc-task.sel{border-color:#4f46e5;box-shadow:0 0 0 3px #c7d2fe,0 6px 16px rgba(79,70,229,.25);z-index:5}
   .ocup-cal-row.ad-flash .ocup-aloj-cell{background:#eef2ff;transition:background .4s}
   .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
+  .p4{display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap}
+  .p4 b{font-weight:600;color:var(--c)}
+  .p4b{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
+  .p4b i{display:block;width:3px;border-radius:1px;background:#d9dde3}
+  .p4b i:nth-child(1){height:4px}.p4b i:nth-child(2){height:7px}.p4b i:nth-child(3){height:10px}.p4b i:nth-child(4){height:12px}
+  .p4b i.on{background:var(--c)}
+  .ad-card .r3 .p4{margin-left:4px}
+  .flag.mute{color:#6b7280}.flag.mute i{background:#9aa1ad;box-shadow:0 0 0 3px #f0f1f4}
+  .at-prio button .p4{margin-right:3px}.at-prio button.on .p4b i.on{background:#fff}.at-prio button.on .p4b i{background:rgba(255,255,255,.35)}
   .ad-card.tipo{border-left:4px solid var(--tc)}
   .ad-card[draggable=true]{cursor:grab}.ad-card.dragging{opacity:.4}
   .ad-col.drop{background:#e0e7ff;box-shadow:inset 0 0 0 2px #6366f1}
@@ -65344,6 +65356,7 @@ window.aseoFiltroToggle_ = function (n) {
 function aseoVisible_() { const m = document.getElementById('module-aseo'); return !!(m && !m.classList.contains('hidden')); }
 function aseoRender_() {
   if (!aseoVisible_()) return;
+  adRtLoad_(); // reportes técnicos (Mantenimiento): cada 2 min, en segundo plano
   aseoEnsureCss_();
   const st = document.getElementById('aseo-status');
   if (st) st.innerHTML = `<span class="mv-live">● En vivo</span> · consulta a Lodgify cada ${ASEO_POLL_S} s · la hora exacta de la última actualización está arriba de las cards`;
@@ -65414,10 +65427,13 @@ function adInfo_(g, hoy, o) {
   else if (fantasma) aviso = { c: 'violet', t: 'Pasó al día siguiente · cerrar fecha en calendario' };
   else if (esHoyC && g.sal.length && vivosEnt && selE === 'pendiente' && h >= 14) aviso = { c: 'red', t: 'Urge · entra hoy y sigue pendiente' };
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') aviso = { c: 'orange', t: 'Requiere inspección antes de la entrada' };
+  // Prioridad del aseo: crítica si urge o no ha desalojado con entrada; alta si entra huésped; media si solo sale.
+  const prio = aviso && aviso.c === 'red' && vivosEnt ? 'critica' : (vivosEnt || (temp && temp.aceptada)) ? 'alta' : g.sal.length && !fantasma ? 'media' : 'baja';
+  const mant = g.hid ? rtAvisoImpacto_(g.hid) : null;
   const asg = (ASEO.asig || {})[asigId] || {};
   const G = g.hid ? (ASEO.guias || {})[String(g.hid)] : null;
   const pubKey = (G && G.keyPub) || asigId;
-  return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso,
+  return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso, prio, mant,
     prioritaria: !!(temp && temp.aceptada), pA: asg.aseo || asg.personal || [], pI: asg.inspeccion || [], G, pubKey, noPub: !!(G && G.noPub) };
 }
 // Selector rápido de estado al pie de la card (un clic) — mismo guardado que la ventana de detalles.
@@ -65444,6 +65460,7 @@ window.adDrop_ = function (ev, k) {
   const D = ASEO._dragEst; ASEO._dragEst = null;
   document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop'));
   if (!D) return;
+  if (String(D.id).startsWith('R:')) { if (k !== 'inspeccionado') adRtEst_(D.id.slice(2), k); return; }
   const cur = (aseoEstDe_(D.id) || {}).estado || 'pendiente';
   if (cur === k) return;
   aseoSetEstado_(D.id, D.hid, k, !!D.tarea);
@@ -65467,8 +65484,9 @@ function adCard_(I) {
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
+    ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
-    <div class="r3">${equipo}<span class="sp"></span>${guia}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    <div class="r3">${equipo}<span class="sp"></span>${guia}${prio4Html_(I.prio)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
@@ -65502,6 +65520,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const pct = vivos.length ? Math.round(listos / vivos.length * 100) : 0;
   const alertas = infos.filter(I => I.aviso && I.aviso.c === 'red').length, sinDes = infos.filter(I => I.noSale).length;
   const reqInsp = infos.filter(I => I.aviso && I.aviso.c === 'orange').length;
+  const inhab = rtTareas_().filter(t => rtAbierto_(t) && t.bloquea).length;
   const ent = vivos.filter(I => I.g.ent.length).length, temp = vivos.filter(I => I.temp).length;
   const porV = vivos.filter(I => I.selE === 'terminado' && !I.validado).length;
   const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
@@ -65510,11 +65529,11 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
       <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
     ${kpi('Pendientes', n('pendiente'))}${kpi('En proceso', n('en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '')}
-    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas, [sinDes ? `${sinDes} sin desalojar` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), alertas ? 'al' : '')}
+    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas + inhab, [sinDes ? `${sinDes} sin desalojar` : '', inhab ? `${inhab} inhabitable${inhab === 1 ? '' : 's'}` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), alertas + inhab ? 'al' : '')}
   </div>`;
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
-      const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
+      const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : [], E.k === 'terminado' ? ver.filter(I => I.selE === 'cancelado') : []);
       return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
     }).join('')
     : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
@@ -65553,9 +65572,11 @@ function aseoCalTareas_() {
   // Tareas manuales (las que se repiten no se arrastran).
   const fin = new Date(hoy + 'T12:00:00'); fin.setDate(fin.getDate() + 75);
   atLista_().forEach(tk => {
+    if (tk.rt) { if (!tk.hid) return; const dd = rtAbierto_(tk) && tk.fecha < hoy ? hoy : tk.fecha; if (dd < lim && !rtAbierto_(tk)) return; add(tk.hid, { id: 'R:' + tk.rtId, hid: String(tk.hid), dia: dd, orig: tk.fecha, tarea: tk, cls: 'tarea ty-mantenimiento', onclick: `rtAbrirA_('${pcEsc(tk.rtId)}','${dd}','cal')` }); return; }
     const d = new Date(Math.max(atD_(tk.fecha), atD_(lim)));
     for (; d <= fin; d.setDate(d.getDate() + 1)) {
       const dia = atIso_(d); if (!atToca_(tk, dia)) continue;
+      if (tk.rt) { const dd = rtAbierto_(tk) && tk.fecha < hoy ? hoy : tk.fecha; add(tk.hid, { id: 'R:' + tk.rtId, hid: String(tk.hid), dia: dd, orig: tk.fecha, tarea: tk, cls: 'tarea ty-mantenimiento', onclick: `rtAbrirA_('${pcEsc(tk.rtId)}','${dd}','cal')` }); break; }
       add(tk.hid, { id: 'T:' + tk.id, hid: String(tk.hid), dia, orig: tk.fecha, tarea: tk, cls: 'tarea ty-' + (tk.depto || 'limpieza'), noDrag: !!tk.repite, onclick: `atAbrir_('${pcEsc(tk.id)}','${dia}','cal')` });
       if (!tk.repite) break;
     }
@@ -65580,9 +65601,10 @@ function aseoCalFiltrar_(m) {
 function aseoCalTareaHtml_(t) {
   if (t.tarea) {
     const tk = t.tarea, reg = aseoEstDe_(`T${tk.id}-${t.dia}`), E = AD_EST.find(e => e.k === ((reg || {}).estado || 'pendiente')) || AD_EST[0];
-    const D = AT_DEPTO[tk.depto] || AT_DEPTO.limpieza, P = AT_PRIO[tk.prioridad || 3];
-    return `<div class="t1"><i style="background:${E.c}"></i><b>${D.ico} ${pcEsc(tk.titulo)}</b>${tk.repite ? '<span class="rp" title="Se repite">↻</span>' : ''}</div>
-      <div class="t2"><span style="color:${P.c};font-weight:600" title="Prioridad ${P.t}">${P.ico}</span>${(tk.asignados || []).length ? `<span class="ad-avs">${tk.asignados.slice(0, 4).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}</div>`;
+    const D = AT_DEPTO[tk.depto] || AT_DEPTO.limpieza;
+    const Ec = tk.rt ? ({ pendiente: '#94a3b8', en_proceso: '#f59e0b', terminado: '#10b981', cancelado: '#64748b' }[tk.estado]) : E.c;
+    return `<div class="t1"><i style="background:${Ec}"></i><b>${D.ico} ${pcEsc(tk.titulo)}</b>${tk.repite ? '<span class="rp" title="Se repite">↻</span>' : ''}${tk.bloquea && rtAbierto_(tk) ? '<span class="al" title="Inhabitable">🚫</span>' : ''}</div>
+      <div class="t2">${prio4Html_(tk.prioridad, true)}${(tk.asignados || []).length ? `<span class="ad-avs">${tk.asignados.slice(0, 4).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}</div>`;
   }
   const reg = aseoEstDe_(t.id), k = (reg || {}).estado || 'pendiente';
   const E = AD_EST.find(e => e.k === k) || AD_EST[0];
@@ -65631,6 +65653,7 @@ function aseoCalDnD_(cal) {
     const d = diaDe(row, e.clientX), D = drag; drag = null;
     cal.querySelectorAll('.oc-drop').forEach(x => x.remove()); D.el.classList.remove('dragging');
     if (!d || d.iso === D.dia) return;
+    if (String(D.id).startsWith('R:')) { rtPatch_(D.id.slice(2), { Fecha: d.iso }); return; }
     if (String(D.id).startsWith('T:')) {
       const tk = (ASEO.tareas || {})[D.id.slice(2)]; if (!tk) return;
       if (tk.reserva) { const b = pcMovBookings_().find(x => String(x.Id) === String(tk.reserva)); if (b && !(d.iso >= _pagosDateIso(b.DateArrival) && d.iso <= _pagosDateIso(b.DateDeparture))) { alert('La tarea está enlazada a una reserva: su fecha debe quedar dentro de la estancia.'); return; } }
@@ -65711,7 +65734,7 @@ function adMarcarCal_(mover, hid, dia) {
   if (row) { row.classList.add('ad-flash'); setTimeout(() => row.classList.remove('ad-flash'), 1600); }
 }
 window.adCerrar_ = function () {
-  ASEO._dr = null; ASEO._tf = null; ASEO._calSel = null;
+  ASEO._dr = null; ASEO._tf = null; ASEO._rf = null; ASEO._calSel = null;
   document.querySelectorAll('#aseo-cal .oc-task.sel').forEach(e => e.classList.remove('sel'));
   document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove();
   document.querySelectorAll('#aseo-side .ad-card.sel').forEach(c => c.classList.remove('sel'));
@@ -65726,6 +65749,7 @@ function adDrawerInfo_() {
 function adEv_(cls, h, tit, sub) { return `<div class="ev ${cls}"><span class="h">${h}</span><div><b>${tit}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`; }
 function adPintar_(nuevo) {
   if (!ASEO._dr || ASEO._dr.form) return; // el formulario no se re-dibuja con los refrescos
+  if (ASEO._dr.rt) return rtPintarA_(nuevo);
   if (ASEO._dr.tarea) return atPintar_(nuevo);
   aseoEnsureCss_();
   const I = adDrawerInfo_();
@@ -65770,9 +65794,10 @@ function adPintar_(nuevo) {
   const sig = AD_EST[Math.min(AD_EST.length - 1, AD_EST.findIndex(e => e.k === I.selE) + 1)];
   const smsId = I.xe ? pcEsc(String(I.xe.b.Id)) : '';
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj || '')}</span><button type="button" class="ad-close" onclick="adCerrar_()" title="Cerrar">✕</button></div>
-      <div class="ad-sub">${I.esHoyC ? 'Hoy' : aseoDiaTxt_(I.hoy)} · <i style="background:${E.c}"></i>${E.t}${I.prioritaria ? ' · <b style="color:#4f46e5">Prioritaria</b>' : ''}</div>
+      <div class="ad-sub">${I.esHoyC ? 'Hoy' : aseoDiaTxt_(I.hoy)} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(I.prio)}${I.prioritaria ? ' · <b style="color:#4f46e5">Prioritaria</b>' : ''}</div>
       ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
     <div class="ad-db">
+      ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
       <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${nota}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
       <div class="lab">Solicitudes</div><div class="ad-grid2">${sol('tard', I.xs, I.trd)}${sol('temp', I.xe, I.temp)}</div>
@@ -65803,6 +65828,7 @@ function atD_(iso) { return new Date(iso + 'T12:00:00'); }
 function atIso_(d) { return d.toISOString().slice(0, 10); }
 // ¿La tarea toca en ese día? (una vez o con repetición)
 function atToca_(t, dia) {
+  if (t && t.rt) { const hoy = aseoHoyIso_(); return dia === t.fecha || (dia === hoy && rtAbierto_(t) && t.fecha < hoy); } // atrasados: también hoy
   if (!t || !t.fecha || dia < t.fecha) return false;
   const r = t.repite;
   if (!r) return dia === t.fecha;
@@ -65822,24 +65848,49 @@ function atRepTxt_(r, fecha) {
     anual: `Anualmente el ${a.getDate()} de ${a.toLocaleDateString('es-MX', { month: 'long' })}`, cada: `Cada ${r.n || 1} día${(r.n || 1) === 1 ? '' : 's'}` }[r.tipo] || '';
   return txt + (r.fin ? ` · hasta ${aseoDiaTxt_(r.fin)}` : '');
 }
-function atLista_() { return Object.values(ASEO.tareas || {}); }
+function atLista_() { return Object.values(ASEO.tareas || {}).concat(rtTareas_()); }
 function atAloj_(hid) { const a = ocupGetAlojamientos().find(x => x.houseId === String(hid)); return a || { houseId: String(hid), nombre: 'Alojamiento ' + hid, corto: '' }; }
 // Info de una tarea en un día (para el tablero, la ventana y el calendario).
 function atInfo_(t, dia) {
+  if (t.rt) {
+    const a = t.hid ? atAloj_(t.hid) : { corto: '', nombre: t.rt.Alojamiento || 'Sin alojamiento' };
+    return { tarea: true, t, dia, key: 'R:' + t.rtId, k: 'R' + t.rtId, hid: t.hid, selE: t.estado, reg: null, corto: String(a.corto || '').toUpperCase(), aloj: a.nombre,
+      g: { hid: t.hid, aloj: a.nombre, sal: [], ent: [] }, fantasma: false, pA: t.asignados || [], pI: [] };
+  }
   const key = `T${t.id}-${dia}`, reg = aseoEstDe_(key);
   const a = atAloj_(t.hid);
   return { tarea: true, t, dia, key, k: 'T' + t.id, hid: t.hid, selE: (reg || {}).estado || 'pendiente', reg, corto: String(a.corto || '').toUpperCase(), aloj: a.nombre,
     g: { hid: t.hid, aloj: a.nombre, sal: [], ent: [] }, fantasma: false, pA: t.asignados || [], pI: [] };
 }
+function rtCardA_(I) {
+  const t = I.t, row = t.rt, D = AT_DEPTO.mantenimiento, hoy = aseoHoyIso_();
+  const cat = RT_CATEGORIAS.find(c => c.key === row.Categoria) || RT_CATEGORIAS.find(c => c.key === 'otros');
+  const sel = ASEO._dr && ASEO._dr.rt === t.rtId, cerrado = !rtAbierto_(t);
+  const flags = [];
+  if (t.bloquea && !cerrado) flags.push('<div class="flag red"><i></i>Alojamiento inhabitable</div>');
+  if (!cerrado && t.fecha < hoy) flags.push(`<div class="flag orange"><i></i>Atrasado · programado el ${aseoDiaTxt_(t.fecha)}</div>`);
+  if (t.reincidente && !cerrado) flags.push('<div class="flag mute"><i></i>Reincidente</div>');
+  const nF = rtFotos_(row.Fotos_antes_urls).length + rtFotos_(row.Fotos_despues_urls).length;
+  const pasos = [['pendiente', 'Pend.', '#94a3b8'], ['en_proceso', 'Proceso', '#f59e0b'], ['terminado', 'Term.', '#10b981'], ['cancelado', 'Cancel.', '#64748b']];
+  return `<div class="ad-card tipo tarea ${t.bloquea && !cerrado ? 'alert' : ''} ${t.estado === 'cancelado' ? 'ghost' : ''} ${sel ? 'sel' : ''}" data-k="R${pcEsc(t.rtId)}" style="--tc:${D.c}" onclick="rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')"
+    draggable="true" ondragstart="adDragStart_(event,'R:${pcEsc(t.rtId)}','',true,true)" ondragend="adDragEnd_(event)">
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
+    ${flags.join('')}
+    <div class="r2"><span class="ty" style="color:${D.c}">Mantenimiento</span><span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
+    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
+    <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
+  </div>`;
+}
 function atCard_(I) {
-  const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
+  if (I.t.rt) return rtCardA_(I);
+  const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza;
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
   return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${P.t}">${P.ico} ${P.t}</span></span></div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
-    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
 }
@@ -65860,14 +65911,14 @@ function atPintar_(nuevo) {
   if (!t) { adCerrar_(); return; }
   const I = atInfo_(t, D0.dia), dr = atShell_();
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
-  const D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
+  const D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza;
   const pasos = AD_EST.filter(e => t.depto === 'limpieza' || e.k !== 'inspeccionado');
   const E = AD_EST.find(e => e.k === I.selE) || AD_EST[0];
   const res = t.reserva ? pcMovBookings_().find(b => String(b.Id) === String(t.reserva)) : null;
   const sig = pasos[Math.min(pasos.length - 1, pasos.findIndex(e => e.k === I.selE) + 1)];
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj)}</span><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
       <div class="ad-tt">${D.ico} ${pcEsc(t.titulo)}</div>
-      <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · <span style="color:${P.c};font-weight:600">${P.ico} ${P.t}</span></div>
+      <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(t.prioridad)}</div>
       ${t.problema ? '<div class="ad-badge red"><i></i>Creada como problema</div>' : ''}</div>
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
@@ -65898,7 +65949,7 @@ window.atBorrar_ = async function (id) {
 // ── Formulario "Crea una tarea" ──
 window.atForm_ = function (id, hid, dia) {
   const t = id ? (ASEO.tareas || {})[id] : null;
-  ASEO._tf = t ? JSON.parse(JSON.stringify(t)) : { hid: hid || '', depto: '', problema: false, prioridad: 3, titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
+  ASEO._tf = t ? JSON.parse(JSON.stringify(t)) : { hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
   ASEO._dr = { form: true, k: 'form' };
   atFormPintar_();
 };
@@ -65914,9 +65965,9 @@ function atFormPintar_() {
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Departamento <i>*</i></label>
-      <select class="at-in" onchange="ASEO._tf.depto=this.value"><option value="">Selecciona un departamento</option>${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${F.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
+      <select class="at-in" onchange="atFormDepto_(this.value)"><option value="">Selecciona un departamento</option>${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${F.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
       <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
-      <div class="at-prio">${AT_PRIO.slice(1).map((P, i) => `<button type="button" class="${F.prioridad === i + 1 ? 'on' : ''}" style="--c:${P.c}" onclick="ASEO._tf.prioridad=${i + 1};atFormPintar_()"><b>${P.ico}</b> ${P.t}</button>`).join('')}</div>
+      ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
       <label class="at-l">Título de la tarea <i>*</i></label>
       <input class="at-in" placeholder="Introduce un título" value="${pcEsc(F.titulo)}" oninput="ASEO._tf.titulo=this.value">
       <textarea class="at-in" rows="4" placeholder="Añade una descripción…" oninput="ASEO._tf.desc=this.value">${pcEsc(F.desc)}</textarea>
@@ -65939,6 +65990,13 @@ function atFormPintar_() {
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt pri" id="at-ok" onclick="atGuardar_()">${F.id ? 'Guardar cambios' : 'Crear tarea'}</button><button type="button" class="ad-bt" onclick="${F.id ? `atAbrir_('${pcEsc(F.id)}','${F.fecha}')` : 'adCerrar_()'}">Cancelar</button></div>`;
 }
+window.atFormPrio_ = function (k) { ASEO._tf.prioridad = k; atFormPintar_(); };
+// Mantenimiento = reporte técnico: se cambia al formulario del reporte con los datos ya escritos.
+window.atFormDepto_ = function (v) {
+  if (v !== 'mantenimiento') { ASEO._tf.depto = v; return; }
+  const F = ASEO._tf;
+  rtFormA_(null, { hid: F.hid, titulo: F.titulo, desc: F.desc, fecha: F.fecha, prioridad: F.prioridad, asignados: F.asignados, reserva: F.reserva });
+};
 // Reservas activas (Booked) del alojamiento elegido que aún no terminan.
 function atReservas_() {
   const F = ASEO._tf, hoy = aseoHoyIso_();
@@ -66018,6 +66076,283 @@ window.atGuardar_ = async function () {
     atAbrir_(r.tarea.id, r.tarea.fecha);
   } catch (e) { alert('No se pudo guardar la tarea: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear tarea'; } }
 };
+// ═══════════════════════════════════════════════════════════════════════════
+// Prioridad homologada (4 niveles) para TODAS las tareas: Baja · Media · Alta · Crítica.
+// Se muestra igual en cards de aseo, tareas, reportes técnicos y tareas programadas.
+// ═══════════════════════════════════════════════════════════════════════════
+const PRIO4 = { baja: { t: 'Baja', c: '#3b82f6', n: 1 }, media: { t: 'Media', c: '#eab308', n: 2 }, alta: { t: 'Alta', c: '#f97316', n: 3 }, critica: { t: 'Crítica', c: '#dc2626', n: 4 } };
+const PRIO4_ORD = ['baja', 'media', 'alta', 'critica'];
+function prio4Key_(v) {
+  if (typeof v === 'number' || /^\d$/.test(String(v))) { const n = +v; return n <= 2 ? 'baja' : n === 3 ? 'media' : n === 4 ? 'alta' : 'critica'; } // escala anterior de 5
+  const s = String(v || '').trim().toLowerCase();
+  if (/^(p1|cr[ií]tic|urgente)/.test(s)) return 'critica';
+  if (/^(p2|alt)/.test(s)) return 'alta';
+  if (/^(p3|medi)/.test(s)) return 'media';
+  if (/^(p4|baj|el m)/.test(s)) return 'baja';
+  return 'media';
+}
+// Indicador de barras (1 a 4) + texto.
+function prio4Html_(v, sinTexto) {
+  const k = prio4Key_(v), P = PRIO4[k];
+  return `<span class="p4" style="--c:${P.c}" title="Prioridad ${P.t}"><span class="p4b">${[1, 2, 3, 4].map(i => `<i class="${i <= P.n ? 'on' : ''}"></i>`).join('')}</span>${sinTexto ? '' : `<b>${P.t}</b>`}</span>`;
+}
+// Selector de prioridad para formularios (4 botones con su indicador).
+function prio4Sel_(k, fn) {
+  return `<div class="at-prio" style="grid-template-columns:repeat(4,1fr)">${PRIO4_ORD.map(x => `<button type="button" class="${x === k ? 'on' : ''}" style="--c:${PRIO4[x].c}" onclick="${fn}('${x}')">${prio4Html_(x, true)} ${PRIO4[x].t}</button>`).join('')}</div>`;
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// Reportes técnicos = tareas de MANTENIMIENTO en Control de aseo (misma hoja Reportes_Tecnicos).
+// ═══════════════════════════════════════════════════════════════════════════
+const RT_A_EST = { nuevo: 'pendiente', en_proceso: 'en_proceso', resuelto: 'terminado', cancelado: 'cancelado' };   // reporte → aseo
+const A_RT_EST = { pendiente: 'nuevo', en_proceso: 'en_proceso', terminado: 'resuelto', cancelado: 'cancelado' };     // aseo → reporte
+function rtBool_(v) { return v === true || String(v).toUpperCase() === 'TRUE' || v === 'Sí'; }
+function rtHid_(row) {
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^calle\s+/, '').replace(/#/g, '').trim();
+  const p = norm(row.Propiedad), d = norm(row['# Departamento']);
+  if (!p && !row.Alojamiento) return '';
+  const a = ocupGetAlojamientos().find(x => (p && d && norm(x.propiedad) === p && norm(x.depto) === d) || (row.Alojamiento && norm(x.nombre).replace(/\s+/g, ' ') === norm(row.Alojamiento).replace(/\s*-\s*/, ' - ').replace(/\s+/g, ' ')));
+  return a ? String(a.houseId) : '';
+}
+// Carga (lenta: Apps Script ~5 s) → ASEO.rt; refresco cada 2 min y tras guardar.
+async function adRtLoad_(force) {
+  if (ASEO._rtLoading || (!force && Date.now() - (ASEO._rtTs || 0) < 120_000 && ASEO.rt)) return;
+  ASEO._rtLoading = true;
+  try {
+    const j = await fetch(`${BACKEND}/reportes-tecnicos-list?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    if (j && Array.isArray(j.rows)) {
+      ASEO.rt = j.rows.filter(r => r && r.ID); ASEO._rtTs = Date.now();
+      if (typeof RT_STATE !== 'undefined') { RT_STATE.list = ASEO.rt.slice(); RT_STATE.loaded = true; }
+      ASEO.calSig = ''; if (aseoVisible_()) aseoRender_();
+    }
+  } catch (e) { console.warn('[aseo] reportes técnicos:', e.message); }
+  finally { ASEO._rtLoading = false; }
+}
+// Reporte → objeto "tarea" de mantenimiento (para tablero, ventana y calendario).
+function rtTarea_(row) {
+  const est = RT_A_EST[_rtNormalizeEstado(row.Estado)] || 'pendiente';
+  return { id: 'R' + row.ID, rtId: String(row.ID), rt: row, hid: rtHid_(row), depto: 'mantenimiento', prioridad: prio4Key_(row.Prioridad), titulo: String(row.Titulo || '(sin título)'),
+    desc: String(row.Descripcion || ''), fecha: String(row.Fecha || '').slice(0, 10) || aseoHoyIso_(), estado: est,
+    asignados: String(row.Asignado_a || '').split(/\s*,\s*/).filter(Boolean), etiquetas: [], adjuntos: [], repite: null,
+    bloquea: rtBool_(row.Bloquea_habitabilidad), reincidente: rtBool_(row.Reincidente) };
+}
+function rtTareas_() { return (ASEO.rt || []).map(rtTarea_); }
+function rtAbierto_(t) { return t.rt && t.estado !== 'terminado' && t.estado !== 'cancelado'; }
+// Mantenimiento abierto por alojamiento (para los avisos de impacto en sus cards de aseo).
+function rtAbiertosDe_(hid) { return rtTareas_().filter(t => rtAbierto_(t) && String(t.hid) === String(hid)); }
+function rtAvisoImpacto_(hid) {
+  const L = rtAbiertosDe_(hid); if (!L.length) return null;
+  const blq = L.find(t => t.bloquea);
+  if (blq) return { c: 'red', t: `Inhabitable · ${blq.titulo}`, ico: '🚫' };
+  const top = L.slice().sort((a, b) => PRIO4[b.prioridad].n - PRIO4[a.prioridad].n)[0];
+  return { c: top.prioridad === 'critica' ? 'red' : top.prioridad === 'alta' ? 'orange' : 'mute', t: `Mantenimiento ${PRIO4[top.prioridad].t.toLowerCase()}${L.length > 1 ? ` (+${L.length - 1})` : ''} · ${top.titulo}`, ico: '🔧' };
+}
+// Cambiar estado / fecha de un reporte (optimista).
+async function rtPatch_(rtId, patch) {
+  const row = (ASEO.rt || []).find(r => String(r.ID) === String(rtId)); if (!row) return;
+  const prev = Object.assign({}, row);
+  Object.assign(row, patch, { Updated_at: new Date().toISOString() });
+  ASEO.calSig = ''; aseoRender_(); if (ASEO._dr) adPintar_();
+  try {
+    const r = await fetch(`${BACKEND}/reportes-tecnicos-upsert`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: Object.assign({ ID: row.ID, UpdatedAt: new Date().toISOString(), Updated_by: (typeof currentUser !== 'undefined' && currentUser) || 'aseo' }, patch) }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+  } catch (e) { Object.assign(row, prev); ASEO.calSig = ''; aseoRender_(); if (ASEO._dr) adPintar_(); alert('No se pudo guardar el reporte técnico: ' + (e.message || e)); }
+}
+window.adRtEst_ = function (rtId, k) {
+  const row = (ASEO.rt || []).find(r => String(r.ID) === String(rtId)); if (!row) return;
+  const nuevo = A_RT_EST[k]; if (!nuevo || _rtNormalizeEstado(row.Estado) === nuevo) return;
+  rtPatch_(rtId, { Estado: nuevo });
+};
+// ── Ventana lateral de un reporte técnico (mismo diseño que las demás tareas) ──
+window.rtAbrirA_ = function (rtId, dia, origen) {
+  ASEO._dr = { k: 'R' + rtId, rt: String(rtId), dia: dia || aseoDia_() }; adPintar_(true);
+  const t = rtTareas_().find(x => x.rtId === String(rtId)); adSync_('R' + rtId, t ? t.hid : '', ASEO._dr.dia, 'R:' + rtId, origen);
+};
+function rtFotos_(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
+function rtPintarA_(nuevo) {
+  const D0 = ASEO._dr, row = (ASEO.rt || []).find(r => String(r.ID) === D0.rt);
+  if (!row) { adCerrar_(); return; }
+  const t = rtTarea_(row), dr = atShell_();
+  const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
+  const a = t.hid ? atAloj_(t.hid) : { corto: '', nombre: row.Alojamiento || 'Sin alojamiento' };
+  const cat = RT_CATEGORIAS.find(c => c.key === row.Categoria) || RT_CATEGORIAS.find(c => c.key === 'otros');
+  const pasos = [['pendiente', 'Pendiente', '#94a3b8'], ['en_proceso', 'En proceso', '#f59e0b'], ['terminado', 'Terminado', '#10b981'], ['cancelado', 'Cancelado', '#64748b']];
+  const cur = pasos.find(p => p[0] === t.estado) || pasos[0];
+  const sig = pasos[Math.min(2, pasos.findIndex(p => p[0] === t.estado) + 1)];
+  const fotos = (lst, tit) => lst.length ? `<div class="lab">${tit}</div><div class="ad-adjs">${lst.map(u => `<a class="ad-adj" href="${pcEsc(u)}" target="_blank" rel="noopener"><img src="${pcEsc(huDriveThumb(u, 200))}" alt=""><span>Ver foto</span></a>`).join('')}</div>` : '';
+  const hoy = aseoHoyIso_(), atras = rtAbierto_(t) && t.fecha < hoy;
+  const id = pcEsc(t.rtId), resp = (RT_RESPONSABILIDADES.find(x => x.key === row.Responsabilidad) || {}).label, tipo = (RT_TIPOS.find(x => x.key === row.Tipo) || {}).label;
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(a.corto ? a.corto.toUpperCase() : '—')}</span><span class="t">${pcEsc(a.nombre)}</span><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
+      <div class="ad-tt">🔧 ${pcEsc(t.titulo)}</div>
+      <div class="ad-sub">Mantenimiento · ${pcEsc(row.Folio || row.ID)} · <i style="background:${cur[2]}"></i>${cur[1]} · ${prio4Html_(t.prioridad)}</div>
+      ${t.bloquea ? '<div class="ad-badge red"><i></i>Alojamiento inhabitable mientras no se resuelva</div>' : ''}
+      ${atras ? `<div class="ad-badge orange"><i></i>Atrasado · programado el ${aseoDiaTxt_(t.fecha)}</div>` : ''}</div>
+    <div class="ad-db">
+      <div class="lab">Estado</div><div class="ad-steps">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="adRtEst_('${id}','${p[0]}')">${p[1]}</button>`).join('')}</div>
+      ${row.Updated_at || row.Updated_by ? `<div class="ad-hint">Actualizado ${pcEsc(String(row.Updated_at || '').replace('T', ' ').slice(0, 16))}${row.Updated_by ? ' · ' + pcEsc(row.Updated_by) : ''}</div>` : ''}
+      <div class="lab">Descripción de la falla</div><div class="ad-desc">${pcEsc(t.desc || '—').replace(/\n/g, '<br>')}</div>
+      <div class="lab">Impacto en el alojamiento</div>
+      <div class="ad-kv"><span>Habitabilidad</span><b style="color:${t.bloquea ? '#dc2626' : '#059669'}">${t.bloquea ? '🚫 Inhabitable' : '✓ Habitable'}</b><span>Reincidente</span><b>${t.reincidente ? '↻ Sí, falla repetida' : 'No'}</b></div>
+      <div class="lab">Detalles</div>
+      <div class="ad-kv"><span>Categoría</span><b>${cat.icon} ${pcEsc(cat.label)}</b>${tipo ? `<span>Tipo</span><b>${pcEsc(tipo)}</b>` : ''}
+        <span>Programado</span><b>${aseoDiaTxt_(t.fecha)}</b>${row.Fecha_compromiso ? `<span>Compromiso</span><b>${aseoDiaTxt_(String(row.Fecha_compromiso).slice(0, 10))}</b>` : ''}
+        ${row.Reportado_por ? `<span>Reportado por</span><b>${pcEsc(row.Reportado_por)}</b>` : ''}${row.Proveedor ? `<span>Proveedor</span><b>${pcEsc(row.Proveedor)}</b>` : ''}
+        ${row.Huesped_nombre ? `<span>Huésped</span><b>${pcEsc(row.Huesped_nombre)}${row.Reservacion_id ? ' · ' + pcEsc(row.Reservacion_id) : ''}</b>` : ''}
+        ${resp ? `<span>Responsabilidad</span><b>${pcEsc(resp)}</b>` : ''}${row.Costo_total ? `<span>Costo</span><b>$${pcEsc(row.Costo_total)}${rtBool_(row.Cargar_a_huesped) ? ' · se carga al huésped' : ''}</b>` : ''}
+        ${row.Activo ? `<span>Activo</span><b>${pcEsc(row.Activo)}</b>` : ''}</div>
+      <div class="lab">Asignados</div><div class="ad-ppl">${t.asignados.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin asignar</div>'}</div>
+      ${fotos(rtFotos_(row.Fotos_antes_urls), 'Fotos antes')}${fotos(rtFotos_(row.Fotos_despues_urls), 'Fotos después')}
+      ${row.Descripcion_solucion ? `<div class="lab">Solución</div><div class="ad-desc">${pcEsc(row.Descripcion_solucion).replace(/\n/g, '<br>')}</div>` : ''}
+      ${row.Notas ? `<div class="lab">Notas</div><div class="ad-desc">${pcEsc(row.Notas).replace(/\n/g, '<br>')}</div>` : ''}
+    </div>
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="rtFormA_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="rtBorrarA_('${id}')">Eliminar</button>
+      ${t.estado === 'terminado' || t.estado === 'cancelado' ? `<button type="button" class="ad-bt ok" disabled>✓ ${cur[1]}</button>` : `<button type="button" class="ad-bt pri" onclick="adRtEst_('${id}','${sig[0]}')">Marcar ${sig[1].toLowerCase()}</button>`}</div>`;
+  if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
+}
+window.rtBorrarA_ = async function (rtId) {
+  const row = (ASEO.rt || []).find(r => String(r.ID) === String(rtId)); if (!row) return;
+  if (!confirm(`¿Eliminar el reporte técnico «${row.Titulo || ''}»?`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/reportes-tecnicos-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: row.ID }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    ASEO.rt = ASEO.rt.filter(x => String(x.ID) !== String(rtId)); adCerrar_(); ASEO.calSig = ''; aseoRender_();
+  } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+};
+// ── Formulario de MANTENIMIENTO (= reporte técnico) con el diseño de «Crea una tarea» ──
+window.rtFormA_ = function (rtId, pre) {
+  const row = rtId ? (ASEO.rt || []).find(r => String(r.ID) === String(rtId)) : null;
+  const t = row ? rtTarea_(row) : null;
+  const P = pre || {};
+  ASEO._rf = row ? Object.assign({}, row, { _hid: t.hid, _prio: t.prioridad, _asig: t.asignados.slice(), _bloq: t.bloquea, _rein: t.reincidente, _cargar: rtBool_(row.Cargar_a_huesped) })
+    : { ID: '', Estado: 'nuevo', Tipo: 'correctivo', Categoria: 'otros', Responsabilidad: 'indeterminada', Titulo: P.titulo || '', Descripcion: P.desc || '', Fecha: P.fecha || aseoDia_(),
+        Reservacion_id: P.reserva || '', _hid: P.hid || '', _prio: prio4Key_(P.prioridad || 'media'), _asig: (P.asignados || []).slice(), _bloq: false, _rein: false, _cargar: false,
+        Reportado_por: (typeof currentUser !== 'undefined' && currentUser) || '' };
+  ASEO._rfFotos = { antes: [], despues: [] };
+  ASEO._dr = { form: true, k: 'rform' };
+  rtFormPintarA_();
+};
+function rtFormPintarA_() {
+  const F = ASEO._rf, dr = atShell_();
+  const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
+  const sw = (on, fn, rojo) => `<span class="ad-sw ${on ? (rojo ? 'red' : '') : 'off'}" onclick="${fn}"></span>`;
+  const sel = (k, opts, v) => `<select class="at-in" onchange="ASEO._rf['${k}']=this.value">${opts.map(o => `<option value="${o.key}" ${o.key === v ? 'selected' : ''}>${o.icon ? o.icon + ' ' : ''}${o.label}</option>`).join('')}</select>`;
+  const inp = (k, ph, type) => `<input class="at-in" ${type ? `type="${type}"` : ''} placeholder="${ph || ''}" value="${pcEsc(F[k] == null ? '' : String(F[k]).slice(0, type === 'date' ? 10 : 9999))}" oninput="ASEO._rf['${k}']=this.value">`;
+  const fotosHtml = tipo => {
+    const ya = rtFotos_(F[tipo === 'antes' ? 'Fotos_antes_urls' : 'Fotos_despues_urls']), nuevos = ASEO._rfFotos[tipo];
+    return `${ya.map(u => `<a class="ad-adj" href="${pcEsc(u)}" target="_blank"><img src="${pcEsc(huDriveThumb(u, 120))}" alt=""><span>Guardada</span></a>`).join('')}${nuevos.map((f, i) => `<span class="ad-adj"><span class="fi">📷</span><span>${pcEsc(f.name)}</span><b onclick="ASEO._rfFotos.${tipo}.splice(${i},1);rtFormPintarA_()">✕</b></span>`).join('')}`;
+  };
+  const resL = F._hid ? pcMovBookings_().filter(b => String(b.HouseId) === String(F._hid) && /^booked$/i.test(String(b.Status || '').trim()) && _pagosDateIso(b.DateDeparture) >= aseoHoyIso_()) : [];
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.ID ? 'Editar reporte técnico' : 'Crea una tarea'}</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>${F.Folio ? `<div class="ad-sub">${pcEsc(F.Folio)}</div>` : ''}</div>
+    <div class="ad-db at-f">
+      <label class="at-l">Alojamiento <i>*</i></label>
+      <select class="at-in" onchange="ASEO._rf._hid=this.value;ASEO._rf.Reservacion_id='';rtFormPintarA_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F._hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
+      <label class="at-l">Departamento <i>*</i></label>
+      <select class="at-in" ${F.ID ? 'disabled title="Un reporte técnico siempre es de Mantenimiento"' : ''} onchange="rtFormCambiarDepto_(this.value)">${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${k === 'mantenimiento' ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
+      <div class="at-hint">Mantenimiento = reporte técnico (se guarda en «Reportes técnicos»).</div>
+      <div class="at-sec"><span>☑ Detalles del reporte</span></div>
+      <label class="at-l">Prioridad</label>${prio4Sel_(F._prio, 'rtFormPrio_')}
+      <label class="at-l">Categoría</label>${sel('Categoria', RT_CATEGORIAS, F.Categoria || 'otros')}
+      <label class="at-l">Título de la tarea <i>*</i></label>${inp('Titulo', 'Ej. Fuga en la llave del lavabo')}
+      <label class="at-l">Descripción de la falla <i>*</i></label><textarea class="at-in" rows="4" placeholder="¿Qué falla y dónde?" oninput="ASEO._rf.Descripcion=this.value">${pcEsc(F.Descripcion || '')}</textarea>
+      <div class="at-sec"><span>🚨 Impacto en el alojamiento</span></div>
+      <div class="ad-tgl" onclick="ASEO._rf._bloq=!ASEO._rf._bloq;rtFormPintarA_()"><div><b>Bloquea habitabilidad</b><small>El alojamiento queda inhabitable hasta resolverlo</small></div>${sw(F._bloq, '', true)}</div>
+      <div class="ad-tgl" style="margin-top:6px" onclick="ASEO._rf._rein=!ASEO._rf._rein;rtFormPintarA_()"><div><b>Reincidente</b><small>Falla repetida del mismo activo</small></div>${sw(F._rein, '')}</div>
+      <div class="at-sec"><span>📅 Programar</span></div>
+      <div class="at-row"><span class="at-k">Vence el</span>${inp('Fecha', '', 'date')}</div>
+      <div class="at-row"><span class="at-k">Compromiso</span>${inp('Fecha_compromiso', '', 'date')}</div>
+      <div class="at-sec"><span>👤 Asignados</span><button type="button" class="ad-link" onclick="rtFormAsig_(this)">＋ Añadir asignado</button></div>
+      <div class="at-chips" id="rt-asig">${rtAsigChips_()}</div>
+      <div class="at-sec"><span>📷 Evidencia</span></div>
+      <div class="at-row" style="justify-content:space-between"><span class="at-k" style="width:auto">Fotos antes</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="rtFormFotos_(this,'antes')"></label></div>
+      <div class="ad-adjs">${fotosHtml('antes')}</div>
+      <div class="at-row" style="justify-content:space-between"><span class="at-k" style="width:auto">Fotos después</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="rtFormFotos_(this,'despues')"></label></div>
+      <div class="ad-adjs">${fotosHtml('despues')}</div>
+      <label class="at-l">Descripción de la solución</label><textarea class="at-in" rows="2" oninput="ASEO._rf.Descripcion_solucion=this.value">${pcEsc(F.Descripcion_solucion || '')}</textarea>
+      <div class="at-sec"><span>🛏️ Enlazado reservas</span></div>
+      ${F._hid ? `<select class="at-in" onchange="ASEO._rf.Reservacion_id=this.value"><option value="">Sin reserva enlazada</option>${resL.map(b => `<option value="${pcEsc(String(b.Id))}" ${String(b.Id) === String(F.Reservacion_id) ? 'selected' : ''}>${pcEsc(b.GuestName || 'Sin nombre')} · ${pcFmtDiaC_(_pagosDateIso(b.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(b.DateDeparture))}</option>`).join('')}</select>` : '<div class="at-hint">Elige primero el alojamiento.</div>'}
+      <details class="ad-res" ${F.Proveedor || F.Costo_total ? 'open' : ''}><summary>💰 Costos, responsabilidad y más</summary>
+        <label class="at-l">Tipo</label>${sel('Tipo', RT_TIPOS, F.Tipo || 'correctivo')}
+        <label class="at-l">Responsabilidad</label>${sel('Responsabilidad', RT_RESPONSABILIDADES, F.Responsabilidad || 'indeterminada')}
+        <div class="at-row"><span class="at-k">Costo (MXN)</span>${inp('Costo_total', '0', 'number')}</div>
+        <div class="ad-tgl" style="margin-top:8px" onclick="ASEO._rf._cargar=!ASEO._rf._cargar;rtFormPintarA_()"><div><b>Cargar al huésped</b></div>${sw(F._cargar, '')}</div>
+        <label class="at-l">Proveedor</label>${inp('Proveedor', 'Opcional')}
+        <label class="at-l">Activo</label>${inp('Activo', 'Ej. Boiler, minisplit recámara')}
+        <label class="at-l">Reportado por</label>${inp('Reportado_por', '')}
+        <label class="at-l">Notas / bitácora</label><textarea class="at-in" rows="2" oninput="ASEO._rf.Notas=this.value">${pcEsc(F.Notas || '')}</textarea>
+      </details>
+    </div>
+    <div class="ad-ft">${F.ID ? `<button type="button" class="ad-bt" style="color:#b91c1c" onclick="rtBorrarA_('${pcEsc(F.ID)}')">Eliminar</button>` : ''}<button type="button" class="ad-bt" onclick="${F.ID ? `rtAbrirA_('${pcEsc(F.ID)}')` : 'adCerrar_()'}">Cancelar</button><button type="button" class="ad-bt pri" id="rt-ok" onclick="rtGuardarA_()">${F.ID ? 'Guardar cambios' : 'Crear tarea'}</button></div>`;
+}
+window.rtFormPrio_ = function (k) { ASEO._rf._prio = k; rtFormPintarA_(); };
+function rtAsigChips_() { return (ASEO._rf._asig || []).map(n => `<span class="at-chip" data-n="${pcEsc(n)}">${adAv_(n)}${pcEsc(n)}<b onclick="ASEO._rf._asig=ASEO._rf._asig.filter(x=>x!==this.parentNode.dataset.n);document.getElementById('rt-asig').innerHTML=rtAsigChips_()">✕</b></span>`).join('') || '<span class="at-hint">Sin asignar</span>'; }
+// Lista del personal (marcar no re-dibuja la lista).
+window.rtFormAsig_ = function (anchor) {
+  const saveTf = ASEO._tf; ASEO._tf = { asignados: ASEO._rf._asig };
+  atAsignar_(anchor);
+  // atAsigPick_ escribe en ASEO._tf.asignados (mismo arreglo) y repinta #at-asig → aquí #rt-asig.
+  const obs = setInterval(() => { const c = document.getElementById('rt-asig'); if (c) c.innerHTML = rtAsigChips_(); if (!document.querySelector('.pz-pop')) { clearInterval(obs); ASEO._tf = saveTf; } }, 250);
+};
+window.rtFormFotos_ = function (inp, tipo) { [...(inp.files || [])].forEach(f => ASEO._rfFotos[tipo].push(f)); inp.value = ''; rtFormPintarA_(); };
+// Cambiar a Limpieza / Inspección: pasa los datos al formulario de tarea.
+window.rtFormCambiarDepto_ = function (v) {
+  if (v === 'mantenimiento') return;
+  const F = ASEO._rf;
+  atForm_(null, F._hid, String(F.Fecha || '').slice(0, 10));
+  Object.assign(ASEO._tf, { depto: v, titulo: F.Titulo || '', desc: F.Descripcion || '', prioridad: F._prio, asignados: (F._asig || []).slice(), reserva: F.Reservacion_id || '' });
+  atFormPintar_();
+};
+window.rtGuardarA_ = async function () {
+  const F = ASEO._rf;
+  if (!F._hid) return alert('Elige el alojamiento.');
+  if (!String(F.Titulo || '').trim()) return alert('Escribe el título.');
+  if (!String(F.Descripcion || '').trim()) return alert('Describe la falla.');
+  const a = atAloj_(F._hid);
+  const btn = document.getElementById('rt-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  const user = (typeof currentUser !== 'undefined' && currentUser) || '';
+  const res = F.Reservacion_id ? pcMovBookings_().find(b => String(b.Id) === String(F.Reservacion_id)) : null;
+  const payload = { Fecha: String(F.Fecha || aseoDia_()).slice(0, 10), Estado: F.ID ? F.Estado : 'nuevo', Prioridad: F._prio, Tipo: F.Tipo || 'correctivo', Categoria: F.Categoria || 'otros',
+    Propiedad: a.propiedad || '', '# Departamento': a.depto || '', Alojamiento: a.propiedad ? `${a.propiedad} - #${a.depto}` : (a.nombre || ''), Activo: F.Activo || '',
+    Titulo: String(F.Titulo).trim(), Descripcion: String(F.Descripcion).trim(), Descripcion_solucion: F.Descripcion_solucion || '', Reportado_por: F.Reportado_por || user,
+    Asignado_a: (F._asig || []).join(', '), Proveedor: F.Proveedor || '', Fecha_compromiso: String(F.Fecha_compromiso || '').slice(0, 10), Bloquea_habitabilidad: !!F._bloq,
+    Reincidente: !!F._rein, Responsabilidad: F.Responsabilidad || 'indeterminada', Costo_total: F.Costo_total || '', Cargar_a_huesped: !!F._cargar,
+    Reservacion_id: F.Reservacion_id || '', Huesped_nombre: res ? (res.GuestName || '') : (F.Huesped_nombre || ''), Notas: F.Notas || '', UpdatedAt: new Date().toISOString(), Updated_by: user };
+  if (F.ID) payload.ID = F.ID;
+  try {
+    const conv = f => _rtFileToBase64(f).then(base64 => ({ name: f.name || `rt_${Date.now()}.jpg`, mimeType: f.type || 'image/jpeg', base64 }));
+    const [fa, fd] = await Promise.all([Promise.all(ASEO._rfFotos.antes.map(conv)), Promise.all(ASEO._rfFotos.despues.map(conv))]);
+    const body = { payload }; if (fa.length) body.fotos_antes = fa; if (fd.length) body.fotos_despues = fd;
+    const r = await fetch(`${BACKEND}/reportes-tecnicos-upsert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    const id = String(r.id || F.ID);
+    ASEO.rt = ASEO.rt || [];
+    const i = ASEO.rt.findIndex(x => String(x.ID) === id);
+    const fila = Object.assign(i >= 0 ? ASEO.rt[i] : { Timestamp: new Date().toISOString() }, payload, { ID: id, Folio: r.folio || F.Folio || id });
+    if (i < 0) ASEO.rt.unshift(fila);
+    ASEO._rf = null; ASEO.calSig = ''; aseoRender_();
+    rtAbrirA_(id, fila.Fecha);
+    setTimeout(() => adRtLoad_(true), 1500); // fotos y folio definitivos
+  } catch (e) { alert('No se pudo guardar el reporte técnico: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.ID ? 'Guardar cambios' : 'Crear tarea'; } }
+};
+
+// Otros módulos (Notificaciones, Lodgify, Chats) abren el reporte técnico con el nuevo diseño.
+(function () {
+  const viejo = window.rtOpenCapture, viejoFor = window.rtOpenCaptureFor;
+  const asegurar = () => { if (!(ASEO.rt && ASEO.rt.length) && typeof RT_STATE !== 'undefined' && (RT_STATE.list || []).length) ASEO.rt = RT_STATE.list.slice(); };
+  window.rtOpenCapture = function (id) {
+    asegurar();
+    if (!id) return rtFormA_(null);
+    const row = (ASEO.rt || []).find(r => String(r.ID) === String(id));
+    if (!row) return viejo ? viejo(id) : null;
+    rtAbrirA_(String(id), String(row.Fecha || '').slice(0, 10) || aseoHoyIso_());
+  };
+  window.rtOpenCaptureFor = function (prop, dept, arr) {
+    asegurar();
+    const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^calle\s+/, '').replace(/#/g, '').trim();
+    const a = ocupGetAlojamientos().find(x => norm(x.propiedad) === norm(prop) && norm(x.depto) === norm(dept));
+    if (!a && viejoFor) return viejoFor.apply(null, arguments);
+    rtFormA_(null, { hid: a ? a.houseId : '', fecha: String(arr || '').slice(0, 10) || aseoHoyIso_() });
+  };
+})();
 function aseoRenderSide_() {
   const side = document.getElementById('aseo-side'); if (!side) return;
   if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>'; return; }
