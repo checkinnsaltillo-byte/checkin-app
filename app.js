@@ -57581,7 +57581,7 @@ function tarRender() { tdRender_(); }
 const TD_EST = { 'Pendiente': '#94a3b8', 'En proceso': '#f59e0b', 'Resuelto': '#10b981', 'Cancelado': '#64748b' };
 const TD_CORTO = { 'Pendiente': 'Pend.', 'En proceso': 'Proceso', 'Resuelto': 'Resuelto', 'Cancelado': 'Cancel.' };
 const TD_TIPO = { tar: { t: 'Tarea programada', c: '#7c3aed' }, rec: { t: 'Recordatorio', c: '#f59e0b' } };
-const TD_PRIO = { 'Bajo': { ico: '↓', c: '#2563eb' }, 'Medio': { ico: '◇', c: '#ca8a04' }, 'Alto': { ico: '↑', c: '#ea580c' }, 'Crítico': { ico: '⇈', c: '#dc2626' } };
+const TD_PRIO = { 'Bajo': { ico: '↓', c: '#2563eb' }, 'Medio': { ico: '◇', c: '#ca8a04' }, 'Alto': { ico: '↑', c: '#ea580c' }, 'Crítico': { ico: '‼', c: '#dc2626' } };
 function tdDia_() { return TAR_STATE.dia || tarIso_(tarToday_()); }
 function tdEst_(r, iso) { return tarOcurEstado_(r.ID, iso); }
 function tdTipoK_(r) { return tarEsRec_(r) ? 'rec' : 'tar'; }
@@ -57703,7 +57703,7 @@ function tdCard_(r, dia) {
   else if (r.Prioridad === 'Crítico' && !['Resuelto', 'Cancelado'].includes(est)) flag = '<div class="flag red"><i></i>Prioridad crítica</div>';
   const meta = [`<span class="ty" style="color:${T.c}">${T.t}</span>`];
   if (r.Clasificacion) meta.push(`<span>${esc(r.Clasificacion)}${r.Subclasificacion ? ' › ' + esc(r.Subclasificacion) : ''}</span>`);
-  if (tarEsRec_(r)) meta.push(`<span>${esc(tarRecTexto_(r))}</span>`); else if ((r.Naturaleza || '') === 'Recurrente') meta.push('<span>↻ Recurrente</span>');
+  if (tarEsRec_(r)) { const ini = typeof tarRecInicio_ === 'function' ? tarRecInicio_(r) : ''; meta.push(`<span>${ini ? 'Desde ' + esc(tarFmtFecha_(ini).replace(/ \d{4}$/, '')) : 'Hasta resolverse'}</span>`); } else if ((r.Naturaleza || '') === 'Recurrente') meta.push('<span>↻ Recurrente</span>');
   if (r.Origen === 'Bot WhatsApp') meta.push('<span>🤖 Bot</span>');
   if (r.Proceso_Codigo) meta.push(`<span>📘 ${esc(r.Proceso_Codigo)}</span>`);
   const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${TAR_ESTADOS.map(e => `<button type="button" class="${e.k === est ? 'on' : ''}" style="--c:${TD_EST[e.k]}" title="${e.k}" onclick="event.stopPropagation();${e.k === est ? '' : `tdSetEst_('${esc(r.ID)}','${dia}','${e.k}')`}"><i></i>${TD_CORTO[e.k]}</button>`).join('')}</div>`;
@@ -58544,13 +58544,13 @@ function tarPanelRender_() {
     </div>
     <div style="flex:1;overflow:auto;padding:14px 20px 18px">
       ${P.fecha ? `
-      <div style="margin-bottom:18px;padding:14px;border:2px solid #c4b5fd;border-radius:12px;background:linear-gradient(180deg,#faf5ff,#fff)">
-        <div style="font-size:13px;font-weight:900;color:#5b21b6;margin-bottom:10px">📅 ${esc(['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][tarParseIso_(P.fecha).getDay()])} ${esc(tarFmtFecha_(P.fecha))} — estado de este día</div>
+      <div style="margin-bottom:16px;padding:12px;border:1px solid #e8eaee;border-radius:10px;background:#fafafa">
+        <div style="font-size:12.5px;font-weight:600;color:#0f1729;margin-bottom:9px">📅 ${esc(['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][tarParseIso_(P.fecha).getDay()])} ${esc(tarFmtFecha_(P.fecha))} — estado de este día</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${TAR_ESTADOS.map(e => tarPill_(P.oc.Estado === e.k, e.k, `tarSetOcEstado('${e.k}')`, { fg: e.fg, bg: e.bg, bd: e.bd })).join('')}</div>
         <textarea rows="2" oninput="tarSetOcText(this.value)" placeholder="Comentarios de este día…" style="${inp};resize:vertical">${esc(P.oc.Comentarios || '')}</textarea>
         ${(() => { const o = tarOcur_(P.id, P.fecha); return o && o.Atendido_por ? `<div style="font-size:11px;color:#64748b;margin-top:6px">Último cambio: ${esc(o.Atendido_por)}${o.Updated_at ? ' · ' + esc(String(o.Updated_at).replace('T', ' ').slice(0, 16)) : ''}</div>` : ''; })()}
       </div>
-      <div style="font-size:10.5px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">${rec ? 'Datos del recordatorio' : 'Definición de la tarea (aplica a todas sus fechas)'}</div>` : ''}
+      <div style="font-size:10.5px;font-weight:600;color:#9aa1ad;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">${rec ? 'Datos del recordatorio' : 'Definición de la tarea (aplica a todas sus fechas)'}</div>` : ''}
       ${tipoHtml}
       ${d.Proceso_ID ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:10px 12px;border:1.5px solid #c7d2fe;border-radius:10px;background:#eef2ff">
         <span style="font-size:18px">📘</span>
@@ -65796,7 +65796,7 @@ function adPintar_(nuevo) {
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipo de tarea: franja izquierda de color en cards y tarjetas del calendario (los aseos por reserva son Limpieza).
 const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
-const AT_PRIO = [null, { t: 'El más bajo', ico: '⇊', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '⇈', c: '#dc2626' }];
+const AT_PRIO = [null, { t: 'El más bajo', ico: '↓↓', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '‼', c: '#dc2626' }];
 const AT_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const AT_ORD = ['', '1.º', '2.º', '3.º', '4.º', '5.º'];
 function atD_(iso) { return new Date(iso + 'T12:00:00'); }
