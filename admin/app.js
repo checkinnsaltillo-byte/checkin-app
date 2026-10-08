@@ -62339,7 +62339,6 @@ const NAV_TREE = {
 };
 
 
-const NAV_HOVER = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 function navBuild_() {
   const menu = document.querySelector('#nav-sidebar .nav-menu');
   if (!menu || menu.dataset.built) return;
@@ -62362,24 +62361,13 @@ function navBuild_() {
         ${s.subs && s.subs.length ? `<ul class="nav-subs">${s.subs.map((u, j) => `<li class="nav-subsec" onclick="navRun_('${mod}',${i},${j})">${u.t}</li>`).join('')}</ul>` : ''}
       </li>`).join('')}</ul>`;
     item.after(box);
-    if (NAV_HOVER) {
-      let t = null;
-      const enter = () => { clearTimeout(t); navOpen_(mod, true); };
-      const leave = () => { clearTimeout(t); t = setTimeout(() => { if (!item.classList.contains('active') && !item.classList.contains('pinned')) navOpen_(mod, false); }, 220); };
-      item.addEventListener('mouseenter', enter); item.addEventListener('mouseleave', leave);
-      box.addEventListener('mouseenter', enter); box.addEventListener('mouseleave', leave);
-      box.querySelectorAll('.nav-sec.has-subs').forEach(sec => {
-        sec.addEventListener('mouseenter', () => sec.classList.add('open'));
-        sec.addEventListener('mouseleave', () => sec.classList.remove('open'));
-      });
-    } else {
-      // Táctil: tocar el nombre de un módulo con secciones las despliega (no navega);
-      // la primera sección abre el módulo.
-      item.addEventListener('click', ev => {
-        if (ev.target.closest('.nav-car')) return;
-        if (!item.classList.contains('open')) { ev.stopImmediatePropagation(); ev.preventDefault(); navToggle_(mod); }
-      }, true);
-    }
+    // Solo con click (antes se desplegaba al pasar el cursor): el primer click en el nombre de un
+    // módulo con secciones las despliega (no navega); con las secciones abiertas, el click abre el módulo.
+    // La flecha › despliega o pliega en cualquier momento.
+    item.addEventListener('click', ev => {
+      if (ev.target.closest('.nav-car')) return;
+      if (!item.classList.contains('open')) { ev.stopImmediatePropagation(); ev.preventDefault(); navToggle_(mod); }
+    }, true);
   });
   navSyncActive_();
 }
