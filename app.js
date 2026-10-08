@@ -65567,18 +65567,22 @@ window.axSet_ = function (k, patch, hid) {
     .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); })
     .catch(e => { if (prev) ASEO.extra[k] = prev; else delete ASEO.extra[k]; aseoRender_(); alert('No se pudo guardar: ' + (e.message || e)); });
 };
-function axFila_(k, autoCO, hid) {
+// «Reportar incidencia» abre el formulario de Incidencias con el alojamiento y la fecha de la card;
+// al guardarla la card queda marcada «⚠️ Incidencia» (clic en ella la quita).
+window.axReportar_ = function (k, hid, dia) { icForm_(null, { hid: hid || '', fecha: dia || aseoDia_(), desdeK: k }); };
+function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')); return inc ? `axSet_('${sk}',{incidencia:false},'${sh}')` : `axReportar_('${sk}','${sh}','${pcEsc(String(dia || ''))}')`; }
+function axFila_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
   return `<div class="r4">${co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
-    <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();axSet_('${sk}',{incidencia:${!inc}},'${sh}')" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</button></div>`;
+    <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</button></div>`;
 }
-function axDetalle_(k, autoCO, hid) {
+function axDetalle_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
   return `<div class="lab">Tipo de servicio</div><div class="ad-steps" style="grid-template-columns:1fr 1fr">
       <button type="button" class="${co ? 'on' : ''}" style="--c:#0f766e" onclick="axSet_('${sk}',{checkout:true},'${sh}')">⇥ Check-out</button>
       <button type="button" class="${co ? '' : 'on'}" style="--c:#9aa1ad" onclick="axSet_('${sk}',{checkout:false},'${sh}')">General</button></div>
     ${autoCO ? '<div class="ad-hint">Asignado automáticamente: la card se generó en la fecha de salida de la reserva.</div>' : ''}
-    <div class="ad-tgl" style="margin-top:10px" onclick="axSet_('${sk}',{incidencia:${!inc}},'${sh}')"><div><b>${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Actívalo si hubo un problema con esta tarea'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
+    <div class="ad-tgl" style="margin-top:10px" onclick="${axIncClick_(k, inc, hid, dia)}"><div><b>${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Abre el formulario de incidencia con este alojamiento y fecha'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
 }
 // ── Card compacta del tablero ──
 function adCard_(I) {
@@ -65601,7 +65605,7 @@ function adCard_(I) {
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
-    ${axFila_(I.asigId, I.g.sal.length > 0, I.hid)}
+    ${axFila_(I.asigId, I.g.sal.length > 0, I.hid, aseoDia_())}
     <div class="r3">${equipo}<span class="sp"></span>${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
@@ -65920,7 +65924,7 @@ function adPintar_(nuevo) {
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
       <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${nota}
-      ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid)}
+      ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
       <div class="lab">Solicitudes</div><div class="ad-grid2">${sol('tard', I.xs, I.trd)}${sol('temp', I.xe, I.temp)}</div>
       <div class="lab">Equipo</div><div class="ad-ppl">${I.pA.map(n => per(n, 'Aseo')).join('')}${I.pI.map(n => per(n, 'Inspección')).join('')}${!I.pA.length && !I.pI.length ? '<div class="ad-un">Sin asignar</div>' : ''}
@@ -66003,7 +66007,7 @@ function rtCardA_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
     ${flags.join('')}
     <div class="r2"><span class="ty" style="color:${D.c}">Mantenimiento</span><span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
-    ${axFila_('R' + t.rtId, false, t.hid)}
+    ${axFila_('R' + t.rtId, false, t.hid, I.dia || t.fecha)}
     <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
     <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
   </div>`;
@@ -66017,7 +66021,7 @@ function atCard_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
-    ${axFila_('T' + t.id, false, t.hid)}
+    ${axFila_('T' + t.id, false, t.hid, I.dia)}
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
@@ -66052,7 +66056,7 @@ function atPintar_(nuevo) {
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
       <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
-      ${axDetalle_('T' + t.id, false, t.hid)}
+      ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
       ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Programada</span><b>${aseoDiaTxt_(t.fecha)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''}</b>
@@ -66354,7 +66358,7 @@ function rtPintarA_(nuevo) {
       <div class="lab">Estado</div><div class="ad-steps">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="adRtEst_('${id}','${p[0]}')">${p[1]}</button>`).join('')}</div>
       ${row.Updated_at || row.Updated_by ? `<div class="ad-hint">Actualizado ${pcEsc(String(row.Updated_at || '').replace('T', ' ').slice(0, 16))}${row.Updated_by ? ' · ' + pcEsc(row.Updated_by) : ''}</div>` : ''}
       <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${k === 'mantenimiento' ? 'on' : ''}" style="--c:${X.c}" onclick="${k === 'mantenimiento' ? '' : `rtFormA_('${id}');rtFormCambiarDepto_('${k}')`}">${X.ico} ${X.t}</button>`).join('')}</div>
-      ${axDetalle_('R' + t.rtId, false, t.hid)}
+      ${axDetalle_('R' + t.rtId, false, t.hid, t.fecha)}
       <div class="lab">Descripción de la falla</div><div class="ad-desc">${pcEsc(t.desc || '—').replace(/\n/g, '<br>')}</div>
       <div class="lab">Impacto en el alojamiento</div>
       <div class="ad-kv"><span>Habitabilidad</span><b style="color:${t.bloquea ? '#dc2626' : '#059669'}">${t.bloquea ? '🚫 Inhabitable' : '✓ Habitable'}</b><span>Reincidente</span><b>${t.reincidente ? '↻ Sí, falla repetida' : 'No'}</b></div>
@@ -67095,7 +67099,7 @@ function icPintar_(nuevo) {
       <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
-        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b><span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
+        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
     </div>
@@ -67111,7 +67115,8 @@ window.icForm_ = function (id, pre) {
   const yo = (typeof currentUser !== 'undefined' && currentUser) || '';
   IC.dr = { id: id ? String(id) : '' };
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
-    : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '' };
+    : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
+  IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
   icFormPintar_();
 };
 function icClasDe_(mots) {
@@ -67123,7 +67128,22 @@ function icFotosForm_() {
   return IC.f.keep.map((u, i) => `<span><img src="${pcEsc(icFoto_(u, 300))}" alt=""><b onclick="IC.f.keep.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('')
     + IC.f.nuevas.map((f, i) => `<span><img src="data:${f.mimeType};base64,${f.base64}" alt=""><b onclick="IC.f.nuevas.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('');
 }
+// Reservas del alojamiento que entran o salen en la fecha de la incidencia.
+function icReservas_(hid, fecha) {
+  if (!hid || !fecha || typeof pcMovBookings_ !== 'function') return [];
+  return pcMovBookings_().filter(b => String(b.HouseId) === String(hid) && !/cancel|declin/i.test(String(b.Status || '')) && (_pagosDateIso(b.DateArrival) === fecha || _pagosDateIso(b.DateDeparture) === fecha))
+    .map(b => ({ b, sale: _pagosDateIso(b.DateDeparture) === fecha })).sort((a, b) => Number(b.sale) - Number(a.sale));
+}
+function icResSelect_() {
+  const F = IC.f, L = icReservas_(F.hid, F.fecha);
+  if (!F.hid) return '<div class="at-hint">Elige primero el alojamiento.</div>';
+  const ya = F.reserva && !L.some(x => String(x.b.Id) === String(F.reserva));
+  return `<select class="at-in" onchange="icFormRes_(this.value)"><option value="">Sin reserva enlazada</option>${ya ? `<option value="${pcEsc(F.reserva)}" selected>${pcEsc(F.huesped || 'Reserva ' + F.reserva)}</option>` : ''}${L.map(({ b, sale }) => `<option value="${pcEsc(String(b.Id))}" ${String(b.Id) === String(F.reserva) ? 'selected' : ''}>${sale ? '↗ Sale' : '↘ Entra'} · ${pcEsc(b.GuestName || 'Sin nombre')} · ${pcFmtDiaC_(_pagosDateIso(b.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(b.DateDeparture))}</option>`).join('')}</select>
+    ${L.length || ya ? '<div class="at-hint">Opcional: reservas que entran o salen de este alojamiento en la fecha elegida.</div>' : '<div class="at-hint">Ninguna reserva entra ni sale de este alojamiento en esa fecha.</div>'}`;
+}
+window.icFormRes_ = function (v) { const F = IC.f; F.reserva = v; const b = v ? pcMovBookings_().find(x => String(x.Id) === String(v)) : null; F.huesped = b ? (b.GuestName || '') : (v ? F.huesped : ''); };
 function icFormPintar_() {
+  icCss_();
   const F = IC.f, dr = icShell_();
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
@@ -67132,8 +67152,9 @@ function icFormPintar_() {
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
     <div class="ad-db at-f">
       <label class="at-l">Alojamiento <i>*</i></label>
-      <select class="at-in" onchange="IC.f.hid=this.value"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
-      <div class="at-row"><span class="at-k">Fecha</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" onchange="IC.f.fecha=this.value"></div>
+      <select class="at-in" onchange="IC.f.hid=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
+      <div class="at-row"><span class="at-k">Fecha</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" onchange="IC.f.fecha=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"></div>
+      <label class="at-l">Reserva</label>${icResSelect_()}
       <label class="at-l">Motivo <i>*</i></label>
       <div class="ic-mots">${mots.map(m => `<button type="button" class="ic-mot ${F.mot.includes(m) ? 'on' : ''}" style="--c:${icMotC_(m).c}" data-m="${pcEsc(m)}" onclick="icFormTog_('mot',this.dataset.m)">${icMotC_(m).ico} ${pcEsc(m)}</button>`).join('')}</div>
       <label class="at-l">Sub-motivo</label>
@@ -67184,14 +67205,14 @@ window.icGuardar_ = async function () {
   const propiedad = a ? (a.propiedad || '') : String((old && old.Propiedad) || ''), depto = a ? String(a.depto || '') : String((old && old['# Departamento']) || '');
   const datos = { fecha: F.fecha, propiedad, depto, alojamiento: propiedad && depto ? `${propiedad} - #${depto}` : (propiedad || (a && a.nombre) || F.alojTxt || ''),
     personas: F.pers.slice(), motivos: F.mot.slice(), clasificaciones: F.clas.slice(), nivel: IC_NIV[F.prio], estatus: F.est, reportante: F.rep,
-    descripcion: String(F.desc || '').trim(), acciones: String(F.acc || '').trim(), seguimiento: String(F.seg || '').trim() };
+    descripcion: String(F.desc || '').trim(), acciones: String(F.acc || '').trim(), seguimiento: String(F.seg || '').trim(), reserva: F.reserva || '', huesped: F.reserva ? (F.huesped || '') : '' };
   const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
     let id = F.id;
     if (F.id) {
       const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F.id, fields: Object.assign({}, datos, { UpdatedAt: new Date().toISOString() }), fotos: F.nuevas, keepUrls: F.keep }) }).then(r => r.json());
       if (!out.ok) throw new Error(out.error || 'Error');
-      const C = { fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento', alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos', clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus', reportante: 'Reportante', descripcion: 'Descripcion', acciones: 'Acciones', seguimiento: 'Seguimiento' };
+      const C = { fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento', alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos', clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus', reportante: 'Reportante', descripcion: 'Descripcion', acciones: 'Acciones', seguimiento: 'Seguimiento', reserva: 'Reservacion_id', huesped: 'Huesped_nombre' };
       if (old) { Object.keys(C).forEach(k => { old[C[k]] = Array.isArray(datos[k]) ? datos[k].join(', ') : datos[k]; }); if (typeof out.fotos_urls === 'string') old.Fotos_URLs = out.fotos_urls; old.UpdatedAt = new Date().toISOString(); }
     } else {
       const out = await fetch(`${BACKEND}/save-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: datos, fotos: F.nuevas }) }).then(r => r.json());
@@ -67199,9 +67220,10 @@ window.icGuardar_ = async function () {
       id = String(out.id || '');
       INC_STATE.list = INC_STATE.list || [];
       INC_STATE.list.unshift({ ID: id, Timestamp: new Date().toISOString(), Fecha: datos.fecha, Propiedad: propiedad, '# Departamento': depto, Alojamiento: datos.alojamiento, Personas: datos.personas.join(', '), Motivos: datos.motivos.join(', '), Clasificacion: datos.clasificaciones.join(', '),
-        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Fotos_URLs: '' });
+        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Fotos_URLs: '' });
       if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
     }
+    if (F.desdeK && id) { try { axSet_(F.desdeK, { incidencia: true }, F.hid); } catch (_) {} } // la card de origen queda «⚠️ Incidencia»
     IC.f = null; icRender_();
     if (id) icAbrir_(id); else icCerrar_();
     try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
