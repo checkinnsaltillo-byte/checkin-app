@@ -64624,6 +64624,19 @@ function aseoEnsureCss_() {
   #aseo-side.ad-v2 .mv-pf-c i{width:18px;height:18px;font-style:normal;color:#fff;font-size:8.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
   #aseo-side.ad-v2 .mv-pf-c.on{background:#fff;color:var(--ad-tx);border-color:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 18%,transparent)}
   #aseo-side.ad-v2 .mv-pf-c.on i{background:var(--pc)}
+  .ad-fil{display:flex;align-items:flex-start;gap:12px;margin:0 0 12px}
+  .ad-fil-l{flex:1;min-width:0}
+  #aseo-side.ad-v2 .ad-fil .mv-pf{margin:0 0 7px}
+  #aseo-side.ad-v2 .mv-pf-c.ad-pr{padding:3px 6px 3px 10px;gap:6px}
+  #aseo-side.ad-v2 .mv-pf-c.ad-pr b{font-weight:600;font-size:10.5px;color:var(--ad-mut);background:#f0f1f4;border-radius:999px;padding:0 6px}
+  #aseo-side.ad-v2 .mv-pf-c.ad-pr.on{border-color:#4f46e5;box-shadow:0 0 0 3px #e0e7ff;color:var(--ad-tx)}
+  #aseo-side.ad-v2 .mv-pf-c.ad-pr.on b{background:#4f46e5;color:#fff}
+  .ad-seg{display:flex;align-items:center;gap:2px;flex:none;background:#fff;border:1px solid var(--ad-line);border-radius:9px;padding:3px}
+  .ad-seg span{font-size:11px;color:var(--ad-mut);padding:0 6px 0 4px}
+  .ad-seg button{all:unset;cursor:pointer;font-size:11.5px;font-weight:500;color:var(--ad-mut);padding:4px 10px;border-radius:6px}
+  .ad-seg button.on{background:var(--ad-tx);color:#fff;font-weight:600}
+  .ad-pts{margin-left:auto;display:flex;gap:3px;font-style:normal}.ad-pts i{width:7px;height:7px;border-radius:50%}
+  @media (max-width:900px){.ad-fil{flex-direction:column}}
   .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:start}
   .ad-col{background:#eef0f3;border-radius:12px;padding:7px;min-width:0}
   .ad-colh{display:flex;align-items:center;gap:7px;padding:4px 6px 9px;font-weight:600;font-size:12.5px}
@@ -65147,8 +65160,15 @@ function adCard_(I) {
 // ── Tablero: indicadores + filtro de personal + 4 columnas por estado ──
 function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const infos = gs.map(g => adInfo_(g, hoy, { esHoy: esHoy && !g.reprogDe }));
+  // Filtro de propiedad (varias a la vez; sin selección = todas) + vista por estado o por propiedad.
+  const propDe = I => mvPropiedadDe_(I.g).replace(/^Calle\s+/i, '');
+  const props = [...new Set(infos.map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
+  const fP = (ASEO.fProp || []).filter(p => props.includes(p));
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
-  const ver = infos.filter(I => vis.has(I.k));
+  const ver = infos.filter(I => vis.has(I.k) && (!fP.length || fP.includes(propDe(I))));
+  const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
+  const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRenderSide_()">Quitar filtro</button>' : ''}</div>` : '';
+  const seg = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -65166,12 +65186,22 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     ${kpi('Pendientes', n('pendiente'))}${kpi('En proceso', n('en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '')}
     ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas, [sinDes ? `${sinDes} sin desalojar` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), alertas ? 'al' : '')}
   </div>`;
-  const cols = AD_EST.map(E => {
-    const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
-    return `<div class="ad-col"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(adCard_).join('') || '<div class="ad-empty">—</div>'}</div>`;
-  }).join('');
-  return `${kpis}${filtroHtml}${gs.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}</div>`}`;
+  const cols = vista === 'estado'
+    ? AD_EST.map(E => {
+      const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
+      return `<div class="ad-col"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(adCard_).join('') || '<div class="ad-empty">—</div>'}</div>`;
+    }).join('')
+    : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
+      const L = ver.filter(I => propDe(I) === p);
+      const pts = AD_EST.map(E => { const c = L.filter(I => !I.fantasma && I.selE === E.k).length; return c ? `<i style="background:${E.c}" title="${E.t}: ${c}"></i>` : ''; }).join('');
+      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(adCard_).join('')}</div>`;
+    }).join('');
+  const vacio = gs.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
+  return `${kpis}<div class="ad-fil"><div class="ad-fil-l">${filtroHtml}${propHtml}</div>${seg}</div>${ver.length ? `<div class="ad-board">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
+try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
+window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
+window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRenderSide_(); };
 // Grupos (cards) de un día, con reprogramaciones aplicadas.
 function adGrupos_(dia) {
   const { cols, hoy } = pcMovCols_(dia || null);
