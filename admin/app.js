@@ -59884,15 +59884,18 @@ window.aseoReprog_ = async function (id, hid, orig, inp) {
 // Cards del día con la fecha de aseo editada: quita las movidas a otro día y agrega las movidas a este.
 function aseoAplicarReprog_(gs, hoy) {
   const RP = ASEO.reprog || {};
-  const out = gs.filter(g => { const r = RP[aseoAsigIdDe_(g)]; return !(r && r.fecha && r.fecha !== hoy); });
+  // Reprogramación automática de las 3 pm: en los días que quedó pendiente la card se queda como "fantasma".
+  const fant = r => !!(r && r.auto && r.fecha !== hoy && (r.orig === hoy || (r.fantasmas || []).includes(hoy)));
+  const out = gs.map(g => { const r = RP[aseoAsigIdDe_(g)]; return !(r && r.fecha && r.fecha !== hoy) ? g : fant(r) ? Object.assign({}, g, { fantasma: true }) : null; }).filter(Boolean);
   const porDia = {};
   Object.entries(RP).forEach(([id, r]) => {
-    if (!r || r.fecha !== hoy || !r.orig || r.orig === hoy) return;
+    if (!r || !r.orig || r.orig === hoy || (r.fecha !== hoy && !fant(r))) return;
     if (!porDia[r.orig]) { try { const { cols } = pcMovCols_(r.orig); porDia[r.orig] = pcMovAlojGrupos_(cols, r.orig); } catch (_) { porDia[r.orig] = []; } }
     const ya = out.findIndex(x => aseoAsigIdDe_(x) === String(id));
-    if (ya >= 0) { out[ya] = Object.assign({}, out[ya], { reprogDe: r.orig }); return; } // ese día ya tenía la card (mismo aseo)
+    const extra = { reprogDe: r.orig, fantasma: r.fecha !== hoy };
+    if (ya >= 0) { out[ya] = Object.assign({}, out[ya], extra); return; } // ese día ya tenía la card (mismo aseo)
     const g = porDia[r.orig].find(x => aseoAsigIdDe_(x) === String(id));
-    if (g) out.push(Object.assign({}, g, { reprogDe: r.orig, estId: g.estId || id }));
+    if (g) out.push(Object.assign({}, g, extra, { estId: g.estId || id }));
   });
   return out;
 }
@@ -60036,7 +60039,13 @@ function pcAlojCard_(g, hoy, o) {
   }
   // Franja superior pegada al borde: código | entrada | salida (las dos mitades del mismo ancho).
   const esHoyC = o.esHoy !== false;
-  const chipsH = `${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${aseoMovChip_(g.sal.length, g.ent.length, esHoyC)}${hChips}`;
+  // Card reprogramada (copia): "Salida hace X días" en lugar de "Salen hoy" + chip "Reprogramado para hoy".
+  const diasSal = g.reprogDe && !g.fantasma ? Math.round((Date.parse(hoy) - Date.parse(g.reprogDe)) / 864e5) : 0;
+  const esCopia = !!(g.reprogDe && !g.fantasma);
+  const rpChip = esCopia ? `<span class="mv-rpchip">📅 Reprogramado para ${o.fechaAseo === aseoHoyIso_() ? 'hoy' : 'este día'}</span>` : '';
+  // Fantasma: salió hoy, no entra nadie y sigue "Pendiente" después de las 3 pm (o ya se reprogramó).
+  const fantasma = !!g.fantasma || (esHoyC && !esCopia && g.sal.length && !vivosEnt && selE === 'pendiente' && horaMx >= 15);
+  const chipsH = `${rpChip}${prioritaria ? '<span class="mv-prio" title="Entrada temprana aceptada: hacer este aseo primero">*Prioritaria</span>' : ''}${diasSal > 0 && g.sal.length ? `<span class="mv-mov1 s">Salida hace ${diasSal} día${diasSal === 1 ? '' : 's'}</span>${g.ent.length ? aseoMovChip_(0, g.ent.length, false) : ''}` : aseoMovChip_(g.sal.length, g.ent.length, esHoyC)}${hChips}`;
   // Sin recuadros de entrada/salida: los chips ocupan ese espacio (2 líneas = alto del código).
   const conCajas = !!(boxEnt || tardChip);
   const banda = !(corto || conCajas) ? ''
@@ -60048,13 +60057,14 @@ function pcAlojCard_(g, hoy, o) {
     ? `<div class="mv-pers">${pA.map(n => aseoPersonaChip_(n, '🧹', 'Aseo')).join('')}${pI.map(n => aseoPersonaChip_(n, '🔍', 'Inspección')).join('')}</div>`
     : '<div class="mv-pers no">👥 No asignado</div>';
   let avisoVal = '';
-  if (!esHoyC) avisoVal = '';
+  if (fantasma) avisoVal = `<div class="mv-alert" style="--ac:#0f172a"><b>🗓️ ¡CERRAR FECHA EN CALENDARIO!</b><span>REPROGRAMADO PARA EL DÍA SIGUIENTE</span></div>`;
+  else if (!esHoyC) avisoVal = '';
   else if (g.sal.length && vivosEnt && selE === 'pendiente' && horaMx >= 14) avisoVal = `<div class="mv-alert" style="--ac:#dc2626"><b>🚨 Urge validación</b><span>Entra huésped hoy y el aseo sigue pendiente después de las 2:00 p.m.</span></div>`;
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') avisoVal = `<div class="mv-alert suave"><b>⚠️ Requiere inspección</b><span>Entra huésped hoy: valida «Terminado» o «Inspeccionado» para avisarle en su guía.</span></div>`;
   // Orden: franja código|entrada|salida · chips · personas asignadas · botones
   // de asignar · estado · aviso · lo que muestra la guía · casilla Publicado.
   const EC = ASEO_EST.find(e => e.k === selE) || ASEO_EST[0];
-  return `<div class="mv-ac mv-est ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" style="--eb:${EC.card};--ec:${EC.bd || EC.c}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')">
+  return `<div class="mv-ac mv-est ${fantasma ? 'fantasma' : ''} ${g.ent.length ? 'in' : ''} ${sel ? 'sel' : ''} ${listo ? 'listo' : ''} ${prioritaria ? 'prio' : ''}" style="--eb:${EC.card};--ec:${EC.bd || EC.c}" data-listo-for="${pcEsc(String(asigId))}" data-hid="${pcEsc(g.hid)}" data-k="${pcEsc(g.hid || g.k)}" data-bids="${pcEsc(ids.join(' '))}" onclick="mvAcPopup_('${pcEsc(kAc)}')">
     <div class="mv-ac-h" onclick="event.stopPropagation();mvAcPopup_('${pcEsc(kAc)}')" title="Ver detalles">
       ${banda}
       ${banda && !conCajas ? '' : `<div class="mv-ac-chips">${chipsH}</div>`}
@@ -64536,6 +64546,9 @@ function aseoEnsureCss_() {
   .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-chips > .mv-mov2.mv-mov2, .mv-cols .mv-ac .mv-ac-band.solo > .mv-ac-chips > .mv-mov2{padding:0 !important;gap:0 !important;overflow:hidden;border:0 !important;background:transparent !important}
   .mv-alert.suave{background:#fee2e2;color:#7f1d1d;border:1.5px solid #e5e7eb;box-shadow:none;animation:none}
   .mv-alert.suave b{color:#991b1b}
+  .mv-ac.mv-est.fantasma{background:#fff !important;border:2px dashed #94a3b8 !important;box-shadow:none !important}
+  .mv-ac.fantasma .mv-ac-band > .mv-ac-code{background:#64748b}
+  .mv-ac .mv-ac-chips > .mv-rpchip, .mv-cols .mv-ac .mv-ac-chips > .mv-rpchip{background:#7c3aed !important;color:#fff !important;border-color:#6d28d9 !important}
   .mv-fecha{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:5px 0 0;font-size:11px;font-weight:800;color:#334155}
   .mv-fecha input{font:inherit;font-size:11px;font-weight:800;color:#0f172a;border:1px solid #cbd5e1;border-radius:7px;padding:2px 6px;background:#fff;cursor:pointer;max-width:130px}
   .mv-fecha .mv-rp{font-size:10px;font-weight:900;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:1px 7px}
