@@ -64963,6 +64963,7 @@ function aseoEnsureCss_() {
   .ad-card .r4 .sp{flex:1}
   .ax-co{font-size:10.5px;font-weight:600;color:#0f766e;background:#ccfbf1;border-radius:6px;padding:1px 7px}
   .ax-gen{font-size:10.5px;font-weight:500;color:#9aa1ad}
+  .ax-cor{font-size:10.5px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:6px;padding:1px 7px}
   .ax-inc{all:unset;cursor:pointer;font-size:10.5px;font-weight:600;color:#6b7280;border:1px dashed #cbd5e1;border-radius:6px;padding:2px 8px;white-space:nowrap}
   .ax-inc:hover{color:#b91c1c;border-color:#fca5a5}
   .ax-inc.on{color:#fff;background:#dc2626;border:1px solid #b91c1c}
@@ -65558,6 +65559,12 @@ window.adDrop_ = function (ev, k) {
 //  · Incidencia: interruptor «Reportar incidencia» / «⚠️ Incidencia».
 function axEx_(k) { return ((window.ASEO && ASEO.extra) || {})[String(k)] || {}; }
 function axCO_(k, auto) { const e = axEx_(k); return typeof e.checkout === 'boolean' ? e.checkout : !!auto; }
+// Tipo de servicio: Check-out · General · Correctivo (aseo/extra.json: checkout / correctivo).
+const AX_SRV = [['checkout', '⇥ Check-out', '#0f766e'], ['general', 'General', '#9aa1ad'], ['correctivo', '🛠 Correctivo', '#b45309']];
+function axSrv_(k, auto) { return axEx_(k).correctivo ? 'correctivo' : axCO_(k, auto) ? 'checkout' : 'general'; }
+function axSrvPatch_(v) { return { checkout: v === 'checkout', correctivo: v === 'correctivo' }; }
+function axSrvSeg_(cur, fn) { return `<div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${AX_SRV.map(([k, t, c]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${c}" onclick="${fn}('${k}')">${t}</button>`).join('')}</div>`; }
+window.axSetSrv_ = function (k, hid, v) { axSet_(k, axSrvPatch_(v), hid); };
 window.axSet_ = function (k, patch, hid) {
   ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k];
   ASEO.extra[k] = Object.assign({}, prev, patch);
@@ -65580,14 +65587,13 @@ function axIncTxt_(k) {
 function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')); return inc ? `axSet_('${sk}',{incidencia:false},'${sh}')` : `axReportar_('${sk}','${sh}','${pcEsc(String(dia || ''))}')`; }
 function axFila_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
-  return `<div class="r4">${co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
+  const srv = axSrv_(k, autoCO);
+  return `<div class="r4">${srv === 'correctivo' ? '<span class="ax-cor" title="Tipo: Correctivo">🛠 Correctivo</span>' : co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
     <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k) : 'Reportar incidencia'}</button></div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
-  const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
-  return `<div class="lab">Tipo de servicio</div><div class="ad-steps" style="grid-template-columns:1fr 1fr">
-      <button type="button" class="${co ? 'on' : ''}" style="--c:#0f766e" onclick="axSet_('${sk}',{checkout:true},'${sh}')">⇥ Check-out</button>
-      <button type="button" class="${co ? '' : 'on'}" style="--c:#9aa1ad" onclick="axSet_('${sk}',{checkout:false},'${sh}')">General</button></div>
+  const inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
+  return `<div class="lab">Tipo de servicio</div>${axSrvSeg_(axSrv_(k, autoCO), `axSetSrv_.bind(null,'${sk}','${sh}')`)}
     ${autoCO ? '<div class="ad-hint">Asignado automáticamente: la card se generó en la fecha de salida de la reserva.</div>' : ''}
     <div class="ad-tgl" style="margin-top:10px" onclick="${axIncClick_(k, inc, hid, dia)}"><div><b>${inc ? axIncTxt_(k) : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Abre el formulario de incidencia con este alojamiento y fecha'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
 }
@@ -66100,7 +66106,7 @@ window.atBorrar_ = async function (id) {
 // ── Formulario "Crea una tarea" ──
 window.atForm_ = function (id, hid, dia) {
   const t = id ? (ASEO.tareas || {})[id] : null;
-  ASEO._tf = t ? Object.assign(JSON.parse(JSON.stringify(t)), { checkout: axCO_('T' + t.id, false) }) : { hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
+  ASEO._tf = t ? Object.assign(JSON.parse(JSON.stringify(t)), { srv: axSrv_('T' + t.id, false) }) : { srv: 'general', hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
   ASEO._dr = { form: true, k: 'form' };
   atFormPintar_();
 };
@@ -66118,7 +66124,7 @@ function atFormPintar_() {
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Tipo de servicio</label>
-      <div class="ad-steps" style="grid-template-columns:1fr 1fr"><button type="button" class="${F.checkout ? 'on' : ''}" style="--c:#0f766e" onclick="ASEO._tf.checkout=true;atFormPintar_()">⇥ Check-out</button><button type="button" class="${F.checkout ? '' : 'on'}" style="--c:#9aa1ad" onclick="ASEO._tf.checkout=false;atFormPintar_()">General</button></div>
+      ${axSrvSeg_(F.srv || 'general', 'atFormSrv_')}
       <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
       ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
       <label class="at-l">Título de la tarea <i>*</i></label>
@@ -66144,11 +66150,13 @@ function atFormPintar_() {
     <div class="ad-ft"><button type="button" class="ad-bt pri" id="at-ok" onclick="atGuardar_()">${F.id ? 'Guardar cambios' : 'Crear tarea'}</button><button type="button" class="ad-bt" onclick="${F.id ? `atAbrir_('${pcEsc(F.id)}','${F.fecha}')` : 'adCerrar_()'}">Cancelar</button></div>`;
 }
 window.atFormPrio_ = function (k) { ASEO._tf.prioridad = k; atFormPintar_(); };
+window.atFormSrv_ = function (v) { ASEO._tf.srv = v; atFormPintar_(); };
+window.rtFormSrv_ = function (v) { ASEO._rf._srv = v; rtFormPintarA_(); };
 // Mantenimiento = reporte técnico: se cambia al formulario del reporte con los datos ya escritos.
 window.atFormDepto_ = function (v) {
   if (v !== 'mantenimiento') { ASEO._tf.depto = v; atFormPintar_(); return; }
   const F = ASEO._tf;
-  rtFormA_(null, { hid: F.hid, titulo: F.titulo, desc: F.desc, fecha: F.fecha, prioridad: F.prioridad, asignados: F.asignados, reserva: F.reserva, deTarea: F.id || '' });
+  rtFormA_(null, { hid: F.hid, titulo: F.titulo, desc: F.desc, fecha: F.fecha, prioridad: F.prioridad, asignados: F.asignados, reserva: F.reserva, deTarea: F.id || '', srv: F.srv });
 };
 // Reservas activas (Booked) del alojamiento elegido que aún no terminan.
 function atReservas_() {
@@ -66225,7 +66233,7 @@ window.atGuardar_ = async function () {
     const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: Object.assign({}, F, { _deRt: undefined }), user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!r.ok) throw new Error(r.error || 'Error');
     (ASEO.tareas = ASEO.tareas || {})[r.tarea.id] = Object.assign(r.tarea, { adjuntos: F.adjuntos });
-    if (!!F.checkout !== axCO_('T' + r.tarea.id, false)) axSet_('T' + r.tarea.id, { checkout: !!F.checkout }, r.tarea.hid);
+    if ((F.srv || 'general') !== axSrv_('T' + r.tarea.id, false)) axSet_('T' + r.tarea.id, axSrvPatch_(F.srv || 'general'), r.tarea.hid);
     if (F._deRt) { // conversión Mantenimiento → Aseo/Inspección: se retira el reporte técnico original
       await fetch(`${BACKEND}/reportes-tecnicos-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F._deRt }) }).then(r => r.json()).catch(() => null);
       ASEO.rt = (ASEO.rt || []).filter(x => String(x.ID) !== String(F._deRt));
@@ -66399,9 +66407,9 @@ window.rtFormA_ = function (rtId, pre) {
   const row = rtId ? (ASEO.rt || []).find(r => String(r.ID) === String(rtId)) : null;
   const t = row ? rtTarea_(row) : null;
   const P = pre || {};
-  ASEO._rf = row ? Object.assign({}, row, { _co: axCO_('R' + row.ID, false), _hid: t.hid, _prio: t.prioridad, _asig: t.asignados.slice(), _bloq: t.bloquea, _rein: t.reincidente, _cargar: rtBool_(row.Cargar_a_huesped) })
+  ASEO._rf = row ? Object.assign({}, row, { _srv: axSrv_('R' + row.ID, false), _hid: t.hid, _prio: t.prioridad, _asig: t.asignados.slice(), _bloq: t.bloquea, _rein: t.reincidente, _cargar: rtBool_(row.Cargar_a_huesped) })
     : { ID: '', Estado: 'nuevo', Tipo: 'correctivo', Categoria: 'otros', Responsabilidad: 'indeterminada', Titulo: P.titulo || '', Descripcion: P.desc || '', Fecha: P.fecha || aseoDia_(),
-        Reservacion_id: P.reserva || '', _deTarea: P.deTarea || '', _hid: P.hid || '', _prio: prio4Key_(P.prioridad || 'media'), _asig: (P.asignados || []).slice(), _bloq: false, _rein: false, _cargar: false,
+        Reservacion_id: P.reserva || '', _deTarea: P.deTarea || '', _srv: P.srv || 'general', _hid: P.hid || '', _prio: prio4Key_(P.prioridad || 'media'), _asig: (P.asignados || []).slice(), _bloq: false, _rein: false, _cargar: false,
         Reportado_por: (typeof currentUser !== 'undefined' && currentUser) || '' };
   ASEO._rfFotos = { antes: [], despues: [] };
   ASEO._dr = { form: true, k: 'rform' };
@@ -66425,7 +66433,7 @@ function rtFormPintarA_() {
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="ASEO._rf._hid=this.value;ASEO._rf.Reservacion_id='';rtFormPintarA_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F._hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Tipo de servicio</label>
-      <div class="ad-steps" style="grid-template-columns:1fr 1fr"><button type="button" class="${F._co ? 'on' : ''}" style="--c:#0f766e" onclick="ASEO._rf._co=true;rtFormPintarA_()">⇥ Check-out</button><button type="button" class="${F._co ? '' : 'on'}" style="--c:#9aa1ad" onclick="ASEO._rf._co=false;rtFormPintarA_()">General</button></div>
+      ${axSrvSeg_(F._srv || 'general', 'rtFormSrv_')}
       <div class="at-sec"><span>☑ Detalles del reporte</span></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F._prio, 'rtFormPrio_')}
       <label class="at-l">Categoría</label>${sel('Categoria', RT_CATEGORIAS, F.Categoria || 'otros')}
@@ -66476,7 +66484,7 @@ window.rtFormCambiarDepto_ = function (v) {
   const F = ASEO._rf;
   if (F._deTarea) { atForm_(F._deTarea); ASEO._tf.depto = v; atFormPintar_(); return; } // volvió a la tarea original
   atForm_(null, F._hid, String(F.Fecha || '').slice(0, 10));
-  Object.assign(ASEO._tf, { depto: v, _deRt: F.ID || '', checkout: !!F._co, titulo: F.Titulo || '', desc: F.Descripcion || '', prioridad: F._prio, asignados: (F._asig || []).slice(), reserva: F.Reservacion_id || '' });
+  Object.assign(ASEO._tf, { depto: v, _deRt: F.ID || '', srv: F._srv || 'general', titulo: F.Titulo || '', desc: F.Descripcion || '', prioridad: F._prio, asignados: (F._asig || []).slice(), reserva: F.Reservacion_id || '' });
   atFormPintar_();
 };
 window.rtGuardarA_ = async function () {
@@ -66506,7 +66514,7 @@ window.rtGuardarA_ = async function () {
     const i = ASEO.rt.findIndex(x => String(x.ID) === id);
     const fila = Object.assign(i >= 0 ? ASEO.rt[i] : { Timestamp: new Date().toISOString() }, payload, { ID: id, Folio: r.folio || F.Folio || id });
     if (i < 0) ASEO.rt.unshift(fila);
-    if (!!F._co !== axCO_('R' + id, false)) axSet_('R' + id, { checkout: !!F._co }, F._hid);
+    if ((F._srv || 'general') !== axSrv_('R' + id, false)) axSet_('R' + id, axSrvPatch_(F._srv || 'general'), F._hid);
     if (F._deTarea) { // conversión Aseo/Inspección → Mantenimiento: se retira la tarea original
       await fetch(`${BACKEND}/aseo/tarea/borrar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F._deTarea }) }).then(r => r.json()).catch(() => null);
       if (ASEO.tareas) delete ASEO.tareas[F._deTarea];
@@ -66949,6 +66957,12 @@ function icCss_() {
   #ad-drawer .ic-mots{display:flex;gap:6px;flex-wrap:wrap}
   #ad-drawer .ic-mot{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid #e8eaee;font-size:12px;font-weight:600;color:#6b7280;background:#fff}
   #ad-drawer .ic-mot.on{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 9%,#fff)}
+  #ad-drawer .ic-ck{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e8eaee;border-radius:10px;margin-top:12px;cursor:pointer;background:#fff}
+  #ad-drawer .ic-ck.on{border-color:#4f46e5;background:#f5f5ff}
+  #ad-drawer .ic-ck .ck{flex:none;width:18px;height:18px;border:1.5px solid #9aa1ad;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;margin-top:1px}
+  #ad-drawer .ic-ck.on .ck{background:#4f46e5;border-color:#4f46e5}
+  #ad-drawer .ic-ck b{font-size:12.5px}#ad-drawer .ic-ck small{display:block;color:#6b7280;font-size:11px;margin-top:1px}
+  #ad-drawer .ic-lev{border-left:3px solid #4f46e5;padding:2px 0 4px 12px;margin:8px 0 4px}
   #ad-drawer .ic-fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
   #ad-drawer .ic-fotos a,#ad-drawer .ic-fotos span{position:relative;display:block;border:1px solid #e8eaee;border-radius:9px;overflow:hidden;aspect-ratio:1;background:#f3f4f6}
   #ad-drawer .ic-fotos img{width:100%;height:100%;object-fit:cover;display:block}
@@ -67106,7 +67120,7 @@ function icPintar_(nuevo) {
       <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
-        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
+        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${r.Tarea_ligada ? `<span>Reporte levantado</span><b><a href="#" style="color:#4f46e5" onclick="event.preventDefault();icVerTarea_('${pcEsc(r.Tarea_ligada)}')">${pcEsc(icLigTxt_(r.Tarea_ligada))} ›</a></b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
     </div>
@@ -67124,6 +67138,7 @@ window.icForm_ = function (id, pre) {
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
     : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
   IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
+  IC.f.tareaLig = x ? String(r.Tarea_ligada || '') : ''; IC.f.lev = false;
   icFormPintar_();
 };
 function icClasDe_(mots) {
@@ -67172,11 +67187,15 @@ function icFormPintar_() {
       <div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === F.est ? 'on' : ''}" style="--c:${e.c}" onclick="IC.f.est='${e.k}';icFormPintar_()">${e.k}</button>`).join('')}</div>
       <div class="at-sec"><span>📝 Reporte</span></div>
       <label class="at-l">Descripción detallada <i>*</i></label><textarea class="at-in" rows="3" placeholder="¿Qué pasó y dónde?" oninput="IC.f.desc=this.value">${pcEsc(F.desc)}</textarea>
-      <label class="at-l">Acciones realizadas</label><textarea class="at-in" rows="2" oninput="IC.f.acc=this.value">${pcEsc(F.acc)}</textarea>
-      <label class="at-l">Seguimiento requerido</label><textarea class="at-in" rows="2" oninput="IC.f.seg=this.value">${pcEsc(F.seg)}</textarea>
+      <details class="ad-res" ${F.detAb || F.acc || F.seg ? 'open' : ''} ontoggle="IC.f.detAb=this.open"><summary>Acciones realizadas y seguimiento requerido</summary>
+        <label class="at-l">Acciones realizadas</label><textarea class="at-in" rows="2" oninput="IC.f.acc=this.value">${pcEsc(F.acc)}</textarea>
+        <label class="at-l">Seguimiento requerido</label><textarea class="at-in" rows="2" oninput="IC.f.seg=this.value">${pcEsc(F.seg)}</textarea>
+      </details>
       <div class="at-sec"><span>👤 Personas</span></div>
       <label class="at-l">Reportó</label>
       <select class="at-in" onchange="IC.f.rep=this.value"><option value="">Sin especificar</option>${nombres.map(n => `<option ${n === F.rep ? 'selected' : ''}>${pcEsc(n)}</option>`).join('')}</select>
+      ${F.tareaLig ? `<div class="ad-hint">Reporte ya levantado: ${pcEsc(icLigTxt_(F.tareaLig))}</div>` : `<div class="ic-ck ${F.lev ? 'on' : ''}" onclick="icLev_()"><span class="ck">${F.lev ? '✓' : ''}</span><div><b>Levantar reporte</b><small>Crea también la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></div></div>
+      ${F.lev ? `<div class="ic-lev">${icLevHtml_()}</div>` : ''}`}
       <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">Personas involucradas</span><button type="button" class="ad-link" onclick="icFormPers_(this)">＋ Añadir persona</button></div>
       <div class="at-chips" id="ic-pers">${icPersChips_()}</div>
       <div class="at-sec"><span>📷 Evidencia fotográfica</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="icFormFotos_(this)"></label></div>
@@ -67207,6 +67226,7 @@ window.icGuardar_ = async function () {
   if (!F.hid && !F.alojTxt) return alert('Elige el alojamiento.');
   if (!F.mot.length) return alert('Elige al menos un motivo.');
   if (!String(F.desc || '').trim()) return alert('Escribe la descripción.');
+  if (F.lev && !F.hid) return alert('Para levantar el reporte elige el alojamiento.');
   const a = F.hid ? atAloj_(F.hid) : null;
   const old = F.id ? (INC_STATE.list || []).find(x => String(x.ID) === F.id) : null;
   const propiedad = a ? (a.propiedad || '') : String((old && old.Propiedad) || ''), depto = a ? String(a.depto || '') : String((old && old['# Departamento']) || '');
@@ -67226,10 +67246,11 @@ window.icGuardar_ = async function () {
       if (!out.ok) throw new Error(out.error || 'Error');
       id = String(out.id || '');
       INC_STATE.list = INC_STATE.list || [];
-      INC_STATE.list.unshift({ ID: id, Timestamp: new Date().toISOString(), Fecha: datos.fecha, Propiedad: propiedad, '# Departamento': depto, Alojamiento: datos.alojamiento, Personas: datos.personas.join(', '), Motivos: datos.motivos.join(', '), Clasificacion: datos.clasificaciones.join(', '),
+      INC_STATE.list.unshift(out.row || { ID: id, Timestamp: new Date().toISOString(), Fecha: datos.fecha, Propiedad: propiedad, '# Departamento': depto, Alojamiento: datos.alojamiento, Personas: datos.personas.join(', '), Motivos: datos.motivos.join(', '), Clasificacion: datos.clasificaciones.join(', '),
         Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Fotos_URLs: '' });
       if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
     }
+    if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo levantar el reporte: ' + (e.message || e)); } }
     if (F.desdeK && id) { try { axSet_(F.desdeK, { incidencia: true, incId: id }, F.hid); } catch (_) {} } // la card de origen queda «⚠️ Incidencia»
     IC.f = null; icRender_();
     if (id) icAbrir_(id); else icCerrar_();
@@ -67317,3 +67338,89 @@ window.icClasifGuardar_ = async function () {
     if (IC.f) icFormPintar_();
   } catch (e) { if (b) b.textContent = '💾 Guardar'; alert('No se pudo guardar: ' + (e.message || e)); }
 };
+// ── «Levantar reporte»: desde la incidencia se crea la tarea en «Aseo y Mantenimiento» ──
+// Ya se conocen alojamiento, reserva, prioridad, fecha, título y descripción; el tipo de tarea se infiere del motivo
+// (Mantenimiento → reporte técnico; lo demás → Aseo) y el tipo de servicio es «Correctivo».
+function icLevInfer_(F) { return F.mot.some(m => /manten/i.test(m)) ? 'mantenimiento' : 'limpieza'; }
+window.icLev_ = function () {
+  const F = IC.f; F.lev = !F.lev;
+  if (F.lev && !F.L) F.L = { depto: icLevInfer_(F), manual: false, srv: 'correctivo', problema: false, repite: null, asig: [], etiq: [], cat: 'otros', bloq: false, rein: false, comp: '' };
+  icFormPintar_();
+};
+window.icLevDep_ = function (k) { IC.f.L.depto = k; IC.f.L.manual = true; icFormPintar_(); };
+window.icLevSrv_ = function (v) { IC.f.L.srv = v; icFormPintar_(); };
+function icLevAsigChips_() { return IC.f.L.asig.map(n => `<span class="at-chip" data-n="${pcEsc(n)}">${adAv_(n)}${pcEsc(n)}<b onclick="IC.f.L.asig=IC.f.L.asig.filter(x=>x!==this.parentNode.dataset.n);document.getElementById('ic-lev-asig').innerHTML=icLevAsigChips_()">✕</b></span>`).join('') || '<span class="at-hint">Sin asignar</span>'; }
+window.icLevAsig_ = function (anchor) {
+  const save = ASEO._tf; ASEO._tf = { asignados: IC.f.L.asig };
+  atAsignar_(anchor);
+  const obs = setInterval(() => { const c = document.getElementById('ic-lev-asig'); if (c && IC.f && IC.f.L) c.innerHTML = icLevAsigChips_(); if (!document.querySelector('.pz-pop')) { clearInterval(obs); ASEO._tf = save; } }, 250);
+};
+function icLevHtml_() {
+  const F = IC.f, L = F.L;
+  if (!L.manual) L.depto = icLevInfer_(F);
+  const sw = on => `<span class="ad-sw ${on ? '' : 'off'}"></span>`;
+  const a = F.fecha ? atD_(F.fecha) : new Date();
+  const rOpts = [['diario', 'Diariamente'], ['semanal', `Semanalmente los ${AT_DIAS[a.getDay()]}`], ['mensual', `Mensualmente el ${AT_ORD[Math.ceil(a.getDate() / 7)]} ${AT_DIAS[a.getDay()]}`], ['anual', `Anualmente el ${a.getDate()} de ${a.toLocaleDateString('es-MX', { month: 'long' })}`], ['cada', 'Personalizado…']];
+  const mant = L.depto === 'mantenimiento';
+  return `${atDeptoSeg_(L.depto, 'icLevDep_')}
+    <div class="at-hint">${L.manual ? 'Elegido a mano.' : `Inferido del motivo (${pcEsc(F.mot.join(', ') || 'sin motivo')}).`}${mant ? ' Mantenimiento = reporte técnico.' : ''}</div>
+    <label class="at-l">Tipo de servicio</label>${axSrvSeg_(L.srv, 'icLevSrv_')}
+    ${mant ? `<label class="at-l">Categoría</label><select class="at-in" onchange="IC.f.L.cat=this.value">${RT_CATEGORIAS.map(o => `<option value="${o.key}" ${o.key === L.cat ? 'selected' : ''}>${o.icon ? o.icon + ' ' : ''}${o.label}</option>`).join('')}</select>
+      <div class="ad-tgl" style="margin-top:8px" onclick="IC.f.L.bloq=!IC.f.L.bloq;icFormPintar_()"><div><b>Bloquea habitabilidad</b><small>El alojamiento queda inhabitable hasta resolverlo</small></div>${sw(L.bloq).replace('ad-sw ', 'ad-sw ' + (L.bloq ? 'red ' : ''))}</div>
+      <div class="ad-tgl" style="margin-top:6px" onclick="IC.f.L.rein=!IC.f.L.rein;icFormPintar_()"><div><b>Reincidente</b><small>Falla repetida del mismo activo</small></div>${sw(L.rein)}</div>
+      <div class="at-row"><span class="at-k">Compromiso</span><input type="date" class="at-in" value="${pcEsc(L.comp)}" onchange="IC.f.L.comp=this.value"></div>`
+    : `<div class="ad-tgl" style="margin-top:8px" onclick="IC.f.L.problema=!IC.f.L.problema;icFormPintar_()"><div><b>Crear como un problema</b><small>La tarea se marca como problema</small></div>${sw(L.problema)}</div>
+      <div class="ad-tgl" style="margin-top:6px" onclick="IC.f.L.repite=IC.f.L.repite?null:{tipo:'diario',n:1,fin:''};icFormPintar_()"><div><b>Hacer que se repita</b><small>A partir de la fecha de la incidencia</small></div>${sw(!!L.repite)}</div>
+      ${L.repite ? `<div class="at-row"><span class="at-k">Se repite</span><select class="at-in" onchange="IC.f.L.repite.tipo=this.value;icFormPintar_()">${rOpts.map(([k, l]) => `<option value="${k}" ${L.repite.tipo === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <input type="date" class="at-in" title="Fecha de finalización (opcional)" value="${pcEsc(L.repite.fin || '')}" onchange="IC.f.L.repite.fin=this.value"></div>
+        ${L.repite.tipo === 'cada' ? `<div class="at-row"><span class="at-k">Cada</span><input type="number" min="1" max="365" class="at-in" style="max-width:80px" value="${L.repite.n || 1}" oninput="IC.f.L.repite.n=Math.max(1,+this.value||1)"><span class="at-k">días</span></div>` : ''}` : ''}
+      <label class="at-l">Etiquetas de tareas</label>
+      <div class="at-chips">${L.etiq.map((x, i) => `<span class="at-chip">#${pcEsc(x)}<b onclick="IC.f.L.etiq.splice(${i},1);icFormPintar_()">✕</b></span>`).join('')}
+        <input class="at-in at-tagin" placeholder="Añadir etiqueta y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.L.etiq.includes(v)){IC.f.L.etiq.push(v);icFormPintar_();}}"></div>`}
+    <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">👤 Asignados</span><button type="button" class="ad-link" onclick="icLevAsig_(this)">＋ Añadir asignado</button></div>
+    <div class="at-chips" id="ic-lev-asig">${icLevAsigChips_()}</div>
+    <div class="at-hint">Se toman de la incidencia: alojamiento, reserva, prioridad, fecha, título y descripción. Las fotos se adjuntan a la tarea.</div>`;
+}
+function icLigTxt_(lig) {
+  const id = String(lig || '').slice(1);
+  if (lig[0] === 'T') { const t = (ASEO.tareas || {})[id]; return `${(AT_DEPTO[t && t.depto] || AT_DEPTO.limpieza).ico} ${t ? t.titulo : 'Tarea de Aseo'}`; }
+  const row = (ASEO.rt || []).find(r => String(r.ID) === id); return `🔧 Mantenimiento · ${row ? (row.Folio || row.ID) : id}`;
+}
+window.icVerTarea_ = async function (lig) {
+  const id = String(lig || '').slice(1);
+  if (lig[0] === 'T') { const t = (ASEO.tareas || {})[id]; if (!t) return alert('La tarea aún se está cargando; intenta en unos segundos.'); IC.dr = null; atAbrir_(id, t.fecha); return; }
+  if (!(ASEO.rt || []).some(r => String(r.ID) === id) && typeof adRtLoad_ === 'function') await adRtLoad_(true);
+  const row = (ASEO.rt || []).find(r => String(r.ID) === id); if (!row) return alert('No se encontró el reporte técnico.');
+  IC.dr = null; rtAbrirA_(id, String(row.Fecha || '').slice(0, 10) || aseoHoyIso_());
+};
+async function icLevantar_(F, incId) {
+  const L = F.L, r = (INC_STATE.list || []).find(x => String(x.ID) === String(incId)) || {};
+  const fotos = icSplit_(r.Fotos_URLs).filter(u => /\/incidencias\/foto\?/.test(u));
+  const user = (typeof currentUser !== 'undefined' && currentUser) || '';
+  const titulo = 'Incidencia · ' + (F.clas.join(', ') || F.mot.join(', ') || 'sin motivo');
+  const desc = [String(F.desc || '').trim(), F.rep ? 'Reportó: ' + F.rep : '', 'Folio de la incidencia: ' + incId].filter(Boolean).join('\n');
+  const post = (u, b) => fetch(`${BACKEND}${u}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
+  let lig;
+  if (L.depto === 'mantenimiento') {
+    const a = atAloj_(F.hid);
+    const payload = { Fecha: F.fecha, Estado: 'nuevo', Prioridad: F.prio, Tipo: 'correctivo', Categoria: L.cat || 'otros', Propiedad: a.propiedad || '', '# Departamento': a.depto || '',
+      Alojamiento: a.propiedad ? `${a.propiedad} - #${a.depto}` : (a.nombre || ''), Activo: '', Titulo: titulo, Descripcion: desc, Descripcion_solucion: '', Reportado_por: F.rep || user,
+      Asignado_a: L.asig.join(', '), Proveedor: '', Fecha_compromiso: L.comp || '', Bloquea_habitabilidad: !!L.bloq, Reincidente: !!L.rein, Responsabilidad: 'indeterminada', Costo_total: '', Cargar_a_huesped: false,
+      Reservacion_id: F.reserva || '', Huesped_nombre: F.reserva ? (F.huesped || '') : '', Notas: '', Fotos_antes_urls: fotos.join(', '), UpdatedAt: new Date().toISOString(), Updated_by: user };
+    const j = await post('/reportes-tecnicos-upsert', { payload });
+    if (!j.ok) throw new Error(j.error || 'Error al crear el reporte técnico');
+    const rid = String(j.id); lig = 'R' + rid;
+    ASEO.rt = ASEO.rt || []; ASEO.rt.unshift(Object.assign({ Timestamp: new Date().toISOString() }, payload, { ID: rid, Folio: j.folio || rid }));
+    setTimeout(() => { try { adRtLoad_(true); } catch (_) {} }, 1500);
+  } else {
+    const adjuntos = fotos.map((u, i) => ({ k: new URL(u).searchParams.get('k'), nombre: `Foto de la incidencia ${i + 1}`, tipo: 'image/jpeg', tam: 0 }));
+    const tarea = { hid: F.hid, depto: L.depto, problema: !!L.problema, prioridad: F.prio, titulo, desc, fecha: F.fecha, hora: '', repite: L.repite, asignados: L.asig, etiquetas: L.etiq, adjuntos, reserva: F.reserva || '' };
+    const j = await post('/aseo/tarea', { tarea, user });
+    if (!j.ok) throw new Error(j.error || 'Error al crear la tarea');
+    (ASEO.tareas = ASEO.tareas || {})[j.tarea.id] = j.tarea; lig = 'T' + j.tarea.id;
+    if (typeof aseoRefresh_ === 'function') setTimeout(() => aseoRefresh_().catch(() => {}), 1200); // enlaces firmados de los adjuntos
+  }
+  axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId) }), F.hid);
+  r.Tarea_ligada = lig;
+  await post('/update-incidencia', { id: incId, fields: { tarea: lig } }).catch(() => null);
+}
