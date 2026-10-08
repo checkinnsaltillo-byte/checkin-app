@@ -67030,6 +67030,7 @@ function icCard_(x) {
     <div class="r1"><span class="code">${pcEsc(x.corto || '—')}</span><span class="prop">${M.ico} ${pcEsc(x.titulo)}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
+    <div class="r4"><span class="sp"></span><span class="ax-inc on" style="cursor:default" title="Incidencia">⚠️ Incidencia</span></div>
     <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin personas</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
     ${qs}
   </div>`;
