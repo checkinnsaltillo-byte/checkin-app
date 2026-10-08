@@ -57555,8 +57555,8 @@ async function tarLoadTemplates_() {
 
 // ── Init / render principal ────────────────────────────────────────────
 window.tareasInit = async function () {
-  // Al entrar al módulo siempre se abre Calendario › Resumen de tareas.
-  TAR_STATE.section = 'calendario'; TAR_STATE.calView = 'resumen'; TAR_STATE.calRef = tarToday_();
+  // Al entrar al módulo se abre el tablero del día (diseño homologado con Aseo).
+  TAR_STATE.section = 'tablero'; TAR_STATE.calView = TAR_STATE.calView && TAR_STATE.calView !== 'resumen' ? TAR_STATE.calView : 'mes'; TAR_STATE.calRef = tarToday_();
   if (!TAR_STATE.loaded) {
     try {
       const c = JSON.parse(localStorage.getItem(TAR_LOCAL_KEY) || 'null');
@@ -57571,36 +57571,228 @@ window.tareasInit = async function () {
   tarRender();
 };
 
-function tarRender() {
-  const root = document.getElementById('module-tareas');
-  if (!root) return;
-  const tabBtn = (k, label) => {
-    const on = TAR_STATE.section === k;
-    return `<button type="button" onclick="tarSetSection('${k}')" style="all:unset;cursor:pointer;padding:10px 16px;font-size:13px;font-weight:${on ? 900 : 700};color:${on ? '#0f172a' : '#64748b'};border-bottom:3px solid ${on ? '#7c3aed' : 'transparent'};margin-bottom:-1px">${label}</button>`;
-  };
-  root.innerHTML = `
-    <div style="max-width:1440px;margin:0 auto">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px">
-        <div>
-          <div style="font-size:11px;color:#64748b;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Operación · personal</div>
-          <h1 style="margin:2px 0 0;font-size:22px;font-weight:800;color:#0f172a">🗓️ Tareas programadas</h1>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" onclick="tarOpenClasifManager()" style="padding:8px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">⚙️ Clasificaciones</button>
-          <button type="button" onclick="tarOpenPanel(null,'','Recordatorio')" style="padding:8px 12px;border:1.5px solid #fcd34d;background:#fffbeb;color:#92400e;border-radius:8px;font-weight:900;font-size:12px;cursor:pointer">＋ Nuevo recordatorio</button>
-          <button type="button" onclick="tarOpenPanel(null)" style="padding:8px 14px;border:none;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border-radius:8px;font-weight:900;font-size:12px;cursor:pointer;box-shadow:0 3px 8px rgba(124,58,237,.3)">＋ Nueva tarea</button>
-        </div>
-      </div>
-      <div style="display:flex;gap:0;border-bottom:1px solid #e2e8f0;margin-bottom:14px">
-        ${tabBtn('calendario', '📅 Calendario')}
-        ${tabBtn('registro', '📝 Registro de tareas')}
-      </div>
-      <div id="tar-filtros">${tarFiltrosHtml_()}</div>
-      <div id="tar-content">${TAR_STATE.section === 'registro' ? tarRegistroHtml_() : tarCalendarioHtml_()}</div>
-    </div>`;
-  if (typeof pzRender_ === 'function') pzRender_();
+function tarRender() { tdRender_(); }
+// ═══════════════════════════════════════════════════════════════════════════
+// Tareas programadas · diseño homologado con Control de aseo (v1586):
+// selector de día, KPIs, filtros de chip, tablero por estado (o por clasificación),
+// cards compactas con selector rápido de estado, arrastre entre columnas y ventana lateral.
+// Los datos NO cambian: Tareas / Tareas_Ocurrencias / Tareas_Historial.
+// ═══════════════════════════════════════════════════════════════════════════
+const TD_EST = { 'Pendiente': '#94a3b8', 'En proceso': '#f59e0b', 'Resuelto': '#10b981', 'Cancelado': '#64748b' };
+const TD_CORTO = { 'Pendiente': 'Pend.', 'En proceso': 'Proceso', 'Resuelto': 'Resuelto', 'Cancelado': 'Cancel.' };
+const TD_TIPO = { tar: { t: 'Tarea programada', c: '#7c3aed' }, rec: { t: 'Recordatorio', c: '#f59e0b' } };
+const TD_PRIO = { 'Bajo': { ico: '↓', c: '#2563eb' }, 'Medio': { ico: '◇', c: '#ca8a04' }, 'Alto': { ico: '↑', c: '#ea580c' }, 'Crítico': { ico: '⇈', c: '#dc2626' } };
+function tdDia_() { return TAR_STATE.dia || tarIso_(tarToday_()); }
+function tdEst_(r, iso) { return tarOcurEstado_(r.ID, iso); }
+function tdTipoK_(r) { return tarEsRec_(r) ? 'rec' : 'tar'; }
+function tdCss_() {
+  if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
+  if (typeof aseoEnsureCss_ === 'function') aseoEnsureCss_();
+  if (document.getElementById('td-css')) return;
+  const st = document.createElement('style'); st.id = 'td-css';
+  st.textContent = `
+  #module-tareas{--ad-line:#e8eaee;--ad-line2:#f0f1f4;--ad-tx:#0f1729;--ad-mut:#6b7280;--ad-mut2:#9aa1ad;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f1729}
+  #module-tareas .td-h1{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  #module-tareas .td-h1 h1{margin:0;font-size:22px;font-weight:700}
+  #module-tareas .td-tabs{display:inline-flex;background:#fff;border:1px solid var(--ad-line);border-radius:10px;padding:3px;margin-left:auto}
+  #module-tareas .td-tabs button{all:unset;cursor:pointer;padding:6px 14px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ad-mut)}
+  #module-tareas .td-tabs button.on{background:var(--ad-tx);color:#fff}
+  #module-tareas .aseo-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  #module-tareas .aseo-btn{font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px;border-color:var(--ad-line)}
+  #module-tareas .td-rec{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+  #module-tareas .td-cal{background:#fff;border:1px solid var(--ad-line);border-radius:12px;padding:12px;margin:0 0 14px}
+  .td-card .r1 .ttl{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .td-card .flag.amber{color:#92400e}.td-card .flag.amber i{background:#f59e0b;box-shadow:0 0 0 3px #fef3c7}
+  .td-card .r2 .ty{font-weight:600}
+  .td-card .wa{color:#16a34a;font-size:11px;font-weight:600}
+  #ad-drawer .td-com{width:100%;box-sizing:border-box;margin-top:8px}
+  `;
+  document.head.appendChild(st);
 }
-window.tarSetSection = function (k) { TAR_STATE.section = k; tarRender(); };
+// Lista del día ya filtrada (mismos filtros que antes: TAR_STATE.fx).
+function tdLista_(iso) { return tarDelDia_(iso).filter(tarPasaFiltro_); }
+// ── Pantalla principal ──
+function tdRender_() {
+  const root = document.getElementById('module-tareas'); if (!root) return;
+  tdCss_();
+  const dia = tdDia_(), hoy = tarIso_(tarToday_());
+  const sec = TAR_STATE.section === 'registro' ? 'registro' : 'tablero';
+  const lbl = typeof aseoDiaLabel_ === 'function' ? aseoDiaLabel_(dia) : tarFmtFecha_(dia);
+  const head = `<div class="td-h1"><h1>🗓️ Tareas programadas</h1>
+      <div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="tarSetSection('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="tarSetSection('registro')">Registro</button></div></div>
+    <div class="aseo-head">
+      ${sec === 'tablero' ? `<button type="button" class="aseo-btn" onclick="tdSetDia_(0)" title="Ir al día de hoy">📍 Hoy</button>
+      <div class="pc-mnav aseo-dnav"><button type="button" onclick="tdSetDia_(-1)" title="Día anterior">‹</button><div class="pc-mlabel" ${dia !== hoy ? 'onclick="tdSetDia_(0)" style="cursor:pointer" title="Volver a hoy"' : ''}>${lbl}</div><button type="button" onclick="tdSetDia_(1)" title="Día siguiente">›</button></div>
+      <button type="button" class="aseo-btn" onclick="tdToggleCal_()">${TAR_STATE.cal ? '✕ Ocultar calendario' : '📅 Mostrar calendario'}</button>` : ''}
+      <span style="flex:1"></span>
+      <button type="button" class="aseo-btn" onclick="tarOpenClasifManager()">⚙️ Clasificaciones</button>
+      <button type="button" class="aseo-btn td-rec" onclick="tarOpenPanel(null,'','Recordatorio')">＋ Nuevo recordatorio</button>
+      <button type="button" class="aseo-btn at-nueva" onclick="tarOpenPanel(null)">＋ Nueva tarea</button>
+    </div>`;
+  if (sec === 'registro') {
+    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}<div class="ad-v2">${tdFiltros_(TAR_STATE.list.slice())}</div><div id="tar-content">${tarRegistroHtml_()}</div></div>`;
+  } else {
+    const todos = tarDelDia_(dia), L = tdLista_(dia);
+    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}
+      <div class="ad-v2">${tdKpis_(todos, dia)}${tdFiltros_(todos)}</div>
+      ${TAR_STATE.cal ? `<div class="td-cal">${tarCalendarioHtml_()}</div>` : ''}
+      <div class="ad-v2">${tdTablero_(L, dia)}</div></div>`;
+  }
+  if (typeof pzRender_ === 'function') pzRender_();
+  if (TAR_STATE.dr) tdPintar_();
+}
+function tdKpis_(L, dia) {
+  const vivos = L.filter(r => tdEst_(r, dia) !== 'Cancelado');
+  const n = k => L.filter(r => tdEst_(r, dia) === k).length;
+  const res = n('Resuelto'), pct = vivos.length ? Math.round(res / vivos.length * 100) : 0;
+  const recs = L.filter(r => tarEsRec_(r) && !['Resuelto', 'Cancelado'].includes(tdEst_(r, dia))).length;
+  const urg = L.filter(r => ['Crítico', 'Alto'].includes(r.Prioridad) && !['Resuelto', 'Cancelado'].includes(tdEst_(r, dia))).length;
+  const lim = L.filter(r => r.Fecha_limite === 'Sí' && !['Resuelto', 'Cancelado'].includes(tdEst_(r, dia))).length;
+  const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
+  const kpi = (t, v, s, cls) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div></div>`;
+  return `<div class="ad-kpis">
+    <div class="ad-kpi big"><small>Avance ${dia === tarIso_(tarToday_()) ? 'del día' : aseoDiaTxt_(dia)}</small><div class="n">${pct}%<em>${res} de ${vivos.length} resueltas</em></div>
+      <div class="ad-prog"><i style="width:${seg('Resuelto')}%;background:#10b981"></i><i style="width:${seg('En proceso')}%;background:#f59e0b"></i></div></div>
+    ${kpi('Pendientes', n('Pendiente'))}${kpi('En proceso', n('En proceso'))}${kpi('Resueltas', res)}${kpi('Recordatorios', recs, 'abiertos')}
+    ${kpi('Alertas', urg + lim, [urg ? `${urg} alta/crítica` : '', lim ? `${lim} con límite` : ''].filter(Boolean).join(' · '), urg + lim ? 'al' : '')}
+  </div>`;
+}
+// Filtros de chip (Personal · Clasificación · Tipo · Prioridad) sobre TAR_STATE.fx.
+function tdFiltros_(base) {
+  const fx = TAR_STATE.fx;
+  const pers = [...new Set(base.flatMap(tarPersonalList_).concat([...fx.pers].filter(v => v !== TAR_SIN_PERS)))].sort((a, b) => a.localeCompare(b, 'es'));
+  const sinAsig = base.some(r => !tarPersonalList_(r).length) || fx.pers.has(TAR_SIN_PERS);
+  const clas = [...new Set(base.map(r => r.Clasificacion || TAR_SIN).concat([...fx.clas]))].sort((a, b) => a === TAR_SIN ? 1 : b === TAR_SIN ? -1 : a.localeCompare(b, 'es'));
+  const cuenta = f => base.filter(f).length;
+  const chip = (on, html, onclick, extra) => `<button type="button" class="mv-pf-c ${extra || ''} ${on ? 'on' : ''}" onclick="${onclick}">${html}</button>`;
+  const fila = (ico, t, chips, k) => chips ? `<div class="mv-pf ad-prf"><small>${ico} ${t}:</small>${chips}${k ? `<button type="button" class="mv-pf-x" onclick="${k}">Quitar filtro</button>` : ''}</div>` : '';
+  const pChips = pers.map(nm => `<button type="button" class="mv-pf-c ${fx.pers.has(nm) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(nm)}" title="${esc(nm)}" data-n="${esc(nm)}" onclick="tdFx_('pers',this.dataset.n)"><i>${esc(adIni_(nm))}</i>${esc(pers.filter(x => aseoNombreCorto_(x) === aseoNombreCorto_(nm)).length > 1 ? nm : aseoNombreCorto_(nm))}</button>`).join('')
+    + (sinAsig ? chip(fx.pers.has(TAR_SIN_PERS), `<i style="background:#94a3b8">—</i>Sin asignar`, `tdFx_('pers','${TAR_SIN_PERS}')`) : '');
+  const cChips = clas.map(c => `<button type="button" class="mv-pf-c ad-pr ${fx.clas.has(c) ? 'on' : ''}" data-c="${esc(c)}" onclick="tdFx_('clas',this.dataset.c)">${esc(c)}<b>${cuenta(r => (r.Clasificacion || TAR_SIN) === c)}</b></button>`).join('');
+  const tChips = Object.entries(TD_TIPO).map(([k, T]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fx.tipo === T.t ? 'on' : ''}" style="--tc:${T.c}" onclick="tdFx_('tipo','${T.t}')"><i></i>${k === 'rec' ? 'Recordatorio' : 'Tarea'}<b>${cuenta(r => tdTipoK_(r) === k)}</b></button>`).join('');
+  const prChips = Object.entries(TD_PRIO).map(([k, P]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fx.prio === k ? 'on' : ''}" style="--tc:${P.c}" onclick="tdFx_('prio','${k}')"><i></i>${P.ico} ${k}<b>${cuenta(r => (r.Prioridad || 'Medio') === k)}</b></button>`).join('');
+  return `<div class="ad-gfil" style="display:flex;flex-direction:column;gap:6px;margin:12px 0">
+    ${fila('👥', 'Personal', pChips, fx.pers.size ? "tdFxClr_('pers')" : '')}
+    ${fila('🗂️', 'Clasificación', cChips, fx.clas.size ? "tdFxClr_('clas')" : '')}
+    ${fila('🏷️', 'Tipo', tChips, fx.tipo ? "tdFxClr_('tipo')" : '')}
+    ${fila('⚑', 'Prioridad', prChips, fx.prio ? "tdFxClr_('prio')" : '')}</div>`;
+}
+window.tdFx_ = function (k, v) {
+  const fx = TAR_STATE.fx;
+  if (k === 'tipo' || k === 'prio') fx[k] = fx[k] === v ? '' : v;
+  else { if (fx[k].has(v)) fx[k].delete(v); else fx[k].add(v); if (k === 'clas') fx.sub.clear(); }
+  tarRender();
+};
+window.tdFxClr_ = function (k) { const fx = TAR_STATE.fx; if (k === 'tipo' || k === 'prio') fx[k] = ''; else { fx[k].clear(); if (k === 'clas') fx.sub.clear(); } tarRender(); };
+window.tdSetDia_ = function (delta) {
+  if (!delta) TAR_STATE.dia = null;
+  else { const d = tarParseIso_(tdDia_()); d.setDate(d.getDate() + delta); const iso = tarIso_(d); TAR_STATE.dia = iso === tarIso_(tarToday_()) ? null : iso; }
+  TAR_STATE.calRef = tarParseIso_(tdDia_());
+  tarRender();
+};
+window.tdToggleCal_ = function () { TAR_STATE.cal = !TAR_STATE.cal; if (TAR_STATE.cal && TAR_STATE.calView === 'resumen') TAR_STATE.calView = 'mes'; tarRender(); };
+window.tdVista_ = function (v) { TAR_STATE.vista = v; try { localStorage.setItem('tar-vista', v); } catch (_) {} tarRender(); };
+try { TAR_STATE.vista = localStorage.getItem('tar-vista') || 'estado'; } catch (_) {}
+// ── Card compacta ──
+function tdCard_(r, dia) {
+  const est = tdEst_(r, dia), T = TD_TIPO[tdTipoK_(r)], P = TD_PRIO[r.Prioridad || 'Medio'] || TD_PRIO.Medio;
+  const pers = tarPersonalList_(r), sel = TAR_STATE.dr && TAR_STATE.dr.id === r.ID;
+  const oc = tarOcur_(r.ID, dia);
+  let flag = '';
+  if (r.Fecha_limite === 'Sí' && !['Resuelto', 'Cancelado'].includes(est)) { const t = tarLimiteTxt_(r, est).replace(/^⏳\s*/, ''); flag = `<div class="flag ${/vencida|hoy/.test(t) ? 'red' : 'orange'}"><i></i>${esc(t)}</div>`; }
+  else if (r.Prioridad === 'Crítico' && !['Resuelto', 'Cancelado'].includes(est)) flag = '<div class="flag red"><i></i>Prioridad crítica</div>';
+  const meta = [`<span class="ty" style="color:${T.c}">${T.t}</span>`];
+  if (r.Clasificacion) meta.push(`<span>${esc(r.Clasificacion)}${r.Subclasificacion ? ' › ' + esc(r.Subclasificacion) : ''}</span>`);
+  if (tarEsRec_(r)) meta.push(`<span>${esc(tarRecTexto_(r))}</span>`); else if ((r.Naturaleza || '') === 'Recurrente') meta.push('<span>↻ Recurrente</span>');
+  if (r.Origen === 'Bot WhatsApp') meta.push('<span>🤖 Bot</span>');
+  if (r.Proceso_Codigo) meta.push(`<span>📘 ${esc(r.Proceso_Codigo)}</span>`);
+  const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${TAR_ESTADOS.map(e => `<button type="button" class="${e.k === est ? 'on' : ''}" style="--c:${TD_EST[e.k]}" title="${e.k}" onclick="event.stopPropagation();${e.k === est ? '' : `tdSetEst_('${esc(r.ID)}','${dia}','${e.k}')`}"><i></i>${TD_CORTO[e.k]}</button>`).join('')}</div>`;
+  return `<div class="ad-card tipo td-card ${sel ? 'sel' : ''} ${est === 'Cancelado' ? 'ghost' : ''}" data-k="${esc(r.ID)}" style="--tc:${T.c}" onclick="tdAbrir_('${esc(r.ID)}')"
+      draggable="true" ondragstart="tdDragStart_(event,'${esc(r.ID)}')" ondragend="adDragEnd_(event)">
+    <div class="r1"><span class="ttl">${esc(r.Nombre || 'Sin nombre')}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${esc(r.Prioridad || 'Medio')}">${P.ico} ${esc(r.Prioridad || 'Medio')}</span></span></div>
+    ${flag}
+    <div class="r2">${meta.join('<span class="sep"></span>')}</div>
+    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
+    ${qs}
+  </div>`;
+}
+function tdTablero_(L, dia) {
+  const vista = TAR_STATE.vista === 'clas' ? 'clas' : 'estado';
+  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="tdVista_('estado')">Por estado</button><button type="button" class="${vista === 'clas' ? 'on' : ''}" onclick="tdVista_('clas')">Por clasificación</button></div>`;
+  let cols;
+  if (vista === 'estado') cols = TAR_ESTADOS.map(e => {
+    const X = L.filter(r => tdEst_(r, dia) === e.k);
+    return `<div class="ad-col" ondragover="tdDragOver_(event)" ondrop="tdDrop_(event,'${e.k}')"><div class="ad-colh"><i style="background:${TD_EST[e.k]}"></i>${e.k}<span>${X.length}</span></div>${X.map(r => tdCard_(r, dia)).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
+  }).join('');
+  else {
+    const cl = [...new Set(L.map(r => r.Clasificacion || TAR_SIN))].sort((a, b) => a === TAR_SIN ? 1 : b === TAR_SIN ? -1 : a.localeCompare(b, 'es'));
+    cols = cl.map(c => {
+      const X = L.filter(r => (r.Clasificacion || TAR_SIN) === c);
+      const pts = TAR_ESTADOS.map(e => { const k = X.filter(r => tdEst_(r, dia) === e.k).length; return k ? `<i style="background:${TD_EST[e.k]}" title="${e.k}: ${k}"></i>` : ''; }).join('');
+      return `<div class="ad-col"><div class="ad-colh">🗂️ ${esc(c)}<span>${X.length}</span><em class="ad-pts">${pts}</em></div>${X.map(r => tdCard_(r, dia)).join('')}</div>`;
+    }).join('');
+  }
+  const vacio = tarDelDia_(dia).length ? 'Ninguna tarea coincide con los filtros' : `No hay tareas ni recordatorios ${dia === tarIso_(tarToday_()) ? 'hoy' : 'el ' + aseoDiaTxt_(dia)}`;
+  return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${L.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+}
+window.tdSetEst_ = function (id, iso, k) {
+  if (tarOcurEstado_(id, iso) === k) return;
+  const p = tarSaveOcur_(id, iso, { Estado: k });
+  tarRender();
+  Promise.resolve(p).then(() => tarRender()).catch(e => { alert('No se pudo guardar: ' + (e.message || e)); tarRender(); });
+};
+window.tdDragStart_ = function (ev, id) { TAR_STATE._drag = id; try { ev.dataTransfer.setData('text/plain', id); ev.dataTransfer.effectAllowed = 'move'; } catch (_) {} const c = ev.currentTarget; setTimeout(() => c.classList.add('dragging'), 0); };
+window.tdDragOver_ = function (ev) { if (!TAR_STATE._drag) return; ev.preventDefault(); document.querySelectorAll('.ad-col.drop').forEach(c => { if (c !== ev.currentTarget) c.classList.remove('drop'); }); ev.currentTarget.classList.add('drop'); };
+window.tdDrop_ = function (ev, k) { ev.preventDefault(); const id = TAR_STATE._drag; TAR_STATE._drag = null; document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop')); if (id) tdSetEst_(id, tdDia_(), k); };
+// ── Ventana lateral de detalle (mismo diseño que Aseo) ──
+window.tdAbrir_ = function (id) {
+  TAR_STATE.dr = { id: String(id) };
+  document.querySelectorAll('#module-tareas .ad-card').forEach(c => c.classList.toggle('sel', c.dataset.k === String(id)));
+  tdPintar_(true);
+};
+window.tdCerrar_ = function () { TAR_STATE.dr = null; document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove(); document.querySelectorAll('#module-tareas .ad-card.sel').forEach(c => c.classList.remove('sel')); };
+function tdPintar_(nuevo) {
+  const D = TAR_STATE.dr; if (!D) return;
+  const r = TAR_STATE.list.find(x => x.ID === D.id); if (!r) { tdCerrar_(); return; }
+  const dr = atShell_(); const dim = document.getElementById('ad-dim'); if (dim) dim.onclick = tdCerrar_;
+  const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
+  const dia = tdDia_(), est = tdEst_(r, dia), T = TD_TIPO[tdTipoK_(r)], P = TD_PRIO[r.Prioridad || 'Medio'] || TD_PRIO.Medio;
+  const oc = tarOcur_(r.ID, dia), pers = tarPersonalList_(r);
+  const sig = TAR_ESTADOS[Math.min(2, TAR_ESTADOS.findIndex(e => e.k === est) + 1)];
+  const id = esc(r.ID);
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="ty" style="font-weight:600;color:${T.c}">${T.t}</span><button type="button" class="ad-close" onclick="tdCerrar_()">✕</button></div>
+      <div class="ad-tt">${esc(r.Nombre || 'Sin nombre')}</div>
+      <div class="ad-sub">${aseoDiaTxt_(dia)} · <i style="background:${TD_EST[est]}"></i>${est} · <span style="color:${P.c};font-weight:600">${P.ico} ${esc(r.Prioridad || 'Medio')}</span></div>
+      ${r.Fecha_limite === 'Sí' && !['Resuelto', 'Cancelado'].includes(est) ? `<div class="ad-badge orange"><i></i>${esc(tarLimiteTxt_(r, est).replace(/^⏳\s*/, ''))}</div>` : ''}</div>
+    <div class="ad-db">
+      <div class="lab">Estado de este día</div>
+      <div class="ad-steps">${TAR_ESTADOS.map(e => `<button type="button" class="${e.k === est ? 'on' : ''}" style="--c:${TD_EST[e.k]}" onclick="tdSetEst_('${id}','${dia}','${e.k}')">${e.k}</button>`).join('')}</div>
+      ${oc && oc.Atendido_por ? `<div class="ad-hint">Último cambio: ${esc(oc.Atendido_por)}${oc.Updated_at ? ' · ' + esc(String(oc.Updated_at).replace('T', ' ').slice(0, 16)) : ''}</div>` : ''}
+      <textarea class="at-in td-com" rows="2" placeholder="Comentarios de este día…" onchange="tdComentario_('${id}','${dia}',this.value)">${esc((oc && oc.Comentarios) || '')}</textarea>
+      <div class="lab">Detalles</div>
+      <div class="ad-kv"><span>Tipo</span><b style="color:${T.c}">${T.t}</b>
+        <span>Clasificación</span><b>${esc(r.Clasificacion || '—')}${r.Subclasificacion ? ' › ' + esc(r.Subclasificacion) : ''}</b>
+        <span>Programación</span><b>${esc(tarEsRec_(r) ? tarRecTexto_(r) : (r.Programacion_texto || tarProgTexto_(tarProg_(r))))}</b>
+        ${r.Fecha_limite === 'Sí' ? '<span>Fecha límite</span><b>Sí</b>' : ''}
+        ${!tarEsRec_(r) ? `<span>WhatsApp</span><b>${r.WhatsApp === 'Sí' ? '💬 Sí' : 'No'}</b><span>Vigencia</span><b>${esc(tarVigencia_(r))}</b>` : ''}
+        ${r.Origen ? `<span>Origen</span><b>${esc(r.Origen)}${r.Proceso_Codigo ? ' · ' + esc(r.Proceso_Codigo) : ''}</b>` : ''}
+        <span>Creada</span><b>${esc(String(r.Timestamp || '').slice(0, 10))}${r.Creado_por ? ' · ' + esc(r.Creado_por) : ''}</b></div>
+      ${r.Comentarios ? `<div class="lab">Descripción / comentarios</div><div class="ad-desc">${esc(r.Comentarios).replace(/\n/g, '<br>')}</div>` : ''}
+      ${r.WhatsApp === 'Sí' && r.Mensaje ? `<div class="lab">Mensaje de WhatsApp</div><div class="ad-guide">💬 ${esc(r.Mensaje)}</div>` : ''}
+      <div class="lab">Personal asignado</div><div class="ad-ppl">${pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${esc(n)}</span></div>`).join('') || '<div class="ad-un">Sin asignar</div>'}</div>
+      <details class="ad-res"><summary>Historial de cambios</summary><div style="margin-top:8px">${tarHistHtml_(r.ID)}</div></details>
+    </div>
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="tdCerrar_();tarOpenPanel('${id}','${dia}')">Editar</button>
+      ${est === 'Resuelto' || est === 'Cancelado' ? `<button type="button" class="ad-bt ok" disabled>✓ ${est}</button>` : `<button type="button" class="ad-bt pri" onclick="tdSetEst_('${id}','${dia}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
+  if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
+  if (!TAR_STATE.hist && typeof tarLoadHist_ === 'function') tarLoadHist_().then(() => { if (TAR_STATE.dr && TAR_STATE.dr.id === r.ID) tdPintar_(); });
+}
+window.tdComentario_ = function (id, iso, v) {
+  Promise.resolve(tarSaveOcur_(id, iso, { Comentarios: v })).then(() => tarRender()).catch(e => alert('No se pudo guardar el comentario: ' + (e.message || e)));
+};
+
+// «Calendario» (menú lateral) = tablero con el calendario visible.
+window.tarSetSection = function (k) { if (k === 'calendario') { TAR_STATE.cal = true; k = 'tablero'; } TAR_STATE.section = k; tarRender(); };
 
 // ── Filtros globales (Calendario y Registro) ───────────────────────────
 // Tipo: botones (ambos activos por defecto). Clasificación / Sub-clasificación
@@ -58156,7 +58348,7 @@ function tarMesHtml_() {
     </div>`;
   }).join('')}</div></div>`;
 }
-window.tarIrADia = function (iso) { TAR_STATE.calView = 'dia'; TAR_STATE.calRef = tarParseIso_(iso); tarRender(); };
+window.tarIrADia = function (iso) { TAR_STATE.calView = 'dia'; TAR_STATE.calRef = tarParseIso_(iso); TAR_STATE.dia = iso === tarIso_(tarToday_()) ? null : iso; tarRender(); };
 
 // ── Guardado ───────────────────────────────────────────────────────────
 async function tarSaveRow_(payload) {
@@ -58219,14 +58411,14 @@ function tarPanelEls_() {
   if (!bd) {
     bd = document.createElement('div');
     bd.id = 'tar-panel-backdrop';
-    bd.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9300;opacity:0;transition:opacity .2s;display:none';
+    bd.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,41,.18);z-index:9300;opacity:0;transition:opacity .2s;display:none';
     bd.onclick = () => tarClosePanel();
     document.body.appendChild(bd);
   }
   if (!pn) {
     pn = document.createElement('div');
     pn.id = 'tar-panel';
-    pn.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:100%;max-width:560px;background:#fff;z-index:9400;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .25s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column';
+    pn.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:100%;max-width:480px;background:#fff;z-index:9400;box-shadow:-20px 0 50px rgba(15,23,41,.18);transform:translateX(100%);transition:transform .25s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;font:12.5px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f1729';
     document.body.appendChild(pn);
   }
   return { bd, pn };
@@ -58271,7 +58463,7 @@ window.tarClosePanel = function (force) {
 };
 function tarPill_(on, label, onclick, colors) {
   const c = colors || { fg: '#fff', bg: '#7c3aed', bd: '#7c3aed' };
-  return `<button type="button" onclick="${onclick}" style="all:unset;cursor:pointer;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid ${on ? c.bd : '#e2e8f0'};background:${on ? c.bg : '#fff'};color:${on ? c.fg : '#475569'}">${label}</button>`;
+  return `<button type="button" onclick="${onclick}" style="all:unset;cursor:pointer;padding:6px 11px;border-radius:8px;font-size:11.5px;font-weight:600;border:1px solid ${on ? c.bd : '#e3e6eb'};background:${on ? c.bg : '#fff'};color:${on ? c.fg : '#374151'}">${label}</button>`;
 }
 function tarCheck_(on) {
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${on ? '#7c3aed' : '#cbd5e1'};background:${on ? '#7c3aed' : '#fff'};color:#fff;font-size:12px;font-weight:900;line-height:1;flex-shrink:0">${on ? '✓' : ''}</span>`;
@@ -58281,9 +58473,10 @@ function tarPanelRender_() {
   const d = P.d, prog = d._prog;
   const { pn } = tarPanelEls_();
   const clasif = tarClasif_();
-  const lbl = t => `<label style="display:block;font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${t}</label>`;
-  const inp = 'width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;color:#0f172a;background:#fff;font-family:inherit';
-  const field = (inner) => `<div style="margin-bottom:16px">${inner}</div>`;
+  // Mismos formatos de campo que «Crea una tarea» de Aseo.
+  const lbl = t => `<label style="display:block;font-size:11.5px;font-weight:600;color:#374151;margin-bottom:5px">${t}</label>`;
+  const inp = 'width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #e3e6eb;border-radius:8px;font-size:12.5px;color:#0f1729;background:#f8f9fb;font-family:inherit;outline:none';
+  const field = (inner) => `<div style="margin-bottom:14px">${inner}</div>`;
   const subs = clasif[d.Clasificacion] || [];
   // Fechas
   let fechasHtml = '';
@@ -58345,11 +58538,11 @@ function tarPanelRender_() {
     ${rec ? '<div style="font-size:11px;color:#94a3b8;margin-top:5px">Recordatorio: siempre es <b>Único</b> y aparece cada día, a partir de su fecha, hasta que se marque Resuelto o Cancelado.</div>' : ''}`);
   const recFecha = rec ? field(lbl('Fecha') + `<div style="font-size:12.5px;color:#334155;padding:9px 11px;border:1.5px dashed #fcd34d;border-radius:8px;background:#fffbeb">📅 ${P.id ? esc(tarRecTexto_(Object.assign({}, d, { ID: P.id }))) : `Desde hoy (${esc(tarFmtFecha_(tarIso_(tarToday_())))}) · aparece cada día hasta resolverse`}</div>`) : '';
   pn.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,${rec ? '#fffbeb' : '#faf5ff'},#fff)">
-      <div style="font-size:15px;font-weight:900;color:#0f172a">${rec ? (P.id ? '📌 Detalle del recordatorio' : '＋ Nuevo recordatorio') : (P.id ? '📋 Detalle de la tarea' : '＋ Nueva tarea')}</div>
-      <button type="button" onclick="tarClosePanel()" style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid #e8eaee">
+      <div style="font-size:16px;font-weight:600;color:#0f1729">${rec ? (P.id ? 'Editar recordatorio' : 'Crea un recordatorio') : (P.id ? 'Editar tarea' : 'Crea una tarea')}</div>
+      <button type="button" onclick="tarClosePanel()" style="all:unset;cursor:pointer;color:#9aa1ad;font-size:15px;padding:2px 6px;border-radius:6px">✕</button>
     </div>
-    <div style="flex:1;overflow:auto;padding:18px">
+    <div style="flex:1;overflow:auto;padding:14px 20px 18px">
       ${P.fecha ? `
       <div style="margin-bottom:18px;padding:14px;border:2px solid #c4b5fd;border-radius:12px;background:linear-gradient(180deg,#faf5ff,#fff)">
         <div style="font-size:13px;font-weight:900;color:#5b21b6;margin-bottom:10px">📅 ${esc(['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][tarParseIso_(P.fecha).getDay()])} ${esc(tarFmtFecha_(P.fecha))} — estado de este día</div>
@@ -58384,7 +58577,7 @@ function tarPanelRender_() {
       ${field(lbl('Comentarios') + `<textarea rows="3" oninput="tarSetText('Comentarios',this.value)" style="${inp};resize:vertical">${esc(d.Comentarios || '')}</textarea>`)}`}
       ${P.id ? field(lbl('Historial') + tarHistHtml_(P.id)) : ''}
     </div>
-    <div id="tar-panel-footer" style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc">${tarPanelFooterHtml_(dirty)}</div>`;
+    <div id="tar-panel-footer" style="display:flex;align-items:center;gap:8px;padding:12px 20px;border-top:1px solid #e8eaee;background:#fff">${tarPanelFooterHtml_(dirty)}</div>`;
 }
 function tarHistHtml_(id) {
   if (!TAR_STATE.hist) return '<div style="font-size:12px;color:#94a3b8">⏳ Cargando historial…</div>';
@@ -58404,9 +58597,12 @@ window.tarSetOcEstado = function (v) { const P = TAR_STATE.panel; if (!P) return
 window.tarSetOcText = function (v) { const P = TAR_STATE.panel; if (!P) return; P.oc.Comentarios = v; tarPanelRefreshFooter_(); };
 function tarPanelFooterHtml_(dirty) {
   const P = TAR_STATE.panel;
-  const del = P && P.id ? `<button type="button" onclick="tarDelete()" style="all:unset;cursor:pointer;padding:8px 12px;border-radius:8px;color:#b91c1c;font-size:12px;font-weight:800">🗑 Eliminar</button>` : '';
-  const save = dirty ? `<button type="button" onclick="tarSavePanel()" ${P && P.saving ? 'disabled' : ''} style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-size:13px;font-weight:900;box-shadow:0 3px 8px rgba(22,163,74,.3)">${P && P.saving ? '⏳ Guardando…' : '💾 Guardar cambios'}</button>` : '';
-  return `${del}<div style="flex:1"></div>${save}<button type="button" onclick="tarClosePanel()" style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:#fff;border:1.5px solid #cbd5e1;color:#334155;font-size:13px;font-weight:800">🚪 Salir</button>`;
+  // Botones con el mismo estilo que la ventana de Aseo (.ad-bt).
+  const bt = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 6px;border-radius:9px;border:1px solid #e8eaee;font-weight:600;color:#374151;font-size:12px';
+  const del = P && P.id ? `<button type="button" onclick="tarDelete()" style="${bt};color:#b91c1c">Eliminar</button>` : '';
+  const nuevo = P && !P.id;
+  const save = dirty || nuevo ? `<button type="button" onclick="tarSavePanel()" ${P && P.saving ? 'disabled' : ''} style="${bt};background:#0f1729;border-color:#0f1729;color:#fff">${P && P.saving ? '⏳ Guardando…' : nuevo ? (P.d.Tipo === 'Recordatorio' ? 'Crear recordatorio' : 'Crear tarea') : 'Guardar cambios'}</button>` : '';
+  return `${del}<button type="button" onclick="tarClosePanel()" style="${bt}">Cancelar</button>${save}`;
 }
 function tarPanelRefreshFooter_() {
   const P = TAR_STATE.panel; if (!P) return;
