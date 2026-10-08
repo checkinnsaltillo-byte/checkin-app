@@ -9149,7 +9149,7 @@ const CL_BZW_OFF = true; // Breezeway desactivado por el momento (botón gris, s
 function clPuede_(m) { return !window.SYS_ALLOWED || window.SYS_ALLOWED.has(m); }
 function clNavHtml_(act) {
   const b = (k, l, mod) => `<button type="button" class="cl-b ${act === k ? 'on' : ''}" onclick="switchModule('${mod}')">${l}</button>`;
-  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Check-inn', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
+  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Aseo y Mantenimiento', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
   const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
   const on = typeof ASEO !== 'undefined' && (ASEO.autonotif || {}).on;
   const notif = `<button type="button" class="cl-notif" onclick="npAbrir_()" title="Notificaciones automáticas por WhatsApp y permisos del bot por persona">📣 Notificar actualizaciones${on ? ' · 🔁 auto' : ''}</button>`;
@@ -62558,7 +62558,7 @@ const NAV_TREE = {
   ],
   aseo: [
     { t: '🧭 Operación', go: () => {}, subs: [
-      { t: '🧽 Check-inn', go: () => switchModule('aseo') },
+      { t: '🧽 Aseo y Mantenimiento', go: () => switchModule('aseo') },
       // Breezeway desactivado por el momento (ver CL_BZW_OFF).
     ] },
     { t: '🗂️ Administración', mod: 'tareas', go: () => {}, subs: [
@@ -64954,6 +64954,13 @@ function aseoEnsureCss_() {
   .at-hint{font-size:11px;color:#6b7280;margin-top:6px}
   .at-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.at-tagin{flex:1;min-width:150px;margin-top:4px}
   .aseo-btn.at-nueva{background:#4f46e5;color:#fff;border-color:#4f46e5}
+  .ad-card .r4{display:flex;align-items:center;gap:6px;margin-top:7px}
+  .ad-card .r4 .sp{flex:1}
+  .ax-co{font-size:10.5px;font-weight:600;color:#0f766e;background:#ccfbf1;border-radius:6px;padding:1px 7px}
+  .ax-gen{font-size:10.5px;font-weight:500;color:#9aa1ad}
+  .ax-inc{all:unset;cursor:pointer;font-size:10.5px;font-weight:600;color:#6b7280;border:1px dashed #cbd5e1;border-radius:6px;padding:2px 8px;white-space:nowrap}
+  .ax-inc:hover{color:#b91c1c;border-color:#fca5a5}
+  .ax-inc.on{color:#fff;background:#dc2626;border:1px solid #b91c1c}
   .np-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
   .np-p{border:1px solid #e8eaee;border-radius:10px;background:#fff}
   .np-p.ab{border-color:#c7d2fe;box-shadow:0 0 0 3px #eef2ff}
@@ -65248,19 +65255,19 @@ async function aseoRefresh_(force) {
     // Antigüedad real del dato = reloj del servidor (evita errores por la hora de la PC).
     const edad = j.ts && j.now ? Math.max(0, j.now - j.ts) : 0;
     // ¿Cambió algo? (si no, no se re-dibujan las cards: evita perder clicks y que "se trabe").
-    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale, j.tareas, j.prio]);
+    const sig = JSON.stringify([j.rows, j.cambios, j.asig, j.estados, j.guias, j.temprana, j.tardia, j.reprog, j.sms, j.autonotif, j.nosale, j.tareas, j.prio, j.extra]);
     ASEO.cambio = sig !== ASEO._sig; ASEO._sig = sig;
     // Cambios guardados hace poco desde esta pantalla: una respuesta vieja (otra copia del
     // servidor o una consulta que salió antes de guardar) no los regresa a como estaban.
     const pend = ASEO._pend || {};
     Object.keys(pend).forEach(k => {
-      const p = pend[k], key = p.tipo === 'asig' ? 'asig' : p.tipo === 'nosale' ? 'nosale' : p.tipo === 'prio' ? 'prio' : 'estados', src = (j[key] = j[key] || {});
+      const p = pend[k], key = p.tipo === 'asig' ? 'asig' : p.tipo === 'nosale' ? 'nosale' : p.tipo === 'prio' ? 'prio' : p.tipo === 'extra' ? 'extra' : 'estados', src = (j[key] = j[key] || {});
       if (p.tipo === 'prio') { if (src[p.id] === p.rec || Date.now() - p.t > 45_000) delete pend[k]; else { src[p.id] = p.rec; ASEO.cambio = true; } return; }
       if (Date.now() - p.t > 45_000 || JSON.stringify(src[p.id] && p.campos.map(c => src[p.id][c])) === JSON.stringify(p.rec && p.campos.map(c => p.rec[c]))) { delete pend[k]; return; }
       if (p.rec) src[p.id] = p.rec; else delete src[p.id];
       ASEO.cambio = true;
     });
-    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, tareas: j.tareas || {}, prio: j.prio || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
+    Object.assign(ASEO, { live: m, cambios: j.cambios || {}, asig: j.asig || {}, estados: j.estados || {}, guias: j.guias || {}, temprana: j.temprana || {}, sms: j.sms || {}, tardia: j.tardia || {}, reprog: j.reprog || {}, autonotif: j.autonotif || {}, nosale: j.nosale || {}, tareas: j.tareas || {}, prio: j.prio || {}, extra: j.extra || {}, ts: j.ts ? Date.now() - edad : 0, err: j.err || '', chk: Date.now(), netErr: '' });
   } catch (e) { ASEO.netErr = e.message || 'sin conexión'; ASEO.chk = Date.now(); }
   mvSyncTick_();
 }
@@ -65541,6 +65548,33 @@ window.adDrop_ = function (ev, k) {
   if (cur === k) return;
   aseoSetEstado_(D.id, D.hid, k, !!D.tarea);
 };
+// Campos generales de las cards de «Aseo y Mantenimiento» (aseo/extra.json):
+//  · Tipo «Check-out»: automático en las cards de la fecha de salida de una reserva; en las demás solo si se indica.
+//  · Incidencia: interruptor «Reportar incidencia» / «⚠️ Incidencia».
+function axEx_(k) { return ((window.ASEO && ASEO.extra) || {})[String(k)] || {}; }
+function axCO_(k, auto) { const e = axEx_(k); return typeof e.checkout === 'boolean' ? e.checkout : !!auto; }
+window.axSet_ = function (k, patch, hid) {
+  ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k];
+  ASEO.extra[k] = Object.assign({}, prev, patch);
+  (ASEO._pend = ASEO._pend || {})['x:' + k] = { tipo: 'extra', id: k, rec: ASEO.extra[k], campos: Object.keys(patch), t: Date.now() };
+  ASEO.calSig = ''; aseoRender_(); if (ASEO._dr && !ASEO._dr.form) adPintar_();
+  fetch(`${BACKEND}/aseo/extra`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ key: k, hid: hid || '', user: (typeof currentUser !== 'undefined' && currentUser) || '' }, patch)) })
+    .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); })
+    .catch(e => { if (prev) ASEO.extra[k] = prev; else delete ASEO.extra[k]; aseoRender_(); alert('No se pudo guardar: ' + (e.message || e)); });
+};
+function axFila_(k, autoCO, hid) {
+  const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
+  return `<div class="r4">${co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
+    <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();axSet_('${sk}',{incidencia:${!inc}},'${sh}')" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</button></div>`;
+}
+function axDetalle_(k, autoCO, hid) {
+  const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
+  return `<div class="lab">Tipo</div><div class="ad-steps" style="grid-template-columns:1fr 1fr">
+      <button type="button" class="${co ? 'on' : ''}" style="--c:#0f766e" onclick="axSet_('${sk}',{checkout:true},'${sh}')">⇥ Check-out</button>
+      <button type="button" class="${co ? '' : 'on'}" style="--c:#9aa1ad" onclick="axSet_('${sk}',{checkout:false},'${sh}')">General</button></div>
+    ${autoCO ? '<div class="ad-hint">Asignado automáticamente: la card se generó en la fecha de salida de la reserva.</div>' : ''}
+    <div class="ad-tgl" style="margin-top:10px" onclick="axSet_('${sk}',{incidencia:${!inc}},'${sh}')"><div><b>${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Actívalo si hubo un problema con esta tarea'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
+}
 // ── Card compacta del tablero ──
 function adCard_(I) {
   const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
@@ -65562,6 +65596,7 @@ function adCard_(I) {
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
+    ${axFila_(I.asigId, I.g.sal.length > 0, I.hid)}
     <div class="r3">${equipo}<span class="sp"></span>${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
@@ -65880,6 +65915,7 @@ function adPintar_(nuevo) {
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
       <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${nota}
+      ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid)}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
       <div class="lab">Solicitudes</div><div class="ad-grid2">${sol('tard', I.xs, I.trd)}${sol('temp', I.xe, I.temp)}</div>
       <div class="lab">Equipo</div><div class="ad-ppl">${I.pA.map(n => per(n, 'Aseo')).join('')}${I.pI.map(n => per(n, 'Inspección')).join('')}${!I.pA.length && !I.pI.length ? '<div class="ad-un">Sin asignar</div>' : ''}
@@ -65958,6 +65994,7 @@ function rtCardA_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
     ${flags.join('')}
     <div class="r2"><span class="ty" style="color:${D.c}">Mantenimiento</span><span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
+    ${axFila_('R' + t.rtId, false, t.hid)}
     <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
     <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
   </div>`;
@@ -65971,6 +66008,7 @@ function atCard_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
+    ${axFila_('T' + t.id, false, t.hid)}
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
@@ -66004,6 +66042,7 @@ function atPintar_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
+      ${axDetalle_('T' + t.id, false, t.hid)}
       ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Departamento</span><b>${D.ico} ${D.t}</b><span>Programada</span><b>${aseoDiaTxt_(t.fecha)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''}</b>
@@ -66030,7 +66069,7 @@ window.atBorrar_ = async function (id) {
 // ── Formulario "Crea una tarea" ──
 window.atForm_ = function (id, hid, dia) {
   const t = id ? (ASEO.tareas || {})[id] : null;
-  ASEO._tf = t ? JSON.parse(JSON.stringify(t)) : { hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
+  ASEO._tf = t ? Object.assign(JSON.parse(JSON.stringify(t)), { checkout: axCO_('T' + t.id, false) }) : { hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDia_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
   ASEO._dr = { form: true, k: 'form' };
   atFormPintar_();
 };
@@ -66047,6 +66086,8 @@ function atFormPintar_() {
       <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Departamento <i>*</i></label>
       <select class="at-in" onchange="atFormDepto_(this.value)"><option value="">Selecciona un departamento</option>${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${F.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
+      <label class="at-l">Tipo</label>
+      <div class="ad-steps" style="grid-template-columns:1fr 1fr"><button type="button" class="${F.checkout ? 'on' : ''}" style="--c:#0f766e" onclick="ASEO._tf.checkout=true;atFormPintar_()">⇥ Check-out</button><button type="button" class="${F.checkout ? '' : 'on'}" style="--c:#9aa1ad" onclick="ASEO._tf.checkout=false;atFormPintar_()">General</button></div>
       <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
       ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
       <label class="at-l">Título de la tarea <i>*</i></label>
@@ -66153,6 +66194,7 @@ window.atGuardar_ = async function () {
     const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: F, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!r.ok) throw new Error(r.error || 'Error');
     (ASEO.tareas = ASEO.tareas || {})[r.tarea.id] = Object.assign(r.tarea, { adjuntos: F.adjuntos });
+    if (!!F.checkout !== axCO_('T' + r.tarea.id, false)) axSet_('T' + r.tarea.id, { checkout: !!F.checkout }, r.tarea.hid);
     ASEO._tf = null; ASEO.calSig = ''; aseoRender_();
     atAbrir_(r.tarea.id, r.tarea.fecha);
   } catch (e) { alert('No se pudo guardar la tarea: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear tarea'; } }
@@ -66287,6 +66329,7 @@ function rtPintarA_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="adRtEst_('${id}','${p[0]}')">${p[1]}</button>`).join('')}</div>
       ${row.Updated_at || row.Updated_by ? `<div class="ad-hint">Actualizado ${pcEsc(String(row.Updated_at || '').replace('T', ' ').slice(0, 16))}${row.Updated_by ? ' · ' + pcEsc(row.Updated_by) : ''}</div>` : ''}
+      ${axDetalle_('R' + t.rtId, false, t.hid)}
       <div class="lab">Descripción de la falla</div><div class="ad-desc">${pcEsc(t.desc || '—').replace(/\n/g, '<br>')}</div>
       <div class="lab">Impacto en el alojamiento</div>
       <div class="ad-kv"><span>Habitabilidad</span><b style="color:${t.bloquea ? '#dc2626' : '#059669'}">${t.bloquea ? '🚫 Inhabitable' : '✓ Habitable'}</b><span>Reincidente</span><b>${t.reincidente ? '↻ Sí, falla repetida' : 'No'}</b></div>
@@ -66320,7 +66363,7 @@ window.rtFormA_ = function (rtId, pre) {
   const row = rtId ? (ASEO.rt || []).find(r => String(r.ID) === String(rtId)) : null;
   const t = row ? rtTarea_(row) : null;
   const P = pre || {};
-  ASEO._rf = row ? Object.assign({}, row, { _hid: t.hid, _prio: t.prioridad, _asig: t.asignados.slice(), _bloq: t.bloquea, _rein: t.reincidente, _cargar: rtBool_(row.Cargar_a_huesped) })
+  ASEO._rf = row ? Object.assign({}, row, { _co: axCO_('R' + row.ID, false), _hid: t.hid, _prio: t.prioridad, _asig: t.asignados.slice(), _bloq: t.bloquea, _rein: t.reincidente, _cargar: rtBool_(row.Cargar_a_huesped) })
     : { ID: '', Estado: 'nuevo', Tipo: 'correctivo', Categoria: 'otros', Responsabilidad: 'indeterminada', Titulo: P.titulo || '', Descripcion: P.desc || '', Fecha: P.fecha || aseoDia_(),
         Reservacion_id: P.reserva || '', _hid: P.hid || '', _prio: prio4Key_(P.prioridad || 'media'), _asig: (P.asignados || []).slice(), _bloq: false, _rein: false, _cargar: false,
         Reportado_por: (typeof currentUser !== 'undefined' && currentUser) || '' };
@@ -66346,6 +66389,8 @@ function rtFormPintarA_() {
       <label class="at-l">Departamento <i>*</i></label>
       <select class="at-in" ${F.ID ? 'disabled title="Un reporte técnico siempre es de Mantenimiento"' : ''} onchange="rtFormCambiarDepto_(this.value)">${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${k === 'mantenimiento' ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
       <div class="at-hint">Mantenimiento = reporte técnico (se guarda en «Reportes técnicos»).</div>
+      <label class="at-l">Tipo</label>
+      <div class="ad-steps" style="grid-template-columns:1fr 1fr"><button type="button" class="${F._co ? 'on' : ''}" style="--c:#0f766e" onclick="ASEO._rf._co=true;rtFormPintarA_()">⇥ Check-out</button><button type="button" class="${F._co ? '' : 'on'}" style="--c:#9aa1ad" onclick="ASEO._rf._co=false;rtFormPintarA_()">General</button></div>
       <div class="at-sec"><span>☑ Detalles del reporte</span></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F._prio, 'rtFormPrio_')}
       <label class="at-l">Categoría</label>${sel('Categoria', RT_CATEGORIAS, F.Categoria || 'otros')}
@@ -66425,6 +66470,7 @@ window.rtGuardarA_ = async function () {
     const i = ASEO.rt.findIndex(x => String(x.ID) === id);
     const fila = Object.assign(i >= 0 ? ASEO.rt[i] : { Timestamp: new Date().toISOString() }, payload, { ID: id, Folio: r.folio || F.Folio || id });
     if (i < 0) ASEO.rt.unshift(fila);
+    if (!!F._co !== axCO_('R' + id, false)) axSet_('R' + id, { checkout: !!F._co }, F._hid);
     ASEO._rf = null; ASEO.calSig = ''; aseoRender_();
     rtAbrirA_(id, fila.Fecha);
     setTimeout(() => adRtLoad_(true), 1500); // fotos y folio definitivos
@@ -66473,7 +66519,7 @@ window.npAbrir_ = function () {
 function npResumen_(pf) {
   const b = [];
   if (pf.rol) b.push(`<span class="np-tag ${pf.rol}">${pf.rol === 'admin' ? 'Administrador' : 'Empleado'}</span>`);
-  if (pf.auto.checkinn) b.push('<span class="np-tag s">🧽 Check-inn</span>');
+  if (pf.auto.checkinn) b.push('<span class="np-tag s">🧽 Aseo y Mant.</span>');
   if (pf.auto.tareas) b.push('<span class="np-tag s">🗓️ Tareas</span>');
   if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
   if (pf.avanzadas) b.push('<span class="np-tag a">⭐ Avanzadas</span>');
@@ -66489,7 +66535,7 @@ function npFila_(n) {
       <div class="ad-steps np-rol" style="grid-template-columns:repeat(3,1fr)">${[['admin', 'Administrador'], ['empleado', 'Empleado'], ['', 'Sin rol']].map(([k, t]) => `<button type="button" class="${pf.rol === k ? 'on' : ''}" style="--c:${k === 'admin' ? '#4f46e5' : k === 'empleado' ? '#0ea5e9' : '#9aa1ad'}" onclick="npRol_(this.closest('.np-p').dataset.n,'${k}')">${t}</button>`).join('')}</div>
       <div class="np-hint">${pf.rol === 'admin' ? 'Administrador: puede pedir resúmenes de todas las secciones y aceptar entradas tempranas o salidas tardías.' : pf.rol === 'empleado' ? 'Empleado: recibe su lista de tareas del día al registrar su entrada; no pide resúmenes.' : 'Elige un rol para ajustar los permisos de inicio.'}</div>
       <div class="np-lab">Envío automático por WhatsApp</div>
-      ${ck(pf.auto.checkinn, '🧽 Check-inn', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
+      ${ck(pf.auto.checkinn, '🧽 Aseo y Mantenimiento', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
       ${ck(pf.auto.tareas, '🗓️ Tareas programadas', 'Cambios en las tareas y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'tareas')`)}
       <div class="np-lab">Funciones</div>
       ${ck(pf.recordatorio, '🔔 Recordatorio diario de tareas asignadas', 'Al registrar su entrada recibe sus limpiezas y tareas programadas del día', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
@@ -66509,7 +66555,7 @@ function npPintar_() {
       <div class="ad-sub">Check-list · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
     <div class="ad-db">
       <div class="ad-tgl" onclick="npOn_()"><div><b>Reenvío automático por WhatsApp</b><small>${N.on ? 'Activo: cada cambio se envía 1 min después del último, a quien tenga la sección marcada' : 'Apagado: no se envía nada automáticamente'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
-      <button type="button" class="ad-bt" style="display:block;width:100%;margin-top:8px;box-sizing:border-box" onclick="adCerrar_();mvNotificar_(null)">📣 Enviar ahora la lista actualizada de Check-inn</button>
+      <button type="button" class="ad-bt" style="display:block;width:100%;margin-top:8px;box-sizing:border-box" onclick="adCerrar_();mvNotificar_(null)">📣 Enviar ahora la lista actualizada de Aseo y Mantenimiento</button>
       <div class="lab">Personal</div>
       <input class="at-in" placeholder="🔎 Buscar persona…" value="${pcEsc(N.q)}" oninput="ASEO._np.q=this.value;npPintarLista_()">
       <div class="np-list" id="np-list">${L.map(npFila_).join('') || '<div class="at-hint">⏳ Cargando personal…</div>'}</div>
