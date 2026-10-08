@@ -9150,10 +9150,11 @@ function clPuede_(m) { return !window.SYS_ALLOWED || window.SYS_ALLOWED.has(m); 
 function clNavHtml_(act) {
   const b = (k, l, mod) => `<button type="button" class="cl-b ${act === k ? 'on' : ''}" onclick="switchModule('${mod}')">${l}</button>`;
   const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Aseo y Mantenimiento', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
+  const op2 = clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '';
   const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
   const on = typeof ASEO !== 'undefined' && (ASEO.autonotif || {}).on;
   const notif = `<button type="button" class="cl-notif" onclick="npAbrir_()" title="Notificaciones automáticas por WhatsApp y permisos del bot por persona">📣 Notificar actualizaciones${on ? ' · 🔁 auto' : ''}</button>`;
-  return `<div class="cl-nav">${op ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}${notif}</div>`;
+  return `<div class="cl-nav">${op || op2 ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}${op2}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}${notif}</div>`;
 }
 function clNavPaint_() {
   if (!document.getElementById('cl-css')) {
@@ -9172,6 +9173,9 @@ function clNavPaint_() {
   }
   document.querySelectorAll('.cl-nav-slot').forEach(el => { el.innerHTML = clNavHtml_(el.dataset.act); });
   // «Tareas programadas» ahora vive dentro de Check-list; su entrada propia del menú solo queda para quien no ve Check-list.
+  // Igual con «Incidencias».
+  const ni = document.getElementById('nav-item-incidencias');
+  if (ni && clPuede_('incidencias')) ni.style.display = !clPuede_('aseo') && !clPuede_('breezeway') && !clPuede_('tareas') ? '' : 'none';
   const nt = document.getElementById('nav-item-tareas');
   if (nt && clPuede_('tareas')) { const solo = !clPuede_('aseo') && !clPuede_('breezeway'); nt.style.display = solo ? '' : 'none'; const bx = document.querySelector('.nav-secs[data-for="tareas"]'); if (bx && !solo) bx.style.display = 'none'; }
 }
@@ -9333,8 +9337,7 @@ function switchModule(mod) {
     }
   }
   if (mod === "incidencias") {
-    if (typeof incInit === 'function') incInit();
-    if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
+    if (typeof icInit_ === 'function') icInit_(); // Check-list › Incidencias (nuevo diseño)
   }
   if (mod === "objetos") {
     if (typeof objInit === 'function') objInit();
@@ -24001,8 +24004,8 @@ window.incLimpiar = function() {
   if (preview) preview.innerHTML = '';
 };
 
-window.incImprimir = function() {
-  const d = incGetFormData();
+window.incImprimir = function() { incImprimirData_(incGetFormData()); };
+function incImprimirData_(d) {
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -49705,6 +49708,7 @@ window._botcNotifBuildLink_ = function(kind, id, extra) {
               () => typeof INC_STATE === 'object' && Array.isArray(INC_STATE.list) && INC_STATE.list.some(r => String(r.ID) === String(id)),
               () => {
                 try {
+                  if (typeof icAbrir_ === 'function') { icRender_(); icAbrir_(String(id)); return; } // Check-list › Incidencias
                   INC_STATE.expanded.add(id);
                   if (typeof incRenderCards === 'function') incRenderCards();
                   requestAnimationFrame(() => {
@@ -66545,6 +66549,7 @@ function npResumen_(pf) {
   if (pf.rol) b.push(`<span class="np-tag ${pf.rol}">${pf.rol === 'admin' ? 'Administrador' : 'Empleado'}</span>`);
   if (pf.auto.checkinn) b.push('<span class="np-tag s">🧽 Aseo y Mant.</span>');
   if (pf.auto.tareas) b.push('<span class="np-tag s">🗓️ Tareas</span>');
+  if (pf.auto.incidencias) b.push('<span class="np-tag s">🚨 Incidencias</span>');
   if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
   if (pf.avanzadas) b.push('<span class="np-tag a">⭐ Avanzadas</span>');
   return b.join('') || '<span class="np-tag n">Sin funciones asignadas</span>';
@@ -66561,6 +66566,7 @@ function npFila_(n) {
       <div class="np-lab">Envío automático por WhatsApp</div>
       ${ck(pf.auto.checkinn, '🧽 Aseo y Mantenimiento', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
       ${ck(pf.auto.tareas, '🗓️ Tareas programadas', 'Cambios en las tareas y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'tareas')`)}
+      ${ck(pf.auto.incidencias, '🚨 Incidencias', 'Incidencias nuevas y cambios de estado, prioridad o seguimiento', `npSet_(this.closest('.np-p').dataset.n,'incidencias')`)}
       <div class="np-lab">Funciones</div>
       ${ck(pf.recordatorio, '🔔 Recordatorio diario de tareas asignadas', 'Al registrar su entrada recibe sus limpiezas y tareas programadas del día', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
       ${ck(pf.avanzadas, '⭐ Funciones avanzadas', 'Pedir resúmenes de todas las secciones · aceptar entradas tempranas y salidas tardías', `npSet_(this.closest('.np-p').dataset.n,'avanzadas')`)}
@@ -66574,7 +66580,7 @@ function npPintar_() {
   const q = N.q.toLowerCase();
   const L = nombres.filter(n => !q || n.toLowerCase().includes(q))
     .sort((a, b) => (N.perfiles[b] ? 1 : 0) - (N.perfiles[a] ? 1 : 0) || a.localeCompare(b, 'es'));
-  const conPerfil = Object.values(N.perfiles).filter(p => p.rol || p.auto.checkinn || p.auto.tareas || p.avanzadas).length;
+  const conPerfil = Object.values(N.perfiles).filter(p => p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas).length;
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">📣 Notificaciones y permisos del bot</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
       <div class="ad-sub">Check-list · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
     <div class="ad-db">
@@ -66605,7 +66611,7 @@ window.npRol_ = function (n, rol) {
 };
 window.npSet_ = function (n, k) {
   const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {});
-  if (k === 'checkinn' || k === 'tareas') pf.auto = Object.assign({}, pf.auto, { [k]: !pf.auto[k] });
+  if (k === 'checkinn' || k === 'tareas' || k === 'incidencias') pf.auto = Object.assign({}, pf.auto, { [k]: !pf.auto[k] });
   else pf[k] = !pf[k];
   npRefila_(n); npGuardar_();
 };
@@ -66615,7 +66621,7 @@ function npGuardar_() {
   clearTimeout(ASEO._npT);
   ASEO._npT = setTimeout(async () => {
     try {
-      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.avanzadas || p.recordatorio === false) P[n] = p; });
+      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas || p.recordatorio === false) P[n] = p; });
       const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: ASEO._np.on, perfiles: P, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
       ASEO.autonotif = r.autonotif;
@@ -66862,3 +66868,336 @@ if (!window.__aseoTimer) {
   const init = () => { const g = document.getElementById('user-greeting'); if (!g) return; set(); try { new ResizeObserver(set).observe(g); new MutationObserver(set).observe(g, { attributes: true, attributeFilter: ['class', 'style'] }); } catch (_) {} window.addEventListener('resize', set); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Check-list › 🚨 Incidencias (v1600) — mismo diseño que Aseo y Mantenimiento / Tareas programadas:
+// KPIs, filtros de chip, tablero por estado (arrastre + selector rápido), ventana lateral y formulario.
+// Los datos siguen en la hoja «Incidencias» + fotos en Drive (el bot y Gestión de reservas los usan):
+// /incidencias-list · /save-incidencia · /update-incidencia.
+// ═══════════════════════════════════════════════════════════════════════════
+const IC_EST = [{ k: 'Nuevo', c: '#94a3b8', s: 'Nuevo' }, { k: 'En proceso', c: '#f59e0b', s: 'Proceso' }, { k: 'Resuelto', c: '#10b981', s: 'Resuelto' }, { k: 'Cancelado', c: '#64748b', s: 'Cancel.' }];
+const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, Mantenimiento: { c: '#f97316', ico: '🔧' }, Insumos: { c: '#16a34a', ico: '📦' } };
+const IC_NIV = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica' };
+const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo', 'Todo']];
+const IC = { fx: { mot: new Set(), pers: new Set(), prio: '', per: '30' }, dr: null, sec: 'tablero', q: '', cargando: false, cargado: false };
+function icMotC_(m) { return (IC_MOT[m] || { c: '#8b5cf6', ico: '🚨' }); }
+function icSplit_(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
+function icEstK_(v) { const s = incNormalizeEstatus(v); return IC_EST.some(e => e.k === s) ? s : /cancel/i.test(s) ? 'Cancelado' : /resuel|cerr/i.test(s) ? 'Resuelto' : /proceso|espera/i.test(s) ? 'En proceso' : 'Nuevo'; }
+function icCerrada_(x) { return x.est === 'Resuelto' || x.est === 'Cancelado'; }
+function icRow_(row) {
+  const hid = rtHid_(row), a = hid ? atAloj_(hid) : null;
+  const mot = icSplit_(row.Motivos), clas = icSplit_(row.Clasificacion);
+  return { id: String(row.ID || ''), row, hid, corto: a && a.corto ? String(a.corto).toUpperCase() : '', aloj: (a && a.nombre) || String(row.Alojamiento || row.Propiedad || 'Sin alojamiento'),
+    fecha: String(row.Fecha || row.Timestamp || '').slice(0, 10), est: icEstK_(row.Estatus), prio: prio4Key_(row.Nivel || 'Baja'), mot, clas,
+    titulo: clas.join(', ') || mot.join(', ') || 'Incidencia', pers: icSplit_(row.Personas), rep: String(row.Reportante || ''),
+    desc: String(row.Descripcion || ''), acc: String(row.Acciones || ''), seg: String(row.Seguimiento || ''), fotos: icSplit_(row.Fotos_URLs), upd: String(row.UpdatedAt || '') };
+}
+function icTodas_() { return (typeof INC_STATE !== 'undefined' ? INC_STATE.list || [] : []).filter(r => r && r.ID).map(icRow_).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
+function icHaceDias_(n) { const d = new Date(aseoHoyIso_() + 'T12:00:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
+function icPasa_(x, sinPer) {
+  const fx = IC.fx;
+  if (!sinPer && icCerrada_(x) && fx.per !== 'todo' && x.fecha < icHaceDias_(+fx.per)) return false;
+  if (fx.mot.size && !x.mot.some(m => fx.mot.has(m))) return false;
+  if (fx.prio && x.prio !== fx.prio) return false;
+  if (fx.pers.size && !(x.pers.length ? x.pers.some(n => fx.pers.has(n)) : fx.pers.has(TAR_SIN_PERS))) return false;
+  if (IC.q) { const q = IC.q.toLowerCase(); if (![x.titulo, x.aloj, x.corto, x.desc, x.rep, x.pers.join(' '), x.id].join(' ').toLowerCase().includes(q)) return false; }
+  return true;
+}
+function icCss_() {
+  if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
+  aseoEnsureCss_();
+  if (document.getElementById('ic-css')) return;
+  const st = document.createElement('style'); st.id = 'ic-css';
+  st.textContent = `
+  #module-incidencias{--ad-line:#e8eaee;--ad-line2:#f0f1f4;--ad-tx:#0f1729;--ad-mut:#6b7280;--ad-mut2:#9aa1ad;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f1729}
+  #module-incidencias .td-h1{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  #module-incidencias .td-h1 h1{margin:0;font-size:16px;font-weight:700}
+  #module-incidencias .td-tabs{display:inline-flex;background:#fff;border:1px solid var(--ad-line);border-radius:10px;padding:3px;margin-left:auto}
+  #module-incidencias .td-tabs button{all:unset;cursor:pointer;padding:6px 14px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ad-mut)}
+  #module-incidencias .td-tabs button.on{background:var(--ad-tx);color:#fff}
+  #module-incidencias .aseo-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  #module-incidencias .aseo-btn{font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px;border-color:var(--ad-line)}
+  #module-incidencias .ic-q{flex:1;min-width:200px;max-width:340px;padding:7px 11px;border:1px solid var(--ad-line);border-radius:8px;font-size:12.5px;font-family:inherit;background:#fff}
+  .ic-card .r1 .prop{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .ic-card .r2 .ty{font-weight:600}
+  #module-incidencias .ic-tb{width:100%;border-collapse:collapse;background:#fff;font-size:12.5px}
+  #module-incidencias .ic-tbw{overflow:auto;border:1px solid var(--ad-line);border-radius:12px;max-height:72vh}
+  #module-incidencias .ic-tb th{position:sticky;top:0;background:#f8fafc;color:var(--ad-mut2);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:9px 12px;border-bottom:1px solid var(--ad-line);white-space:nowrap}
+  #module-incidencias .ic-tb td{padding:9px 12px;border-bottom:1px solid var(--ad-line2);vertical-align:top}
+  #module-incidencias .ic-tb tr{cursor:pointer}#module-incidencias .ic-tb tbody tr:hover{background:#f8fafc}
+  #module-incidencias .ic-tb .est i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+  #ad-drawer .ic-mots{display:flex;gap:6px;flex-wrap:wrap}
+  #ad-drawer .ic-mot{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid #e8eaee;font-size:12px;font-weight:600;color:#6b7280;background:#fff}
+  #ad-drawer .ic-mot.on{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 9%,#fff)}
+  #ad-drawer .ic-fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+  #ad-drawer .ic-fotos a,#ad-drawer .ic-fotos span{position:relative;display:block;border:1px solid #e8eaee;border-radius:9px;overflow:hidden;aspect-ratio:1;background:#f3f4f6}
+  #ad-drawer .ic-fotos img{width:100%;height:100%;object-fit:cover;display:block}
+  #ad-drawer .ic-fotos b{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(15,23,41,.7);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  `;
+  document.head.appendChild(st);
+}
+function icFoto_(u, w) { return `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w${w || 400}`; }
+// ── Entrada al módulo ──
+window.icInit_ = async function () {
+  try { if (typeof incInit === 'function') incInit(); } catch (_) {}
+  icRender_();
+  if (typeof aseoRefresh_ === 'function' && !(typeof ASEO !== 'undefined' && ASEO.ts)) aseoRefresh_().then(() => { try { clNavPaint_(); icRender_(); } catch (_) {} }).catch(() => {});
+  if (IC.cargando) return;
+  IC.cargando = true; icRender_();
+  try { await incLoadIncidencias(); } finally { IC.cargando = false; IC.cargado = true; icRender_(); if (IC.dr) icPintar_(); }
+};
+function icRender_() {
+  const root = document.getElementById('ic-root'); if (!root) return;
+  icCss_();
+  const sec = IC.sec === 'registro' ? 'registro' : 'tablero';
+  const todas = icTodas_();
+  const head = `<div class="cl-title">✅ Check-list</div><div class="cl-nav-slot" data-act="incidencias">${typeof clNavHtml_ === 'function' ? clNavHtml_('incidencias') : ''}</div>
+    <div class="td-h1"><h1>🚨 Incidencias</h1><div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="icSec_('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="icSec_('registro')">Registro</button></div></div>
+    <div class="aseo-head"><input class="ic-q" type="search" placeholder="🔎 Buscar alojamiento, motivo, persona…" value="${pcEsc(IC.q)}" oninput="IC.q=this.value;clearTimeout(IC._qt);IC._qt=setTimeout(()=>{icRender_();const i=document.querySelector('#ic-root .ic-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
+      <span style="flex:1"></span>${IC.cargando ? '<span class="ad-hint" style="margin:0">⏳ Actualizando…</span>' : `<button type="button" class="aseo-btn" onclick="icInit_()" title="Volver a leer la hoja Incidencias">↻ Actualizar</button>`}
+      <button type="button" class="aseo-btn at-nueva" onclick="icForm_(null)">＋ Nueva incidencia</button></div>`;
+  const vacio = !todas.length ? `<div class="pc-mv-empty">${IC.cargado ? 'Aún no hay incidencias registradas.' : '⏳ Cargando incidencias…'}</div>` : '';
+  if (sec === 'registro') {
+    const L = todas.filter(x => icPasa_(x, true));
+    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}<div class="ad-v2">${icFiltros_(todas, true)}</div>${vacio || icRegistro_(L)}</div>`;
+  } else {
+    const L = todas.filter(x => icPasa_(x));
+    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}
+      <div class="ad-v2">${typeof mvSyncBar_ === 'function' ? mvSyncBar_(true) : ''}${icKpis_(todas)}${icFiltros_(todas)}</div>
+      ${vacio || `<div class="ad-v2 td-board">${icTablero_(L)}</div>`}</div>`;
+  }
+  try { clNavPaint_(); } catch (_) {}
+}
+window.icSec_ = function (k) { IC.sec = k; icRender_(); };
+function icKpis_(T) {
+  const mes = aseoHoyIso_().slice(0, 7), M = T.filter(x => x.fecha.slice(0, 7) === mes);
+  const ab = T.filter(x => !icCerrada_(x)), n = k => T.filter(x => x.est === k).length;
+  const resM = M.filter(x => x.est === 'Resuelto').length, vivosM = M.filter(x => x.est !== 'Cancelado').length;
+  const pct = vivosM ? Math.round(resM / vivosM * 100) : 0;
+  const urg = ab.filter(x => x.prio === 'critica' || x.prio === 'alta').length;
+  const viejas = ab.filter(x => x.fecha && x.fecha < icHaceDias_(7)).length;
+  const kpi = (t, v, s, cls) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div></div>`;
+  const seg = k => vivosM ? (M.filter(x => x.est === k).length / vivosM * 100).toFixed(1) : 0;
+  return `<div class="ad-kpis">
+    <div class="ad-kpi big"><small>Resolución del mes</small><div class="n">${pct}%<em>${resM} de ${vivosM} resueltas</em></div>
+      <div class="ad-prog"><i style="width:${seg('Resuelto')}%;background:#10b981"></i><i style="width:${seg('En proceso')}%;background:#f59e0b"></i></div></div>
+    ${kpi('Abiertas', ab.length)}${kpi('Nuevas', n('Nuevo'))}${kpi('En proceso', n('En proceso'))}${kpi('Este mes', M.length, 'reportadas')}
+    ${kpi('Alertas', urg + viejas, [urg ? `${urg} alta/crítica` : '', viejas ? `${viejas} con más de 7 días` : ''].filter(Boolean).join(' · '), urg + viejas ? 'al' : '')}
+  </div>`;
+}
+function icFiltros_(base, sinPer) {
+  const fx = IC.fx;
+  const pers = [...new Set(base.flatMap(x => x.pers).concat([...fx.pers].filter(v => v !== TAR_SIN_PERS)))].sort((a, b) => a.localeCompare(b, 'es'));
+  const sinAsig = base.some(x => !x.pers.length) || fx.pers.has(TAR_SIN_PERS);
+  const mots = [...new Set(Object.keys(IC_MOT).concat(base.flatMap(x => x.mot)))];
+  const cuenta = f => base.filter(x => (sinPer || !icCerrada_(x) || fx.per === 'todo' || x.fecha >= icHaceDias_(+fx.per)) && f(x)).length;
+  const fila = (ico, t, chips, k) => chips ? `<div class="mv-pf ad-prf"><small>${ico} ${t}:</small>${chips}${k ? `<button type="button" class="mv-pf-x" onclick="${k}">Quitar filtro</button>` : ''}</div>` : '';
+  const pChips = pers.map(nm => `<button type="button" class="mv-pf-c ${fx.pers.has(nm) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(nm)}" title="${pcEsc(nm)}" data-n="${pcEsc(nm)}" onclick="icFx_('pers',this.dataset.n)"><i>${pcEsc(adIni_(nm))}</i>${pcEsc(aseoNombreCorto_(nm))}</button>`).join('')
+    + (sinAsig ? `<button type="button" class="mv-pf-c ${fx.pers.has(TAR_SIN_PERS) ? 'on' : ''}" onclick="icFx_('pers','${TAR_SIN_PERS}')"><i style="background:#94a3b8">—</i>Sin personas</button>` : '');
+  const mChips = mots.map(m => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fx.mot.has(m) ? 'on' : ''}" style="--tc:${icMotC_(m).c}" data-m="${pcEsc(m)}" onclick="icFx_('mot',this.dataset.m)"><i></i>${pcEsc(m)}<b>${cuenta(x => x.mot.includes(m))}</b></button>`).join('');
+  const prChips = PRIO4_ORD.map(k => `<button type="button" class="mv-pf-c ad-pr ${fx.prio === k ? 'on' : ''}" onclick="icFx_('prio','${k}')">${prio4Html_(k, true)} ${PRIO4[k].t}<b>${cuenta(x => x.prio === k)}</b></button>`).join('');
+  const perChips = sinPer ? '' : IC_PER.map(([k, t]) => `<button type="button" class="mv-pf-c ad-pr ${fx.per === k ? 'on' : ''}" onclick="icFx_('per','${k}')">${t}</button>`).join('');
+  return `<div class="ad-gfil" style="display:flex;flex-direction:column;gap:6px;margin:12px 0 14px">
+    ${fila('👥', 'Personas involucradas', pChips, fx.pers.size ? "icFxClr_('pers')" : '')}
+    ${fila('🏷️', 'Motivo', mChips, fx.mot.size ? "icFxClr_('mot')" : '')}
+    ${fila('⚑', 'Prioridad', prChips, fx.prio ? "icFxClr_('prio')" : '')}
+    ${perChips ? fila('📅', 'Resueltas y canceladas de los últimos', perChips, '') : ''}</div>`;
+}
+window.icFx_ = function (k, v) { const fx = IC.fx; if (k === 'prio' || k === 'per') fx[k] = fx[k] === v && k === 'prio' ? '' : v; else { if (fx[k].has(v)) fx[k].delete(v); else fx[k].add(v); } icRender_(); };
+window.icFxClr_ = function (k) { const fx = IC.fx; if (k === 'prio') fx.prio = ''; else fx[k].clear(); icRender_(); };
+// ── Card compacta ──
+function icCard_(x) {
+  const M = icMotC_(x.mot[0]), sel = IC.dr && IC.dr.id === x.id, id = pcEsc(x.id);
+  let flag = '';
+  if (!icCerrada_(x) && x.prio === 'critica') flag = '<div class="flag red"><i></i>Prioridad crítica</div>';
+  else if (!icCerrada_(x) && x.fecha && x.fecha < icHaceDias_(7)) flag = `<div class="flag orange"><i></i>Abierta desde ${aseoDiaTxt_(x.fecha)}</div>`;
+  const meta = [`<span class="ty" style="color:${M.c}">${pcEsc(x.mot.join(', ') || 'Sin motivo')}</span>`, `<span>${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'}</span>`];
+  if (/bot/i.test(x.rep)) meta.push('<span>🤖 Bot</span>'); else if (x.rep) meta.push(`<span>Reportó ${pcEsc(aseoNombreCorto_(x.rep))}</span>`);
+  const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" title="${e.k}" onclick="event.stopPropagation();${e.k === x.est ? '' : `icSetEst_('${id}','${e.k}')`}"><i></i>${e.s}</button>`).join('')}</div>`;
+  return `<div class="ad-card tipo ic-card ${sel ? 'sel' : ''} ${x.est === 'Cancelado' ? 'ghost' : ''} ${!icCerrada_(x) && x.prio === 'critica' ? 'alert' : ''}" data-k="${id}" style="--tc:${M.c}" onclick="icAbrir_('${id}')"
+      draggable="true" ondragstart="icDragStart_(event,'${id}')" ondragend="adDragEnd_(event)">
+    <div class="r1"><span class="code">${pcEsc(x.corto || '—')}</span><span class="prop">${M.ico} ${pcEsc(x.titulo)}</span></div>
+    ${flag}
+    <div class="r2">${meta.join('<span class="sep"></span>')}</div>
+    <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin personas</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
+    ${qs}
+  </div>`;
+}
+function icTablero_(L) {
+  const cols = IC_EST.map(e => {
+    const X = L.filter(x => x.est === e.k).sort((a, b) => PRIO4[b.prio].n - PRIO4[a.prio].n || b.fecha.localeCompare(a.fecha));
+    return `<div class="ad-col" ondragover="icDragOver_(event)" ondrop="icDrop_(event,'${e.k}')"><div class="ad-colh"><i style="background:${e.c}"></i>${e.k}<span>${X.length}</span></div>${X.map(icCard_).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
+  }).join('');
+  return L.length ? `<div class="ad-board est">${cols}</div>` : '<div class="pc-mv-empty">Ninguna incidencia coincide con los filtros</div>';
+}
+function icRegistro_(L) {
+  if (!L.length) return '<div class="pc-mv-empty">Ninguna incidencia coincide con los filtros</div>';
+  return `<div class="ad-hint" style="margin:0 0 8px">${L.length} incidencia${L.length === 1 ? '' : 's'}</div><div class="ic-tbw"><table class="ic-tb"><thead><tr>${['Fecha', 'Alojamiento', 'Motivo', 'Clasificación', 'Prioridad', 'Estado', 'Personas', 'Reportó', 'Folio'].map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${L.map(x => { const E = IC_EST.find(e => e.k === x.est); return `<tr onclick="icAbrir_('${pcEsc(x.id)}')"><td style="white-space:nowrap">${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</td><td><b>${pcEsc(x.corto || '')}</b> ${pcEsc(x.aloj)}</td><td style="color:${icMotC_(x.mot[0]).c};font-weight:600">${pcEsc(x.mot.join(', ') || '—')}</td><td>${pcEsc(x.clas.join(', ') || '—')}</td><td style="white-space:nowrap">${prio4Html_(x.prio)}</td><td class="est" style="white-space:nowrap"><i style="background:${E.c}"></i>${E.k}</td><td>${pcEsc(x.pers.join(', ') || '—')}</td><td>${pcEsc(x.rep || '—')}</td><td style="color:#9aa1ad;white-space:nowrap">${pcEsc(x.id)}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+// ── Guardado (siempre por /update-incidencia, optimista) ──
+async function icPatch_(id, fields, local) {
+  const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (!r) return;
+  const prev = {}; Object.keys(local).forEach(k => { prev[k] = r[k]; r[k] = local[k]; });
+  icRender_(); if (IC.dr) icPintar_();
+  try {
+    const x = icRow_(r);
+    const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, fields: Object.assign({}, fields, { UpdatedAt: new Date().toISOString() }), info: { motivos: x.mot.join(', '), clasificaciones: x.clas.join(', '), alojamiento: (x.corto ? x.corto + ' · ' : '') + x.aloj, estatus: x.est, nivel: IC_NIV[x.prio] } }) }).then(r => r.json());
+    if (!out.ok) throw new Error(out.error || 'Error');
+    r.UpdatedAt = new Date().toISOString();
+  } catch (e) { Object.assign(r, prev); icRender_(); if (IC.dr) icPintar_(); alert('No se pudo guardar: ' + (e.message || e)); }
+}
+window.icSetEst_ = function (id, k) { icPatch_(id, { estatus: k }, { Estatus: k }); };
+window.icPrioCiclo_ = function (id) { const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (!r) return; const n = IC_NIV[prio4Sig_(prio4Key_(r.Nivel || 'Baja'))]; icPatch_(id, { nivel: n }, { Nivel: n }); };
+window.icSetPrio_ = function (id, k) { icPatch_(id, { nivel: IC_NIV[k] }, { Nivel: IC_NIV[k] }); };
+window.icSeg_ = function (id, v) { icPatch_(id, { seguimiento: v }, { Seguimiento: v }); };
+window.icDragStart_ = function (ev, id) { IC._drag = id; try { ev.dataTransfer.setData('text/plain', id); ev.dataTransfer.effectAllowed = 'move'; } catch (_) {} const c = ev.currentTarget; setTimeout(() => c.classList.add('dragging'), 0); };
+window.icDragOver_ = function (ev) { if (!IC._drag) return; ev.preventDefault(); document.querySelectorAll('.ad-col.drop').forEach(c => { if (c !== ev.currentTarget) c.classList.remove('drop'); }); ev.currentTarget.classList.add('drop'); };
+window.icDrop_ = function (ev, k) { ev.preventDefault(); const id = IC._drag; IC._drag = null; document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop')); const x = (INC_STATE.list || []).find(r => String(r.ID) === String(id)); if (x && icEstK_(x.Estatus) !== k) icSetEst_(id, k); };
+// ── Ventana lateral de detalle ──
+window.icAbrir_ = function (id) {
+  IC.dr = { id: String(id) }; IC.f = null;
+  document.querySelectorAll('#ic-root .ad-card').forEach(c => c.classList.toggle('sel', c.dataset.k === String(id)));
+  icPintar_(true);
+};
+window.icCerrar_ = function () { IC.dr = null; IC.f = null; document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove(); document.querySelectorAll('#ic-root .ad-card.sel').forEach(c => c.classList.remove('sel')); document.querySelectorAll('.pz-pop').forEach(p => p.remove()); };
+function icShell_() { if (typeof ASEO !== 'undefined') ASEO._dr = null; const dr = atShell_(); const dim = document.getElementById('ad-dim'); if (dim) dim.onclick = icCerrar_; return dr; }
+function icPintar_(nuevo) {
+  if (!IC.dr || IC.f) return;
+  const r = (INC_STATE.list || []).find(x => String(x.ID) === IC.dr.id); if (!r) { icCerrar_(); return; }
+  const x = icRow_(r), dr = icShell_(), id = pcEsc(x.id), M = icMotC_(x.mot[0]);
+  const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
+  const E = IC_EST.find(e => e.k === x.est), sig = IC_EST[Math.min(2, IC_EST.findIndex(e => e.k === x.est) + 1)];
+  const txt = v => pcEsc(v).replace(/\n/g, '<br>');
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(x.corto || '—')}</span><span class="t">${pcEsc(x.aloj)}</span><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+      <div class="ad-tt">${M.ico} ${pcEsc(x.titulo)}</div>
+      <div class="ad-sub">${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'} · <i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${pcEsc(x.id)}</div>
+      ${!icCerrada_(x) && x.prio === 'critica' ? '<div class="ad-badge red"><i></i>Prioridad crítica</div>' : ''}</div>
+    <div class="ad-db">
+      <div class="lab">Estado</div><div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" onclick="icSetEst_('${id}','${e.k}')">${e.k}</button>`).join('')}</div>
+      ${x.upd ? `<div class="ad-hint">Actualizado ${pcEsc(x.upd.replace('T', ' ').slice(0, 16))}</div>` : ''}
+      <div class="lab">Prioridad</div>${prio4Sel_(x.prio, `icSetPrio_.bind(null,'${id}')`)}
+      <div class="lab">Descripción detallada</div><div class="ad-desc">${x.desc ? txt(x.desc) : '<span style="color:#9aa1ad">Sin descripción</span>'}</div>
+      ${x.acc ? `<div class="lab">Acciones realizadas</div><div class="ad-desc">${txt(x.acc)}</div>` : ''}
+      <div class="lab">Seguimiento requerido</div>
+      <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
+      <div class="lab">Detalles</div>
+      <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Clasificación</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
+        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b><span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
+      <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
+      ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
+    </div>
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')">🖨️ Imprimir</button>
+      ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.k}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
+  if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
+}
+window.icImprimir_ = function (id) { const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (r) incImprimirData_(incRowToReportData(r)); };
+// ── Formulario «Nueva incidencia» / «Editar incidencia» ──
+window.icForm_ = function (id, pre) {
+  const r = id ? (INC_STATE.list || []).find(x => String(x.ID) === String(id)) : null;
+  const x = r ? icRow_(r) : null, P = pre || {};
+  const yo = (typeof currentUser !== 'undefined' && currentUser) || '';
+  IC.dr = { id: id ? String(id) : '' };
+  IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
+    : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '' };
+  icFormPintar_();
+};
+function icClasDe_(mots) {
+  const base = mots.length ? mots.flatMap(m => INC_CLASIF_POR_MOTIVO[m] || []) : Object.values(INC_CLASIF_POR_MOTIVO).flat();
+  return [...new Set(base.concat((INC_STATE.clasificaciones || []).filter(c => !Object.values(INC_CLASIF_POR_MOTIVO).flat().includes(c))).concat(IC.f ? IC.f.clas : []))];
+}
+function icPersChips_() { return IC.f.pers.map(n => `<span class="at-chip" data-n="${pcEsc(n)}">${adAv_(n)}${pcEsc(n)}<b onclick="IC.f.pers=IC.f.pers.filter(x=>x!==this.parentNode.dataset.n);document.getElementById('ic-pers').innerHTML=icPersChips_()">✕</b></span>`).join('') || '<span class="at-hint">Sin personas</span>'; }
+function icFotosForm_() {
+  return IC.f.keep.map((u, i) => `<span><img src="${pcEsc(icFoto_(u, 300))}" alt=""><b onclick="IC.f.keep.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('')
+    + IC.f.nuevas.map((f, i) => `<span><img src="data:${f.mimeType};base64,${f.base64}" alt=""><b onclick="IC.f.nuevas.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('');
+}
+function icFormPintar_() {
+  const F = IC.f, dr = icShell_();
+  const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
+  const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
+  const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); if (F.rep && !nombres.includes(F.rep)) nombres.unshift(F.rep);
+  const mots = [...new Set(Object.keys(INC_CLASIF_POR_MOTIVO).concat(INC_STATE.motivos || [], F.mot))];
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
+    <div class="ad-db at-f">
+      <label class="at-l">Alojamiento <i>*</i></label>
+      <select class="at-in" onchange="IC.f.hid=this.value"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
+      <div class="at-row"><span class="at-k">Fecha</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" onchange="IC.f.fecha=this.value"></div>
+      <label class="at-l">Motivo <i>*</i></label>
+      <div class="ic-mots">${mots.map(m => `<button type="button" class="ic-mot ${F.mot.includes(m) ? 'on' : ''}" style="--c:${icMotC_(m).c}" data-m="${pcEsc(m)}" onclick="icFormTog_('mot',this.dataset.m)">${icMotC_(m).ico} ${pcEsc(m)}</button>`).join('')}</div>
+      <label class="at-l">Clasificación</label>
+      <div class="ic-mots">${icClasDe_(F.mot).map(c => `<button type="button" class="ic-mot ${F.clas.includes(c) ? 'on' : ''}" style="--c:#4f46e5" data-c="${pcEsc(c)}" onclick="icFormTog_('clas',this.dataset.c)">${pcEsc(c)}</button>`).join('')}
+        <input class="at-in at-tagin" style="max-width:170px" placeholder="＋ Otra y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.clas.includes(v)){IC.f.clas.push(v);icFormPintar_();}}"></div>
+      <label class="at-l">Prioridad</label>${prio4Sel_(F.prio, 'icFormPrio_')}
+      <label class="at-l">Estado</label>
+      <div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === F.est ? 'on' : ''}" style="--c:${e.c}" onclick="IC.f.est='${e.k}';icFormPintar_()">${e.k}</button>`).join('')}</div>
+      <div class="at-sec"><span>📝 Reporte</span></div>
+      <label class="at-l">Descripción detallada <i>*</i></label><textarea class="at-in" rows="3" placeholder="¿Qué pasó y dónde?" oninput="IC.f.desc=this.value">${pcEsc(F.desc)}</textarea>
+      <label class="at-l">Acciones realizadas</label><textarea class="at-in" rows="2" oninput="IC.f.acc=this.value">${pcEsc(F.acc)}</textarea>
+      <label class="at-l">Seguimiento requerido</label><textarea class="at-in" rows="2" oninput="IC.f.seg=this.value">${pcEsc(F.seg)}</textarea>
+      <div class="at-sec"><span>👤 Personas</span></div>
+      <label class="at-l">Reportó</label>
+      <select class="at-in" onchange="IC.f.rep=this.value"><option value="">Sin especificar</option>${nombres.map(n => `<option ${n === F.rep ? 'selected' : ''}>${pcEsc(n)}</option>`).join('')}</select>
+      <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">Personas involucradas</span><button type="button" class="ad-link" onclick="icFormPers_(this)">＋ Añadir persona</button></div>
+      <div class="at-chips" id="ic-pers">${icPersChips_()}</div>
+      <div class="at-sec"><span>📷 Evidencia fotográfica</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="icFormFotos_(this)"></label></div>
+      <div class="ic-fotos" id="ic-fotos">${icFotosForm_()}</div>
+    </div>
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="${F.id ? `IC.f=null;icAbrir_('${pcEsc(F.id)}')` : 'icCerrar_()'}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()">${F.id ? 'Guardar cambios' : 'Crear incidencia'}</button></div>`;
+  const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top;
+}
+window.icFormPrio_ = function (k) { IC.f.prio = k; icFormPintar_(); };
+window.icFormTog_ = function (k, v) {
+  const L = IC.f[k], i = L.indexOf(v); if (i >= 0) L.splice(i, 1); else L.push(v);
+  if (k === 'mot') { const ok = icClasDe_(IC.f.mot); IC.f.clas = IC.f.clas.filter(c => ok.includes(c)); }
+  icFormPintar_();
+};
+// Lista del personal (marcar no re-dibuja la lista).
+window.icFormPers_ = function (anchor) {
+  const save = typeof ASEO !== 'undefined' ? ASEO._tf : null; ASEO._tf = { asignados: IC.f.pers };
+  atAsignar_(anchor);
+  const obs = setInterval(() => { const c = document.getElementById('ic-pers'); if (c && IC.f) c.innerHTML = icPersChips_(); if (!document.querySelector('.pz-pop')) { clearInterval(obs); ASEO._tf = save; } }, 250);
+};
+window.icFormFotos_ = function (inp) {
+  const files = [...(inp.files || [])]; inp.value = '';
+  Promise.all(files.map(f => _rtFileToBase64(f).then(base64 => ({ name: f.name || `inc_${Date.now()}.jpg`, mimeType: f.type || 'image/jpeg', base64 }))))
+    .then(L => { if (!IC.f) return; IC.f.nuevas.push(...L); const c = document.getElementById('ic-fotos'); if (c) c.innerHTML = icFotosForm_(); });
+};
+window.icGuardar_ = async function () {
+  const F = IC.f; if (!F) return;
+  if (!F.hid && !F.alojTxt) return alert('Elige el alojamiento.');
+  if (!F.mot.length) return alert('Elige al menos un motivo.');
+  if (!String(F.desc || '').trim()) return alert('Escribe la descripción.');
+  const a = F.hid ? atAloj_(F.hid) : null;
+  const old = F.id ? (INC_STATE.list || []).find(x => String(x.ID) === F.id) : null;
+  const propiedad = a ? (a.propiedad || '') : String((old && old.Propiedad) || ''), depto = a ? String(a.depto || '') : String((old && old['# Departamento']) || '');
+  const datos = { fecha: F.fecha, propiedad, depto, alojamiento: propiedad && depto ? `${propiedad} - #${depto}` : (propiedad || (a && a.nombre) || F.alojTxt || ''),
+    personas: F.pers.slice(), motivos: F.mot.slice(), clasificaciones: F.clas.slice(), nivel: IC_NIV[F.prio], estatus: F.est, reportante: F.rep,
+    descripcion: String(F.desc || '').trim(), acciones: String(F.acc || '').trim(), seguimiento: String(F.seg || '').trim() };
+  const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  try {
+    let id = F.id;
+    if (F.id) {
+      const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F.id, fields: Object.assign({}, datos, { UpdatedAt: new Date().toISOString() }), fotos: F.nuevas, keepUrls: F.keep }) }).then(r => r.json());
+      if (!out.ok) throw new Error(out.error || 'Error');
+      const C = { fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento', alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos', clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus', reportante: 'Reportante', descripcion: 'Descripcion', acciones: 'Acciones', seguimiento: 'Seguimiento' };
+      if (old) { Object.keys(C).forEach(k => { old[C[k]] = Array.isArray(datos[k]) ? datos[k].join(', ') : datos[k]; }); if (typeof out.fotos_urls === 'string') old.Fotos_URLs = out.fotos_urls; old.UpdatedAt = new Date().toISOString(); }
+    } else {
+      const out = await fetch(`${BACKEND}/save-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: datos, fotos: F.nuevas }) }).then(r => r.json());
+      if (!out.ok) throw new Error(out.error || 'Error');
+      id = String(out.id || '');
+      INC_STATE.list = INC_STATE.list || [];
+      INC_STATE.list.unshift({ ID: id, Timestamp: new Date().toISOString(), Fecha: datos.fecha, Propiedad: propiedad, '# Departamento': depto, Alojamiento: datos.alojamiento, Personas: datos.personas.join(', '), Motivos: datos.motivos.join(', '), Clasificacion: datos.clasificaciones.join(', '),
+        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Fotos_URLs: '' });
+      if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
+    }
+    IC.f = null; icRender_();
+    if (id) icAbrir_(id); else icCerrar_();
+    try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
+  } catch (e) { alert('No se pudo guardar la incidencia: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear incidencia'; } }
+};
+// «＋ Incidencia» desde la ficha de una reserva (Ocupación / Gestión de reservas): mismo formulario.
+window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
+  if (typeof incInit === 'function') { try { incInit(); } catch (_) {} }
+  const hid = rtHid_({ Propiedad: propRaw, '# Departamento': String(deptRaw || '').replace(/^#/, '') });
+  icForm_(null, { hid, fecha: fechaIso ? String(fechaIso).slice(0, 10) : '' });
+};
