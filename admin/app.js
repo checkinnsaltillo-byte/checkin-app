@@ -57654,7 +57654,7 @@ function tdRender_() {
   const dia = tdDia_(), hoy = tarIso_(tarToday_());
   const sec = TAR_STATE.section === 'registro' ? 'registro' : 'tablero';
   const lbl = typeof aseoDiaLabel_ === 'function' ? aseoDiaLabel_(dia) : tarFmtFecha_(dia);
-  const head = `<div class="cl-title">✅ Check-list</div>${typeof clNavHtml_ === 'function' ? clNavHtml_('tareas') : ''}<div class="td-h1"><h1 style="font-size:16px">🗓️ Tareas programadas</h1>
+  const head = `<div class="cl-title">✅ Check-list</div><div class="cl-nav-slot" data-act="tareas">${typeof clNavHtml_ === 'function' ? clNavHtml_('tareas') : ''}</div><div class="td-h1"><h1 style="font-size:16px">🗓️ Tareas programadas</h1>
       <div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="tarSetSection('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="tarSetSection('registro')">Registro</button></div></div>
     <div class="aseo-head">
       ${sec === 'tablero' ? `<button type="button" class="aseo-btn" onclick="tdSetDia_(0)" title="Ir al día de hoy">📍 Hoy</button>
