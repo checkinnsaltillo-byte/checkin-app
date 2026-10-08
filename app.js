@@ -64656,7 +64656,7 @@ function aseoEnsureCss_() {
   .oc-task .t1 b{font-weight:600;overflow:hidden;text-overflow:ellipsis}.oc-task .t1 .al{margin-left:auto}
   .oc-task .t2{display:flex;align-items:center;gap:5px;margin-top:4px;white-space:nowrap;overflow:hidden}
   .oc-task .t2 .es{color:#6b7280}.oc-task .t2 .un{color:#dc2626;margin-left:auto}
-  .oc-task .t2 .ad-avs{margin-left:auto}.oc-task .ad-av{width:17px;height:17px;font-size:8px;border-width:1.5px}
+  .oc-task .t2 .un{margin-left:0}.oc-task .t1 .rp{color:#6d28d9;font-weight:700;margin-left:auto}.oc-task .t1 .rp+.al{margin-left:2px}.oc-task .ad-av{width:17px;height:17px;font-size:8px;border-width:1.5px}
   .oc-task .t3{font-size:10px;margin-top:1px}.oc-task .vi{color:#6d28d9;font-weight:600;font-size:10px;white-space:normal;line-height:1.2}
   .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
   .ad-fil{display:flex;align-items:flex-start;gap:12px;margin:0 0 12px}
@@ -65266,8 +65266,9 @@ function aseoCalTareaHtml_(t) {
   const a = (ASEO.asig || {})[t.id] || {}, pp = [...(a.aseo || a.personal || []), ...(a.inspeccion || [])];
   const ns = !t.ghost && aseoNoSaleOn_(t.id);
   const sub = t.ghost ? '<span class="vi">No se realizó · pasó a otro día</span>' : t.reprog ? `<span class="vi">↻ Reprogramada</span>` : '';
-  return `<div class="t1"><i style="background:${E.c}"></i><b>${t.ghost ? 'Aseo pendiente' : 'Limpieza'}</b>${ns ? '<span class="al" title="No ha desalojado">🚨</span>' : ''}</div>
-    <div class="t2">${t.ghost ? sub : `<span class="es">${E.t}</span>${pp.length ? `<span class="ad-avs">${pp.slice(0, 3).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}`}</div>${!t.ghost && sub ? `<div class="t3">${sub}</div>` : ''}`;
+  if (t.ghost) return `<div class="t1"><i style="background:${E.c}"></i><b>Aseo pendiente</b></div><div class="t2">${sub}</div>`;
+  return `<div class="t1"><i style="background:${E.c}"></i><b>${E.t}</b>${t.reprog ? '<span class="rp" title="Reprogramada">↻</span>' : ''}${ns ? '<span class="al" title="No ha desalojado">🚨</span>' : ''}</div>
+    <div class="t2">${pp.length ? `<span class="ad-avs">${pp.slice(0, 4).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}</div>`;
 }
 // Arrastrar una tarjeta a otro día (mismo alojamiento) → nueva fecha de aseo.
 function aseoCalDnD_(cal) {
