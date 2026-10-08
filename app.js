@@ -64675,6 +64675,7 @@ function aseoEnsureCss_() {
   .at-in:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px #e0e7ff}
   textarea.at-in{margin-top:8px;resize:vertical}
   .at-sec{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 8px;padding-top:14px;border-top:1px solid #f0f1f4;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
+  .at-sec .ad-link{text-transform:none;letter-spacing:0;font-size:12px}
   .at-tg{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:#374151}.at-tg .ad-sw{cursor:pointer}
   .at-prio{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid #e3e6eb;border-radius:8px;overflow:hidden}
   .at-prio button{all:unset;cursor:pointer;text-align:center;font-size:11px;font-weight:600;color:#374151;padding:6px 2px;border-right:1px solid #e3e6eb}
