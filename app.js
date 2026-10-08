@@ -65589,7 +65589,7 @@ function atFormPintar_() {
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar tarea' : 'Crea una tarea'}</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div></div>
     <div class="ad-db at-f">
       <label class="at-l">Alojamiento <i>*</i></label>
-      <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
+      <select class="at-in" onchange="ASEO._tf.hid=this.value;const rb=pcMovBookings_().find(x=>String(x.Id)===String(ASEO._tf.reserva));if(rb&&String(rb.HouseId)!==this.value)ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Departamento <i>*</i></label>
       <select class="at-in" onchange="ASEO._tf.depto=this.value"><option value="">Selecciona un departamento</option>${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${F.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
       <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
@@ -65616,18 +65616,25 @@ function atFormPintar_() {
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt pri" id="at-ok" onclick="atGuardar_()">${F.id ? 'Guardar cambios' : 'Crear tarea'}</button><button type="button" class="ad-bt" onclick="${F.id ? `atAbrir_('${pcEsc(F.id)}','${F.fecha}')` : 'adCerrar_()'}">Cancelar</button></div>`;
 }
-// Reservas activas (Booked) del alojamiento elegido que aún no terminan.
+// Reservas del calendario (mismos criterios: Booked/Tentative, hasta el fin del rango visible) que aún no terminan,
+// de TODOS los alojamientos. Agrupadas: "En curso" (ya llegaron) y por día de llegada: Hoy, Mañana, 9-oct-2026…
 function atReservas_() {
-  const F = ASEO._tf, hoy = aseoHoyIso_();
-  if (!F.hid) return [];
-  return pcMovBookings_().filter(b => String(b.HouseId) === String(F.hid) && /^booked$/i.test(String(b.Status || '').trim()) && _pagosDateIso(b.DateDeparture) >= hoy)
-    .sort((a, b) => _pagosDateIso(a.DateArrival).localeCompare(_pagosDateIso(b.DateArrival)));
+  const hoy = aseoHoyIso_(), t = new Date(), fin = atIso_(new Date(t.getFullYear(), t.getMonth() + 3, 0, 12));
+  return pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()) && b.HouseId
+      && _pagosDateIso(b.DateDeparture) >= hoy && _pagosDateIso(b.DateArrival) <= fin)
+    .sort((a, b) => _pagosDateIso(a.DateArrival).localeCompare(_pagosDateIso(b.DateArrival)) || String(atAloj_(a.HouseId).corto).localeCompare(String(atAloj_(b.HouseId).corto), 'es', { numeric: true }));
 }
 function atResSelect_() {
-  const F = ASEO._tf, L = atReservas_();
-  if (!F.hid) return '<div class="at-hint">Elige primero el alojamiento.</div>';
-  return `<select class="at-in" onchange="atResElegir_(this.value)"><option value="">Sin reserva enlazada</option>${L.map(b => `<option value="${pcEsc(String(b.Id))}" ${String(b.Id) === String(F.reserva) ? 'selected' : ''}>${pcEsc(b.GuestName || 'Sin nombre')} · ${pcFmtDiaC_(_pagosDateIso(b.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(b.DateDeparture))}</option>`).join('')}</select>
-    ${F.reserva ? '<div class="at-hint">La fecha de la tarea debe quedar dentro de la estancia.</div>' : L.length ? '' : '<div class="at-hint">Este alojamiento no tiene reservas activas.</div>'}`;
+  const F = ASEO._tf, L = atReservas_(), hoy = aseoHoyIso_();
+  const man = atIso_(new Date(atD_(hoy).getTime() + 864e5));
+  const grupo = b => { const a = _pagosDateIso(b.DateArrival); return a < hoy ? 'curso' : a; };
+  const titulo = k => k === 'curso' ? 'En curso (ya llegaron)' : k === hoy ? `Hoy · ${aseoDiaTxt_(k)}` : k === man ? `Mañana · ${aseoDiaTxt_(k)}` : aseoDiaTxt_(k);
+  const grupos = new Map(); L.forEach(b => { const k = grupo(b); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(b); });
+  const ord = [...grupos.keys()].sort((a, b) => a === 'curso' ? -1 : b === 'curso' ? 1 : a.localeCompare(b));
+  const opt = b => { const a = atAloj_(b.HouseId); return `<option value="${pcEsc(String(b.Id))}" ${String(b.Id) === String(F.reserva) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() : a.nombre) + ' · ' + (b.GuestName || 'Sin nombre'))} · ${pcFmtDiaC_(_pagosDateIso(b.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(b.DateDeparture))}${/tentative/i.test(b.Status) ? ' (tentativa)' : ''}</option>`; };
+  return `<select class="at-in" onchange="atResElegir_(this.value)"><option value="">Sin reserva enlazada (${L.length} disponibles)</option>
+    ${ord.map(k => `<optgroup label="${pcEsc(titulo(k))}">${grupos.get(k).map(opt).join('')}</optgroup>`).join('')}</select>
+    <div class="at-hint">${F.reserva ? 'El alojamiento se toma de la reserva y la fecha debe quedar dentro de su estancia.' : 'Al elegir una reserva se llena el alojamiento automáticamente.'}</div>`;
 }
 function atResRango_() {
   const F = ASEO._tf; if (!F.reserva) return '';
@@ -65637,6 +65644,7 @@ function atResRango_() {
 window.atResElegir_ = function (id) {
   const F = ASEO._tf; F.reserva = id;
   const b = id ? pcMovBookings_().find(x => String(x.Id) === String(id)) : null;
+  if (b) F.hid = String(b.HouseId);
   if (b) { const a = _pagosDateIso(b.DateArrival), d = _pagosDateIso(b.DateDeparture), hoy = aseoHoyIso_(); if (!(F.fecha >= a && F.fecha <= d)) F.fecha = a > hoy ? a : hoy; }
   atFormPintar_();
 };
