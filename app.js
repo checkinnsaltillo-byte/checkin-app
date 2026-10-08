@@ -65137,7 +65137,7 @@ function aseoFiltroPers_(gs, hoy) {
   const nombres = [...new Set(gs.flatMap(aseoPersDe_).concat(deTareas, sel))].sort((a, b) => a.localeCompare(b, 'es'));
   const out = sel.length ? gs.filter(g => aseoPersDe_(g).some(n => sel.includes(n))) : gs;
   if (!nombres.length) return { gs: out, html: '' };
-  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i>${pcEsc(adIni_(n))}</i>${pcEsc(aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
+  const html = `<div class="mv-pf"><small>👥 Personal:</small>${nombres.map(n => `<button type="button" class="mv-pf-c ${sel.includes(n) ? 'on' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc(n)}" onclick="aseoFiltroToggle_(this.dataset.n)" data-n="${pcEsc(n)}"><i>${pcEsc(adIni_(n))}</i>${pcEsc(nombres.filter(x => aseoNombreCorto_(x) === aseoNombreCorto_(n)).length > 1 ? n : aseoNombreCorto_(n))}</button>`).join('')}${sel.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPers=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   return { gs: out, html };
 }
 window.aseoFiltroToggle_ = function (n) {
