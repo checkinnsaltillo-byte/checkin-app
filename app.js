@@ -355,7 +355,7 @@ const SYS_MODULE_LIST = [
   ['personas',         '📇 Directorio'],
   ['inquilinos',       '📑 Contratos de Larga estancia'],
   ['pagos',            '💰 Pagos'],
-  ['aseo',             '🧽 Aseo (Control de aseo + Breezeway)'],
+  ['aseo',             '✅ Check-list (limpieza, inspección, mantenimiento + Breezeway)'],
   ['incidencias',      '🚨 Incidencias'],
   ['reportes-tecnicos','🛠 Reportes técnicos'],
   ['tareas',           '🗓️ Tareas programadas'],
@@ -60367,7 +60367,7 @@ function pcRenderMovs_() {
   aseoEnsureCss_();
   // Dos secciones: Movimientos del día (por reserva) y Aseo por alojamiento.
   const head = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🛎️ Movimientos del día <small>· ${sub}</small></div><button class="pc-link" onclick="pcGo('lodgify')">Gestión de reservas →</button></div>` + mvSyncBar_();
-  const headA = (sub) => `<div class="pc-card-h"><div class="pc-card-t">🧽 Aseo por alojamiento <small>· ${sub}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvAcTodasBtn_()}<button class="pc-link" onclick="pcGo('aseo')">Control de aseo →</button></div></div>` + mvSyncBar_();
+  const headA = (sub) => `<div class="pc-card-h"><div class="pc-card-t">✅ Check-list por alojamiento <small>· ${sub}</small></div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${mvAcTodasBtn_()}<button class="pc-link" onclick="pcGo('aseo')">Control de aseo →</button></div></div>` + mvSyncBar_();
   const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
   if (PC.err.cob) { el.innerHTML = head('reservas') + pcErr_(PC.err.cob); if (elA) elA.innerHTML = headA('reservas') + pcErr_(PC.err.cob); return; }
   if (!cobOk) { el.innerHTML = head('cargando…') + pcSkel_(180); if (elA) elA.innerHTML = headA('cargando…') + pcSkel_(180); return; }
@@ -62514,7 +62514,7 @@ const NAV_TREE = {
     { t: '＋ Nuevo proceso', go: () => dpNuevo_() },
   ],
   aseo: [
-    { t: '🧽 Control de aseo', go: () => {} },
+    { t: '✅ Check-list', go: () => {} },
     { t: '🧹 Breezeway', mod: 'breezeway', go: () => bzwSetView('list'), subs: [
       { t: '📋 Lista de tasks', go: () => bzwSetView('list') },
       { t: '📅 Calendario', go: () => { bzwSetView('calendar'); setTimeout(() => { if (typeof BZW_VIEW !== 'undefined' && BZW_VIEW === 'calendar') bzwSetView('calendar'); }, 2500); } },
