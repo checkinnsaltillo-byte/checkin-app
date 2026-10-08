@@ -64960,11 +64960,16 @@ function aseoEnsureCss_() {
   .at-hint{font-size:11px;color:#6b7280;margin-top:6px}
   .at-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.at-tagin{flex:1;min-width:150px;margin-top:4px}
   .aseo-btn.at-nueva{background:#4f46e5;color:#fff;border-color:#4f46e5}
-  .ad-card .r4{display:flex;align-items:center;gap:6px;margin-top:7px}
+  .ad-card .r4{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap}
+  .ad-card .r4 .ax-inc{max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .ad-card .r4 .sp{flex:1}
   .ax-co{font-size:10.5px;font-weight:600;color:#0f766e;background:#ccfbf1;border-radius:6px;padding:1px 7px}
   .ax-gen{font-size:10.5px;font-weight:500;color:#9aa1ad}
   .ax-cor{font-size:10.5px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:6px;padding:1px 7px}
+  .ax-pre{font-size:10.5px;font-weight:600;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:1px 7px}
+  .ad-vinc{border:1.5px dashed #f87171;border-radius:12px;padding:5px;margin:0 0 8px;background:#fff5f5}
+  .ad-vinc>.ad-card{margin-bottom:5px}.ad-vinc>.ad-card:last-child{margin-bottom:0}
+  .ad-vinc-h{font-size:10.5px;font-weight:600;color:#b91c1c;padding:1px 4px 5px;display:flex;align-items:center;gap:5px}
   .ax-inc{all:unset;cursor:pointer;font-size:10.5px;font-weight:600;color:#6b7280;border:1px dashed #cbd5e1;border-radius:6px;padding:2px 8px;white-space:nowrap}
   .ax-inc:hover{color:#b91c1c;border-color:#fca5a5}
   .ax-inc.on{color:#fff;background:#dc2626;border:1px solid #b91c1c}
@@ -65560,11 +65565,11 @@ window.adDrop_ = function (ev, k) {
 //  · Incidencia: interruptor «Reportar incidencia» / «⚠️ Incidencia».
 function axEx_(k) { return ((window.ASEO && ASEO.extra) || {})[String(k)] || {}; }
 function axCO_(k, auto) { const e = axEx_(k); return typeof e.checkout === 'boolean' ? e.checkout : !!auto; }
-// Tipo de servicio: Check-out · General · Correctivo (aseo/extra.json: checkout / correctivo).
-const AX_SRV = [['checkout', '⇥ Check-out', '#0f766e'], ['general', 'General', '#9aa1ad'], ['correctivo', '🛠 Correctivo', '#b45309']];
-function axSrv_(k, auto) { return axEx_(k).correctivo ? 'correctivo' : axCO_(k, auto) ? 'checkout' : 'general'; }
-function axSrvPatch_(v) { return { checkout: v === 'checkout', correctivo: v === 'correctivo' }; }
-function axSrvSeg_(cur, fn) { return `<div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${AX_SRV.map(([k, t, c]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${c}" onclick="${fn}('${k}')">${t}</button>`).join('')}</div>`; }
+// Tipo de servicio: Check-out · Correctivo · Preventivo · General (aseo/extra.json: checkout / correctivo / preventivo).
+const AX_SRV = [['checkout', '⇥ Check-out', '#0f766e'], ['correctivo', '🛠 Correctivo', '#b45309'], ['preventivo', '🛡 Preventivo', '#0369a1'], ['general', 'General', '#9aa1ad']];
+function axSrv_(k, auto) { const e = axEx_(k); return e.correctivo ? 'correctivo' : e.preventivo ? 'preventivo' : axCO_(k, auto) ? 'checkout' : 'general'; }
+function axSrvPatch_(v) { return { checkout: v === 'checkout', correctivo: v === 'correctivo', preventivo: v === 'preventivo' }; }
+function axSrvSeg_(cur, fn) { return `<div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${AX_SRV.map(([k, t, c]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${c}" onclick="${fn}('${k}')">${t}</button>`).join('')}</div>`; }
 window.axSetSrv_ = function (k, hid, v) { axSet_(k, axSrvPatch_(v), hid); };
 window.axSet_ = function (k, patch, hid) {
   ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k];
@@ -65589,7 +65594,7 @@ function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc
 function axFila_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
   const srv = axSrv_(k, autoCO);
-  return `<div class="r4">${srv === 'correctivo' ? '<span class="ax-cor" title="Tipo: Correctivo">🛠 Correctivo</span>' : co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
+  return `<div class="r4">${srv === 'correctivo' ? '<span class="ax-cor" title="Tipo: Correctivo">🛠 Correctivo</span>' : srv === 'preventivo' ? '<span class="ax-pre" title="Tipo: Preventivo">🛡 Preventivo</span>' : co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
     <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k) : 'Reportar incidencia'}</button></div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
@@ -65637,7 +65642,15 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
   const ver = infos.filter(I => vis.has(I.k) && (!fP.length || fP.includes(propDe(I))))
     .concat(tInfos.filter(I => (!fPers.length || I.pA.some(n => fPers.includes(n))) && (!fP.length || fP.includes(propDe(I)))));
-  const pinta = I => I.tarea ? atCard_(I) : adCard_(I);
+  const pinta0 = I => I.tarea ? atCard_(I) : adCard_(I);
+  // Cards vinculadas por una misma incidencia (p. ej. limpieza de check-out + su tarea «Correctivo»): se pintan juntas
+  // en la columna de la card de origen, dentro de un recuadro «🔗 Vinculadas».
+  const kDe = I => I.tarea ? (I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id) : I.asigId;
+  const incDe = I => { const e = axEx_(kDe(I)); return e.incidencia && e.incId ? String(e.incId) : ''; };
+  const padreDe = new Map(), hijosDe = new Map();
+  const pinta = I => hijosDe.has(I) ? `<div class="ad-vinc"><div class="ad-vinc-h">🔗 Vinculadas · ${pcEsc(axIncTxt_(kDe(I)).replace(/^⚠️\s*/, ''))}</div>${pinta0(I)}${hijosDe.get(I).map(pinta0).join('')}</div>` : pinta0(I);
+  const sinHijos = L => L.filter(I => !padreDe.has(I));
+  const nVis = L => sinHijos(L).reduce((n, I) => n + 1 + (hijosDe.get(I) || []).length, 0);
   const tipoDe = I => I.tarea ? (I.t.depto || 'limpieza') : 'limpieza';
   const fT = ASEO.fTipo || [];
   const todos = infos.concat(tInfos);
@@ -65647,6 +65660,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const prioHtml = `<div class="mv-pf ad-prf"><small>⚑ Prioridad:</small>${PRIO4_ORD.map(k => `<button type="button" class="mv-pf-c ad-pr ${fPr.includes(k) ? 'on' : ''}" onclick="adPrioFiltro_('${k}')">${prio4Html_(k, true)} ${PRIO4[k].t}<b>${todos.filter(I => prioDe(I) === k).length}</b></button>`).join('')}${fPr.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPrio=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   const tipoHtml = `<div class="mv-pf ad-prf"><small>🏷️ Tipo:</small>${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fT.includes(k) ? 'on' : ''}" style="--tc:${D.c}" onclick="adTipoToggle_('${k}')"><i></i>${D.t}<b>${todos.filter(I => tipoDe(I) === k).length}</b></button>`).join('')}${fT.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fTipo=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   ver.length = 0; verT.forEach(I => ver.push(I));
+  { const G = new Map(); ver.forEach(I => { const g = incDe(I); if (g) { if (!G.has(g)) G.set(g, []); G.get(g).push(I); } });
+    G.forEach(L => { if (L.length < 2) return; const p = L.find(I => !I.tarea) || L.find(I => axSrv_(kDe(I)) !== 'correctivo') || L[0]; hijosDe.set(p, L.filter(I => I !== p)); L.forEach(I => { if (I !== p) padreDe.set(I, p); }); }); }
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
   const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
@@ -65671,12 +65686,12 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
       const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : [], E.k === 'terminado' ? ver.filter(I => I.selE === 'cancelado') : []);
-      return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
+      return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${nVis(L)}</span></div>${sinHijos(L).map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
     }).join('')
     : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
       const L = ver.filter(I => propDe(I) === p);
       const pts = AD_EST.map(E => { const c = L.filter(I => !I.fantasma && I.selE === E.k).length; return c ? `<i style="background:${E.c}" title="${E.t}: ${c}"></i>` : ''; }).join('');
-      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${L.length}</span><em class="ad-pts">${pts}</em></div>${L.map(pinta).join('')}</div>`;
+      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${nVis(L)}</span><em class="ad-pts">${pts}</em></div>${sinHijos(L).map(pinta).join('')}</div>`;
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
@@ -66127,7 +66142,7 @@ function atFormPintar_() {
       <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Tipo de servicio</label>
       ${axSrvSeg_(F.srv || 'general', 'atFormSrv_')}
-      <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
+      <div class="at-sec"><span>☑ Detalles de la tarea</span></div>
       ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
       <label class="at-l">Título de la tarea <i>*</i></label>
       <input class="at-in" placeholder="Introduce un título" value="${pcEsc(F.titulo)}" oninput="ASEO._tf.titulo=this.value">
@@ -67371,8 +67386,7 @@ function icLevHtml_() {
       <div class="ad-tgl" style="margin-top:8px" onclick="IC.f.L.bloq=!IC.f.L.bloq;icFormPintar_()"><div><b>Bloquea habitabilidad</b><small>El alojamiento queda inhabitable hasta resolverlo</small></div>${sw(L.bloq).replace('ad-sw ', 'ad-sw ' + (L.bloq ? 'red ' : ''))}</div>
       <div class="ad-tgl" style="margin-top:6px" onclick="IC.f.L.rein=!IC.f.L.rein;icFormPintar_()"><div><b>Reincidente</b><small>Falla repetida del mismo activo</small></div>${sw(L.rein)}</div>
       <div class="at-row"><span class="at-k">Compromiso</span><input type="date" class="at-in" value="${pcEsc(L.comp)}" onchange="IC.f.L.comp=this.value"></div>`
-    : `<div class="ad-tgl" style="margin-top:8px" onclick="IC.f.L.problema=!IC.f.L.problema;icFormPintar_()"><div><b>Crear como un problema</b><small>La tarea se marca como problema</small></div>${sw(L.problema)}</div>
-      <div class="ad-tgl" style="margin-top:6px" onclick="IC.f.L.repite=IC.f.L.repite?null:{tipo:'diario',n:1,fin:''};icFormPintar_()"><div><b>Hacer que se repita</b><small>A partir de la fecha de la incidencia</small></div>${sw(!!L.repite)}</div>
+    : `<div class="ad-tgl" style="margin-top:8px" onclick="IC.f.L.repite=IC.f.L.repite?null:{tipo:'diario',n:1,fin:''};icFormPintar_()"><div><b>Hacer que se repita</b><small>A partir de la fecha de la incidencia</small></div>${sw(!!L.repite)}</div>
       ${L.repite ? `<div class="at-row"><span class="at-k">Se repite</span><select class="at-in" onchange="IC.f.L.repite.tipo=this.value;icFormPintar_()">${rOpts.map(([k, l]) => `<option value="${k}" ${L.repite.tipo === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <input type="date" class="at-in" title="Fecha de finalización (opcional)" value="${pcEsc(L.repite.fin || '')}" onchange="IC.f.L.repite.fin=this.value"></div>
         ${L.repite.tipo === 'cada' ? `<div class="at-row"><span class="at-k">Cada</span><input type="number" min="1" max="365" class="at-in" style="max-width:80px" value="${L.repite.n || 1}" oninput="IC.f.L.repite.n=Math.max(1,+this.value||1)"><span class="at-k">días</span></div>` : ''}` : ''}
