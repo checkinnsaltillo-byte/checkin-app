@@ -23957,7 +23957,7 @@ window.incGuardarSalir = async function() {
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error al guardar');
-    alert(`✓ Reporte guardado.\n\nID: ${out.id}\nFotos subidas: ${out.fotos_uploaded}/${fotos.length}\n\nVer en: Hoja "Incidencias" + carpeta /Drive/Incidencias/`);
+    alert(`✓ Reporte guardado.\n\nID: ${out.id}\nFotos subidas: ${out.fotos_uploaded}/${fotos.length}\n\nGuardado en Google Cloud (Check-list › Incidencias)`);
     incSalir();
     incLimpiar();
     // Cierra el slide-in panel y refresca la lista de cards
@@ -24729,7 +24729,7 @@ function incRowToReportData(row) {
     // proxy de Cloud Run que la baja server-side y la stream-ea como
     // imagen real. Bypassa CORS/hot-link blocking de Drive.
     fotos: fotosUrls.map((u, i) => ({
-      src: u ? `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w1600` : u,
+      src: u ? (typeof icFoto_ === 'function' ? icFoto_(u, 1600) : `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w1600`) : u,
       name: `Foto ${i + 1}`,
     })),
   };
@@ -66872,7 +66872,8 @@ if (!window.__aseoTimer) {
 // ═══════════════════════════════════════════════════════════════════════════
 // Check-list › 🚨 Incidencias (v1600) — mismo diseño que Aseo y Mantenimiento / Tareas programadas:
 // KPIs, filtros de chip, tablero por estado (arrastre + selector rápido), ventana lateral y formulario.
-// Los datos siguen en la hoja «Incidencias» + fotos en Drive (el bot y Gestión de reservas los usan):
+// Datos en Google Cloud Storage (incidencias/incidencias.json + incidencias/fotos/), migrados de la hoja
+// «Incidencias» en v1601. Mismos endpoints para todos (sistema, bot, Gestión de reservas):
 // /incidencias-list · /save-incidencia · /update-incidencia.
 // ═══════════════════════════════════════════════════════════════════════════
 const IC_EST = [{ k: 'Nuevo', c: '#94a3b8', s: 'Nuevo' }, { k: 'En proceso', c: '#f59e0b', s: 'Proceso' }, { k: 'Resuelto', c: '#10b981', s: 'Resuelto' }, { k: 'Cancelado', c: '#64748b', s: 'Cancel.' }];
@@ -66936,7 +66937,8 @@ function icCss_() {
   `;
   document.head.appendChild(st);
 }
-function icFoto_(u, w) { return `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w${w || 400}`; }
+// Fotos ya migradas a Cloud Storage (/incidencias/foto) se ven directo; las de Drive pasan por el proxy.
+function icFoto_(u, w) { return /\/incidencias\/foto\?/.test(u) ? u : `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w${w || 400}`; }
 // ── Entrada al módulo ──
 window.icInit_ = async function () {
   try { if (typeof incInit === 'function') incInit(); } catch (_) {}
@@ -66954,7 +66956,7 @@ function icRender_() {
   const head = `<div class="cl-title">✅ Check-list</div><div class="cl-nav-slot" data-act="incidencias">${typeof clNavHtml_ === 'function' ? clNavHtml_('incidencias') : ''}</div>
     <div class="td-h1"><h1>🚨 Incidencias</h1><div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="icSec_('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="icSec_('registro')">Registro</button></div></div>
     <div class="aseo-head"><input class="ic-q" type="search" placeholder="🔎 Buscar alojamiento, motivo, persona…" value="${pcEsc(IC.q)}" oninput="IC.q=this.value;clearTimeout(IC._qt);IC._qt=setTimeout(()=>{icRender_();const i=document.querySelector('#ic-root .ic-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
-      <span style="flex:1"></span>${IC.cargando ? '<span class="ad-hint" style="margin:0">⏳ Actualizando…</span>' : `<button type="button" class="aseo-btn" onclick="icInit_()" title="Volver a leer la hoja Incidencias">↻ Actualizar</button>`}
+      <span style="flex:1"></span>${IC.cargando ? '<span class="ad-hint" style="margin:0">⏳ Actualizando…</span>' : `<button type="button" class="aseo-btn" onclick="icInit_()" title="Volver a cargar las incidencias">↻ Actualizar</button>`}
       <button type="button" class="aseo-btn at-nueva" onclick="icForm_(null)">＋ Nueva incidencia</button></div>`;
   const vacio = !todas.length ? `<div class="pc-mv-empty">${IC.cargado ? 'Aún no hay incidencias registradas.' : '⏳ Cargando incidencias…'}</div>` : '';
   if (sec === 'registro') {
