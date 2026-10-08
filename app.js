@@ -9151,7 +9151,9 @@ function clNavHtml_(act) {
   const b = (k, l, mod) => `<button type="button" class="cl-b ${act === k ? 'on' : ''}" onclick="switchModule('${mod}')">${l}</button>`;
   const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Check-inn', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
   const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
-  return `<div class="cl-nav">${op ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}</div>`;
+  const on = typeof ASEO !== 'undefined' && (ASEO.autonotif || {}).on;
+  const notif = `<button type="button" class="cl-notif" onclick="npAbrir_()" title="Notificaciones automáticas por WhatsApp y permisos del bot por persona">📣 Notificar actualizaciones${on ? ' · 🔁 auto' : ''}</button>`;
+  return `<div class="cl-nav">${op ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}${notif}</div>`;
 }
 function clNavPaint_() {
   if (!document.getElementById('cl-css')) {
@@ -9161,6 +9163,9 @@ function clNavPaint_() {
       .cl-l{font-size:10.5px;font-weight:600;color:#9aa1ad;text-transform:uppercase;letter-spacing:.08em;padding:0 8px 0 6px}
       .cl-b{all:unset;cursor:pointer;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:#6b7280;white-space:nowrap}
       .cl-b:hover{color:#0f1729;background:#f3f4f6}.cl-b.on{background:#0f1729;color:#fff}
+      .cl-notif{all:unset;cursor:pointer;margin-left:auto;align-self:center;padding:8px 14px;border-radius:9px;background:#0f1729;color:#fff;font-size:12.5px;font-weight:600;white-space:nowrap}
+      .cl-notif:hover{background:#1e293b}
+      @media (max-width:640px){.cl-notif{margin-left:0}}
       .cl-b.off,.cl-b.off:hover{color:#c0c6d0;background:transparent;cursor:not-allowed;text-decoration:line-through}
       .cl-title{font-size:22px;font-weight:700;color:#0f1729;letter-spacing:-.01em;margin-bottom:10px;font-family:Inter,system-ui,sans-serif}`;
     document.head.appendChild(st);
@@ -57594,6 +57599,7 @@ window.tareasInit = async function () {
     } catch (_) {}
   }
   tarRender();
+  if (typeof aseoRefresh_ === 'function') aseoRefresh_().then(() => { try { clNavPaint_(); } catch (_) {} }).catch(() => {}); // barra «Última actualización» y botón de notificaciones
   if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function') {
     incLoadPersonal().catch(() => {});
   }
@@ -57664,7 +57670,7 @@ function tdRender_() {
   } else {
     const todos = tarDelDia_(dia), L = tdLista_(dia);
     root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}
-      <div class="ad-v2">${tdKpis_(todos, dia)}${tdFiltros_(todos)}</div>
+      <div class="ad-v2">${typeof mvSyncBar_ === 'function' ? mvSyncBar_(true) : ''}${tdKpis_(todos, dia)}${tdFiltros_(todos)}</div>
       ${TAR_STATE.cal ? `<div class="td-cal">${tarCalendarioHtml_()}</div>` : ''}
       <div class="ad-v2 td-board">${tdTablero_(L, dia)}</div></div>`;
   }
@@ -64948,6 +64954,24 @@ function aseoEnsureCss_() {
   .at-hint{font-size:11px;color:#6b7280;margin-top:6px}
   .at-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.at-tagin{flex:1;min-width:150px;margin-top:4px}
   .aseo-btn.at-nueva{background:#4f46e5;color:#fff;border-color:#4f46e5}
+  .np-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .np-p{border:1px solid #e8eaee;border-radius:10px;background:#fff}
+  .np-p.ab{border-color:#c7d2fe;box-shadow:0 0 0 3px #eef2ff}
+  .np-h{display:flex;align-items:center;gap:9px;padding:8px 10px;cursor:pointer}
+  .np-h .ad-av{width:26px;height:26px;font-size:10px;border:0}
+  .np-nm{flex:1;min-width:0}.np-nm b{font-size:12.5px;font-weight:600}
+  .np-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+  .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
+  .np-tag.admin{background:#eef2ff;color:#4338ca}.np-tag.empleado{background:#e0f2fe;color:#0369a1}
+  .np-tag.s{background:#ecfdf5;color:#047857}.np-tag.r{background:#fff7ed;color:#c2410c}.np-tag.a{background:#fef9c3;color:#a16207}.np-tag.n{background:transparent;color:#9aa1ad;padding-left:0}
+  .np-car{color:#9aa1ad;font-size:12px}
+  .np-b{padding:2px 12px 12px;border-top:1px solid #f0f1f4}
+  .np-lab{font-size:10.5px;font-weight:600;color:#9aa1ad;text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px}
+  .np-hint{font-size:11px;color:#6b7280;margin-top:6px}
+  .np-ck{display:flex;align-items:flex-start;gap:9px;padding:7px 9px;border:1px solid #eef0f3;border-radius:8px;cursor:pointer;margin-bottom:5px}
+  .np-ck:hover{background:#fafafa}.np-ck.on{border-color:#c7d2fe;background:#f8f9ff}
+  .np-ck b{font-size:12px;font-weight:600}.np-ck small{display:block;font-size:11px;color:#6b7280;margin-top:1px}
+  .np-save{flex:1;align-self:center;font-size:11.5px;color:#6b7280}
   .ad-fil{display:flex;align-items:flex-start;gap:12px;margin:0 0 12px}
   .ad-fil-l{flex:1;min-width:0}
   .ad-v2 .ad-fil .mv-pf{margin:0 0 7px}
@@ -65243,8 +65267,8 @@ async function aseoRefresh_(force) {
 // Barra "Última actualización" (Panel › Movimientos del día y Control de aseo).
 // Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
 const ASEO_POLL_S = 20;
-function mvSyncBar_() {
-  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button><button type="button" class="mv-sync-btn notif" onclick="event.stopPropagation();mvNotifPop_(this)" title="Avisar por WhatsApp al personal · reenvío automático">📣 Notificar actualizaciones${(ASEO.autonotif || {}).on ? ' · 🔁 auto' : ''}</button></div>`;
+function mvSyncBar_(sinNotif) {
+  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button>${sinNotif ? '' : `<button type="button" class="mv-sync-btn notif" onclick="event.stopPropagation();npAbrir_()" title="Notificaciones y permisos del bot por persona">📣 Notificar actualizaciones${(ASEO.autonotif || {}).on ? ' · 🔁 auto' : ''}</button>`}</div>`;
 }
 // "Notificar actualizaciones": compara lo que se le envió a cada persona hoy contra sus
 // asignaciones actuales, muestra los cambios para confirmar y envía la lista actualizada.
@@ -66426,6 +66450,110 @@ window.rtGuardarA_ = async function () {
     rtFormA_(null, { hid: a ? a.houseId : '', fecha: String(arr || '').slice(0, 10) || aseoHoyIso_() });
   };
 })();
+// ═══════════════════════════════════════════════════════════════════════════
+// «📣 Notificar actualizaciones» del Check-list: perfil del bot por persona.
+//  · Rol: Administrador / Empleado
+//  · Envío automático por WhatsApp por sección: Check-inn · Tareas programadas
+//  · Recordatorio diario de sus tareas asignadas (al registrar su entrada)
+//  · Funciones avanzadas: resúmenes de todas las secciones, aceptar entradas tempranas / salidas tardías
+// Se guarda en aseo/autonotif.json (perfiles) vía POST /aseo/autonotif.
+// ═══════════════════════════════════════════════════════════════════════════
+function npPerfiles_() {
+  const A = ASEO.autonotif || {}, P = JSON.parse(JSON.stringify(A.perfiles || {}));
+  (A.personas || []).forEach(n => { if (!P[n]) P[n] = { rol: '', auto: { checkinn: true, tareas: false }, recordatorio: true, avanzadas: true }; }); // configuración anterior
+  return P;
+}
+function npPerfilDe_(n) { return ASEO._np.perfiles[n] || { rol: '', auto: { checkinn: false, tareas: false }, recordatorio: true, avanzadas: false }; }
+window.npAbrir_ = function () {
+  if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
+  ASEO._np = { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), abierto: '', q: '' };
+  ASEO._dr = { form: true, k: 'np' };
+  npPintar_();
+};
+function npResumen_(pf) {
+  const b = [];
+  if (pf.rol) b.push(`<span class="np-tag ${pf.rol}">${pf.rol === 'admin' ? 'Administrador' : 'Empleado'}</span>`);
+  if (pf.auto.checkinn) b.push('<span class="np-tag s">🧽 Check-inn</span>');
+  if (pf.auto.tareas) b.push('<span class="np-tag s">🗓️ Tareas</span>');
+  if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
+  if (pf.avanzadas) b.push('<span class="np-tag a">⭐ Avanzadas</span>');
+  return b.join('') || '<span class="np-tag n">Sin funciones asignadas</span>';
+}
+function npFila_(n) {
+  const pf = npPerfilDe_(n), ab = ASEO._np.abierto === n, en = pcEsc(n);
+  const ck = (on, txt, sub, fn) => `<div class="np-ck ${on ? 'on' : ''}" onclick="${fn}"><span class="pz-ck sm ${on ? 'on' : ''}">${on ? '✓' : ''}</span><div><b>${txt}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
+  return `<div class="np-p ${ab ? 'ab' : ''}" data-n="${en}">
+    <div class="np-h" onclick="npToggleFila_(this.parentNode.dataset.n)">${adAv_(n)}<div class="np-nm"><b>${en}</b><div class="np-tags">${npResumen_(pf)}</div></div><span class="np-car">${ab ? '▾' : '▸'}</span></div>
+    ${ab ? `<div class="np-b">
+      <div class="np-lab">Rol</div>
+      <div class="ad-steps np-rol" style="grid-template-columns:repeat(3,1fr)">${[['admin', 'Administrador'], ['empleado', 'Empleado'], ['', 'Sin rol']].map(([k, t]) => `<button type="button" class="${pf.rol === k ? 'on' : ''}" style="--c:${k === 'admin' ? '#4f46e5' : k === 'empleado' ? '#0ea5e9' : '#9aa1ad'}" onclick="npRol_(this.closest('.np-p').dataset.n,'${k}')">${t}</button>`).join('')}</div>
+      <div class="np-hint">${pf.rol === 'admin' ? 'Administrador: puede pedir resúmenes de todas las secciones y aceptar entradas tempranas o salidas tardías.' : pf.rol === 'empleado' ? 'Empleado: recibe su lista de tareas del día al registrar su entrada; no pide resúmenes.' : 'Elige un rol para ajustar los permisos de inicio.'}</div>
+      <div class="np-lab">Envío automático por WhatsApp</div>
+      ${ck(pf.auto.checkinn, '🧽 Check-inn', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
+      ${ck(pf.auto.tareas, '🗓️ Tareas programadas', 'Cambios en las tareas y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'tareas')`)}
+      <div class="np-lab">Funciones</div>
+      ${ck(pf.recordatorio, '🔔 Recordatorio diario de tareas asignadas', 'Al registrar su entrada recibe sus limpiezas y tareas programadas del día', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
+      ${ck(pf.avanzadas, '⭐ Funciones avanzadas', 'Pedir resúmenes de todas las secciones · aceptar entradas tempranas y salidas tardías', `npSet_(this.closest('.np-p').dataset.n,'avanzadas')`)}
+    </div>` : ''}
+  </div>`;
+}
+function npPintar_() {
+  const N = ASEO._np, dr = atShell_();
+  const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice();
+  Object.keys(N.perfiles).forEach(n => { if (!nombres.includes(n)) nombres.unshift(n); });
+  const q = N.q.toLowerCase();
+  const L = nombres.filter(n => !q || n.toLowerCase().includes(q))
+    .sort((a, b) => (N.perfiles[b] ? 1 : 0) - (N.perfiles[a] ? 1 : 0) || a.localeCompare(b, 'es'));
+  const conPerfil = Object.values(N.perfiles).filter(p => p.rol || p.auto.checkinn || p.auto.tareas || p.avanzadas).length;
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">📣 Notificaciones y permisos del bot</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
+      <div class="ad-sub">Check-list · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
+    <div class="ad-db">
+      <div class="ad-tgl" onclick="npOn_()"><div><b>Reenvío automático por WhatsApp</b><small>${N.on ? 'Activo: cada cambio se envía 1 min después del último, a quien tenga la sección marcada' : 'Apagado: no se envía nada automáticamente'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
+      <button type="button" class="ad-bt" style="display:block;width:100%;margin-top:8px;box-sizing:border-box" onclick="adCerrar_();mvNotificar_(null)">📣 Enviar ahora la lista actualizada de Check-inn</button>
+      <div class="lab">Personal</div>
+      <input class="at-in" placeholder="🔎 Buscar persona…" value="${pcEsc(N.q)}" oninput="ASEO._np.q=this.value;npPintarLista_()">
+      <div class="np-list" id="np-list">${L.map(npFila_).join('') || '<div class="at-hint">⏳ Cargando personal…</div>'}</div>
+    </div>
+    <div class="ad-ft"><span class="np-save" id="np-save">Los cambios se guardan solos</span><button type="button" class="ad-bt pri" onclick="adCerrar_()">Listo</button></div>`;
+  if (!nombres.length) setTimeout(() => { if (ASEO._dr && ASEO._dr.k === 'np') npPintar_(); }, 900);
+}
+function npPintarLista_() {
+  const box = document.getElementById('np-list'); if (!box) return;
+  const N = ASEO._np, q = N.q.toLowerCase();
+  const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); Object.keys(N.perfiles).forEach(n => { if (!nombres.includes(n)) nombres.unshift(n); });
+  box.innerHTML = nombres.filter(n => !q || n.toLowerCase().includes(q)).sort((a, b) => (N.perfiles[b] ? 1 : 0) - (N.perfiles[a] ? 1 : 0) || a.localeCompare(b, 'es')).map(npFila_).join('');
+}
+// Re-pinta solo la fila tocada (la lista no se mueve ni se cierra).
+function npRefila_(n) { const el = [...document.querySelectorAll('#np-list .np-p')].find(x => x.dataset.n === n); if (el) el.outerHTML = npFila_(n); }
+window.npToggleFila_ = function (n) { const prev = ASEO._np.abierto; ASEO._np.abierto = prev === n ? '' : n; if (prev && prev !== n) npRefila_(prev); npRefila_(n); };
+window.npRol_ = function (n, rol) {
+  const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {});
+  pf.rol = rol;
+  if (rol === 'admin') { pf.avanzadas = true; }
+  else if (rol === 'empleado') { pf.avanzadas = false; pf.recordatorio = true; }
+  npRefila_(n); npGuardar_();
+};
+window.npSet_ = function (n, k) {
+  const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {});
+  if (k === 'checkinn' || k === 'tareas') pf.auto = Object.assign({}, pf.auto, { [k]: !pf.auto[k] });
+  else pf[k] = !pf[k];
+  npRefila_(n); npGuardar_();
+};
+window.npOn_ = function () { ASEO._np.on = !ASEO._np.on; npPintar_(); npGuardar_(); };
+function npGuardar_() {
+  const s = document.getElementById('np-save'); if (s) s.textContent = '⏳ Guardando…';
+  clearTimeout(ASEO._npT);
+  ASEO._npT = setTimeout(async () => {
+    try {
+      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.avanzadas || p.recordatorio === false) P[n] = p; });
+      const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: ASEO._np.on, perfiles: P, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Error');
+      ASEO.autonotif = r.autonotif;
+      const el = document.getElementById('np-save'); if (el) el.textContent = '✓ Guardado';
+      try { clNavPaint_(); } catch (_) {}
+    } catch (e) { const el = document.getElementById('np-save'); if (el) el.textContent = '⚠️ No se pudo guardar'; alert('No se pudo guardar: ' + (e.message || e)); }
+  }, 500);
+}
 function aseoRenderSide_() {
   const side = document.getElementById('aseo-side'); if (!side) return;
   if (typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { side.innerHTML = '<div class="pc-mv-empty">⏳ Cargando reservas…</div>'; return; }
@@ -66462,7 +66590,7 @@ function aseoRenderSide_() {
   }
   // Barra de Lodgify + KPIs arriba de calendario y cards; el tablero en el panel derecho.
   const top = document.getElementById('aseo-top');
-  if (top) { top.innerHTML = `${mvSyncBar_()}${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
+  if (top) { top.innerHTML = `${mvSyncBar_(true)}${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
   else side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   side.classList.add('ad-v2');
   aseoPubTodasPaint_();
@@ -66628,7 +66756,8 @@ async function aseoTick_() {
   if (document.visibilityState !== 'visible' || ASEO._busy) return;
   const movs = document.getElementById('pc-sec-movs');
   const verPanel = !!(movs && movs.offsetParent), verAseo = aseoVisible_();
-  if (!verPanel && !verAseo) return;
+  const mt = document.getElementById('module-tareas'), verTar = !!(mt && !mt.classList.contains('hidden'));
+  if (!verPanel && !verAseo && !verTar) return;
   ASEO._busy = true;
   try {
     await aseoRefresh_();
