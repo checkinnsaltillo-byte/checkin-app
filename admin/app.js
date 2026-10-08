@@ -64711,7 +64711,8 @@ function aseoEnsureCss_() {
   .ad-seg button.on{background:var(--ad-tx);color:#fff;font-weight:600}
   .ad-pts{margin-left:auto;display:flex;gap:3px;font-style:normal}.ad-pts i{width:7px;height:7px;border-radius:50%}
   @media (max-width:900px){.ad-fil{flex-direction:column}}
-  .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:start}
+  .ad-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;align-items:stretch}
+  .ad-board .ad-col{display:flex;flex-direction:column;min-height:240px}
   .ad-col{background:#eef0f3;border-radius:12px;padding:7px;min-width:0}
   .ad-colh{display:flex;align-items:center;gap:7px;padding:4px 6px 9px;font-weight:600;font-size:12.5px}
   .ad-colh i{width:8px;height:8px;border-radius:50%}.ad-colh span{color:var(--ad-mut);font-weight:500}
