@@ -64914,7 +64914,7 @@ function aseoEnsureCss_() {
   body.aseo-arrastrando{cursor:col-resize !important;user-select:none}
   .aseo-grid.con-cal #aseo-cal{display:block;animation:aseoCalIn .35s cubic-bezier(.2,.7,.3,1)}
   @keyframes aseoCalIn{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
-  .aseo-grid:not(.con-cal) .aseo-side{position:static;max-height:none}
+  .aseo-grid:not(.con-cal) .aseo-side{position:static;max-height:none;overflow:visible}
   .ae-w{margin:2px 0 6px}
   .ae-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .ae-btn{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--c);border:1.5px solid var(--bd,color-mix(in srgb,var(--c) 45%,#fff))}
@@ -64950,7 +64950,7 @@ function aseoEnsureCss_() {
   .aseo-side .pc-mv-list{max-height:none}
   .aseo-sel{background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:8px;margin-bottom:10px}
   .aseo-sel-h{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#92400e;margin-bottom:6px}
-  @media (max-width:1000px){.aseo-grid,.aseo-grid.con-cal{grid-template-columns:minmax(0,1fr)}.aseo-grid.con-cal .aseo-split{display:none}.aseo-side{position:static;max-height:none}}`;
+  @media (max-width:1000px){.aseo-grid,.aseo-grid.con-cal{grid-template-columns:minmax(0,1fr)}.aseo-grid.con-cal .aseo-split{display:none}.aseo-side{position:static;max-height:none;overflow:visible}}`;
   document.head.appendChild(st);
 }
 async function aseoRefresh_(force) {
