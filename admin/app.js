@@ -65569,7 +65569,7 @@ function axFila_(k, autoCO, hid) {
 }
 function axDetalle_(k, autoCO, hid) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
-  return `<div class="lab">Tipo</div><div class="ad-steps" style="grid-template-columns:1fr 1fr">
+  return `<div class="lab">Tipo de servicio</div><div class="ad-steps" style="grid-template-columns:1fr 1fr">
       <button type="button" class="${co ? 'on' : ''}" style="--c:#0f766e" onclick="axSet_('${sk}',{checkout:true},'${sh}')">⇥ Check-out</button>
       <button type="button" class="${co ? '' : 'on'}" style="--c:#9aa1ad" onclick="axSet_('${sk}',{checkout:false},'${sh}')">General</button></div>
     ${autoCO ? '<div class="ad-hint">Asignado automáticamente: la card se generó en la fecha de salida de la reserva.</div>' : ''}
@@ -65581,7 +65581,7 @@ function adCard_(I) {
   const meta = [];
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
-  meta.unshift(`<span class="ty" style="color:${AT_DEPTO.limpieza.c}">Limpieza</span>`);
+  meta.unshift(`<span class="ty" style="color:${AT_DEPTO.limpieza.c}">${AT_DEPTO.limpieza.t}</span>`);
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
@@ -65937,7 +65937,11 @@ function adPintar_(nuevo) {
 // Viven en aseo/tareas.json; su estado por día en aseo/estados.json con llave "T<id>-<fecha>".
 // ═══════════════════════════════════════════════════════════════════════════
 // Tipo de tarea: franja izquierda de color en cards y tarjetas del calendario (los aseos por reserva son Limpieza).
-const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
+// Selector visible «Tipo de tarea»: Aseo · Inspección · Mantenimiento.
+function atDeptoSeg_(cur, fn) {
+  return `<label class="at-l">Tipo de tarea <i>*</i></label><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${D.c}" onclick="${fn}('${k}')">${D.ico} ${D.t}</button>`).join('')}</div>`;
+}
+const AT_DEPTO = { limpieza: { t: 'Aseo', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
 const AT_PRIO = [null, { t: 'El más bajo', ico: '↓↓', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '‼', c: '#dc2626' }];
 const AT_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const AT_ORD = ['', '1.º', '2.º', '3.º', '4.º', '5.º'];
@@ -66042,10 +66046,11 @@ function atPintar_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
+      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid)}
       ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
       <div class="lab">Detalles</div>
-      <div class="ad-kv"><span>Departamento</span><b>${D.ico} ${D.t}</b><span>Programada</span><b>${aseoDiaTxt_(t.fecha)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''}</b>
+      <div class="ad-kv"><span>Programada</span><b>${aseoDiaTxt_(t.fecha)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''}</b>
         ${t.repite ? `<span>Se repite</span><b>${pcEsc(atRepTxt_(t.repite, t.fecha))}</b>` : ''}
         ${res ? `<span>Reserva</span><b>${pcEsc(res.GuestName || '')} · ${pcFmtDiaC_(_pagosDateIso(res.DateArrival))} → ${pcFmtDiaC_(_pagosDateIso(res.DateDeparture))}</b>` : ''}
         ${(t.etiquetas || []).length ? `<span>Etiquetas</span><b>${t.etiquetas.map(x => `<em class="ad-tag">${pcEsc(x)}</em>`).join(' ')}</b>` : ''}
@@ -66057,6 +66062,16 @@ function atPintar_(nuevo) {
       ${I.selE !== sig.k ? `<button type="button" class="ad-bt pri" onclick="aseoSetEstado_('${I.key}','','${sig.k}',true)">Marcar ${sig.t.toLowerCase()}</button>` : '<button type="button" class="ad-bt ok" disabled>✓ Completada</button>'}</div>`;
   if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
 }
+// Cambiar el tipo de tarea desde el detalle. Aseo ↔ Inspección se guarda al instante; Mantenimiento abre el formulario del reporte técnico.
+window.atCambiarDepto_ = async function (id, k) {
+  const t = (ASEO.tareas || {})[id]; if (!t || t.depto === k) return;
+  if (k === 'mantenimiento') { atForm_(id); atFormDepto_('mantenimiento'); return; }
+  const prev = t.depto; t.depto = k; ASEO.calSig = ''; aseoRender_(); adPintar_();
+  try {
+    const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: t, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+  } catch (e) { t.depto = prev; ASEO.calSig = ''; aseoRender_(); adPintar_(); alert('No se pudo cambiar el tipo: ' + (e.message || e)); }
+};
 window.atBorrar_ = async function (id) {
   const t = (ASEO.tareas || {})[id]; if (!t) return;
   if (!confirm(`¿Eliminar la tarea «${t.titulo}»${t.repite ? ' y todas sus repeticiones' : ''}?`)) return;
@@ -66082,11 +66097,11 @@ function atFormPintar_() {
   const rOpts = [['diario', 'Diariamente'], ['semanal', `Semanalmente los ${AT_DIAS[a.getDay()]}`], ['mensual', `Mensualmente el ${AT_ORD[Math.ceil(a.getDate() / 7)]} ${AT_DIAS[a.getDay()]}`], ['anual', `Anualmente el ${a.getDate()} de ${a.toLocaleDateString('es-MX', { month: 'long' })}`], ['cada', 'Personalizado…']];
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar tarea' : 'Crea una tarea'}</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div></div>
     <div class="ad-db at-f">
+      ${atDeptoSeg_(F.depto, 'atFormDepto_')}
+      ${F._deRt ? '<div class="at-hint">Al guardar, el reporte técnico se convierte en esta tarea y sale de «Reportes técnicos».</div>' : ''}
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
-      <label class="at-l">Departamento <i>*</i></label>
-      <select class="at-in" onchange="atFormDepto_(this.value)"><option value="">Selecciona un departamento</option>${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${F.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
-      <label class="at-l">Tipo</label>
+      <label class="at-l">Tipo de servicio</label>
       <div class="ad-steps" style="grid-template-columns:1fr 1fr"><button type="button" class="${F.checkout ? 'on' : ''}" style="--c:#0f766e" onclick="ASEO._tf.checkout=true;atFormPintar_()">⇥ Check-out</button><button type="button" class="${F.checkout ? '' : 'on'}" style="--c:#9aa1ad" onclick="ASEO._tf.checkout=false;atFormPintar_()">General</button></div>
       <div class="at-sec"><span>☑ Detalles de la tarea</span><label class="at-tg">Crear como un problema ${sw(F.problema, 'ASEO._tf.problema=!ASEO._tf.problema;atFormPintar_()')}</label></div>
       ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
@@ -66115,9 +66130,9 @@ function atFormPintar_() {
 window.atFormPrio_ = function (k) { ASEO._tf.prioridad = k; atFormPintar_(); };
 // Mantenimiento = reporte técnico: se cambia al formulario del reporte con los datos ya escritos.
 window.atFormDepto_ = function (v) {
-  if (v !== 'mantenimiento') { ASEO._tf.depto = v; return; }
+  if (v !== 'mantenimiento') { ASEO._tf.depto = v; atFormPintar_(); return; }
   const F = ASEO._tf;
-  rtFormA_(null, { hid: F.hid, titulo: F.titulo, desc: F.desc, fecha: F.fecha, prioridad: F.prioridad, asignados: F.asignados, reserva: F.reserva });
+  rtFormA_(null, { hid: F.hid, titulo: F.titulo, desc: F.desc, fecha: F.fecha, prioridad: F.prioridad, asignados: F.asignados, reserva: F.reserva, deTarea: F.id || '' });
 };
 // Reservas activas (Booked) del alojamiento elegido que aún no terminan.
 function atReservas_() {
@@ -66185,16 +66200,20 @@ window.atSubir_ = async function (inp) {
 window.atGuardar_ = async function () {
   const F = ASEO._tf;
   if (!F.hid) return alert('Elige el alojamiento.');
-  if (!F.depto) return alert('Elige el departamento.');
+  if (!F.depto) return alert('Elige el tipo de tarea: Aseo, Inspección o Mantenimiento.');
   if (!String(F.titulo || '').trim()) return alert('Escribe el título de la tarea.');
   if (!F.fecha) return alert('Elige la fecha.');
   if (F.reserva) { const b = pcMovBookings_().find(x => String(x.Id) === String(F.reserva)); if (b && !(F.fecha >= _pagosDateIso(b.DateArrival) && F.fecha <= _pagosDateIso(b.DateDeparture))) return alert('La fecha debe quedar dentro de la estancia de la reserva enlazada.'); }
   const btn = document.getElementById('at-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
-    const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: F, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+    const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: Object.assign({}, F, { _deRt: undefined }), user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!r.ok) throw new Error(r.error || 'Error');
     (ASEO.tareas = ASEO.tareas || {})[r.tarea.id] = Object.assign(r.tarea, { adjuntos: F.adjuntos });
     if (!!F.checkout !== axCO_('T' + r.tarea.id, false)) axSet_('T' + r.tarea.id, { checkout: !!F.checkout }, r.tarea.hid);
+    if (F._deRt) { // conversión Mantenimiento → Aseo/Inspección: se retira el reporte técnico original
+      await fetch(`${BACKEND}/reportes-tecnicos-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F._deRt }) }).then(r => r.json()).catch(() => null);
+      ASEO.rt = (ASEO.rt || []).filter(x => String(x.ID) !== String(F._deRt));
+    }
     ASEO._tf = null; ASEO.calSig = ''; aseoRender_();
     atAbrir_(r.tarea.id, r.tarea.fecha);
   } catch (e) { alert('No se pudo guardar la tarea: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear tarea'; } }
@@ -66329,6 +66348,7 @@ function rtPintarA_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="adRtEst_('${id}','${p[0]}')">${p[1]}</button>`).join('')}</div>
       ${row.Updated_at || row.Updated_by ? `<div class="ad-hint">Actualizado ${pcEsc(String(row.Updated_at || '').replace('T', ' ').slice(0, 16))}${row.Updated_by ? ' · ' + pcEsc(row.Updated_by) : ''}</div>` : ''}
+      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${k === 'mantenimiento' ? 'on' : ''}" style="--c:${X.c}" onclick="${k === 'mantenimiento' ? '' : `rtFormA_('${id}');rtFormCambiarDepto_('${k}')`}">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('R' + t.rtId, false, t.hid)}
       <div class="lab">Descripción de la falla</div><div class="ad-desc">${pcEsc(t.desc || '—').replace(/\n/g, '<br>')}</div>
       <div class="lab">Impacto en el alojamiento</div>
@@ -66365,7 +66385,7 @@ window.rtFormA_ = function (rtId, pre) {
   const P = pre || {};
   ASEO._rf = row ? Object.assign({}, row, { _co: axCO_('R' + row.ID, false), _hid: t.hid, _prio: t.prioridad, _asig: t.asignados.slice(), _bloq: t.bloquea, _rein: t.reincidente, _cargar: rtBool_(row.Cargar_a_huesped) })
     : { ID: '', Estado: 'nuevo', Tipo: 'correctivo', Categoria: 'otros', Responsabilidad: 'indeterminada', Titulo: P.titulo || '', Descripcion: P.desc || '', Fecha: P.fecha || aseoDia_(),
-        Reservacion_id: P.reserva || '', _hid: P.hid || '', _prio: prio4Key_(P.prioridad || 'media'), _asig: (P.asignados || []).slice(), _bloq: false, _rein: false, _cargar: false,
+        Reservacion_id: P.reserva || '', _deTarea: P.deTarea || '', _hid: P.hid || '', _prio: prio4Key_(P.prioridad || 'media'), _asig: (P.asignados || []).slice(), _bloq: false, _rein: false, _cargar: false,
         Reportado_por: (typeof currentUser !== 'undefined' && currentUser) || '' };
   ASEO._rfFotos = { antes: [], despues: [] };
   ASEO._dr = { form: true, k: 'rform' };
@@ -66384,12 +66404,11 @@ function rtFormPintarA_() {
   const resL = F._hid ? pcMovBookings_().filter(b => String(b.HouseId) === String(F._hid) && /^booked$/i.test(String(b.Status || '').trim()) && _pagosDateIso(b.DateDeparture) >= aseoHoyIso_()) : [];
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.ID ? 'Editar reporte técnico' : 'Crea una tarea'}</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>${F.Folio ? `<div class="ad-sub">${pcEsc(F.Folio)}</div>` : ''}</div>
     <div class="ad-db at-f">
+      ${atDeptoSeg_('mantenimiento', 'rtFormCambiarDepto_')}
+      <div class="at-hint">${F._deTarea ? 'Al guardar, la tarea se convierte en reporte técnico (Mantenimiento).' : 'Mantenimiento = reporte técnico (se guarda en «Reportes técnicos»).'}</div>
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="ASEO._rf._hid=this.value;ASEO._rf.Reservacion_id='';rtFormPintarA_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F._hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
-      <label class="at-l">Departamento <i>*</i></label>
-      <select class="at-in" ${F.ID ? 'disabled title="Un reporte técnico siempre es de Mantenimiento"' : ''} onchange="rtFormCambiarDepto_(this.value)">${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${k === 'mantenimiento' ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
-      <div class="at-hint">Mantenimiento = reporte técnico (se guarda en «Reportes técnicos»).</div>
-      <label class="at-l">Tipo</label>
+      <label class="at-l">Tipo de servicio</label>
       <div class="ad-steps" style="grid-template-columns:1fr 1fr"><button type="button" class="${F._co ? 'on' : ''}" style="--c:#0f766e" onclick="ASEO._rf._co=true;rtFormPintarA_()">⇥ Check-out</button><button type="button" class="${F._co ? '' : 'on'}" style="--c:#9aa1ad" onclick="ASEO._rf._co=false;rtFormPintarA_()">General</button></div>
       <div class="at-sec"><span>☑ Detalles del reporte</span></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F._prio, 'rtFormPrio_')}
@@ -66439,8 +66458,9 @@ window.rtFormFotos_ = function (inp, tipo) { [...(inp.files || [])].forEach(f =>
 window.rtFormCambiarDepto_ = function (v) {
   if (v === 'mantenimiento') return;
   const F = ASEO._rf;
+  if (F._deTarea) { atForm_(F._deTarea); ASEO._tf.depto = v; atFormPintar_(); return; } // volvió a la tarea original
   atForm_(null, F._hid, String(F.Fecha || '').slice(0, 10));
-  Object.assign(ASEO._tf, { depto: v, titulo: F.Titulo || '', desc: F.Descripcion || '', prioridad: F._prio, asignados: (F._asig || []).slice(), reserva: F.Reservacion_id || '' });
+  Object.assign(ASEO._tf, { depto: v, _deRt: F.ID || '', checkout: !!F._co, titulo: F.Titulo || '', desc: F.Descripcion || '', prioridad: F._prio, asignados: (F._asig || []).slice(), reserva: F.Reservacion_id || '' });
   atFormPintar_();
 };
 window.rtGuardarA_ = async function () {
@@ -66471,6 +66491,10 @@ window.rtGuardarA_ = async function () {
     const fila = Object.assign(i >= 0 ? ASEO.rt[i] : { Timestamp: new Date().toISOString() }, payload, { ID: id, Folio: r.folio || F.Folio || id });
     if (i < 0) ASEO.rt.unshift(fila);
     if (!!F._co !== axCO_('R' + id, false)) axSet_('R' + id, { checkout: !!F._co }, F._hid);
+    if (F._deTarea) { // conversión Aseo/Inspección → Mantenimiento: se retira la tarea original
+      await fetch(`${BACKEND}/aseo/tarea/borrar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F._deTarea }) }).then(r => r.json()).catch(() => null);
+      if (ASEO.tareas) delete ASEO.tareas[F._deTarea];
+    }
     ASEO._rf = null; ASEO.calSig = ''; aseoRender_();
     rtAbrirA_(id, fila.Fecha);
     setTimeout(() => adRtLoad_(true), 1500); // fotos y folio definitivos
