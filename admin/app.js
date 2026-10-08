@@ -64658,6 +64658,8 @@ function aseoEnsureCss_() {
   .oc-task .t2 .es{color:#6b7280}.oc-task .t2 .un{color:#dc2626;margin-left:auto}
   .oc-task .t2 .un{margin-left:0}.oc-task .t1 .rp{color:#6d28d9;font-weight:700;margin-left:auto}.oc-task .t1 .rp+.al{margin-left:2px}.oc-task .ad-av{width:17px;height:17px;font-size:8px;border-width:1.5px}
   .oc-task .t3{font-size:10px;margin-top:1px}.oc-task .vi{color:#6d28d9;font-weight:600;font-size:10px;white-space:normal;line-height:1.2}
+  .oc-task.sel{border-color:#4f46e5;box-shadow:0 0 0 3px #c7d2fe,0 6px 16px rgba(79,70,229,.25);z-index:5}
+  .ocup-cal-row.ad-flash .ocup-aloj-cell{background:#eef2ff;transition:background .4s}
   .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
   .ad-card.tipo{border-left:4px solid var(--tc)}
   .ad-card.tipo.ghost{border-left:4px dashed var(--tc)}
@@ -65151,6 +65153,7 @@ function aseoRender_() {
     ASEO.calSig = sig;
     ocupRender({ cont: cal, bookings: bks, filters: fCal, before: 1, after: 2, onBar: 'aseoSelect_', center: false, tareas: aseoCalTareas_(), tareaHtml: aseoCalTareaHtml_ });
     aseoCalDnD_(cal);
+    adMarcarCal_(false);
     if (first || ASEO._centrar) { ASEO._centrar = false; requestAnimationFrame(() => ocupCentrarHoy_(cal)); }
     else { cal.scrollLeft = sl; cal.scrollTop = stp; }
     aseoMarcarSel_();
@@ -65296,10 +65299,10 @@ function aseoCalTareas_() {
     const id = String(b.Id), r = RP[id], fecha = (r && r.fecha) || dep;
     if (fecha < lim && !E[id] && !r) return; // aseos viejos sin registro: no se muestran
     const t = { id, hid: String(b.HouseId || ''), dia: fecha, orig: (r && r.orig) || dep, reprog: !!(r && fecha !== ((r && r.orig) || dep)), cls: 'ty-limpieza' };
-    t.onclick = `adAbrir_('${pcEsc(t.hid)}','${fecha}')`;
+    t.onclick = `adAbrir_('${pcEsc(t.hid)}','${fecha}','cal')`;
     add(b.HouseId, t);
     if (r && r.auto) [...new Set([r.orig, ...(r.fantasmas || [])])].filter(x => x && x !== fecha).forEach(dia =>
-      add(b.HouseId, { id, hid: t.hid, dia, ghost: true, orig: t.orig, onclick: `adAbrir_('${pcEsc(t.hid)}','${dia}')` }));
+      add(b.HouseId, { id, hid: t.hid, dia, ghost: true, orig: t.orig, onclick: `adAbrir_('${pcEsc(t.hid)}','${dia}','cal')` }));
   });
   // Tareas manuales (las que se repiten no se arrastran).
   const fin = new Date(hoy + 'T12:00:00'); fin.setDate(fin.getDate() + 75);
@@ -65307,7 +65310,7 @@ function aseoCalTareas_() {
     const d = new Date(Math.max(atD_(tk.fecha), atD_(lim)));
     for (; d <= fin; d.setDate(d.getDate() + 1)) {
       const dia = atIso_(d); if (!atToca_(tk, dia)) continue;
-      add(tk.hid, { id: 'T:' + tk.id, hid: String(tk.hid), dia, orig: tk.fecha, tarea: tk, cls: 'tarea ty-' + (tk.depto || 'limpieza'), noDrag: !!tk.repite, onclick: `atAbrir_('${pcEsc(tk.id)}','${dia}')` });
+      add(tk.hid, { id: 'T:' + tk.id, hid: String(tk.hid), dia, orig: tk.fecha, tarea: tk, cls: 'tarea ty-' + (tk.depto || 'limpieza'), noDrag: !!tk.repite, onclick: `atAbrir_('${pcEsc(tk.id)}','${dia}','cal')` });
       if (!tk.repite) break;
     }
   });
@@ -65399,15 +65402,56 @@ function adGrupos_(dia) {
   return { hoy, gs: aseoAplicarReprog_(pcMovAlojGrupos_(cols, hoy), hoy) };
 }
 // ── Ventana lateral ──
-window.adAbrir_ = function (k, dia) {
+window.adAbrir_ = function (k, dia, origen) {
   ASEO._dr = { k: String(k), dia: dia || aseoDia_() };
   const I = adDrawerInfo_();
   if (I && ASEO.cal) { ASEO.sel = String((I.xs || I.xe || {}).b ? (I.xs || I.xe).b.Id : ''); aseoMarcarSel_(); }
-  document.querySelectorAll('#aseo-side .ad-card').forEach(c => c.classList.toggle('sel', c.dataset.k === String(k)));
   adPintar_(true);
+  adSync_(String(k), I ? I.hid : k, ASEO._dr.dia, I ? String(I.asigId) : '', origen);
 };
+// Sincroniza cards ↔ calendario:
+//  · desde una card → el calendario se mueve al alojamiento y al día, y resalta su tarjeta.
+//  · desde el calendario → las cards pasan a ese día y se resalta la card.
+function adSync_(k, hid, dia, tid, origen) {
+  ASEO._calSel = { tid: String(tid || ''), dia };
+  if (origen === 'cal') {
+    if (dia !== aseoDia_()) { ASEO.dia = dia === aseoHoyIso_() ? null : dia; aseoDnavPaint_(); aseoRenderSide_(); }
+    const c = adMarcarCards_(k);
+    if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    adMarcarCal_(false);
+  } else {
+    adMarcarCards_(k);
+    adMarcarCal_(true, hid, dia);
+  }
+}
+function adMarcarCards_(k) {
+  let sel = null;
+  document.querySelectorAll('#aseo-side .ad-card').forEach(c => { const on = c.dataset.k === String(k); c.classList.toggle('sel', on); if (on) sel = c; });
+  return sel;
+}
+// Resalta la tarjeta del calendario (y, si se pide, mueve el calendario a su fila y su día).
+function adMarcarCal_(mover, hid, dia) {
+  const cal = ASEO.cal ? document.getElementById('aseo-cal') : null; if (!cal) return;
+  cal.querySelectorAll('.oc-task.sel').forEach(e => e.classList.remove('sel'));
+  const S = ASEO._calSel; if (!S) return;
+  const t = S.tid ? cal.querySelector(`.oc-task[data-tid="${CSS.escape(S.tid)}"][data-dia="${CSS.escape(S.dia)}"]`) : null;
+  if (t) t.classList.add('sel');
+  if (!mover) return;
+  const row = t ? t.closest('.ocup-cal-row') : cal.querySelector(`.ocup-cal-row[data-aloj-id="${CSS.escape(String(hid || ''))}"]`);
+  const st = cal.querySelector('.ocup-cal')?.dataset.start, head = cal.querySelector('.ocup-head-aloj');
+  let left = cal.scrollLeft;
+  if (st && dia) {
+    const idx = Math.round((new Date(dia + 'T12:00:00') - new Date(st + 'T12:00:00')) / 864e5);
+    const cell = cal.querySelectorAll('.ocup-head-cell')[idx];
+    if (cell) { const aw = (head || {}).offsetWidth || 0; left = Math.max(0, cell.offsetLeft + cell.offsetWidth - (aw + (cal.clientWidth - aw) / 2)); }
+  }
+  const top = row ? Math.max(0, row.offsetTop - cal.clientHeight / 2 + Math.min(row.offsetHeight, cal.clientHeight) / 2) : cal.scrollTop;
+  cal.scrollTo({ left, top, behavior: 'smooth' });
+  if (row) { row.classList.add('ad-flash'); setTimeout(() => row.classList.remove('ad-flash'), 1600); }
+}
 window.adCerrar_ = function () {
-  ASEO._dr = null; ASEO._tf = null;
+  ASEO._dr = null; ASEO._tf = null; ASEO._calSel = null;
+  document.querySelectorAll('#aseo-cal .oc-task.sel').forEach(e => e.classList.remove('sel'));
   document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove();
   document.querySelectorAll('#aseo-side .ad-card.sel').forEach(c => c.classList.remove('sel'));
 };
@@ -65529,14 +65573,17 @@ function atInfo_(t, dia) {
 function atCard_(I) {
   const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
-  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')">
+  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${P.t}">${P.ico} ${P.t}</span></span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
   </div>`;
 }
-window.atAbrir_ = function (id, dia) { ASEO._dr = { k: 'T' + id, tarea: String(id), dia: dia || aseoDia_() }; adPintar_(true); };
+window.atAbrir_ = function (id, dia, origen) {
+  ASEO._dr = { k: 'T' + id, tarea: String(id), dia: dia || aseoDia_() }; adPintar_(true);
+  const t = (ASEO.tareas || {})[id]; adSync_('T' + id, t ? t.hid : '', ASEO._dr.dia, 'T:' + id, origen);
+};
 function atShell_() {
   aseoEnsureCss_();
   if (!document.getElementById('ad-dim')) { const dim = document.createElement('div'); dim.id = 'ad-dim'; dim.onclick = adCerrar_; document.body.appendChild(dim); }
@@ -65770,7 +65817,7 @@ window.aseoSelect_ = function (id) {
     for (const d of dias) {
       const { gs } = adGrupos_(d);
       const g = gs.find(x => [...x.sal, ...x.ent, ...(x.cur || [])].some(y => String(y.b.Id) === String(id)));
-      if (g) { ASEO.sel = String(id); aseoMarcarSel_(); adAbrir_(String(g.hid || g.k), d); return; }
+      if (g) { ASEO.sel = String(id); aseoMarcarSel_(); adAbrir_(String(g.hid || g.k), d, 'cal'); return; }
     }
   }
   const same = id && String(ASEO.sel) === String(id);
