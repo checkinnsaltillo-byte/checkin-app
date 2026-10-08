@@ -64662,6 +64662,13 @@ function aseoEnsureCss_() {
   .ocup-cal-row.ad-flash .ocup-aloj-cell{background:#eef2ff;transition:background .4s}
   .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
   .ad-card.tipo{border-left:4px solid var(--tc)}
+  .ad-card[draggable=true]{cursor:grab}.ad-card.dragging{opacity:.4}
+  .ad-col.drop{background:#e0e7ff;box-shadow:inset 0 0 0 2px #6366f1}
+  .ad-qs{display:flex;gap:3px;margin-top:7px;background:#f3f4f6;border-radius:7px;padding:2px}
+  .ad-qs button{all:unset;cursor:pointer;flex:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:10.5px;font-weight:500;color:#6b7280;padding:4px 2px;border-radius:5px;white-space:nowrap}
+  .ad-qs button i{width:6px;height:6px;border-radius:50%;background:var(--c);opacity:.55}
+  .ad-qs button:hover{background:#fff;color:#0f1729}
+  .ad-qs button.on{background:#fff;color:#0f1729;font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.12);cursor:default}.ad-qs button.on i{opacity:1}
   .ad-card.tipo.ghost{border-left:4px dashed var(--tc)}
   .ad-card.tipo.alert,.ad-card.tipo.sel{border-left-color:var(--tc)}
   .ad-card .r2 .ty{font-weight:600}.ad-card .r2 .pr{color:#4f46e5;font-weight:600}
@@ -65206,6 +65213,34 @@ function adInfo_(g, hoy, o) {
   return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso,
     prioritaria: !!(temp && temp.aceptada), pA: asg.aseo || asg.personal || [], pI: asg.inspeccion || [], G, pubKey, noPub: !!(G && G.noPub) };
 }
+// Selector rápido de estado al pie de la card (un clic) — mismo guardado que la ventana de detalles.
+const AD_CORTO = { pendiente: 'Pend.', en_proceso: 'Proceso', terminado: 'Term.', inspeccionado: 'Insp.' };
+function adEstRapido_(id, hid, sel, tarea, sinInsp) {
+  return `<div class="ad-qs" onclick="event.stopPropagation()">${AD_EST.filter(e => !sinInsp || e.k !== 'inspeccionado').map(e =>
+    `<button type="button" class="${e.k === sel ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === sel ? '' : `aseoSetEstado_('${pcEsc(id)}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})`}"><i></i>${AD_CORTO[e.k]}</button>`).join('')}</div>`;
+}
+// Arrastrar una card a otra columna (vista por estado) → cambia su estado.
+window.adDragStart_ = function (ev, id, hid, tarea, sinInsp) {
+  ASEO._dragEst = { id, hid, tarea: !!tarea, sinInsp: !!sinInsp };
+  try { ev.dataTransfer.setData('text/plain', id); ev.dataTransfer.effectAllowed = 'move'; } catch (_) {}
+  const c = ev.currentTarget; setTimeout(() => c.classList.add('dragging'), 0);
+};
+window.adDragEnd_ = function (ev) { ev.currentTarget.classList.remove('dragging'); document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop')); ASEO._dragEst = null; };
+window.adDragOver_ = function (ev, k) {
+  const D = ASEO._dragEst; if (!D || (k === 'inspeccionado' && D.sinInsp)) return; // mantenimiento/inspección no tienen "Inspeccionado"
+  ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.ad-col.drop').forEach(c => { if (c !== ev.currentTarget) c.classList.remove('drop'); });
+  ev.currentTarget.classList.add('drop');
+};
+window.adDrop_ = function (ev, k) {
+  ev.preventDefault();
+  const D = ASEO._dragEst; ASEO._dragEst = null;
+  document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop'));
+  if (!D) return;
+  const cur = (aseoEstDe_(D.id) || {}).estado || 'pendiente';
+  if (cur === k) return;
+  aseoSetEstado_(D.id, D.hid, k, !!D.tarea);
+};
 // ── Card compacta del tablero ──
 function adCard_(I) {
   const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
@@ -65221,11 +65256,13 @@ function adCard_(I) {
   const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
-  return `<div class="ad-card tipo ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO.limpieza.c}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')">
+  return `<div class="ad-card tipo ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO.limpieza.c}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
+    draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
     <div class="r3">${equipo}<span class="sp"></span>${guia}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
 // ── Tablero: indicadores + filtro de personal + 4 columnas por estado ──
@@ -65271,7 +65308,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
       const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
-      return `<div class="ad-col"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(pinta).join('') || '<div class="ad-empty">—</div>'}</div>`;
+      return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${L.length}</span></div>${L.map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
     }).join('')
     : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
       const L = ver.filter(I => propDe(I) === p);
@@ -65573,11 +65610,13 @@ function atInfo_(t, dia) {
 function atCard_(I) {
   const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza, P = AT_PRIO[t.prioridad || 3];
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
-  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')">
+  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
+    draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span><span class="mv"><span style="color:${P.c}" title="Prioridad ${P.t}">${P.ico} ${P.t}</span></span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+    ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
 }
 window.atAbrir_ = function (id, dia, origen) {
