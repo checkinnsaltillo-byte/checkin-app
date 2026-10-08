@@ -65128,12 +65128,12 @@ function adInfo_(g, hoy, o) {
 function adCard_(I) {
   const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
   const meta = [];
-  if (I.trd) meta.push(`Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span>`);
-  if (I.temp) meta.push(`Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span>`);
+  if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
+  if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
-  if (!meta.length && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push(pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · '))); }
+  if (!meta.length && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
   const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
@@ -65154,7 +65154,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const n = k => vivos.filter(I => I.selE === k).length;
   const listos = vivos.filter(I => I.pubE === 'inspeccionado' || I.pubE === 'terminado').length;
   const pct = vivos.length ? Math.round(listos / vivos.length * 100) : 0;
-  const alertas = infos.filter(I => I.aviso && I.aviso.c !== 'violet').length, sinDes = infos.filter(I => I.noSale).length;
+  const alertas = infos.filter(I => I.aviso && I.aviso.c === 'red').length, sinDes = infos.filter(I => I.noSale).length;
+  const reqInsp = infos.filter(I => I.aviso && I.aviso.c === 'orange').length;
   const ent = vivos.filter(I => I.g.ent.length).length, temp = vivos.filter(I => I.temp).length;
   const porV = vivos.filter(I => I.selE === 'terminado' && !I.validado).length;
   const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
@@ -65163,7 +65164,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
       <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
     ${kpi('Pendientes', n('pendiente'))}${kpi('En proceso', n('en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '')}
-    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas, sinDes ? `${sinDes} sin desalojar` : '', alertas ? 'al' : '')}
+    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas, [sinDes ? `${sinDes} sin desalojar` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), alertas ? 'al' : '')}
   </div>`;
   const cols = AD_EST.map(E => {
     const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : []);
