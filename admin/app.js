@@ -59905,7 +59905,7 @@ function aseoAplicarReprog_(gs, hoy) {
 function aseoNoSaleOn_(id) { return !!(((window.ASEO && ASEO.nosale) || {})[String(id)] || {}).on; }
 function aseoNoSaleChip_(id, hid) {
   const on = aseoNoSaleOn_(id), sid = pcEsc(String(id)), shid = pcEsc(String(hid || ''));
-  return `<button type="button" class="mv-ns ${on ? 'on' : ''}" onclick="event.stopPropagation();aseoNoSale_('${sid}','${shid}',${!on})" title="${on ? 'El huésped aún no desaloja · clic cuando ya haya salido' : 'Clic si el huésped que sale hoy aún no desaloja'}">${on ? '🚨 NO HA DESALOJADO' : '🚪 ¿Desalojó?'}</button>`;
+  return `<button type="button" class="mv-ns ${on ? 'on' : ''}" onclick="event.stopPropagation();aseoNoSale_('${sid}','${shid}',${!on})" title="${on ? 'El huésped aún no desaloja · clic cuando ya haya salido' : 'Clic si el huésped que sale hoy aún no desaloja'}">${on ? '🚨 NO HA DESALOJADO' : '🚪 ¿No ha desalojado?'}</button>`;
 }
 window.aseoNoSale_ = async function (id, hid, on) {
   if (!confirm(on ? '¿Marcar ALERTA: el huésped que sale hoy aún NO ha desalojado?' : '¿Quitar la alerta? (el huésped ya desalojó)')) return;
