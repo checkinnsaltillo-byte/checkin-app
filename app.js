@@ -57699,7 +57699,7 @@ function tdFiltros_(base) {
   const cChips = clas.map(c => `<button type="button" class="mv-pf-c ad-pr ${fx.clas.has(c) ? 'on' : ''}" data-c="${esc(c)}" onclick="tdFx_('clas',this.dataset.c)">${esc(c)}<b>${cuenta(r => (r.Clasificacion || TAR_SIN) === c)}</b></button>`).join('');
   const tChips = Object.entries(TD_TIPO).map(([k, T]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fx.tipo === T.t ? 'on' : ''}" style="--tc:${T.c}" onclick="tdFx_('tipo','${T.t}')"><i></i>${k === 'rec' ? 'Recordatorio' : 'Tarea'}<b>${cuenta(r => tdTipoK_(r) === k)}</b></button>`).join('');
   const prChips = Object.entries(TD_PRIO).map(([k, P]) => `<button type="button" class="mv-pf-c ad-pr ${fx.prio === k ? 'on' : ''}" onclick="tdFx_('prio','${k}')">${prio4Html_(k, true)} ${PRIO4[prio4Key_(k)].t}<b>${cuenta(r => (r.Prioridad || 'Medio') === k)}</b></button>`).join('');
-  return `<div class="ad-gfil" style="display:flex;flex-direction:column;gap:6px;margin:12px 0">
+  return `<div class="ad-gfil" style="display:flex;flex-direction:column;gap:6px;margin:12px 0 14px">
     ${fila('👥', 'Personal', pChips, fx.pers.size ? "tdFxClr_('pers')" : '')}
     ${fila('🗂️', 'Clasificación', cChips, fx.clas.size ? "tdFxClr_('clas')" : '')}
     ${fila('🏷️', 'Tipo', tChips, fx.tipo ? "tdFxClr_('tipo')" : '')}
@@ -64975,7 +64975,11 @@ function aseoEnsureCss_() {
   .ad-colh{padding-left:13px;padding-right:13px}
   @media (min-width:1001px){.aseo-grid.con-cal .ad-colh{top:-10px}}
   #aseo-top .ad-gfil{margin-top:12px;display:flex;flex-direction:column;gap:6px}
-  #aseo-top .ad-gfil .mv-pf{margin:0}
+  .ad-gfil .mv-pf,#aseo-top .ad-gfil .mv-pf{margin:0 !important}
+  .mv-pf-c .p4b i{width:3px !important;border-radius:1px !important;display:block !important;background:#d9dde3}
+  .mv-pf-c .p4b i:nth-child(1){height:4px !important}.mv-pf-c .p4b i:nth-child(2){height:7px !important}.mv-pf-c .p4b i:nth-child(3){height:10px !important}.mv-pf-c .p4b i:nth-child(4){height:12px !important}
+  .mv-pf-c .p4b i.on{background:var(--c) !important}
+  .mv-pf-c.ad-pr .p4{gap:0}
   #aseo-top{margin:0 0 12px}#aseo-top .mv-sync{margin-bottom:10px}#aseo-top .ad-kpis{margin-bottom:0}
   .ad-colh i{width:8px;height:8px;border-radius:50%}.ad-colh span{color:var(--ad-mut);font-weight:500}
   .ad-empty{color:var(--ad-mut2);text-align:center;padding:10px 0 12px;font-size:12px}
@@ -65420,7 +65424,7 @@ function aseoRender_() {
   const bks = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
   const fCal = Object.assign({}, OCUP_STATE.calFilters || {});
   const sig = JSON.stringify(fCal) + JSON.stringify(OCUP_STATE.colorModes || {}) + bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',')
-    + JSON.stringify([ASEO.estados, ASEO.asig, ASEO.reprog, ASEO.nosale, ASEO.tareas, ASEO.fPers, ASEO.fProp, ASEO.fTipo]);
+    + JSON.stringify([ASEO.estados, ASEO.asig, ASEO.reprog, ASEO.nosale, ASEO.tareas, ASEO.fPers, ASEO.fProp, ASEO.fTipo, ASEO.fPrio]);
   if (cal && sig !== ASEO.calSig) {
     const sl = cal.scrollLeft, stp = cal.scrollTop, first = !ASEO.calSig;
     ASEO.calSig = sig;
@@ -65553,8 +65557,11 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const pinta = I => I.tarea ? atCard_(I) : adCard_(I);
   const tipoDe = I => I.tarea ? (I.t.depto || 'limpieza') : 'limpieza';
   const fT = ASEO.fTipo || [];
-  const verT = ver.filter(I => !fT.length || fT.includes(tipoDe(I)));
   const todos = infos.concat(tInfos);
+  const verT = ver.filter(I => (!fT.length || fT.includes(tipoDe(I))) && (!(ASEO.fPrio || []).length || ASEO.fPrio.includes(I.tarea ? prio4Key_(I.t.prioridad) : I.prio)));
+  const prioDe = I => I.tarea ? prio4Key_(I.t.prioridad) : I.prio;
+  const fPr = ASEO.fPrio || [];
+  const prioHtml = `<div class="mv-pf ad-prf"><small>⚑ Prioridad:</small>${PRIO4_ORD.map(k => `<button type="button" class="mv-pf-c ad-pr ${fPr.includes(k) ? 'on' : ''}" onclick="adPrioFiltro_('${k}')">${prio4Html_(k, true)} ${PRIO4[k].t}<b>${todos.filter(I => prioDe(I) === k).length}</b></button>`).join('')}${fPr.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPrio=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   const tipoHtml = `<div class="mv-pf ad-prf"><small>🏷️ Tipo:</small>${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fT.includes(k) ? 'on' : ''}" style="--tc:${D.c}" onclick="adTipoToggle_('${k}')"><i></i>${D.t}<b>${todos.filter(I => tipoDe(I) === k).length}</b></button>`).join('')}${fT.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fTipo=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   ver.length = 0; verT.forEach(I => ver.push(I));
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
@@ -65590,11 +65597,12 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
-  ASEO._filtrosHtml = `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}</div>`; // filtros generales (cards + calendario)
+  ASEO._filtrosHtml = `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>`; // filtros generales (cards + calendario)
   return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
+window.adPrioFiltro_ = function (k) { const s = ASEO.fPrio = ASEO.fPrio || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
 window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
 window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRender_(); };
 // ── Calendario de Control de aseo: una tarjeta por aseo (salida Booked) en su fecha programada.
@@ -65632,16 +65640,17 @@ function aseoCalTareas_() {
 }
 // Filtros generales aplicados al calendario.
 function aseoCalFiltrar_(m) {
-  const fPers = ASEO.fPers || [], fProp = ASEO.fProp || [], fTipo = ASEO.fTipo || [];
+  const fPers = ASEO.fPers || [], fProp = ASEO.fProp || [], fTipo = ASEO.fTipo || [], fPrio = ASEO.fPrio || [];
+  const prio = t => t.tarea ? prio4Key_(t.tarea.prioridad) : ((ASEO.prio || {})[String(t.id)] || 'media');
   const pers = t => { if (t.tarea) return t.tarea.asignados || []; const a = (ASEO.asig || {})[String(t.id)] || {}; return [...(a.aseo || a.personal || []), ...(a.inspeccion || [])]; };
   const tipo = t => t.tarea ? (t.tarea.depto || 'limpieza') : 'limpieza';
   const out = new Map();
   m.forEach((L, hid) => {
-    const F = L.filter(t => (!fPers.length || pers(t).some(n => fPers.includes(n))) && (!fTipo.length || fTipo.includes(tipo(t))));
+    const F = L.filter(t => (!fPers.length || pers(t).some(n => fPers.includes(n))) && (!fTipo.length || fTipo.includes(tipo(t))) && (!fPrio.length || fPrio.includes(prio(t))));
     if (F.length) out.set(hid, F);
   });
   const propDe = a => String(a.propiedad || '').replace(/^Calle\s+/i, '') || 'Otros';
-  const conTareas = fPers.length || fTipo.length;
+  const conTareas = fPers.length || fTipo.length || fPrio.length;
   const alojFilter = fProp.length || conTareas ? a => (!fProp.length || fProp.includes(propDe(a))) && (!conTareas || out.has(String(a.houseId))) : null;
   return { tareas: out, alojFilter };
 }
