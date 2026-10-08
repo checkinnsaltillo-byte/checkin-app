@@ -26435,7 +26435,8 @@ function ocupRender(opts) {
   }
 
   // Construye filas
-  let html = `<div class="ocup-cal" data-ocup-cal="continuous" style="--ocup-days:${totalDays}">`;
+  const isoD = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let html = `<div class="ocup-cal ${opts.tareas ? 'con-tareas' : ''}" data-ocup-cal="continuous" data-start="${isoD(rangeStart)}" style="--ocup-days:${totalDays}">`;
   // Header con badges de mes encima del primer día de cada mes
   html += `<div class="ocup-cal-head">
     <div class="ocup-head-aloj">📦 Alojamientos · ${alojamientos.length}</div>`;
@@ -26488,7 +26489,25 @@ function ocupRender(opts) {
       }
     });
 
-    html += `<div class="ocup-cal-row" data-aloj-id="${esc(aloj.houseId)}">`;
+    // Tarjetas de tarea (Control de aseo) debajo de las barras, en carriles para que no se encimen.
+    let tareasHtml = '', alto = 0;
+    if (opts.tareas) {
+      const L = (opts.tareas.get(String(aloj.houseId)) || []).map(t => {
+        const m = String(t.dia).match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!m) return null;
+        const d = new Date(+m[1], +m[2] - 1, +m[3]); if (d < rangeStart || d > rangeEnd) return null;
+        return Object.assign({}, t, { idx: dayIdx(d) });
+      }).filter(Boolean).sort((a, b) => a.idx - b.idx || (a.ghost ? 1 : 0) - (b.ghost ? 1 : 0));
+      const fin = []; // por carril: último índice ocupado (cada tarjeta ocupa 2 días de ancho)
+      L.forEach(t => {
+        let c = fin.findIndex(x => x < t.idx); if (c < 0) { c = fin.length; fin.push(0); }
+        fin[c] = t.idx + 1;
+        tareasHtml += `<div class="oc-task ${t.ghost ? 'ghost' : ''} ${t.cls || ''}" ${t.ghost ? '' : 'draggable="true"'} data-tid="${esc(String(t.id))}" data-orig="${esc(String(t.orig || ''))}" data-dia="${esc(t.dia)}"
+          style="left:calc(var(--ocup-aloj-w) + ${t.idx} * var(--ocup-day-w) + 3px);top:${50 + c * 58}px"
+          onclick="event.stopPropagation();${t.onclick || ''}">${opts.tareaHtml ? opts.tareaHtml(t) : ''}</div>`;
+      });
+      if (fin.length) alto = 50 + fin.length * 58 + 4;
+    }
+    html += `<div class="ocup-cal-row ${alto ? 'has-tasks' : ''}" data-aloj-id="${esc(aloj.houseId)}" ${alto ? `style="min-height:${alto}px"` : ''}>`;
     html += `<div class="ocup-aloj-cell">
       <div class="ocup-aloj-img">🏠</div>
       <div class="ocup-aloj-info" title="${esc(aloj.nombre)}">
@@ -26542,6 +26561,7 @@ function ocupRender(opts) {
         <span class="ocup-bar-name">${esc(guest)}</span>
       </div>`;
     });
+    html += tareasHtml;
     html += `</div>`;
   });
   html += `</div>`;
@@ -64624,6 +64644,21 @@ function aseoEnsureCss_() {
   #aseo-side.ad-v2 .mv-pf-c i{width:18px;height:18px;font-style:normal;color:#fff;font-size:8.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
   #aseo-side.ad-v2 .mv-pf-c.on{background:#fff;color:var(--ad-tx);border-color:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 18%,transparent)}
   #aseo-side.ad-v2 .mv-pf-c.on i{background:var(--pc)}
+  .aseo-cal .ocup-cal.con-tareas{--ocup-day-w:58px}
+  .aseo-cal .ocup-cal-row.has-tasks .ocup-aloj-cell{align-items:flex-start;padding-top:14px}
+  .oc-task{position:absolute;z-index:4;width:calc(2 * var(--ocup-day-w) - 6px);height:52px;box-sizing:border-box;background:#fff;border:1px solid #e3e6eb;border-radius:8px;padding:5px 7px;
+    font:11px/1.3 Inter,system-ui,sans-serif;color:#0f1729;box-shadow:0 1px 3px rgba(16,24,40,.08);cursor:grab;overflow:hidden}
+  .oc-task:hover{box-shadow:0 4px 12px rgba(16,24,40,.14);border-color:#c7cdd6}
+  .oc-task.dragging{opacity:.35}
+  .oc-task.ghost{background:repeating-linear-gradient(135deg,#fff,#fff 6px,#f6f7f9 6px,#f6f7f9 12px);border:1.5px dashed #a5adba;box-shadow:none;cursor:pointer;color:#6b7280}
+  .oc-task .t1{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+  .oc-task .t1 i{width:7px;height:7px;border-radius:50%;flex:none}
+  .oc-task .t1 b{font-weight:600;overflow:hidden;text-overflow:ellipsis}.oc-task .t1 .al{margin-left:auto}
+  .oc-task .t2{display:flex;align-items:center;gap:5px;margin-top:4px;white-space:nowrap;overflow:hidden}
+  .oc-task .t2 .es{color:#6b7280}.oc-task .t2 .un{color:#dc2626;margin-left:auto}
+  .oc-task .t2 .ad-avs{margin-left:auto}.oc-task .ad-av{width:17px;height:17px;font-size:8px;border-width:1.5px}
+  .oc-task .t3{font-size:10px;margin-top:1px}.oc-task .vi{color:#6d28d9;font-weight:600;font-size:10px;white-space:normal;line-height:1.2}
+  .oc-drop{position:absolute;top:46px;bottom:2px;z-index:2;background:rgba(79,70,229,.10);border:1.5px dashed #6366f1;border-radius:8px;pointer-events:none}
   .ad-fil{display:flex;align-items:flex-start;gap:12px;margin:0 0 12px}
   .ad-fil-l{flex:1;min-width:0}
   #aseo-side.ad-v2 .ad-fil .mv-pf{margin:0 0 7px}
@@ -65080,11 +65115,13 @@ function aseoRender_() {
   // ocupLoadBookings) + los filtros elegidos ahí (Estado, Fuente, Propiedad).
   const bks = pcMovBookings_().filter(b => /^(booked|tentative)$/i.test(String(b.Status || '').trim()));
   const fCal = Object.assign({}, OCUP_STATE.calFilters || {});
-  const sig = JSON.stringify(fCal) + JSON.stringify(OCUP_STATE.colorModes || {}) + bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',');
+  const sig = JSON.stringify(fCal) + JSON.stringify(OCUP_STATE.colorModes || {}) + bks.map(b => `${b.Id}:${b.HouseId}:${_pagosDateIso(b.DateArrival)}:${_pagosDateIso(b.DateDeparture)}:${b.Source || ''}:${b.GuestName || ''}`).join(',')
+    + JSON.stringify([ASEO.estados, ASEO.asig, ASEO.reprog, ASEO.nosale]);
   if (cal && sig !== ASEO.calSig) {
     const sl = cal.scrollLeft, stp = cal.scrollTop, first = !ASEO.calSig;
     ASEO.calSig = sig;
-    ocupRender({ cont: cal, bookings: bks, filters: fCal, before: 1, after: 2, onBar: 'aseoSelect_', center: false });
+    ocupRender({ cont: cal, bookings: bks, filters: fCal, before: 1, after: 2, onBar: 'aseoSelect_', center: false, tareas: aseoCalTareas_(), tareaHtml: aseoCalTareaHtml_ });
+    aseoCalDnD_(cal);
     if (first || ASEO._centrar) { ASEO._centrar = false; requestAnimationFrame(() => ocupCentrarHoy_(cal)); }
     else { cal.scrollLeft = sl; cal.scrollTop = stp; }
     aseoMarcarSel_();
@@ -65202,6 +65239,90 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
 window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRenderSide_(); };
+// ── Calendario de Control de aseo: una tarjeta por aseo (salida Booked) en su fecha programada.
+//    Reprogramación automática (3 pm) → punteada en el/los días que no se hizo + la nueva fecha.
+//    Se arrastra a otro día del mismo alojamiento → cambia la fecha (sin copia punteada).
+function aseoCalTareas_() {
+  const hoy = aseoHoyIso_(), d0 = new Date(hoy + 'T12:00:00'); d0.setDate(d0.getDate() - 3);
+  const lim = d0.toISOString().slice(0, 10);
+  const RP = ASEO.reprog || {}, E = ASEO.estados || {}, m = new Map();
+  const add = (hid, t) => { hid = String(hid || ''); if (!hid) return; if (!m.has(hid)) m.set(hid, []); m.get(hid).push(t); };
+  pcMovBookings_().forEach(b => {
+    if (!/^booked$/i.test(String(b.Status || '').trim())) return;
+    const dep = _pagosDateIso(b.DateDeparture); if (!dep) return;
+    const id = String(b.Id), r = RP[id], fecha = (r && r.fecha) || dep;
+    if (fecha < lim && !E[id] && !r) return; // aseos viejos sin registro: no se muestran
+    const t = { id, hid: String(b.HouseId || ''), dia: fecha, orig: (r && r.orig) || dep, reprog: !!(r && fecha !== ((r && r.orig) || dep)) };
+    t.onclick = `adAbrir_('${pcEsc(t.hid)}','${fecha}')`;
+    add(b.HouseId, t);
+    if (r && r.auto) [...new Set([r.orig, ...(r.fantasmas || [])])].filter(x => x && x !== fecha).forEach(dia =>
+      add(b.HouseId, { id, hid: t.hid, dia, ghost: true, orig: t.orig, onclick: `adAbrir_('${pcEsc(t.hid)}','${dia}')` }));
+  });
+  return m;
+}
+function aseoCalTareaHtml_(t) {
+  const reg = aseoEstDe_(t.id), k = (reg || {}).estado || 'pendiente';
+  const E = AD_EST.find(e => e.k === k) || AD_EST[0];
+  const a = (ASEO.asig || {})[t.id] || {}, pp = [...(a.aseo || a.personal || []), ...(a.inspeccion || [])];
+  const ns = !t.ghost && aseoNoSaleOn_(t.id);
+  const sub = t.ghost ? '<span class="vi">No se realizó · pasó a otro día</span>' : t.reprog ? `<span class="vi">↻ Reprogramada</span>` : '';
+  return `<div class="t1"><i style="background:${E.c}"></i><b>${t.ghost ? 'Aseo pendiente' : 'Limpieza'}</b>${ns ? '<span class="al" title="No ha desalojado">🚨</span>' : ''}</div>
+    <div class="t2">${t.ghost ? sub : `<span class="es">${E.t}</span>${pp.length ? `<span class="ad-avs">${pp.slice(0, 3).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}`}</div>${!t.ghost && sub ? `<div class="t3">${sub}</div>` : ''}`;
+}
+// Arrastrar una tarjeta a otro día (mismo alojamiento) → nueva fecha de aseo.
+function aseoCalDnD_(cal) {
+  if (!cal || cal.dataset.dnd) return; cal.dataset.dnd = '1';
+  let drag = null;
+  const diaDe = (row, x) => {
+    const cells = row.children; if (cells.length < 2) return null;
+    const r0 = cells[0].getBoundingClientRect(), r1 = cells[1].getBoundingClientRect();
+    const idx = Math.floor((x - r1.left) / r1.width); if (idx < 0) return null;
+    const st = cal.querySelector('.ocup-cal')?.dataset.start; if (!st) return null;
+    const d = new Date(st + 'T12:00:00'); d.setDate(d.getDate() + idx);
+    return { iso: d.toISOString().slice(0, 10), left: r1.left + idx * r1.width - r0.left - (r1.left - r0.right) };
+  };
+  cal.addEventListener('dragstart', e => {
+    const t = e.target.closest && e.target.closest('.oc-task'); if (!t || t.classList.contains('ghost')) return;
+    const row = t.closest('.ocup-cal-row');
+    drag = { el: t, id: t.dataset.tid, hid: row && row.dataset.alojId, dia: t.dataset.dia, orig: t.dataset.orig };
+    e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', drag.id); } catch (_) {}
+    setTimeout(() => t.classList.add('dragging'), 0);
+  });
+  cal.addEventListener('dragend', () => { if (drag) drag.el.classList.remove('dragging'); cal.querySelectorAll('.oc-drop').forEach(x => x.remove()); drag = null; });
+  cal.addEventListener('dragover', e => {
+    if (!drag) return;
+    const row = e.target.closest && e.target.closest('.ocup-cal-row');
+    if (!row || row.dataset.alojId !== drag.hid) return; // solo dentro del mismo alojamiento
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    const d = diaDe(row, e.clientX); if (!d) return;
+    let mk = row.querySelector('.oc-drop'); if (!mk) { cal.querySelectorAll('.oc-drop').forEach(x => x.remove()); mk = document.createElement('div'); mk.className = 'oc-drop'; row.appendChild(mk); }
+    const c1 = row.children[1]; mk.style.left = (c1.offsetLeft + Math.floor((e.clientX - c1.getBoundingClientRect().left) / c1.offsetWidth) * c1.offsetWidth) + 'px'; mk.style.width = c1.offsetWidth + 'px';
+    mk.dataset.dia = d.iso;
+  });
+  cal.addEventListener('drop', async e => {
+    if (!drag) return;
+    const row = e.target.closest && e.target.closest('.ocup-cal-row');
+    if (!row || row.dataset.alojId !== drag.hid) return;
+    e.preventDefault();
+    const d = diaDe(row, e.clientX), D = drag; drag = null;
+    cal.querySelectorAll('.oc-drop').forEach(x => x.remove()); D.el.classList.remove('dragging');
+    if (!d || d.iso === D.dia) return;
+    // Optimista: se ve en su nuevo día de inmediato.
+    const prev = (ASEO.reprog = ASEO.reprog || {})[D.id];
+    const orig = (prev && prev.orig) || D.orig;
+    if (d.iso === orig && !(prev && prev.auto)) delete ASEO.reprog[D.id]; else ASEO.reprog[D.id] = Object.assign({}, prev || {}, { fecha: d.iso, orig, hid: D.hid });
+    ASEO.calSig = ''; aseoRender_();
+    try {
+      const r = await fetch(`${BACKEND}/aseo/reprog`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: D.id, hid: D.hid, orig, fecha: d.iso, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Error');
+      if (r.reprog) ASEO.reprog[D.id] = r.reprog; else delete ASEO.reprog[D.id];
+    } catch (err) {
+      if (prev) ASEO.reprog[D.id] = prev; else delete ASEO.reprog[D.id];
+      alert('No se pudo mover la limpieza: ' + (err.message || err));
+    }
+    ASEO.calSig = ''; aseoRender_();
+  });
+}
 // Grupos (cards) de un día, con reprogramaciones aplicadas.
 function adGrupos_(dia) {
   const { cols, hoy } = pcMovCols_(dia || null);
