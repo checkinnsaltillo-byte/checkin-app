@@ -65570,11 +65570,18 @@ window.axSet_ = function (k, patch, hid) {
 // «Reportar incidencia» abre el formulario de Incidencias con el alojamiento y la fecha de la card;
 // al guardarla la card queda marcada «⚠️ Incidencia» (clic en ella la quita).
 window.axReportar_ = function (k, hid, dia) { icForm_(null, { hid: hid || '', fecha: dia || aseoDia_(), desdeK: k }); };
+// Texto del chip: «⚠️ Incidencia · <estado>» si la card tiene una incidencia ligada.
+function axIncTxt_(k) {
+  const id = axEx_(k).incId; if (!id || typeof INC_STATE === 'undefined') return '⚠️ Incidencia';
+  const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id));
+  if (!r) { if (!INC_STATE.list.length && !axIncTxt_.c) { axIncTxt_.c = 1; incLoadIncidencias().then(() => { try { aseoRender_(); if (ASEO._dr) adPintar_(); } catch (_) {} }); } return '⚠️ Incidencia'; }
+  return '⚠️ Incidencia · ' + icEstK_(r.Estatus);
+}
 function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')); return inc ? `axSet_('${sk}',{incidencia:false},'${sh}')` : `axReportar_('${sk}','${sh}','${pcEsc(String(dia || ''))}')`; }
 function axFila_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
   return `<div class="r4">${co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
-    <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</button></div>`;
+    <button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k) : 'Reportar incidencia'}</button></div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
@@ -65582,7 +65589,7 @@ function axDetalle_(k, autoCO, hid, dia) {
       <button type="button" class="${co ? 'on' : ''}" style="--c:#0f766e" onclick="axSet_('${sk}',{checkout:true},'${sh}')">⇥ Check-out</button>
       <button type="button" class="${co ? '' : 'on'}" style="--c:#9aa1ad" onclick="axSet_('${sk}',{checkout:false},'${sh}')">General</button></div>
     ${autoCO ? '<div class="ad-hint">Asignado automáticamente: la card se generó en la fecha de salida de la reserva.</div>' : ''}
-    <div class="ad-tgl" style="margin-top:10px" onclick="${axIncClick_(k, inc, hid, dia)}"><div><b>${inc ? '⚠️ Incidencia' : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Abre el formulario de incidencia con este alojamiento y fecha'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
+    <div class="ad-tgl" style="margin-top:10px" onclick="${axIncClick_(k, inc, hid, dia)}"><div><b>${inc ? axIncTxt_(k) : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Abre el formulario de incidencia con este alojamiento y fecha'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
 }
 // ── Card compacta del tablero ──
 function adCard_(I) {
@@ -67034,7 +67041,7 @@ function icCard_(x) {
     <div class="r1"><span class="code">${pcEsc(x.corto || '—')}</span><span class="prop">${M.ico} ${pcEsc(x.titulo)}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
-    <div class="r4"><span class="sp"></span><span class="ax-inc on" style="cursor:default" title="Incidencia">⚠️ Incidencia</span></div>
+    <div class="r4"><span class="sp"></span><span class="ax-inc on" style="cursor:default" title="Incidencia">⚠️ Incidencia · ${x.est}</span></div>
     <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin personas</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
     ${qs}
   </div>`;
@@ -67223,7 +67230,7 @@ window.icGuardar_ = async function () {
         Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Fotos_URLs: '' });
       if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
     }
-    if (F.desdeK && id) { try { axSet_(F.desdeK, { incidencia: true }, F.hid); } catch (_) {} } // la card de origen queda «⚠️ Incidencia»
+    if (F.desdeK && id) { try { axSet_(F.desdeK, { incidencia: true, incId: id }, F.hid); } catch (_) {} } // la card de origen queda «⚠️ Incidencia»
     IC.f = null; icRender_();
     if (id) icAbrir_(id); else icCerrar_();
     try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
