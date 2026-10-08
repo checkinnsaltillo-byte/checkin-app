@@ -65586,65 +65586,74 @@ window.axSet_ = function (k, patch, hid) {
 // al guardarla la card queda marcada «⚠️ Incidencia» (clic en ella la quita).
 window.axReportar_ = function (k, hid, dia) { icForm_(null, { hid: hid || '', fecha: dia || aseoDia_(), desdeK: k }); };
 // Texto del chip: «⚠️ Incidencia · <estado>» si la card tiene una incidencia ligada.
-function axIncTxt_(k) {
-  const id = axEx_(k).incId; if (!id || typeof INC_STATE === 'undefined') return '⚠️ Incidencia';
-  const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id));
-  if (!r) { if (!INC_STATE.list.length && !axIncTxt_.c) { axIncTxt_.c = 1; incLoadIncidencias().then(() => { try { aseoRender_(); if (ASEO._dr) adPintar_(); } catch (_) {} }); } return '⚠️ Incidencia'; }
-  return '⚠️ Incidencia · ' + icEstK_(r.Estatus);
+// ── Incidencias ligadas a una card: puede haber varias, cada una con o sin tarea levantada ──
+// aseo/extra.json → incIds: [ids] (incId = la última, compatible con lo anterior).
+function axIncIds_(k) { const e = axEx_(k); return Array.isArray(e.incIds) ? e.incIds.map(String) : e.incId ? [String(e.incId)] : []; }
+function axIncRow_(id) { return (typeof INC_STATE !== 'undefined' ? INC_STATE.list || [] : []).find(x => String(x.ID) === String(id)) || null; }
+// Vigentes (no archivadas). Si la lista de incidencias aún no carga, se carga una vez y se repinta.
+function axIncActivas_(k) {
+  const ids = axIncIds_(k);
+  if (ids.length && typeof INC_STATE !== 'undefined' && !(INC_STATE.list || []).length && !axIncActivas_.c) { axIncActivas_.c = 1; incLoadIncidencias().then(() => { try { aseoRender_(); if (ASEO._dr) adPintar_(); } catch (_) {} }); }
+  return ids.filter(id => { const r = axIncRow_(id); return !r || !/^s[ií]/i.test(String(r.Archivada || '')); });
 }
-function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')), sd = pcEsc(String(dia || '')); return inc ? `axIncMenu_(this,'${sk}','${sh}','${sd}')` : `axReportar_('${sk}','${sh}','${sd}')`; }
-// Card con incidencia: menú «Archivar» / «Reportar otra incidencia» (ya no se apaga con un clic).
-window.axIncMenu_ = function (anchor, k, hid, dia) {
-  document.querySelectorAll('.ax-menu').forEach(p => p.remove());
-  const m = document.createElement('div'); m.className = 'ax-menu';
-  m.style.cssText = 'position:fixed;z-index:10060;background:#fff;border:1px solid #e8eaee;border-radius:10px;box-shadow:0 14px 34px rgba(15,23,42,.2);padding:5px;min-width:210px;font:12.5px Inter,system-ui,sans-serif';
-  const op = (ico, t, fn) => `<button type="button" style="all:unset;display:flex;gap:8px;align-items:center;width:100%;box-sizing:border-box;padding:8px 10px;border-radius:7px;cursor:pointer;font-weight:600;color:#0f1729" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''" onclick="event.stopPropagation();this.closest('.ax-menu').remove();${fn}">${ico} ${t}</button>`;
-  const a = s => String(s).replace(/'/g, "\\'");
-  m.innerHTML = op('🗄', 'Archivar', `axArchivar_('${a(k)}','${a(hid)}')`) + (axEx_(k).incId ? op('✏️', 'Editar', `axIncEditar_('${a(k)}')`) : '') + op('＋', 'Reportar otra incidencia', `axReportar_('${a(k)}','${a(hid)}','${a(dia)}')`);
-  m.onclick = e => e.stopPropagation();
-  document.body.appendChild(m);
-  const rc = anchor.getBoundingClientRect();
-  m.style.left = Math.max(8, Math.min(window.innerWidth - 226, rc.left)) + 'px';
-  m.style.top = (rc.bottom + 4 + 90 > window.innerHeight ? rc.top - 94 : rc.bottom + 4) + 'px';
-  setTimeout(() => { const out = e => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', out); } }; document.addEventListener('mousedown', out); }, 0);
+function axIncTxt_(k, ids) {
+  ids = ids || axIncActivas_(k);
+  if (ids.length > 1) { const ab = ids.filter(id => { const r = axIncRow_(id); return !r || !icCerrada_({ est: icEstK_(r.Estatus) }); }).length; return `⚠️ ${ids.length} incidencias${ab ? ` · ${ab} abierta${ab === 1 ? '' : 's'}` : ''}`; }
+  const r = ids.length ? axIncRow_(ids[0]) : null;
+  return r ? '⚠️ Incidencia · ' + icEstK_(r.Estatus) : '⚠️ Incidencia';
+}
+function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')), sd = pcEsc(String(dia || '')); return inc ? `axIncAbrir_('${sk}','${sh}','${sd}')` : `axReportar_('${sk}','${sh}','${sd}')`; }
+// Clic en «⚠️ Incidencia»: siempre abre la ventana lateral (una → su detalle; varias → la lista de la card).
+window.axIncAbrir_ = async function (k, hid, dia, id) {
+  if (axIncIds_(k).length && !(INC_STATE.list || []).length) await incLoadIncidencias();
+  const ids = axIncActivas_(k), ctx = { k: String(k), hid: String(hid || ''), dia: String(dia || '') };
+  if (id || ids.length === 1) return icAbrir_(String(id || ids[0]), ctx);
+  axIncLista_(ctx);
 };
-// Editar: abre el formulario de la incidencia ligada.
-window.axIncEditar_ = async function (k) {
-  const id = axEx_(k).incId; if (!id) return;
-  if (!(INC_STATE.list || []).some(x => String(x.ID) === String(id))) await incLoadIncidencias();
-  if (!(INC_STATE.list || []).some(x => String(x.ID) === String(id))) return alert('No se encontró la incidencia ligada.');
-  icForm_(String(id));
-};
-// Archivar: la incidencia ligada queda «Archivada» y su tarea (reporte levantado) sale del tablero; las cards quedan sin marca.
-window.axArchivar_ = async function (k, hid) {
-  const incId = axEx_(k).incId;
-  if (incId && !(INC_STATE.list || []).length) await incLoadIncidencias();
-  const r = incId ? (INC_STATE.list || []).find(x => String(x.ID) === String(incId)) : null;
-  const lig = r ? String(r.Tarea_ligada || '') : '';
-  if (!confirm(lig ? 'Ya hay un reporte y tarea registrados, ¿deseas archivarlos?' : r ? 'Ya hay un reporte registrado, ¿deseas archivarlo?' : 'Esta card está marcada con una incidencia, ¿deseas archivarla?')) return;
-  const keys = incId ? Object.keys(ASEO.extra || {}).filter(x => String((ASEO.extra[x] || {}).incId) === String(incId)) : [];
-  if (!keys.includes(String(k))) keys.push(String(k));
-  keys.forEach(x => { if (x !== lig) axSet_(x, { incidencia: false }, hid); });
-  if (lig) axSet_(lig, { incidencia: false, archivada: true }, hid);
-  if (r) {
-    r.Archivada = 'Sí';
-    fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.ID, fields: { archivada: 'Sí', UpdatedAt: new Date().toISOString() } }) })
-      .then(x => x.json()).then(j => { if (!j.ok) throw new Error(j.error); }).catch(e => { r.Archivada = ''; alert('No se pudo archivar la incidencia: ' + (e.message || e)); });
-  }
-  try { if (document.getElementById('ic-root')) icRender_(); } catch (_) {}
+function axIncJs_(ctx) { const c = s => pcEsc(String(s || '')); return `'${c(ctx.k)}','${c(ctx.hid)}','${c(ctx.dia)}'`; }
+function axIncLista_(ctx) {
+  IC.dr = { lista: true, ctx }; IC.f = null;
+  icCss_(); const dr = icShell_();
+  const ids = axIncActivas_(ctx.k), a = ctx.hid ? atAloj_(ctx.hid) : { corto: '', nombre: '' }, js = axIncJs_(ctx);
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(String(a.corto || '—').toUpperCase())}</span><span class="t">${pcEsc(a.nombre || '')}</span><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+      <div class="ad-tt">⚠️ Incidencias de esta card</div><div class="ad-sub">${ids.length} vigente${ids.length === 1 ? '' : 's'}${ctx.dia ? ' · ' + aseoDiaTxt_(ctx.dia) : ''}</div></div>
+    <div class="ad-db">${ids.length ? ids.map(id => {
+      const r = axIncRow_(id); if (!r) return `<div class="ic-li"><div class="t">${pcEsc(id)}</div><div class="s">⏳ Cargando…</div></div>`;
+      const x = icRow_(r), E = IC_EST.find(e => e.k === x.est), M = icMotC_(x.mot[0]);
+      return `<div class="ic-li" style="--tc:${M.c}" onclick="axIncAbrir_(${js},'${pcEsc(id)}')"><div class="t">${M.ico} ${pcEsc(x.titulo)}</div>
+        <div class="s"><i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${x.fecha ? aseoDiaTxt_(x.fecha) : ''} · ${r.Tarea_ligada ? '🔗 ' + pcEsc(icLigTxt_(r.Tarea_ligada)) : 'sin tarea'}</div></div>`;
+    }).join('') : '<div class="ad-hint">Esta card está marcada con una incidencia, pero no tiene un reporte registrado.</div>'}</div>
+    <div class="ad-ft">${ids.length ? '' : `<button type="button" class="ad-bt" onclick="axIncQuitarMarca_(${js})">Quitar marca</button>`}<button type="button" class="ad-bt pri" onclick="axReportar_(${js})">＋ Reportar otra incidencia</button></div>`;
+}
+window.axIncQuitarMarca_ = function (k, hid) { if (!confirm('¿Quitar la marca de incidencia de esta card?')) return; axSet_(k, { incidencia: false, incIds: [], incId: '' }, hid); icCerrar_(); };
+// Liga / desliga una incidencia de una card.
+function axIncLigar_(k, hid, id, on) { const L = axIncIds_(k).filter(x => x !== String(id)); if (on) L.push(String(id)); axSet_(k, { incIds: L, incId: L[L.length - 1] || '', incidencia: L.length > 0 }, hid); }
+// Archivar: la incidencia queda «Archivada», su tarea levantada sale del tablero y se desliga de sus cards.
+window.icArchivar_ = function (id) {
+  const r = axIncRow_(id); if (!r) return;
+  const lig = String(r.Tarea_ligada || ''), hid = rtHid_(r);
+  if (!confirm(lig ? 'Ya hay un reporte y tarea registrados, ¿deseas archivarlos?' : 'Ya hay un reporte registrado, ¿deseas archivarlo?')) return;
+  const ctx = IC.dr && IC.dr.ctx;
+  if (lig) axSet_(lig, { archivada: true, incidencia: false, incIds: [], incId: '' }, hid);
+  Object.keys(ASEO.extra || {}).filter(k => k !== lig && axIncIds_(k).includes(String(id))).forEach(k => axIncLigar_(k, hid, id, false));
+  icPatch_(id, { archivada: 'Sí' }, { Archivada: 'Sí' });
+  if (ctx && axIncActivas_(ctx.k).length) axIncAbrir_(ctx.k, ctx.hid, ctx.dia); else icCerrar_();
+  try { aseoRender_(); } catch (_) {}
 };
 function axFila_(k, autoCO, hid, dia) {
   const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
-  const enPuente = ASEO._sinInc && ASEO._sinInc.has(String(k)); // en un grupo vinculado el chip va una sola vez, en el puente
+  // En un grupo vinculado cada incidencia se muestra una sola vez, en su puente; aquí solo las que no tienen puente.
+  const cub = ASEO._sinInc && ASEO._sinInc.get(String(k)), act = inc ? axIncActivas_(k) : [], resto = cub ? act.filter(x => !cub.has(x)) : act;
+  const enPuente = !!(cub && inc && !resto.length);
   const srv = axSrv_(k, autoCO);
   return `<div class="r4">${srv === 'correctivo' ? '<span class="ax-cor" title="Tipo: Correctivo">🛠 Correctivo</span>' : srv === 'preventivo' ? '<span class="ax-pre" title="Tipo: Preventivo">🛡 Preventivo</span>' : co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
-    ${enPuente ? '' : `<button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Clic para quitar la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k) : 'Reportar incidencia'}</button>`}</div>`;
+    ${enPuente ? '' : `<button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Ver la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k, cub ? resto : undefined) : 'Reportar incidencia'}</button>`}</div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
   const inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
   return `<div class="lab">Tipo de servicio</div>${axSrvSeg_(axSrv_(k, autoCO), `axSetSrv_.bind(null,'${sk}','${sh}')`)}
     ${autoCO ? '<div class="ad-hint">Asignado automáticamente: la card se generó en la fecha de salida de la reserva.</div>' : ''}
-    <div class="ad-tgl" style="margin-top:10px" onclick="${axIncClick_(k, inc, hid, dia)}"><div><b>${inc ? axIncTxt_(k) : 'Reportar incidencia'}</b><small>${inc ? 'Hay una incidencia reportada en esta card' : 'Abre el formulario de incidencia con este alojamiento y fecha'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
+    <div class="ad-tgl" style="margin-top:10px" onclick="${axIncClick_(k, inc, hid, dia)}"><div><b>${inc ? axIncTxt_(k) : 'Reportar incidencia'}</b><small>${inc ? 'Ver los detalles de la incidencia' : 'Abre el formulario de incidencia con este alojamiento y fecha'}</small></div><span class="ad-sw ${inc ? 'red' : 'off'}"></span></div>`;
 }
 // ── Card compacta del tablero ──
 function adCard_(I) {
@@ -65689,15 +65698,16 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   // Cards vinculadas por una misma incidencia (p. ej. limpieza de check-out + su tarea «Correctivo»): se pintan juntas
   // en la columna de la card de origen, dentro de un recuadro «🔗 Vinculadas».
   const kDe = I => I.tarea ? (I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id) : I.asigId;
-  const incDe = I => { const e = axEx_(kDe(I)); return e.incidencia && e.incId ? String(e.incId) : ''; };
-  const padreDe = new Map(), hijosDe = new Map();
+  const idsDe = I => axEx_(kDe(I)).incidencia ? axIncActivas_(kDe(I)) : [];
+  const padreDe = new Map(), hijosDe = new Map(), puenteDe = new Map(); // hijo → incidencia que lo une a la card de origen
   const pinta = I => {
     if (!hijosDe.has(I)) return pinta0(I);
     const H = hijosDe.get(I), k = kDe(I), sk = pcEsc(k), sh = pcEsc(String(I.hid || '')), dia = pcEsc(I.tarea ? (I.dia || hoy) : hoy);
-    ASEO._sinInc = new Set([k].concat(H.map(kDe)));
+    const cubre = new Map(); H.forEach(h => [k, kDe(h)].forEach(x => { if (!cubre.has(x)) cubre.set(x, new Set()); cubre.get(x).add(puenteDe.get(h)); }));
+    ASEO._sinInc = cubre;
     try {
-      const puente = `<div class="ad-puente"><button type="button" class="ax-inc on" title="Incidencia que vincula estas cards" onclick="event.stopPropagation();axIncMenu_(this,'${sk}','${sh}','${dia}')">${pcEsc(axIncTxt_(k))}</button></div>`;
-      return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente + pinta0(h)).join('')}</div>`;
+      const puente = h => { const id = puenteDe.get(h); return `<div class="ad-puente"><button type="button" class="ax-inc on" title="Incidencia que vincula estas cards" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')">${pcEsc(axIncTxt_(k, [id]))}</button></div>`; };
+      return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
   };
   const sinHijos = L => L.filter(I => !padreDe.has(I));
@@ -65711,8 +65721,15 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const prioHtml = `<div class="mv-pf ad-prf"><small>⚑ Prioridad:</small>${PRIO4_ORD.map(k => `<button type="button" class="mv-pf-c ad-pr ${fPr.includes(k) ? 'on' : ''}" onclick="adPrioFiltro_('${k}')">${prio4Html_(k, true)} ${PRIO4[k].t}<b>${todos.filter(I => prioDe(I) === k).length}</b></button>`).join('')}${fPr.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fPrio=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   const tipoHtml = `<div class="mv-pf ad-prf"><small>🏷️ Tipo:</small>${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="mv-pf-c ad-pr ad-ty ${fT.includes(k) ? 'on' : ''}" style="--tc:${D.c}" onclick="adTipoToggle_('${k}')"><i></i>${D.t}<b>${todos.filter(I => tipoDe(I) === k).length}</b></button>`).join('')}${fT.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fTipo=[];aseoRender_()">Quitar filtro</button>' : ''}</div>`;
   ver.length = 0; verT.forEach(I => ver.push(I));
-  { const G = new Map(); ver.forEach(I => { const g = incDe(I); if (g) { if (!G.has(g)) G.set(g, []); G.get(g).push(I); } });
-    G.forEach(L => { if (L.length < 2) return; const p = L.find(I => !I.tarea) || L.find(I => axSrv_(kDe(I)) !== 'correctivo') || L[0]; hijosDe.set(p, L.filter(I => I !== p)); L.forEach(I => { if (I !== p) padreDe.set(I, p); }); }); }
+  { // Grupos: cards que comparten alguna incidencia (una card puede tener varias).
+    const par = new Map(ver.map(I => [I, I])), raiz = I => { while (par.get(I) !== I) I = par.get(I); return I; }, porId = new Map();
+    ver.forEach(I => idsDe(I).forEach(id => { if (porId.has(id)) { const a = raiz(I), b = raiz(porId.get(id)); if (a !== b) par.set(a, b); } else porId.set(id, I); }));
+    const G = new Map(); ver.forEach(I => { const r = raiz(I); if (!G.has(r)) G.set(r, []); G.get(r).push(I); });
+    G.forEach(L => {
+      if (L.length < 2) return;
+      const p = L.find(I => !I.tarea) || L.find(I => !['correctivo', 'preventivo'].includes(axSrv_(kDe(I)))) || L[0], pi = idsDe(p), hs = L.filter(I => I !== p);
+      hijosDe.set(p, hs); hs.forEach(h => { padreDe.set(h, p); const hi = idsDe(h); puenteDe.set(h, hi.find(x => pi.includes(x)) || hi[0]); });
+    }); }
   const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
   const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
@@ -67025,6 +67042,10 @@ function icCss_() {
   #ad-drawer .ic-mots{display:flex;gap:6px;flex-wrap:wrap}
   #ad-drawer .ic-mot{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid #e8eaee;font-size:12px;font-weight:600;color:#6b7280;background:#fff}
   #ad-drawer .ic-mot.on{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 9%,#fff)}
+  #ad-drawer .ic-li{border:1px solid #e8eaee;border-left:4px solid var(--tc,#dc2626);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer;background:#fff}
+  #ad-drawer .ic-li:hover{background:#f8fafc}#ad-drawer .ic-li .t{font-weight:600;font-size:12.5px}
+  #ad-drawer .ic-li .s{color:#6b7280;font-size:11.5px;margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  #ad-drawer .ic-li .s>i{width:7px;height:7px;border-radius:50%;display:inline-block}
   #ad-drawer .ic-ck{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e8eaee;border-radius:10px;margin-top:12px;cursor:pointer;background:#fff}
   #ad-drawer .ic-ck.on{border-color:#4f46e5;background:#f5f5ff}
   #ad-drawer .ic-ck .ck{flex:none;width:18px;height:18px;border:1.5px solid #9aa1ad;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;margin-top:1px}
@@ -67161,8 +67182,10 @@ window.icDragStart_ = function (ev, id) { IC._drag = id; try { ev.dataTransfer.s
 window.icDragOver_ = function (ev) { if (!IC._drag) return; ev.preventDefault(); document.querySelectorAll('.ad-col.drop').forEach(c => { if (c !== ev.currentTarget) c.classList.remove('drop'); }); ev.currentTarget.classList.add('drop'); };
 window.icDrop_ = function (ev, k) { ev.preventDefault(); const id = IC._drag; IC._drag = null; document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop')); const x = (INC_STATE.list || []).find(r => String(r.ID) === String(id)); if (x && icEstK_(x.Estatus) !== k) icSetEst_(id, k); };
 // ── Ventana lateral de detalle ──
-window.icAbrir_ = function (id) {
-  IC.dr = { id: String(id) }; IC.f = null;
+window.icAbrir_ = function (id, ctx) {
+  const r0 = axIncRow_(id);
+  if (!ctx && r0 && r0.Card_origen) ctx = { k: String(r0.Card_origen), hid: rtHid_(r0), dia: String(r0.Fecha || '').slice(0, 10) }; // card desde la que se reportó
+  IC.dr = { id: String(id), ctx: ctx || null }; IC.f = null;
   document.querySelectorAll('#ic-root .ad-card').forEach(c => c.classList.toggle('sel', c.dataset.k === String(id)));
   icPintar_(true);
 };
@@ -67170,6 +67193,7 @@ window.icCerrar_ = function () { IC.dr = null; IC.f = null; document.getElementB
 function icShell_() { if (typeof ASEO !== 'undefined') ASEO._dr = null; const dr = atShell_(); const dim = document.getElementById('ad-dim'); if (dim) dim.onclick = icCerrar_; return dr; }
 function icPintar_(nuevo) {
   if (!IC.dr || IC.f) return;
+  if (IC.dr.lista) return axIncLista_(IC.dr.ctx);
   const r = (INC_STATE.list || []).find(x => String(x.ID) === IC.dr.id); if (!r) { icCerrar_(); return; }
   const x = icRow_(r), dr = icShell_(), id = pcEsc(x.id), M = icMotC_(x.mot[0]);
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
@@ -67178,7 +67202,8 @@ function icPintar_(nuevo) {
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(x.corto || '—')}</span><span class="t">${pcEsc(x.aloj)}</span><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
       <div class="ad-tt">${M.ico} ${pcEsc(x.titulo)}</div>
       <div class="ad-sub">${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'} · <i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${pcEsc(x.id)}</div>
-      ${!icCerrada_(x) && x.prio === 'critica' ? '<div class="ad-badge red"><i></i>Prioridad crítica</div>' : ''}${x.arch ? '<div class="ad-badge"><i style="background:#64748b"></i>🗄 Archivada</div>' : ''}</div>
+      ${!icCerrada_(x) && x.prio === 'critica' ? '<div class="ad-badge red"><i></i>Prioridad crítica</div>' : ''}${x.arch ? '<div class="ad-badge"><i style="background:#64748b"></i>🗄 Archivada</div>' : ''}
+      ${IC.dr.ctx ? (() => { const C = IC.dr.ctx, n = axIncActivas_(C.k).length, js = axIncJs_(C); return `<div class="ad-hint" style="margin-top:8px">${n > 1 ? `<a href="#" style="color:#4f46e5;font-weight:600" onclick="event.preventDefault();axIncLista_({k:'${pcEsc(C.k)}',hid:'${pcEsc(C.hid)}',dia:'${pcEsc(C.dia)}'})">‹ Las ${n} incidencias de esta card</a> · ` : ''}<a href="#" style="color:#4f46e5;font-weight:600" onclick="event.preventDefault();axReportar_(${js})">＋ Reportar otra incidencia</a></div>`; })() : ''}</div>
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" onclick="icSetEst_('${id}','${e.k}')">${e.k}</button>`).join('')}</div>
       ${x.upd ? `<div class="ad-hint">Actualizado ${pcEsc(x.upd.replace('T', ' ').slice(0, 16))}</div>` : ''}
@@ -67193,7 +67218,7 @@ function icPintar_(nuevo) {
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
     </div>
-    <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')">🖨️ Imprimir</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : ''}
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')" title="Imprimir">🖨️</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : `<button type="button" class="ad-bt" onclick="icArchivar_('${id}')">🗄 Archivar</button>`}
       ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.k}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
   if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
 }
@@ -67302,6 +67327,7 @@ window.icGuardar_ = async function () {
   const datos = { fecha: F.fecha, propiedad, depto, alojamiento: propiedad && depto ? `${propiedad} - #${depto}` : (propiedad || (a && a.nombre) || F.alojTxt || ''),
     personas: F.pers.slice(), motivos: F.mot.slice(), clasificaciones: F.clas.slice(), nivel: IC_NIV[F.prio], estatus: F.est, reportante: F.rep,
     descripcion: String(F.desc || '').trim(), acciones: String(F.acc || '').trim(), seguimiento: String(F.seg || '').trim(), reserva: F.reserva || '', huesped: F.reserva ? (F.huesped || '') : '' };
+  if (!F.id && F.desdeK) datos.origen = String(F.desdeK); // card desde la que se reportó
   const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
     let id = F.id;
@@ -67316,11 +67342,11 @@ window.icGuardar_ = async function () {
       id = String(out.id || '');
       INC_STATE.list = INC_STATE.list || [];
       INC_STATE.list.unshift(out.row || { ID: id, Timestamp: new Date().toISOString(), Fecha: datos.fecha, Propiedad: propiedad, '# Departamento': depto, Alojamiento: datos.alojamiento, Personas: datos.personas.join(', '), Motivos: datos.motivos.join(', '), Clasificacion: datos.clasificaciones.join(', '),
-        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Fotos_URLs: '' });
+        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Card_origen: datos.origen || '', Fotos_URLs: '' });
       if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
     }
     if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo levantar el reporte: ' + (e.message || e)); } }
-    if (F.desdeK && id) { try { axSet_(F.desdeK, { incidencia: true, incId: id }, F.hid); } catch (_) {} } // la card de origen queda «⚠️ Incidencia»
+    if (F.desdeK && id) { try { axIncLigar_(F.desdeK, F.hid, id, true); } catch (_) {} } // se suma a las incidencias de la card // la card de origen queda «⚠️ Incidencia»
     IC.f = null; icRender_();
     if (id) icAbrir_(id); else icCerrar_();
     try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
@@ -67488,13 +67514,14 @@ async function icLevantar_(F, incId) {
     (ASEO.tareas = ASEO.tareas || {})[j.tarea.id] = j.tarea; lig = 'T' + j.tarea.id;
     if (typeof aseoRefresh_ === 'function') setTimeout(() => aseoRefresh_().catch(() => {}), 1200); // enlaces firmados de los adjuntos
   }
-  axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId) }), F.hid);
+  axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId), incIds: [String(incId)] }), F.hid);
   r.Tarea_ligada = lig;
   await post('/update-incidencia', { id: incId, fields: { tarea: lig } }).catch(() => null);
 }
 window.icDesarchivar_ = function (id) {
-  const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (!r) return;
-  const lig = String(r.Tarea_ligada || '');
+  const r = axIncRow_(id); if (!r) return;
+  const lig = String(r.Tarea_ligada || ''), hid = rtHid_(r);
   icPatch_(id, { archivada: '' }, { Archivada: '' });
-  if (lig && typeof axSet_ === 'function') axSet_(lig, { archivada: false, incidencia: true, incId: String(id) }, rtHid_(r));
+  if (lig) axSet_(lig, { archivada: false, incidencia: true, incId: String(id), incIds: [String(id)] }, hid); // la tarea vuelve al tablero
+  if (r.Card_origen) axIncLigar_(String(r.Card_origen), hid, id, true); // y la card de origen recupera la marca
 };
