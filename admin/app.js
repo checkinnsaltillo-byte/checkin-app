@@ -65316,6 +65316,7 @@ function aseoEnsureCss_() {
   .ad-card .mv{gap:3px}
   .ad-card .mv>span{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;line-height:1.5}
   .ad-card .mv .s{background:#fef2f2}.ad-card .mv .e{background:#f0fdf4}
+  .ad-card .mv .u{background:#f3f4f6;color:#6b7280}
   .ad-card .flag{margin-top:5px;font-size:10.5px;line-height:1.35;padding:3px 7px;border-radius:6px;background:#f8fafc}
   .ad-card .flag.red{background:#fef2f2}.ad-card .flag.orange{background:#fff7ed}.ad-card .flag.violet{background:#f5f3ff}
   .ad-card .flag i{box-shadow:none}
@@ -65629,7 +65630,12 @@ function adInfo_(g, hoy, o) {
   const asg = (ASEO.asig || {})[asigId] || {};
   const G = g.hid ? (ASEO.guias || {})[String(g.hid)] : null;
   const pubKey = (G && G.keyPub) || asigId;
-  return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso, prio, mant,
+  // Solo ENTRA hoy (sin salida): no es limpieza, es INSPECCIÓN antes de la entrada; se muestra la última salida.
+  const soloEnt = !g.sal.length && vivosEnt > 0 && !esCopia;
+  let ultSal = null;
+  if (soloEnt && g.hid && typeof pcMovBookings_ === 'function') pcMovBookings_().forEach(b => { if (String(b.HouseId) !== String(g.hid) || !/^booked$/i.test(String(b.Status || '').trim())) return; const d = _pagosDateIso(b.DateDeparture); if (d && d < hoy && (!ultSal || d > ultSal)) ultSal = d; });
+  const diasUlt = ultSal ? Math.round((Date.parse(hoy) - Date.parse(ultSal)) / 864e5) : null;
+  return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso, prio, mant, soloEnt, ultSal, diasUlt, depto: soloEnt ? 'inspeccion' : 'limpieza',
     prioritaria: !!(temp && temp.aceptada), pA: asg.aseo || asg.personal || [], pI: asg.inspeccion || [], G, pubKey, noPub: !!(G && G.noPub) };
 }
 // Selector rápido de estado al pie de la card (un clic) — mismo guardado que la ventana de detalles.
@@ -65679,7 +65685,7 @@ function axCatHtml_(depto, k, autoCO) {
 }
 // Detalle de la card: «Tipo de tarea *» (arriba de «Tipo de servicio»). Sin fn = fijo (las cards de aseo de reservas siempre son Limpieza).
 function axTipoTareaHtml_(cur, fn) {
-  return `<div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${X.c}${fn || cur === k ? '' : ';opacity:.45;cursor:not-allowed'}" ${fn ? `onclick="${fn}('${k}')"` : `title="Las cards de aseo de una reserva siempre son de Limpieza"`}>${X.ico} ${X.t}</button>`).join('')}</div>`;
+  return `<div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${X.c}${fn || cur === k ? '' : ';opacity:.45;cursor:not-allowed'}" ${fn ? `onclick="${fn}('${k}')"` : `title="Este tipo lo define la reserva: salida = Limpieza · solo entrada = Inspección"`}>${X.ico} ${X.t}</button>`).join('')}</div>`;
 }
 window.axSet_ = function (k, patch, hid) {
   ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k];
@@ -65787,11 +65793,12 @@ function axDetalle_(k, autoCO, hid, dia) {
 }
 // ── Card compacta del tablero ──
 function adCard_(I) {
-  const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
+  const ultTxt = I.soloEnt ? (I.diasUlt == null ? 'Sin salida previa' : I.diasUlt === 0 ? 'Salida hoy' : `Salida hace ${I.diasUlt} día${I.diasUlt === 1 ? '' : 's'}`) : '';
+  const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${ultTxt ? `<span class="u" title="${I.ultSal ? 'Última salida: ' + aseoDiaTxt_(I.ultSal) : ''}">${ultTxt}</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
   const meta = [];
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
-  meta.unshift(axCatHtml_('limpieza', I.asigId, I.g.sal.length > 0));
+  meta.unshift(axCatHtml_(I.depto, I.asigId, I.g.sal.length > 0));
   // «No ha desalojado»: primer chip de la card de cada alojamiento con salida hoy
   if (I.xs && I.esHoyC && !I.esCopia) meta.unshift(aseoNoSaleChip_(I.xs.b.Id, I.hid));
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
@@ -65802,7 +65809,7 @@ function adCard_(I) {
   const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
-  return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO.limpieza.c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
+  return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
@@ -65859,7 +65866,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   };
   const sinHijos = L => L.filter(I => !padreDe.has(I));
   const nVis = L => sinHijos(L).reduce((n, I) => n + 1 + (hijosDe.get(I) || []).length, 0);
-  const tipoDe = I => I.tarea ? (I.t.depto || 'limpieza') : 'limpieza';
+  const tipoDe = I => I.tarea ? (I.t.depto || 'limpieza') : (I.depto || 'limpieza');
   const fT = ASEO.fTipo || [];
   const todos = infos.concat(tInfos);
   const verT = ver.filter(I => (!fT.length || fT.includes(tipoDe(I))) && (!(ASEO.fPrio || []).length || ASEO.fPrio.includes(I.tarea ? prio4Key_(I.t.prioridad) : I.prio)));
@@ -66174,7 +66181,7 @@ function adPintar_(nuevo) {
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
       <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${guiaBox}
-      ${axTipoTareaHtml_('limpieza', null)}
+      ${axTipoTareaHtml_(I.depto, null)}${I.soloEnt ? `<div class="ad-hint">Solo entra huésped hoy: no se programa limpieza, se requiere <b>inspección</b> antes de la entrada.${I.ultSal ? ` Última salida: ${aseoDiaTxt_(I.ultSal)} (${I.diasUlt === 0 ? 'hoy' : 'hace ' + I.diasUlt + ' día' + (I.diasUlt === 1 ? '' : 's')}).` : ''}</div>` : ''}
       ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
       <div class="lab">Solicitudes</div><div class="ad-grid2">${sol('tard', I.xs, I.trd)}${sol('temp', I.xe, I.temp)}</div>
