@@ -67208,7 +67208,7 @@ window.icAbrir_ = function (id, ctx) {
   icPintar_(true);
 };
 window.icCerrar_ = function () { IC.dr = null; IC.f = null; document.getElementById('ad-drawer')?.remove(); document.getElementById('ad-dim')?.remove(); document.querySelectorAll('#ic-root .ad-card.sel').forEach(c => c.classList.remove('sel')); document.querySelectorAll('.pz-pop').forEach(p => p.remove()); };
-function icShell_() { if (typeof ASEO !== 'undefined') ASEO._dr = null; const dr = atShell_(); const dim = document.getElementById('ad-dim'); if (dim) dim.onclick = icCerrar_; return dr; }
+function icShell_() { if (typeof ASEO !== 'undefined') ASEO._dr = null; icCss_(); /* estilos de Incidencias aunque se abra desde otra sección */ const dr = atShell_(); const dim = document.getElementById('ad-dim'); if (dim) dim.onclick = icCerrar_; return dr; }
 function icPintar_(nuevo) {
   if (!IC.dr || IC.f) return;
   if (IC.dr.lista) return axIncLista_(IC.dr.ctx);
