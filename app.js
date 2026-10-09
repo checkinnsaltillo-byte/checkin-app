@@ -64982,6 +64982,10 @@ function aseoEnsureCss_() {
   .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
   /* Tareas creadas desde una incidencia: margen izquierdo punteado */
   .ad-card.tipo.deinc{border-left:4px dashed var(--tc)}
+  /* Cards que pasaron al día siguiente (sombreadas): avisos en grises, no morados */
+  .ad-card.ghost .flag.violet{color:#4b5563;background:#e5e7eb}
+  .ad-card.ghost .flag.violet i{background:#6b7280;box-shadow:none}
+  .ad-card.ghost .vi{color:#6b7280}
   .ax-inc{all:unset;cursor:pointer;font-size:10.5px;font-weight:600;color:#6b7280;border:1px dashed #cbd5e1;border-radius:6px;padding:2px 8px;white-space:nowrap}
   .ax-inc:hover{color:#b91c1c;border-color:#fca5a5}
   .ax-inc.on{color:#fff;background:#dc2626;border:1px solid #b91c1c}
