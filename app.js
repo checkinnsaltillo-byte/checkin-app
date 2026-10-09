@@ -65302,6 +65302,8 @@ function aseoEnsureCss_() {
   .ax-inc.on.split,.ad-card .ax-inc.on.split{display:inline-flex;align-items:stretch;padding:0;overflow:hidden;border:0;background:none;box-shadow:0 1px 2px rgba(15,23,42,.12)}
   .ax-inc.split .i1{background:#dc2626;color:#fff;padding:2px 7px 2px 9px;white-space:nowrap}
   .ax-inc.split .i2{background:var(--ec);color:#fff;padding:2px 9px 2px 7px;white-space:nowrap;font-weight:700}
+  .ax-inc.split .i1,.ax-inc.split .i2{display:inline-flex;align-items:center;line-height:1.35}
+  .ax-inc.split .i1:only-child{padding:2px 9px}
   .ax-mini{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 5px;border-radius:5px;white-space:nowrap}
   .ax-mini:hover{color:#dc2626;background:#fef2f2}
   .ad-card .r3{margin-top:7px;padding-top:6px;gap:6px}
@@ -65819,7 +65821,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     try {
       const puente = h => {
         const id = puenteDe.get(h);
-        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx"><span class="ax-inc on split">${axIncHtml_(k, [id])}</span><small>🛠 Tarea correctiva</small></span></button>`;
+        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia</span></span><small>🛠 Tarea correctiva</small></span></button>`;
       };
       return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
