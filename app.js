@@ -65780,6 +65780,18 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   // Tareas manuales del día (filtro de personal = sus asignados).
   const fPers = ASEO.fPers || [];
   const tInfos = atLista_().filter(t => atToca_(t, hoy)).map(t => atInfo_(t, hoy));
+  // Card reprogramada a este día: sus tareas ligadas por incidencia (de cualquier tipo) que sigan sin resolver la acompañan.
+  { const ya = new Set(tInfos.map(I => I.k));
+    infos.filter(I => I.esCopia).forEach(C => {
+      const ids = axIncIds_(C.asigId); if (!ids.length) return;
+      atLista_().forEach(t => {
+        const k = t.rt ? 'R' + t.rtId : 'T' + t.id;
+        if (ya.has(k) || !axIncIds_(k).some(x => ids.includes(x))) return;
+        const I = atInfo_(t, t.rt ? hoy : t.fecha); // su propia fecha: el estado y los cambios son de esa tarea
+        if (t.rt ? !rtAbierto_(t) : ['terminado', 'inspeccionado', 'cancelado'].includes(I.selE)) return;
+        I.arrastre = true; tInfos.push(I); ya.add(k);
+      });
+    }); }
   const props = [...new Set(infos.concat(tInfos).map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
   const fP = (ASEO.fProp || []).filter(p => props.includes(p));
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
@@ -66213,6 +66225,7 @@ function atCard_(I) {
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
+    ${I.arrastre ? `<div class="flag orange"><i></i>Sin resolver desde ${aseoDiaTxt_(t.fecha)} · sigue a su card</div>` : ''}
     <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     ${axFila_('T' + t.id, false, t.hid, I.dia)}
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
