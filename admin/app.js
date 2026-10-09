@@ -64992,7 +64992,7 @@ function aseoEnsureCss_() {
   #ad-drawer .ad-hist{margin-top:14px}
   #ad-drawer .hist-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;margin-top:8px}
   #ad-drawer .hist-it{font-size:11.5px;color:#334155;padding:7px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;line-height:1.4}
-  #ad-drawer .hist-it .hm{color:#64748b;font-size:10.5px}#ad-drawer .hist-it s{color:#94a3b8}
+  #ad-drawer .hist-it .hist-h{color:#64748b;font-size:10.5px}#ad-drawer .hist-it s{color:#94a3b8}
   /* Bloque «Guía del huésped» en la ventana lateral */
   #ad-drawer .ad-guia{margin-top:10px;border:1px solid #d1fae5;background:#f0fdf4;border-radius:10px;padding:10px 12px}
   #ad-drawer .ad-guia.off{border-color:#e5e7eb;background:#f9fafb}
@@ -67768,5 +67768,5 @@ window.histToggle_ = async function (el) {
 function histListaHtml_(L) {
   if (!L.length) return '<div class="ad-hint">Sin cambios registrados todavía.</div>';
   const f = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); };
-  return `<div class="hist-list">${L.slice(0, 150).map(h => `<div class="hist-it"><div class="hm">${pcEsc(f(h.at))}${h.by ? ' · ' + pcEsc(h.by) : ''}</div><div><b>${pcEsc(h.campo || '')}</b>: ${h.antes ? `<s>${pcEsc(String(h.antes).slice(0, 120))}</s> → ` : ''}${pcEsc(String(h.despues || '—').slice(0, 160))}</div></div>`).join('')}</div>`;
+  return `<div class="hist-list">${L.slice(0, 150).map(h => `<div class="hist-it"><div class="hist-h">${pcEsc(f(h.at))}${h.by ? ' · ' + pcEsc(h.by) : ''}</div><div><b>${pcEsc(h.campo || '')}</b>: ${h.antes ? `<s>${pcEsc(String(h.antes).slice(0, 120))}</s> → ` : ''}${pcEsc(String(h.despues || '—').slice(0, 160))}</div></div>`).join('')}</div>`;
 }
