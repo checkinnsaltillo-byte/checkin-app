@@ -64988,6 +64988,16 @@ function aseoEnsureCss_() {
   .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
   /* Tareas creadas desde una incidencia: margen izquierdo punteado */
   .ad-card.tipo.deinc{border-left:4px dashed var(--tc)}
+  /* Bloque «Guía del huésped» en la ventana lateral */
+  #ad-drawer .ad-guia{margin-top:10px;border:1px solid #d1fae5;background:#f0fdf4;border-radius:10px;padding:10px 12px}
+  #ad-drawer .ad-guia.off{border-color:#e5e7eb;background:#f9fafb}
+  #ad-drawer .ad-guia .gh{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  #ad-drawer .ad-guia .gh b{font-size:12.5px}#ad-drawer .ad-guia .gh small{display:block;color:#6b7280;font-size:11px;margin-top:1px}
+  #ad-drawer .ad-guia .gt{font-size:12px;color:#374151;margin-top:8px;padding-top:8px;border-top:1px dashed #d1d5db}
+  #ad-drawer .gv{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 10px;border-radius:8px;background:#fffbeb;border:1px solid #fcd34d;font-size:11.5px;color:#92400e}
+  #ad-drawer .gv button{all:unset;cursor:pointer;flex:none;background:#10b981;color:#fff;font-weight:700;font-size:11.5px;padding:5px 10px;border-radius:7px}
+  #ad-drawer .gv button:hover{background:#059669}
+  #ad-drawer .ad-guia .gm{font-size:10.5px;color:#6b7280;margin-top:6px}
   /* Tinte por estado: fondo apenas teñido y borde a juego (elegante, se distingue a simple vista) */
   .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 9%,#fff),color-mix(in srgb,var(--sc) 4%,#fff));border-color:color-mix(in srgb,var(--sc) 30%,#e8eaee)}
   .ad-card.est-tint .r3{border-top-color:color-mix(in srgb,var(--sc) 18%,#eef0f3)}
@@ -66116,9 +66126,6 @@ function adPintar_(nuevo) {
   const E = AD_EST.find(e => e.k === I.selE) || AD_EST[0];
   // Estado: selector de 4 posiciones
   const pasos = AD_EST.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${id}','${hid}','${e.k}',false)">${e.t}</button>`).join('');
-  const nota = I.selE === 'terminado' && !I.validado
-    ? `<div class="ad-val"><span>«Terminado» aún no se publica en la guía.</span><button type="button" onclick="aseoValidar_('${id}','${hid}')">✓ Validar y publicar</button></div>`
-    : I.reg && I.reg.at ? `<div class="ad-hint">${I.validado ? '✓ Publicado' : 'Guardado'} ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : '';
   // Línea del día
   const evs = [];
   I.g.sal.forEach(x => {
@@ -66143,8 +66150,15 @@ function adPintar_(nuevo) {
   };
   const per = (n, rol) => `<div class="ad-pp">${adAv_(n, rol)}<span>${pcEsc(String(n).replace(/\s*\(WhatsApp\)\s*$/, ''))}</span><em>${rol}</em></div>`;
   const G = I.G;
-  const guiaTxt = !I.esHoyC ? '<div class="ad-hint">La guía solo muestra avisos del día en curso.</div>'
-    : `<div class="ad-guide">📖 ${G && G.texto ? `«${pcEsc(G.texto)}»` : G && G.noPub && G.textoPrev ? `No publicado. Al publicarlo, la guía dirá: «${pcEsc(G.textoPrev)}»` : 'La guía no muestra ningún aviso'}</div>`;
+  // «📖 Guía del huésped» en un solo bloque, debajo del estado: publicar (sí/no) + qué dice + validación de «Terminado».
+  const sinVal = I.selE === 'terminado' && !I.validado;
+  const valTxt = sinVal ? `<div class="gv"><span>El personal marcó <b>«Terminado»</b>, pero aún no está validado: la guía sigue mostrando el estado anterior.</span><button type="button" onclick="aseoValidar_('${id}','${hid}')">✓ Validar</button></div>` : '';
+  const meta = I.reg && I.reg.at ? `<div class="gm">${sinVal ? 'Reportado' : '✓ Validado'} ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : '';
+  const guiaBox = !I.esHoyC ? `${sinVal ? valTxt.replace('class="gv"', 'class="gv" style="margin-top:10px"') : ''}<div class="ad-hint">La guía del huésped solo muestra avisos del día en curso.</div>`
+    : `<div class="ad-guia ${I.noPub ? 'off' : ''}">
+        <div class="gh" ${G ? `onclick="aseoGuiaPublicar_('${pcEsc(I.pubKey)}',${I.noPub})" style="cursor:pointer"` : ''}><div><b>📖 Guía del huésped</b><small>${I.noPub ? 'No publicado: la guía no muestra nada' : 'Publicado: el huésped ve el estado de su alojamiento'}</small></div>${G ? `<span class="ad-sw ${I.noPub ? 'off' : ''}"></span>` : ''}</div>
+        <div class="gt">${G && G.texto ? `La guía dice: <b>«${pcEsc(G.texto)}»</b>` : G && G.noPub && G.textoPrev ? `Al publicarlo dirá: <b>«${pcEsc(G.textoPrev)}»</b>` : 'La guía no muestra ningún aviso por ahora.'}</div>
+        ${valTxt}${meta}</div>`;
   const reservas = [...I.g.sal.map(x => pcMovRow_(x, 'sal', I.hoy, {})), ...I.g.ent.map(x => pcMovRow_(x, 'ent', I.hoy, {})), ...(I.g.cur || []).map(x => pcMovRow_(x, 'cur', I.hoy, {}))].join('');
   const sig = AD_EST[Math.min(AD_EST.length - 1, AD_EST.findIndex(e => e.k === I.selE) + 1)];
   const smsId = I.xe ? pcEsc(String(I.xe.b.Id)) : '';
@@ -66154,7 +66168,7 @@ function adPintar_(nuevo) {
       ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
-      <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${nota}
+      <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${guiaBox}
       ${axTipoTareaHtml_('limpieza', null)}
       ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
@@ -66162,9 +66176,6 @@ function adPintar_(nuevo) {
       <div class="lab">Equipo</div><div class="ad-ppl">${I.pA.map(n => per(n, 'Aseo')).join('')}${I.pI.map(n => per(n, 'Inspección')).join('')}${!I.pA.length && !I.pI.length ? '<div class="ad-un">Sin asignar</div>' : ''}
         <div class="ad-addrow"><button type="button" class="ad-link" onclick="aseoAsignar_('${id}',this,'aseo')">＋ Asignar aseo</button><button type="button" class="ad-link" onclick="aseoAsignar_('${id}',this,'inspeccion')">＋ Asignar inspección</button></div></div>
       ${I.xs && I.esHoyC && !I.esCopia ? `<div class="lab">Desalojo</div><div class="ad-tgl" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})"><div><b>${I.noSale ? 'El huésped NO ha desalojado' : '¿No ha desalojado?'}</b><small>${I.noSale ? 'Clic cuando ya haya salido' : 'Activa la alerta si el huésped sigue adentro'}</small></div><span class="ad-sw ${I.noSale ? 'red' : 'off'}"></span></div>` : ''}
-      <div class="lab">Guía del huésped</div>
-      ${I.esHoyC && G ? `<div class="ad-tgl" onclick="aseoGuiaPublicar_('${pcEsc(I.pubKey)}',${I.noPub})"><div><b>Publicar en la guía</b><small>${I.noPub ? 'No publicado: la guía no muestra nada' : 'El huésped ve el estado de su alojamiento'}</small></div><span class="ad-sw ${I.noPub ? 'off' : ''}"></span></div>` : ''}
-      ${guiaTxt}
       <div class="lab">Fecha de aseo</div>${aseoFechaCampo_(I.asigId, I.hid, I.hoy, I.g.reprogDe)}
       ${reservas ? `<details class="ad-res"><summary>Reservas y acciones (${I.ids.length})</summary>${reservas}</details>` : ''}
     </div>
