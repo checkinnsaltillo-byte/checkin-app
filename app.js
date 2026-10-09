@@ -65031,6 +65031,7 @@ function aseoEnsureCss_() {
   .np-h .ad-av{width:26px;height:26px;font-size:10px;border:0}
   .np-nm{flex:1;min-width:0}.np-nm b{font-size:12.5px;font-weight:600}
   .np-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+  .np-sim{white-space:pre-wrap;font:11.5px/1.45 Inter,system-ui,sans-serif;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 10px;margin:8px 0 0;max-height:260px;overflow:auto;color:#1f2937}
   .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
   .np-tel{font-size:11px;font-weight:500;color:#6b7280;margin-left:6px;white-space:nowrap}
   .np-tag.wa{background:#dcfce7;color:#15803d}.np-tag.sms{background:#dbeafe;color:#1d4ed8}.np-tag.am{background:#ede9fe;color:#6d28d9}
@@ -66821,6 +66822,25 @@ function npTel_(n) {
   return d.length === 10 ? d : '';
 }
 const NP_CANAL = { whatsapp: { t: '💬 WhatsApp', cls: 'wa', c: '#16a34a' }, sms: { t: '📱 SMS', cls: 'sms', c: '#2563eb' }, ambos: { t: '💬📱 Ambos', cls: 'am', c: '#7c3aed' } };
+// Procesos de consulta del bot que se pueden simular (GET /bot/simular/procesos).
+let NP_PROCS = null;
+function npProcs_() {
+  if (NP_PROCS) return NP_PROCS;
+  if (!npProcs_.c) { npProcs_.c = 1; fetch(`${BACKEND}/bot/simular/procesos`).then(r => r.json()).then(j => { NP_PROCS = j.procesos || []; document.querySelectorAll('#np-list .np-p.ab').forEach(el => npRefila_(el.dataset.n)); }).catch(() => { npProcs_.c = 0; }); }
+  return [];
+}
+window.npSimular_ = async function (btn, n) {
+  const fila = btn.closest('.np-p'), sel = fila.querySelector('.np-proc'), out = fila.querySelector('.np-sim'), pf = npPerfilDe_(n);
+  if (!sel || !sel.value || !pf.pruebaComo) return;
+  btn.disabled = true; const t0 = btn.textContent; btn.textContent = '⏳';
+  try {
+    const j = await fetch(`${BACKEND}/bot/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: n, como: pf.pruebaComo, proceso: sel.value }) }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'Error');
+    out.style.display = ''; out.textContent = j.texto + (j.enviado ? '\n\n✓ Enviado a tu WhatsApp' : '');
+  } catch (e) { out.style.display = ''; out.textContent = '⚠️ ' + (e.message || e); }
+  finally { btn.disabled = false; btn.textContent = t0; }
+};
+window.npPrueba_ = function (n, v) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.pruebaComo = v || ''; npRefila_(n); npGuardar_(); };
 window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.canal = k; npRefila_(n); npGuardar_(); };
 window.npAbrir_ = function () {
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
@@ -66836,6 +66856,7 @@ function npResumen_(pf) {
   if (pf.auto.incidencias) b.push('<span class="np-tag s">🚨 Incidencias</span>');
   if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
   if (pf.avanzadas) b.push('<span class="np-tag a">⭐ Avanzadas</span>');
+  if (pf.pruebaComo) b.push(`<span class="np-tag r">🧪 Probando como ${pcEsc(aseoNombreCorto_(pf.pruebaComo))}</span>`);
   if (b.length) { const C = NP_CANAL[pf.canal] || NP_CANAL.whatsapp; b.push(`<span class="np-tag ${C.cls}">${C.t}</span>`); }
   return b.join('') || '<span class="np-tag n">Sin funciones asignadas</span>';
 }
@@ -66854,6 +66875,14 @@ function npFila_(n) {
       ${ck(pf.auto.checkinn, '🧽 Aseo y Mantenimiento', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
       ${ck(pf.auto.tareas, '🗓️ Tareas programadas', 'Cambios en las tareas y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'tareas')`)}
       ${ck(pf.auto.incidencias, '🚨 Incidencias', 'Incidencias nuevas y cambios de estado, prioridad o seguimiento', `npSet_(this.closest('.np-p').dataset.n,'incidencias')`)}
+      ${pf.rol === 'admin' || pf.pruebaComo || String(n).toLowerCase() === String((typeof currentUser !== 'undefined' && currentUser) || '').toLowerCase() ? `<div class="np-lab">🧪 Prueba como</div>
+      <select class="at-in" onchange="npPrueba_(this.closest('.np-p').dataset.n,this.value)"><option value="">Nadie (el bot me responde normal)</option>${(typeof pzNombres_ === 'function' ? pzNombres_() : []).filter(x => x !== n).map(x => `<option ${x === pf.pruebaComo ? 'selected' : ''}>${pcEsc(x)}</option>`).join('')}</select>
+      <div class="np-hint">${pf.pruebaComo ? `El bot te responde por WhatsApp como si fueras <b>${pcEsc(pf.pruebaComo)}</b> (sus permisos y configuración). Tus entradas/salidas no se registran mientras pruebas.` : 'Elige a alguien para que el bot te responda como lo haría con esa persona.'}</div>
+      ${pf.pruebaComo ? `<div class="np-lab">Proceso a simular</div>
+      <div style="display:flex;gap:6px;align-items:center"><select class="at-in np-proc" style="flex:1">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
+        <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,this.closest('.np-p').dataset.n)">▶ Simular</button></div>
+      <div class="np-hint">Te llega por WhatsApp lo que recibiría ${pcEsc(aseoNombreCorto_(pf.pruebaComo))} y aquí ves la vista previa.</div>
+      <pre class="np-sim" style="display:none"></pre>` : ''}` : ''}
       <div class="np-lab">Funciones</div>
       ${ck(pf.recordatorio, '🔔 Recordatorio diario de tareas asignadas', 'Al registrar su entrada recibe sus limpiezas y tareas programadas del día', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
       ${ck(pf.avanzadas, '⭐ Funciones avanzadas', 'Pedir resúmenes de todas las secciones · aceptar entradas tempranas y salidas tardías', `npSet_(this.closest('.np-p').dataset.n,'avanzadas')`)}
@@ -66908,7 +66937,7 @@ function npGuardar_() {
   clearTimeout(ASEO._npT);
   ASEO._npT = setTimeout(async () => {
     try {
-      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas || p.recordatorio === false || (p.canal && p.canal !== 'whatsapp')) P[n] = p; });
+      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas || p.recordatorio === false || (p.canal && p.canal !== 'whatsapp') || p.pruebaComo) P[n] = p; });
       const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: ASEO._np.on, perfiles: P, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
       ASEO.autonotif = r.autonotif;
