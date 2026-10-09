@@ -285,11 +285,11 @@
       </div>
       <div class="hm-quick gb-quick" aria-label="Acceso directo">
         <span class="gb-quick-l">⚡</span>
+              <button type="button" class="hm-q" data-mod="aseo" onclick="switchModule('aseo')"><span>✅</span>Check-list</button>
               <button type="button" class="hm-q" data-mod="efectivo" onclick="bnEfectivoOpenFromHome()"><span>💵</span>Efectivo</button>
               <button type="button" class="hm-q" data-mod="pagos" onclick="switchModule('pagos')"><span>💳</span>Pagos</button>
               <button type="button" class="hm-q" data-mod="bot-chats" onclick="switchModule('bot-chats')"><span>🤖</span>Chats bot</button>
               <button type="button" class="hm-q" data-mod="tareas" onclick="switchModule('tareas')"><span>🗓️</span>Tareas programadas</button>
-              <button type="button" class="hm-q" data-mod="aseo" onclick="switchModule('aseo')"><span>✅</span>Check-list</button>
               <button type="button" class="hm-q" data-mod="guias" onclick="hmGuiasMenu_(this)" title="Link de la guía de bienvenida de un alojamiento"><span>📖</span>Guías de bienvenida <b style="font-size:9px;opacity:.8">▾</b></button>
       </div>
       <div class="gb-right">
@@ -2900,7 +2900,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1630"></script>
+  <script src="app.js?v=1631"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
