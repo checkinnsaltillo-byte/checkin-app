@@ -59980,12 +59980,16 @@ function aseoAccionesReserva_(b, kind, aloj, hid) {
   const tg = `<button type="button" class="mv-tg ${on ? 'on' : ''} ${acep ? 'ok' : ''}" onclick="event.stopPropagation();aseoTemprana_('${pcEsc(id)}')" title="${on ? 'Clic para quitar la solicitud de entrada temprana' : 'El huésped pidió entrar antes de la hora oficial'}"><span class="sw"><i></i></span><span class="tx">${txt}</span></button>`;
   const tr0 = (((window.ASEO && ASEO.temprana) || {})[id]) || {};
   const tgH = on ? aseoChipHora_(tg, aseoHoraInput_(id, tr0.hora, 'temp'), acep, 'temp') : tg;
-  if (kind !== 'ent') return `<div class="mv-acts">${tgH}</div>`;
+  // 📞 Llamar al huésped (enlace tel:, mismo formato del número que usa el SMS)
+  const d = String(b.GuestPhone || '').replace(/\D/g, ''), raw = String(b.GuestPhone || '').trim();
+  const tel = !d ? '' : raw.startsWith('+') ? '+' + d : d.length === 10 ? '+52' + d : d.length === 13 && d.startsWith('521') ? '+52' + d.slice(3) : '+' + d;
+  const llamar = tel ? `<a class="mv-sms mv-tel" href="tel:${pcEsc(tel)}" onclick="event.stopPropagation()" title="Llamar al huésped (${pcEsc(tel)})">📞</a>` : '';
+  if (kind !== 'ent') return `<div class="mv-acts">${tgH}${llamar}</div>`;
   const env = (((window.ASEO && ASEO.sms) || {})[id] || []);
   const ult = env[env.length - 1];
   const sms = `<button type="button" class="mv-sms" onclick="event.stopPropagation();aseoSmsPop_('${pcEsc(id)}','${pcEsc(String(hid || b.HouseId || ''))}')" title="Avisar por SMS que el alojamiento ya está listo">📱 SMS</button>`;
   const nota = ult ? `<span class="mv-sms-ok" title="Enviado por ${pcEsc(ult.by || '—')} a ${pcEsc(ult.to || '')}">✓ SMS enviado ${new Date(ult.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
-  return `<div class="mv-acts">${tgH}${sms}${nota}</div>`;
+  return `<div class="mv-acts">${tgH}${sms}${llamar}${nota}</div>`;
 }
 // ── Salida tardía (reserva que SALE): interruptor + hora (11:00 por defecto) + aceptación.
 //    Aceptada → el aseo de ese alojamiento pasa al final.
@@ -64999,6 +65003,9 @@ function aseoEnsureCss_() {
   .np-nm{flex:1;min-width:0}.np-nm b{font-size:12.5px;font-weight:600}
   .np-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
   .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
+  .np-tel{font-size:11px;font-weight:500;color:#6b7280;margin-left:6px;white-space:nowrap}
+  .np-tag.wa{background:#dcfce7;color:#15803d}.np-tag.sms{background:#dbeafe;color:#1d4ed8}.np-tag.am{background:#ede9fe;color:#6d28d9}
+  .mv-tel{text-decoration:none}
   .np-tag.admin{background:#eef2ff;color:#4338ca}.np-tag.empleado{background:#e0f2fe;color:#0369a1}
   .np-tag.s{background:#ecfdf5;color:#047857}.np-tag.r{background:#fff7ed;color:#c2410c}.np-tag.a{background:#fef9c3;color:#a16207}.np-tag.n{background:transparent;color:#9aa1ad;padding-left:0}
   .np-car{color:#9aa1ad;font-size:12px}
@@ -66758,7 +66765,16 @@ function npPerfiles_() {
   (A.personas || []).forEach(n => { if (!P[n]) P[n] = { rol: '', auto: { checkinn: true, tareas: false }, recordatorio: true, avanzadas: true }; }); // configuración anterior
   return P;
 }
-function npPerfilDe_(n) { return ASEO._np.perfiles[n] || { rol: '', auto: { checkinn: false, tareas: false }, recordatorio: true, avanzadas: false }; }
+function npPerfilDe_(n) { return ASEO._np.perfiles[n] || { rol: '', auto: { checkinn: false, tareas: false }, recordatorio: true, avanzadas: false, canal: 'whatsapp' }; }
+// Celular del Personal (10 dígitos) para mostrarlo junto al nombre.
+function npTel_(n) {
+  const rows = (typeof INC_STATE !== 'undefined' && INC_STATE.personalRows) || [], norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const r = rows.find(x => norm(typeof _rhPersonalFullName_ === 'function' ? _rhPersonalFullName_(x) : x.Nombre) === norm(n)) || rows.find(x => norm(x.Nombre) === norm(n));
+  const d = r ? String(r.Celular || r.Telefono || '').replace(/\D/g, '').slice(-10) : '';
+  return d.length === 10 ? d : '';
+}
+const NP_CANAL = { whatsapp: { t: '💬 WhatsApp', cls: 'wa', c: '#16a34a' }, sms: { t: '📱 SMS', cls: 'sms', c: '#2563eb' }, ambos: { t: '💬📱 Ambos', cls: 'am', c: '#7c3aed' } };
+window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.canal = k; npRefila_(n); npGuardar_(); };
 window.npAbrir_ = function () {
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
   ASEO._np = { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), abierto: '', q: '' };
@@ -66773,18 +66789,21 @@ function npResumen_(pf) {
   if (pf.auto.incidencias) b.push('<span class="np-tag s">🚨 Incidencias</span>');
   if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
   if (pf.avanzadas) b.push('<span class="np-tag a">⭐ Avanzadas</span>');
+  if (b.length) { const C = NP_CANAL[pf.canal] || NP_CANAL.whatsapp; b.push(`<span class="np-tag ${C.cls}">${C.t}</span>`); }
   return b.join('') || '<span class="np-tag n">Sin funciones asignadas</span>';
 }
 function npFila_(n) {
   const pf = npPerfilDe_(n), ab = ASEO._np.abierto === n, en = pcEsc(n);
   const ck = (on, txt, sub, fn) => `<div class="np-ck ${on ? 'on' : ''}" onclick="${fn}"><span class="pz-ck sm ${on ? 'on' : ''}">${on ? '✓' : ''}</span><div><b>${txt}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
   return `<div class="np-p ${ab ? 'ab' : ''}" data-n="${en}">
-    <div class="np-h" onclick="npToggleFila_(this.parentNode.dataset.n)">${adAv_(n)}<div class="np-nm"><b>${en}</b><div class="np-tags">${npResumen_(pf)}</div></div><span class="np-car">${ab ? '▾' : '▸'}</span></div>
+    <div class="np-h" onclick="npToggleFila_(this.parentNode.dataset.n)">${adAv_(n)}<div class="np-nm"><b>${en}</b>${npTel_(n) ? `<span class="np-tel">📞 ${npTel_(n).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}</span>` : '<span class="np-tel" style="color:#dc2626">sin celular</span>'}<div class="np-tags">${npResumen_(pf)}</div></div><span class="np-car">${ab ? '▾' : '▸'}</span></div>
     ${ab ? `<div class="np-b">
       <div class="np-lab">Rol</div>
       <div class="ad-steps np-rol" style="grid-template-columns:repeat(3,1fr)">${[['admin', 'Administrador'], ['empleado', 'Empleado'], ['', 'Sin rol']].map(([k, t]) => `<button type="button" class="${pf.rol === k ? 'on' : ''}" style="--c:${k === 'admin' ? '#4f46e5' : k === 'empleado' ? '#0ea5e9' : '#9aa1ad'}" onclick="npRol_(this.closest('.np-p').dataset.n,'${k}')">${t}</button>`).join('')}</div>
       <div class="np-hint">${pf.rol === 'admin' ? 'Administrador: puede pedir resúmenes de todas las secciones y aceptar entradas tempranas o salidas tardías.' : pf.rol === 'empleado' ? 'Empleado: recibe su lista de tareas del día al registrar su entrada; no pide resúmenes.' : 'Elige un rol para ajustar los permisos de inicio.'}</div>
-      <div class="np-lab">Envío automático por WhatsApp</div>
+      <div class="np-lab">Canal de envío ${npTel_(n) ? `· ${npTel_(n).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}` : '· <span style="color:#dc2626">sin celular en Personal</span>'}</div>
+      <div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(NP_CANAL).map(([k, C]) => `<button type="button" class="${(pf.canal || 'whatsapp') === k ? 'on' : ''}" style="--c:${C.c}" onclick="npCanal_(this.closest('.np-p').dataset.n,'${k}')">${C.t}</button>`).join('')}</div>
+      <div class="np-lab">Envío automático</div>
       ${ck(pf.auto.checkinn, '🧽 Aseo y Mantenimiento', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
       ${ck(pf.auto.tareas, '🗓️ Tareas programadas', 'Cambios en las tareas y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'tareas')`)}
       ${ck(pf.auto.incidencias, '🚨 Incidencias', 'Incidencias nuevas y cambios de estado, prioridad o seguimiento', `npSet_(this.closest('.np-p').dataset.n,'incidencias')`)}
@@ -66842,7 +66861,7 @@ function npGuardar_() {
   clearTimeout(ASEO._npT);
   ASEO._npT = setTimeout(async () => {
     try {
-      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas || p.recordatorio === false) P[n] = p; });
+      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas || p.recordatorio === false || (p.canal && p.canal !== 'whatsapp')) P[n] = p; });
       const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: ASEO._np.on, perfiles: P, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
       ASEO.autonotif = r.autonotif;
