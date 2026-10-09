@@ -60169,9 +60169,18 @@ function aseoAplicarReprog_(gs, hoy) {
     if (!porDia[r.orig]) { try { const { cols } = pcMovCols_(r.orig); porDia[r.orig] = pcMovAlojGrupos_(cols, r.orig); } catch (_) { porDia[r.orig] = []; } }
     const ya = out.findIndex(x => aseoAsigIdDe_(x) === String(id));
     const extra = { reprogDe: r.orig, fantasma: r.fecha !== hoy };
-    if (ya >= 0) { out[ya] = Object.assign({}, out[ya], extra); return; } // ese día ya tenía la card (mismo aseo)
+    if (ya >= 0) { // ese día ya tenía la card (mismo aseo): conserva la salida original para «Salida hace N días»
+      const g0 = (out[ya].sal || []).length ? null : porDia[r.orig].find(x => aseoAsigIdDe_(x) === String(id));
+      out[ya] = Object.assign({}, out[ya], extra, g0 && (g0.sal || []).length ? { sal: g0.sal } : {}); return;
+    }
     const g = porDia[r.orig].find(x => aseoAsigIdDe_(x) === String(id));
-    if (g) out.push(Object.assign({}, g, extra, { estId: g.estId || id }));
+    if (!g) return;
+    const copia = Object.assign({}, g, extra, { estId: g.estId || id });
+    // La limpieza de check-out reprogramada PREVALECE sobre la inspección: si ese día el alojamiento
+    // solo tenía entrada, se integra en una sola card de limpieza (con la entrada de ese día).
+    const ie = !copia.fantasma ? out.findIndex(x => String(x.hid) === String(g.hid) && !x.reprogDe && !(x.sal || []).length && (x.ent || []).length) : -1;
+    if (ie >= 0) { copia.ent = out[ie].ent; copia.cur = out[ie].cur || copia.cur; out.splice(ie, 1); }
+    out.push(copia);
   });
   return out;
 }
@@ -65794,7 +65803,7 @@ function axDetalle_(k, autoCO, hid, dia) {
 // ── Card compacta del tablero ──
 function adCard_(I) {
   const ultTxt = I.soloEnt ? (I.diasUlt == null ? 'Sin salida previa' : I.diasUlt === 0 ? 'Salida hoy' : `Salida hace ${I.diasUlt} día${I.diasUlt === 1 ? '' : 's'}`) : '';
-  const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${ultTxt ? `<span class="u" title="${I.ultSal ? 'Última salida: ' + aseoDiaTxt_(I.ultSal) : ''}">${ultTxt}</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
+  const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${ultTxt ? `<span class="u" title="${I.ultSal ? 'Última salida: ' + aseoDiaTxt_(I.ultSal) : ''}">${ultTxt}</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
   const meta = [];
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
