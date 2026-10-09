@@ -65642,7 +65642,8 @@ function adInfo_(g, hoy, o) {
   // Solo ENTRA hoy (sin salida): no es limpieza, es INSPECCIÓN antes de la entrada; se muestra la última salida.
   const soloEnt = !g.sal.length && vivosEnt > 0 && !esCopia;
   let ultSal = null;
-  if (soloEnt && g.hid && typeof pcMovBookings_ === 'function') pcMovBookings_().forEach(b => { if (String(b.HouseId) !== String(g.hid) || !/^booked$/i.test(String(b.Status || '').trim())) return; const d = _pagosDateIso(b.DateDeparture); if (d && d < hoy && (!ultSal || d > ultSal)) ultSal = d; });
+  // Última salida: en TODA card de aseo sin salida hoy (las reprogramadas ya la traen en diasSal).
+  if (!g.sal.length && !esCopia && g.hid && typeof pcMovBookings_ === 'function') pcMovBookings_().forEach(b => { if (String(b.HouseId) !== String(g.hid) || !/^booked$/i.test(String(b.Status || '').trim())) return; const d = _pagosDateIso(b.DateDeparture); if (d && d < hoy && (!ultSal || d > ultSal)) ultSal = d; });
   const diasUlt = ultSal ? Math.round((Date.parse(hoy) - Date.parse(ultSal)) / 864e5) : null;
   return { g, corto, aloj: g.aloj, hid: g.hid, k: String(g.hid || g.k), ids, asigId, reg, selE, pubE, validado, xs, xe, trd, temp, esHoyC, esCopia, diasSal, fantasma, noSale, aviso, prio, mant, soloEnt, ultSal, diasUlt, depto: soloEnt ? 'inspeccion' : 'limpieza',
     prioritaria: !!(temp && temp.aceptada), pA: asg.aseo || asg.personal || [], pI: asg.inspeccion || [], G, pubKey, noPub: !!(G && G.noPub) };
@@ -65802,7 +65803,7 @@ function axDetalle_(k, autoCO, hid, dia) {
 }
 // ── Card compacta del tablero ──
 function adCard_(I) {
-  const ultTxt = I.soloEnt ? (I.diasUlt == null ? 'Sin salida previa' : I.diasUlt === 0 ? 'Salida hoy' : `Salida hace ${I.diasUlt} día${I.diasUlt === 1 ? '' : 's'}`) : '';
+  const ultTxt = !I.g.sal.length && !I.esCopia ? (I.diasUlt == null ? 'Sin salida previa' : I.diasUlt === 0 ? 'Salida hoy' : `Salida hace ${I.diasUlt} día${I.diasUlt === 1 ? '' : 's'}`) : '';
   const mov = I.esCopia && I.xs ? `<span class="s">Salida hace ${I.diasSal} día${I.diasSal === 1 ? '' : 's'}</span>${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}` : `${I.g.sal.length ? `<span class="s">↗ Sale</span>` : ''}${ultTxt ? `<span class="u" title="${I.ultSal ? 'Última salida: ' + aseoDiaTxt_(I.ultSal) : ''}">${ultTxt}</span>` : ''}${I.g.ent.length ? `<span class="e">↘ Entra</span>` : ''}`;
   const meta = [];
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
