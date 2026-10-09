@@ -64978,7 +64978,9 @@ function aseoEnsureCss_() {
   .ad-puente:hover{background:#fecaca}
   .ad-puente .ar{font-size:13px;line-height:1;color:#ef4444;flex:none}
   .ad-puente .tx{flex:1;min-width:0;text-align:center;padding-right:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ad-puente .tx b{font-weight:700}
+  .ad-puente .tx{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .ad-puente .tx small{font-size:10px;font-weight:700;color:#b91c1c;letter-spacing:.01em}
+  .ad-puente .ax-inc.split{font-size:10px;border-radius:999px;cursor:pointer}
   .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
   /* Tareas creadas desde una incidencia: margen izquierdo punteado */
   .ad-card.tipo.deinc{border-left:4px dashed var(--tc)}
@@ -65811,7 +65813,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     try {
       const puente = h => {
         const id = puenteDe.get(h);
-        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx">⚠️ <b>Tarea correctiva</b></span></button>`;
+        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx"><span class="ax-inc on split">${axIncHtml_(k, [id])}</span><small>🛠 Tarea correctiva</small></span></button>`;
       };
       return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
