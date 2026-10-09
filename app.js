@@ -65281,6 +65281,9 @@ function aseoEnsureCss_() {
   .ad-card .r4 .ax-inc:not(.on){border-color:transparent;padding:1px 3px;font-size:10px;color:#a3aab5;background:none}
   .ad-card .r4 .ax-inc:not(.on):hover{color:#dc2626;border-color:#fca5a5}
   .ad-card .ax-inc.on{font-size:10px;padding:2px 9px;border-radius:999px}
+  .ax-inc.on.split,.ad-card .ax-inc.on.split{display:inline-flex;align-items:stretch;padding:0;overflow:hidden;border:0;background:none;box-shadow:0 1px 2px rgba(15,23,42,.12)}
+  .ax-inc.split .i1{background:#dc2626;color:#fff;padding:2px 7px 2px 9px;white-space:nowrap}
+  .ax-inc.split .i2{background:var(--ec);color:#fff;padding:2px 9px 2px 7px;white-space:nowrap;font-weight:700}
   .ax-mini{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 5px;border-radius:5px;white-space:nowrap}
   .ax-mini:hover{color:#dc2626;background:#fef2f2}
   .ad-card .r3{margin-top:7px;padding-top:6px;gap:6px}
@@ -65291,6 +65294,12 @@ function aseoEnsureCss_() {
   .ad-card .ad-det{font-size:10.5px;padding:2px 3px}
   .ad-card .ad-qs{margin-top:6px;padding:2px;border-radius:6px}
   .ad-card .ad-qs button{font-size:10px;padding:3px 1px;gap:3px}
+  /* Botones de estado con el color de cada estado: el actual sólido, los demás en tono suave */
+  .ad-card .ad-qs{background:transparent;padding:0;gap:3px}
+  .ad-card .ad-qs button{background:color-mix(in srgb,var(--c) 12%,#fff);color:color-mix(in srgb,var(--c) 70%,#1f2937)}
+  .ad-card .ad-qs button:hover{background:color-mix(in srgb,var(--c) 24%,#fff);color:#0f1729}
+  .ad-card .ad-qs button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
+  .ad-card .ad-qs button.on i{background:#fff;opacity:1}
   /* Columnas angostas: prioridad solo con su medidor, guía como punto y «Detalles» como › */
   @container (max-width:250px){
     .ad-card .r3 .p4e b,.ad-card .r3 .p4 b{display:none}
@@ -65655,6 +65664,18 @@ function axIncTxt_(k, ids) {
   const r = ids.length ? axIncRow_(ids[0]) : null;
   return r ? '⚠️ Incidencia · ' + icEstK_(r.Estatus) : '⚠️ Incidencia';
 }
+// Chip partido: «⚠️ Incidencia» en rojo + el estado con el color de su estado (varias: el estado más urgente).
+function axIncHtml_(k, ids) {
+  ids = ids || axIncActivas_(k);
+  const est = ids.map(id => { const r = axIncRow_(id); return r ? icEstK_(r.Estatus) : ''; }).filter(Boolean);
+  const E = id => IC_EST.find(e => e.k === id);
+  const par = (izq, der, c) => `<span class="i1">${izq}</span>${der ? `<span class="i2" style="--ec:${c}">${der}</span>` : ''}`;
+  if (ids.length > 1) {
+    const ab = est.filter(e => e === 'Nuevo' || e === 'En proceso').length, urg = ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado'].find(e => est.includes(e));
+    return par(`⚠️ ${ids.length} incidencias`, ab ? `${ab} abierta${ab === 1 ? '' : 's'}` : (urg || ''), urg ? E(urg).c : '#64748b');
+  }
+  return est[0] ? par('⚠️ Incidencia', est[0], E(est[0]).c) : par('⚠️ Incidencia', '', '');
+}
 function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')), sd = pcEsc(String(dia || '')); return inc ? `axIncAbrir_('${sk}','${sh}','${sd}')` : `axReportar_('${sk}','${sh}','${sd}')`; }
 // Clic en «⚠️ Incidencia»: siempre abre la ventana lateral (una → su detalle; varias → la lista de la card).
 window.axIncAbrir_ = async function (k, hid, dia, id) {
@@ -65705,7 +65726,7 @@ function axFila_(k, autoCO, hid, dia) { // renglón del botón de incidencia (el
   // En un grupo vinculado cada incidencia se muestra una sola vez, en su puente; aquí solo las que no tienen puente.
   const cub = ASEO._sinInc && ASEO._sinInc.get(String(k)), act = inc ? axIncActivas_(k) : [], resto = cub ? act.filter(x => !cub.has(x)) : act;
   if (!inc || (cub && !resto.length)) return ''; // sin incidencia: «＋ Incidencia» va en el pie de la card (axIncMini_)
-  return `<div class="r4"><span class="sp"></span><button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Ver la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k, cub ? resto : undefined) : 'Reportar incidencia'}</button></div>`;
+  return `<div class="r4"><span class="sp"></span><button type="button" class="ax-inc ${inc ? 'on split' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Ver la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncHtml_(k, cub ? resto : undefined) : 'Reportar incidencia'}</button></div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
   const inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
@@ -65764,7 +65785,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     const cubre = new Map(); H.forEach(h => [k, kDe(h)].forEach(x => { if (!cubre.has(x)) cubre.set(x, new Set()); cubre.get(x).add(puenteDe.get(h)); }));
     ASEO._sinInc = cubre;
     try {
-      const puente = h => { const id = puenteDe.get(h); return `<div class="ad-puente"><button type="button" class="ax-inc on" title="Incidencia que vincula estas cards" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')">${pcEsc(axIncTxt_(k, [id]))}</button></div>`; };
+      const puente = h => { const id = puenteDe.get(h); return `<div class="ad-puente"><button type="button" class="ax-inc on split" title="Incidencia que vincula estas cards" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')">${axIncHtml_(k, [id])}</button></div>`; };
       return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
   };
@@ -67207,7 +67228,7 @@ function icCard_(x) {
     <div class="r1"><span class="code">${pcEsc(x.corto || '—')}</span><span class="prop">${M.ico} ${pcEsc(x.titulo)}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
-    <div class="r4"><span class="sp"></span><span class="ax-inc on" style="cursor:default" title="Incidencia">⚠️ Incidencia · ${x.est}</span></div>
+    <div class="r4"><span class="sp"></span><span class="ax-inc on split" style="cursor:default" title="Incidencia"><span class="i1">⚠️ Incidencia</span><span class="i2" style="--ec:${(IC_EST.find(e => e.k === x.est) || IC_EST[0]).c}">${x.est}</span></span></div>
     <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin personas</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
     ${qs}
   </div>`;
