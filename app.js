@@ -65092,6 +65092,12 @@ function aseoEnsureCss_() {
   .ad-steps button:hover{color:#0f1729}
   .ad-steps button.on{background:#fff;color:#0f1729;font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
   .ad-steps button.on:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:1px}
+  /* Mismo estilo que los botones de estado de las cards: el elegido sólido con su color, los demás en tono suave */
+  .ad-steps{background:transparent;padding:0;gap:4px}
+  .ad-steps button{background:color-mix(in srgb,var(--c) 11%,#fff);color:color-mix(in srgb,var(--c) 72%,#1f2937)}
+  .ad-steps button:hover{background:color-mix(in srgb,var(--c) 22%,#fff);color:#0f1729}
+  .ad-steps button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
+  .ad-steps button.on:before{background:#fff}
   .ad-hint{color:#6b7280;font-size:11.5px;margin-top:7px}
   .ad-val{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:8px 10px;border-radius:9px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:11.5px}
   .ad-val button{all:unset;cursor:pointer;flex:none;background:#10b981;color:#fff;font-weight:600;padding:5px 10px;border-radius:7px}
@@ -65674,7 +65680,7 @@ function axIncTxt_(k, ids) {
   ids = ids || axIncActivas_(k);
   if (ids.length > 1) { const ab = ids.filter(id => { const r = axIncRow_(id); return !r || !icCerrada_({ est: icEstK_(r.Estatus) }); }).length; return `⚠️ ${ids.length} incidencias${ab ? ` · ${ab} abierta${ab === 1 ? '' : 's'}` : ''}`; }
   const r = ids.length ? axIncRow_(ids[0]) : null;
-  return r ? '⚠️ Incidencia · ' + icEstK_(r.Estatus) : '⚠️ Incidencia';
+  return r ? '⚠️ Incidencia · ' + icEstT_(icEstK_(r.Estatus)) : '⚠️ Incidencia';
 }
 // Chip partido: «⚠️ Incidencia» en rojo + el estado con el color de su estado (varias: el estado más urgente).
 function axIncHtml_(k, ids) {
@@ -65684,9 +65690,9 @@ function axIncHtml_(k, ids) {
   const par = (izq, der, c) => `<span class="i1">${izq}</span>${der ? `<span class="i2" style="--ec:${c}">${der}</span>` : ''}`;
   if (ids.length > 1) {
     const ab = est.filter(e => e === 'Nuevo' || e === 'En proceso').length, urg = ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado'].find(e => est.includes(e));
-    return par(`⚠️ ${ids.length} incidencias`, ab ? `${ab} abierta${ab === 1 ? '' : 's'}` : (urg || ''), urg ? E(urg).c : '#64748b');
+    return par(`⚠️ ${ids.length} incidencias`, ab ? `${ab} abierta${ab === 1 ? '' : 's'}` : (urg ? icEstT_(urg) : ''), urg ? E(urg).c : '#64748b');
   }
-  return est[0] ? par('⚠️ Incidencia', est[0], E(est[0]).c) : par('⚠️ Incidencia', '', '');
+  return est[0] ? par('⚠️ Incidencia', icEstT_(est[0]), E(est[0]).c) : par('⚠️ Incidencia', '', '');
 }
 function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')), sd = pcEsc(String(dia || '')); return inc ? `axIncAbrir_('${sk}','${sh}','${sd}')` : `axReportar_('${sk}','${sh}','${sd}')`; }
 // Clic en «⚠️ Incidencia»: siempre abre la ventana lateral (una → su detalle; varias → la lista de la card).
@@ -65707,7 +65713,7 @@ function axIncLista_(ctx) {
       const r = axIncRow_(id); if (!r) return `<div class="ic-li"><div class="t">${pcEsc(id)}</div><div class="s">⏳ Cargando…</div></div>`;
       const x = icRow_(r), E = IC_EST.find(e => e.k === x.est), M = icMotC_(x.mot[0]);
       return `<div class="ic-li" style="--tc:${M.c}" onclick="axIncAbrir_(${js},'${pcEsc(id)}')"><div class="t">${M.ico} ${pcEsc(x.titulo)}</div>
-        <div class="s"><i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${x.fecha ? aseoDiaTxt_(x.fecha) : ''} · ${icLigsVal_(r).length ? '🔗 ' + icLigsVal_(r).map(l => pcEsc(icLigTxt_(l))).join(' · ') : 'sin tarea'}</div></div>`;
+        <div class="s"><i style="background:${E.c}"></i>${E.t} · ${prio4Html_(x.prio)} · ${x.fecha ? aseoDiaTxt_(x.fecha) : ''} · ${icLigsVal_(r).length ? '🔗 ' + icLigsVal_(r).map(l => pcEsc(icLigTxt_(l))).join(' · ') : 'sin tarea'}</div></div>`;
     }).join('') : '<div class="ad-hint">Esta card está marcada con una incidencia, pero no tiene un reporte registrado.</div>'}</div>
     <div class="ad-ft">${ids.length ? '' : `<button type="button" class="ad-bt" onclick="axIncQuitarMarca_(${js})">Quitar marca</button>`}<button type="button" class="ad-bt pri" onclick="axReportar_(${js})">＋ Reportar otra incidencia</button></div>`;
 }
@@ -67089,7 +67095,9 @@ if (!window.__aseoTimer) {
 // «Incidencias» en v1601. Mismos endpoints para todos (sistema, bot, Gestión de reservas):
 // /incidencias-list · /save-incidencia · /update-incidencia.
 // ═══════════════════════════════════════════════════════════════════════════
-const IC_EST = [{ k: 'Nuevo', c: '#94a3b8', s: 'Nuevo' }, { k: 'En proceso', c: '#f59e0b', s: 'Proceso' }, { k: 'Resuelto', c: '#10b981', s: 'Resuelto' }, { k: 'Cancelado', c: '#64748b', s: 'Cancel.' }];
+// Estados de incidencia homologados con los de las tareas (se guardan igual que antes: Nuevo/En proceso/Resuelto/Cancelado).
+const IC_EST = [{ k: 'Nuevo', t: 'Pendiente', c: '#94a3b8', s: 'Pend.' }, { k: 'En proceso', t: 'En proceso', c: '#f59e0b', s: 'Proceso' }, { k: 'Resuelto', t: 'Terminado', c: '#10b981', s: 'Term.' }, { k: 'Cancelado', t: 'Cancelado', c: '#64748b', s: 'Cancel.' }];
+function icEstT_(k) { return (IC_EST.find(e => e.k === k) || {}).t || k; }
 const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Inspección': { c: '#8b5cf6', ico: '📋' }, Insumos: { c: '#16a34a', ico: '📦' }, Mantenimiento: { c: '#f97316', ico: '🔧' } }; // = AT_DEPTO
 const IC_NIV = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica' };
 const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo', 'Todo']];
@@ -67216,9 +67224,9 @@ function icKpis_(T) {
   const kpi = (t, v, s, cls) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div></div>`;
   const seg = k => vivosM ? (M.filter(x => x.est === k).length / vivosM * 100).toFixed(1) : 0;
   return `<div class="ad-kpis">
-    <div class="ad-kpi big"><small>Resolución del mes</small><div class="n">${pct}%<em>${resM} de ${vivosM} resueltas</em></div>
+    <div class="ad-kpi big"><small>Avance del mes</small><div class="n">${pct}%<em>${resM} de ${vivosM} terminadas</em></div>
       <div class="ad-prog"><i style="width:${seg('Resuelto')}%;background:#10b981"></i><i style="width:${seg('En proceso')}%;background:#f59e0b"></i></div></div>
-    ${kpi('Abiertas', ab.length)}${kpi('Nuevas', n('Nuevo'))}${kpi('En proceso', n('En proceso'))}${kpi('Este mes', M.length, 'reportadas')}
+    ${kpi('Abiertas', ab.length)}${kpi('Pendientes', n('Nuevo'))}${kpi('En proceso', n('En proceso'))}${kpi('Este mes', M.length, 'reportadas')}
     ${kpi('Alertas', urg + viejas, [urg ? `${urg} alta/crítica` : '', viejas ? `${viejas} con más de 7 días` : ''].filter(Boolean).join(' · '), urg + viejas ? 'al' : '')}
   </div>`;
 }
@@ -67238,7 +67246,7 @@ function icFiltros_(base, sinPer) {
     ${fila('👥', 'Personas involucradas', pChips, fx.pers.size ? "icFxClr_('pers')" : '')}
     ${fila('🏷️', 'Motivo', mChips, fx.mot.size ? "icFxClr_('mot')" : '')}
     ${fila('⚑', 'Prioridad', prChips, fx.prio ? "icFxClr_('prio')" : '')}
-    ${perChips ? fila('📅', 'Resueltas y canceladas de los últimos', perChips, '') : ''}</div>`;
+    ${perChips ? fila('📅', 'Terminadas y canceladas de los últimos', perChips, '') : ''}</div>`;
 }
 window.icFx_ = function (k, v) { const fx = IC.fx; if (k === 'prio' || k === 'per') fx[k] = fx[k] === v && k === 'prio' ? '' : v; else { if (fx[k].has(v)) fx[k].delete(v); else fx[k].add(v); } icRender_(); };
 window.icFxClr_ = function (k) { const fx = IC.fx; if (k === 'prio') fx.prio = ''; else fx[k].clear(); icRender_(); };
@@ -67250,13 +67258,13 @@ function icCard_(x) {
   else if (!icCerrada_(x) && x.fecha && x.fecha < icHaceDias_(7)) flag = `<div class="flag orange"><i></i>Abierta desde ${aseoDiaTxt_(x.fecha)}</div>`;
   const meta = [`<span class="ty" style="color:${M.c}">${pcEsc(x.mot.join(', ') || 'Sin motivo')}</span>`, `<span>${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'}</span>`];
   if (/bot/i.test(x.rep)) meta.push('<span>🤖 Bot</span>'); else if (x.rep) meta.push(`<span>Reportó ${pcEsc(aseoNombreCorto_(x.rep))}</span>`);
-  const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" title="${e.k}" onclick="event.stopPropagation();${e.k === x.est ? '' : `icSetEst_('${id}','${e.k}')`}"><i></i>${e.s}</button>`).join('')}</div>`;
+  const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === x.est ? '' : `icSetEst_('${id}','${e.k}')`}"><i></i>${e.s}</button>`).join('')}</div>`;
   return `<div class="ad-card tipo ic-card ${sel ? 'sel' : ''} ${x.est === 'Cancelado' ? 'ghost' : ''} ${!icCerrada_(x) && x.prio === 'critica' ? 'alert' : ''}" data-k="${id}" style="--tc:${M.c}" onclick="icAbrir_('${id}')"
       draggable="true" ondragstart="icDragStart_(event,'${id}')" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(x.corto || '—')}</span><span class="prop">${M.ico} ${pcEsc(x.titulo)}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
-    <div class="r4"><span class="sp"></span><span class="ax-inc on split" style="cursor:default" title="Incidencia"><span class="i1">⚠️ Incidencia</span><span class="i2" style="--ec:${(IC_EST.find(e => e.k === x.est) || IC_EST[0]).c}">${x.est}</span></span></div>
+    <div class="r4"><span class="sp"></span><span class="ax-inc on split" style="cursor:default" title="Incidencia"><span class="i1">⚠️ Incidencia</span><span class="i2" style="--ec:${(IC_EST.find(e => e.k === x.est) || IC_EST[0]).c}">${icEstT_(x.est)}</span></span></div>
     <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin personas</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
     ${qs}
   </div>`;
@@ -67264,14 +67272,14 @@ function icCard_(x) {
 function icTablero_(L) {
   const cols = IC_EST.map(e => {
     const X = L.filter(x => x.est === e.k).sort((a, b) => PRIO4[b.prio].n - PRIO4[a.prio].n || b.fecha.localeCompare(a.fecha));
-    return `<div class="ad-col" ondragover="icDragOver_(event)" ondrop="icDrop_(event,'${e.k}')"><div class="ad-colh"><i style="background:${e.c}"></i>${e.k}<span>${X.length}</span></div>${X.map(icCard_).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
+    return `<div class="ad-col" ondragover="icDragOver_(event)" ondrop="icDrop_(event,'${e.k}')"><div class="ad-colh"><i style="background:${e.c}"></i>${e.t}<span>${X.length}</span></div>${X.map(icCard_).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
   }).join('');
   return L.length ? `<div class="ad-board est">${cols}</div>` : '<div class="pc-mv-empty">Ninguna incidencia coincide con los filtros</div>';
 }
 function icRegistro_(L) {
   if (!L.length) return '<div class="pc-mv-empty">Ninguna incidencia coincide con los filtros</div>';
   return `<div class="ad-hint" style="margin:0 0 8px">${L.length} incidencia${L.length === 1 ? '' : 's'}</div><div class="ic-tbw"><table class="ic-tb"><thead><tr>${['Fecha', 'Alojamiento', 'Motivo', 'Sub-motivo', 'Prioridad', 'Estado', 'Personas', 'Reportó', 'Folio'].map(h => `<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${L.map(x => { const E = IC_EST.find(e => e.k === x.est); return `<tr onclick="icAbrir_('${pcEsc(x.id)}')"><td style="white-space:nowrap">${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</td><td><b>${pcEsc(x.corto || '')}</b> ${pcEsc(x.aloj)}</td><td style="color:${icMotC_(x.mot[0]).c};font-weight:600">${pcEsc(x.mot.join(', ') || '—')}</td><td>${pcEsc(x.clas.join(', ') || '—')}</td><td style="white-space:nowrap">${prio4Html_(x.prio)}</td><td class="est" style="white-space:nowrap"><i style="background:${E.c}"></i>${E.k}</td><td>${pcEsc(x.pers.join(', ') || '—')}</td><td>${pcEsc(x.rep || '—')}</td><td style="color:#9aa1ad;white-space:nowrap">${pcEsc(x.id)}</td></tr>`; }).join('')}</tbody></table></div>`;
+    <tbody>${L.map(x => { const E = IC_EST.find(e => e.k === x.est); return `<tr onclick="icAbrir_('${pcEsc(x.id)}')"><td style="white-space:nowrap">${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</td><td><b>${pcEsc(x.corto || '')}</b> ${pcEsc(x.aloj)}</td><td style="color:${icMotC_(x.mot[0]).c};font-weight:600">${pcEsc(x.mot.join(', ') || '—')}</td><td>${pcEsc(x.clas.join(', ') || '—')}</td><td style="white-space:nowrap">${prio4Html_(x.prio)}</td><td class="est" style="white-space:nowrap"><i style="background:${E.c}"></i>${E.t}</td><td>${pcEsc(x.pers.join(', ') || '—')}</td><td>${pcEsc(x.rep || '—')}</td><td style="color:#9aa1ad;white-space:nowrap">${pcEsc(x.id)}</td></tr>`; }).join('')}</tbody></table></div>`;
 }
 // ── Guardado (siempre por /update-incidencia, optimista) ──
 async function icPatch_(id, fields, local) {
@@ -67317,11 +67325,11 @@ function icPintar_(nuevo) {
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(x.corto || '—')}</span><span class="t">${pcEsc(x.aloj)}</span><button type="button" class="ad-link" style="margin-left:auto;white-space:nowrap;font-weight:600" onclick="${nueva}">＋ Nueva incidencia</button><button type="button" class="ad-close" style="margin-left:8px" onclick="icCerrar_()">✕</button></div>
       <div class="ic-tag">⚠️ Incidencia</div>
       <div class="ad-tt">${M.ico} ${pcEsc(x.titulo)}</div>
-      <div class="ad-sub">${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'} · <i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${pcEsc(x.id)}</div>
+      <div class="ad-sub">${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(x.prio)} · ${pcEsc(x.id)}</div>
       ${!icCerrada_(x) && x.prio === 'critica' ? '<div class="ad-badge red"><i></i>Prioridad crítica</div>' : ''}${x.arch ? '<div class="ad-badge"><i style="background:#64748b"></i>🗄 Archivada</div>' : ''}
       ${IC.dr.ctx ? (() => { const C = IC.dr.ctx, n = axIncActivas_(C.k).length; return n > 1 ? `<div class="ad-hint" style="margin-top:8px"><a href="#" style="color:#4f46e5;font-weight:600" onclick="event.preventDefault();axIncLista_({k:'${pcEsc(C.k)}',hid:'${pcEsc(C.hid)}',dia:'${pcEsc(C.dia)}'})">‹ Las ${n} incidencias de esta card</a></div>` : ''; })() : ''}</div>
     <div class="ad-db">
-      <div class="lab">Estado</div><div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" onclick="icSetEst_('${id}','${e.k}')">${e.k}</button>`).join('')}</div>
+      <div class="lab">Estado</div><div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" onclick="icSetEst_('${id}','${e.k}')">${e.t}</button>`).join('')}</div>
       ${x.upd ? `<div class="ad-hint">Actualizado ${pcEsc(x.upd.replace('T', ' ').slice(0, 16))}</div>` : ''}
       <div class="lab">Prioridad</div>${prio4Sel_(x.prio, `icSetPrio_.bind(null,'${id}')`)}
       <div class="lab">Descripción detallada</div><div class="ad-desc">${x.desc ? txt(x.desc) : '<span style="color:#9aa1ad">Sin descripción</span>'}</div>
@@ -67336,7 +67344,7 @@ function icPintar_(nuevo) {
       ${!x.arch ? (n => `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🛠 ${n ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}<small>${n ? `Ya hay ${n} tarea${n > 1 ? 's' : ''} correctiva${n > 1 ? 's' : ''}; crea otra en «Aseo y Mantenimiento»` : 'Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia'}</small></button>`)(icLigsVal_(r).length) : ''}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')" title="Imprimir">🖨️</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : `<button type="button" class="ad-bt" onclick="icArchivar_('${id}')">🗄 Archivar</button>`}
-      ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.k}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
+      ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.t}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.t.toLowerCase()}</button>`}</div>`;
   if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
 }
 window.icImprimir_ = function (id) { const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (r) incImprimirData_(incRowToReportData(r)); };
@@ -67407,7 +67415,7 @@ function icFormPintar_() {
         <input class="at-in at-tagin" style="max-width:170px" placeholder="＋ Otra y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.clas.includes(v)){IC.f.clas.push(v);icFormPintar_();}}"></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F.prio, 'icFormPrio_')}
       <label class="at-l">Estado</label>
-      <div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === F.est ? 'on' : ''}" style="--c:${e.c}" onclick="IC.f.est='${e.k}';icFormPintar_()">${e.k}</button>`).join('')}</div>
+      <div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === F.est ? 'on' : ''}" style="--c:${e.c}" onclick="IC.f.est='${e.k}';icFormPintar_()">${e.t}</button>`).join('')}</div>
       <div class="at-sec"><span>📝 Reporte</span></div>
       <label class="at-l">Descripción detallada <i>*</i></label><textarea class="at-in" rows="3" placeholder="¿Qué pasó y dónde?" oninput="IC.f.desc=this.value">${pcEsc(F.desc)}</textarea>
       <details class="ad-res" ${F.detAb || F.acc || F.seg ? 'open' : ''} ontoggle="IC.f.detAb=this.open"><summary>Acciones realizadas y seguimiento requerido</summary>
