@@ -64966,6 +64966,10 @@ function aseoEnsureCss_() {
   .ax-co{font-size:10.5px;font-weight:600;color:#0f766e;background:#ccfbf1;border-radius:6px;padding:1px 7px}
   .ax-gen{font-size:10.5px;font-weight:500;color:#9aa1ad}
   .ax-cor{font-size:10.5px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:6px;padding:1px 7px}
+  .ax-cat{display:inline-flex;align-items:center;max-width:100%;border:1px solid color-mix(in srgb,var(--cc) 40%,#fff);border-radius:7px;overflow:hidden;font-size:10.5px;line-height:1.55;background:#fff}
+  .ax-cat .t{background:color-mix(in srgb,var(--cc) 13%,#fff);color:var(--cc);font-weight:700;padding:1px 7px;white-space:nowrap}
+  .ax-cat .a{color:#b8bec8;padding:0 3px 0 5px;font-weight:600}
+  .ax-cat .s{color:var(--sc);font-weight:600;padding:1px 7px 1px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ax-pre{font-size:10.5px;font-weight:600;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:1px 7px}
   .ad-vinc{border:1.5px dashed #f87171;border-radius:12px;padding:5px;margin:0 0 8px;background:#fff5f5}
   .ad-vinc>.ad-card{margin-bottom:0}
@@ -65573,6 +65577,15 @@ function axSrv_(k, auto) { const e = axEx_(k); return e.correctivo ? 'correctivo
 function axSrvPatch_(v) { return { checkout: v === 'checkout', correctivo: v === 'correctivo', preventivo: v === 'preventivo' }; }
 function axSrvSeg_(cur, fn) { return `<div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${AX_SRV.map(([k, t, c]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${c}" onclick="${fn}('${k}')">${t}</button>`).join('')}</div>`; }
 window.axSetSrv_ = function (k, hid, v) { axSet_(k, axSrvPatch_(v), hid); };
+// Chip único en la card: Tipo de tarea (categoría) › Tipo de servicio (subcategoría).
+function axCatHtml_(depto, k, autoCO) {
+  const D = AT_DEPTO[depto] || AT_DEPTO.limpieza, S = AX_SRV.find(x => x[0] === axSrv_(k, autoCO)) || AX_SRV[3];
+  return `<span class="ax-cat" style="--cc:${D.c};--sc:${S[2] === '#9aa1ad' ? '#6b7280' : S[2]}" title="Tipo de tarea: ${D.t} › Tipo de servicio: ${S[1].replace(/^\S+\s/, '')}"><span class="t">${D.ico} ${D.t}</span><span class="a">›</span><span class="s">${S[1]}</span></span>`;
+}
+// Detalle de la card: «Tipo de tarea *» (arriba de «Tipo de servicio»). Sin fn = fijo (las cards de aseo de reservas siempre son Limpieza).
+function axTipoTareaHtml_(cur, fn) {
+  return `<div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${X.c}${fn || cur === k ? '' : ';opacity:.45;cursor:not-allowed'}" ${fn ? `onclick="${fn}('${k}')"` : `title="Las cards de aseo de una reserva siempre son de Limpieza"`}>${X.ico} ${X.t}</button>`).join('')}</div>`;
+}
 window.axSet_ = function (k, patch, hid) {
   ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k];
   ASEO.extra[k] = Object.assign({}, prev, patch);
@@ -65643,14 +65656,12 @@ window.icArchivar_ = function (id) {
   if (ctx && axIncActivas_(ctx.k).length) axIncAbrir_(ctx.k, ctx.hid, ctx.dia); else icCerrar_();
   try { aseoRender_(); } catch (_) {}
 };
-function axFila_(k, autoCO, hid, dia) {
-  const co = axCO_(k, autoCO), inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
+function axFila_(k, autoCO, hid, dia) { // renglón del botón de incidencia (el tipo de servicio va junto al tipo de tarea: axCatHtml_)
+  const inc = !!axEx_(k).incidencia;
   // En un grupo vinculado cada incidencia se muestra una sola vez, en su puente; aquí solo las que no tienen puente.
   const cub = ASEO._sinInc && ASEO._sinInc.get(String(k)), act = inc ? axIncActivas_(k) : [], resto = cub ? act.filter(x => !cub.has(x)) : act;
-  const enPuente = !!(cub && inc && !resto.length);
-  const srv = axSrv_(k, autoCO);
-  return `<div class="r4">${srv === 'correctivo' ? '<span class="ax-cor" title="Tipo: Correctivo">🛠 Correctivo</span>' : srv === 'preventivo' ? '<span class="ax-pre" title="Tipo: Preventivo">🛡 Preventivo</span>' : co ? '<span class="ax-co" title="Tipo: Check-out">⇥ Check-out</span>' : '<span class="ax-gen">General</span>'}<span class="sp"></span>
-    ${enPuente ? '' : `<button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Ver la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k, cub ? resto : undefined) : 'Reportar incidencia'}</button>`}</div>`;
+  if (cub && inc && !resto.length) return '';
+  return `<div class="r4"><span class="sp"></span><button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Ver la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k, cub ? resto : undefined) : 'Reportar incidencia'}</button></div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
   const inc = !!axEx_(k).incidencia, sk = pcEsc(String(k)), sh = pcEsc(String(hid || ''));
@@ -65664,7 +65675,7 @@ function adCard_(I) {
   const meta = [];
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
-  meta.unshift(`<span class="ty" style="color:${AT_DEPTO.limpieza.c}">${AT_DEPTO.limpieza.t}</span>`);
+  meta.unshift(axCatHtml_('limpieza', I.asigId, I.g.sal.length > 0));
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
@@ -66024,6 +66035,7 @@ function adPintar_(nuevo) {
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
       <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${nota}
+      ${axTipoTareaHtml_('limpieza', null)}
       ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
       <div class="lab">Solicitudes</div><div class="ad-grid2">${sol('tard', I.xs, I.trd)}${sol('temp', I.xe, I.temp)}</div>
@@ -66107,7 +66119,7 @@ function rtCardA_(I) {
     draggable="true" ondragstart="adDragStart_(event,'R:${pcEsc(t.rtId)}','',true,true)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
     ${flags.join('')}
-    <div class="r2"><span class="ty" style="color:${D.c}">Mantenimiento</span><span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
+    <div class="r2">${axCatHtml_('mantenimiento', 'R' + t.rtId, false)}<span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
     ${axFila_('R' + t.rtId, false, t.hid, I.dia || t.fecha)}
     <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
     <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
@@ -66121,7 +66133,7 @@ function atCard_(I) {
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
-    <div class="r2"><span class="ty" style="color:${D.c}">${D.t}</span>${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
+    <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     ${axFila_('T' + t.id, false, t.hid, I.dia)}
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
@@ -66156,7 +66168,7 @@ function atPintar_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
-      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
+      <div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
       ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
       <div class="lab">Detalles</div>
@@ -66460,7 +66472,7 @@ function rtPintarA_(nuevo) {
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="adRtEst_('${id}','${p[0]}')">${p[1]}</button>`).join('')}</div>
       ${row.Updated_at || row.Updated_by ? `<div class="ad-hint">Actualizado ${pcEsc(String(row.Updated_at || '').replace('T', ' ').slice(0, 16))}${row.Updated_by ? ' · ' + pcEsc(row.Updated_by) : ''}</div>` : ''}
-      <div class="lab">Tipo de tarea</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${k === 'mantenimiento' ? 'on' : ''}" style="--c:${X.c}" onclick="${k === 'mantenimiento' ? '' : `rtFormA_('${id}');rtFormCambiarDepto_('${k}')`}">${X.ico} ${X.t}</button>`).join('')}</div>
+      <div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${k === 'mantenimiento' ? 'on' : ''}" style="--c:${X.c}" onclick="${k === 'mantenimiento' ? '' : `rtFormA_('${id}');rtFormCambiarDepto_('${k}')`}">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('R' + t.rtId, false, t.hid, t.fecha)}
       <div class="lab">Descripción de la falla</div><div class="ad-desc">${pcEsc(t.desc || '—').replace(/\n/g, '<br>')}</div>
       <div class="lab">Impacto en el alojamiento</div>
