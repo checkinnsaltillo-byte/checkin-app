@@ -67042,6 +67042,9 @@ function icCss_() {
   #ad-drawer .ic-mots{display:flex;gap:6px;flex-wrap:wrap}
   #ad-drawer .ic-mot{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid #e8eaee;font-size:12px;font-weight:600;color:#6b7280;background:#fff}
   #ad-drawer .ic-mot.on{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 9%,#fff)}
+  #ad-drawer .ic-tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#dc2626;border-radius:6px;padding:2px 8px;margin:8px 0 2px}
+  #ad-drawer .ic-levbtn{display:block;width:100%;box-sizing:border-box;margin-top:18px;padding:11px 12px;border-radius:10px;border:1.5px dashed #4f46e5;background:#f5f5ff;color:#4338ca;font-weight:700;font-size:13px;cursor:pointer;text-align:center}
+  #ad-drawer .ic-levbtn small{display:block;font-weight:500;color:#6b7280;font-size:11px;margin-top:2px}
   #ad-drawer .ic-li{border:1px solid #e8eaee;border-left:4px solid var(--tc,#dc2626);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer;background:#fff}
   #ad-drawer .ic-li:hover{background:#f8fafc}#ad-drawer .ic-li .t{font-weight:600;font-size:12.5px}
   #ad-drawer .ic-li .s{color:#6b7280;font-size:11.5px;margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
@@ -67200,6 +67203,7 @@ function icPintar_(nuevo) {
   const E = IC_EST.find(e => e.k === x.est), sig = IC_EST[Math.min(2, IC_EST.findIndex(e => e.k === x.est) + 1)];
   const txt = v => pcEsc(v).replace(/\n/g, '<br>');
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(x.corto || '—')}</span><span class="t">${pcEsc(x.aloj)}</span><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+      <div class="ic-tag">⚠️ Incidencia</div>
       <div class="ad-tt">${M.ico} ${pcEsc(x.titulo)}</div>
       <div class="ad-sub">${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'} · <i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${pcEsc(x.id)}</div>
       ${!icCerrada_(x) && x.prio === 'critica' ? '<div class="ad-badge red"><i></i>Prioridad crítica</div>' : ''}${x.arch ? '<div class="ad-badge"><i style="background:#64748b"></i>🗄 Archivada</div>' : ''}
@@ -67214,9 +67218,10 @@ function icPintar_(nuevo) {
       <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
-        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${r.Tarea_ligada ? `<span>Reporte levantado</span><b><a href="#" style="color:#4f46e5" onclick="event.preventDefault();icVerTarea_('${pcEsc(r.Tarea_ligada)}')">${pcEsc(icLigTxt_(r.Tarea_ligada))} ›</a></b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
+        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${r.Tarea_ligada && icLigValida_(r.Tarea_ligada) ? `<span>Reporte levantado</span><b><a href="#" style="color:#4f46e5" onclick="event.preventDefault();icVerTarea_('${pcEsc(r.Tarea_ligada)}')">${pcEsc(icLigTxt_(r.Tarea_ligada))} ›</a></b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
+      ${!x.arch && !icLigValida_(r.Tarea_ligada) ? `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🧾 Levantar reporte<small>Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></button>` : ''}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')" title="Imprimir">🖨️</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : `<button type="button" class="ad-bt" onclick="icArchivar_('${id}')">🗄 Archivar</button>`}
       ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.k}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
@@ -67224,7 +67229,8 @@ function icPintar_(nuevo) {
 }
 window.icImprimir_ = function (id) { const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (r) incImprimirData_(incRowToReportData(r)); };
 // ── Formulario «Nueva incidencia» / «Editar incidencia» ──
-window.icForm_ = function (id, pre) {
+window.icForm_ = function (id, pre, modo) {
+  const ctx = IC.dr && IC.dr.ctx;
   const r = id ? (INC_STATE.list || []).find(x => String(x.ID) === String(id)) : null;
   const x = r ? icRow_(r) : null, P = pre || {};
   const yo = (typeof currentUser !== 'undefined' && currentUser) || '';
@@ -67232,7 +67238,9 @@ window.icForm_ = function (id, pre) {
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
     : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
   IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
-  IC.f.tareaLig = x ? String(r.Tarea_ligada || '') : ''; IC.f.lev = false;
+  IC.f.tareaLig = x && icLigValida_(r.Tarea_ligada) ? String(r.Tarea_ligada) : ''; IC.f.lev = false; IC.f.ctx = ctx || null;
+  IC.f0 = icFormFirma_(IC.f); // para detectar cambios (Guardar cambios solo si hay)
+  if (modo && modo.soloLev) { IC.f.soloLev = true; icLev_(); return; } // «Levantar reporte»: solo esa sección
   icFormPintar_();
 };
 function icClasDe_(mots) {
@@ -67265,7 +67273,16 @@ function icFormPintar_() {
   const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
   const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); if (F.rep && !nombres.includes(F.rep)) nombres.unshift(F.rep);
   const mots = [...new Set(Object.keys(icCatalogo_()).concat(F.mot))];
-  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
+  const cancelar = F.id ? `icFormCancelar_()` : 'icCerrar_()';
+  if (F.soloLev) {
+    dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🧾 Levantar reporte</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+        <div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc([F.clas.join(', ') || F.mot.join(', '), F.hid ? (atAloj_(F.hid).corto || '').toUpperCase() : '', F.id].filter(Boolean).join(' · '))}</div></div>
+      <div class="ad-db at-f"><div class="ic-lev">${icLevHtml_()}</div></div>
+      <div class="ad-ft"><button type="button" class="ad-bt" onclick="${cancelar}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()">Levantar reporte</button></div>`;
+    const b0 = dr.querySelector('.ad-db'); if (b0) b0.scrollTop = top;
+    return;
+  }
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
     <div class="ad-db at-f">
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="IC.f.hid=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
@@ -67295,8 +67312,21 @@ function icFormPintar_() {
       <div class="at-sec"><span>📷 Evidencia fotográfica</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="icFormFotos_(this)"></label></div>
       <div class="ic-fotos" id="ic-fotos">${icFotosForm_()}</div>
     </div>
-    <div class="ad-ft"><button type="button" class="ad-bt" onclick="${F.id ? `IC.f=null;icAbrir_('${pcEsc(F.id)}')` : 'icCerrar_()'}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()">${F.id ? 'Guardar cambios' : 'Crear incidencia'}</button></div>`;
+    <div class="ad-ft"><button type="button" class="ad-bt" onclick="${cancelar}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()" ${F.id && !icFormSucio_() ? 'style="display:none"' : ''}>${F.id ? 'Guardar cambios' : 'Crear incidencia'}</button></div>`;
   const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top;
+  // Editar: «Guardar cambios» aparece solo si algo cambió.
+  if (F.id) { const upd = () => setTimeout(() => { const ok = document.getElementById('ic-ok'); if (ok && IC.f) ok.style.display = icFormSucio_() ? '' : 'none'; }, 0); dr.oninput = upd; dr.onchange = upd; dr.onclick = upd; }
+  else { dr.oninput = dr.onchange = dr.onclick = null; }
+}
+function icFormFirma_(F) { const { id, hid, fecha, mot, clas, prio, est, rep, pers, desc, acc, seg, keep, reserva, lev, L } = F; return JSON.stringify({ id, hid, fecha, mot, clas, prio, est, rep, pers, desc, acc, seg, keep, n: (F.nuevas || []).length, reserva, lev, L: lev ? L : null }); }
+function icFormSucio_() { return !!IC.f && icFormFirma_(IC.f) !== IC.f0; }
+window.icFormCancelar_ = function () { const F = IC.f; IC.f = null; icAbrir_(F.id, F.ctx || undefined); };
+// La tarea ligada existe (no se eliminó ni se archivó). Si los datos aún no cargan se da por buena.
+function icLigValida_(lig) {
+  lig = String(lig || ''); if (!lig) return false;
+  const id = lig.slice(1);
+  if (lig[0] === 'T') return !ASEO.ts || (!!(ASEO.tareas || {})[id] && !axEx_(lig).archivada);
+  return !(ASEO.rt && ASEO.rt.length) || (ASEO.rt.some(r => String(r.ID) === id) && !axEx_(lig).archivada);
 }
 window.icFormPrio_ = function (k) { IC.f.prio = k; icFormPintar_(); };
 window.icFormTog_ = function (k, v) {
@@ -67317,6 +67347,13 @@ window.icFormFotos_ = function (inp) {
 };
 window.icGuardar_ = async function () {
   const F = IC.f; if (!F) return;
+  if (F.id && F.soloLev) { // solo levantar el reporte de una incidencia existente
+    if (!F.hid) return alert('La incidencia no tiene un alojamiento del catálogo; edítala y elige el alojamiento.');
+    const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Levantando…'; }
+    try { await icLevantar_(F, F.id); IC.f = null; icRender_(); icAbrir_(F.id, F.ctx || undefined); try { aseoRender_(); } catch (_) {} }
+    catch (e) { alert('No se pudo levantar el reporte: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = 'Levantar reporte'; } }
+    return;
+  }
   if (!F.hid && !F.alojTxt) return alert('Elige el alojamiento.');
   if (!F.mot.length) return alert('Elige al menos un motivo.');
   if (!String(F.desc || '').trim()) return alert('Escribe la descripción.');
@@ -67347,8 +67384,8 @@ window.icGuardar_ = async function () {
     }
     if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo levantar el reporte: ' + (e.message || e)); } }
     if (F.desdeK && id) { try { axIncLigar_(F.desdeK, F.hid, id, true); } catch (_) {} } // se suma a las incidencias de la card // la card de origen queda «⚠️ Incidencia»
-    IC.f = null; icRender_();
-    if (id) icAbrir_(id); else icCerrar_();
+    const ctx0 = F.ctx; IC.f = null; icRender_();
+    if (id) icAbrir_(id, ctx0 || undefined); else icCerrar_();
     try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
   } catch (e) { alert('No se pudo guardar la incidencia: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear incidencia'; } }
 };
