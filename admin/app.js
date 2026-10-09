@@ -66184,7 +66184,7 @@ function atRepTxt_(r, fecha) {
   return txt + (r.fin ? ` · hasta ${aseoDiaTxt_(r.fin)}` : '');
 }
 function atLista_() { return Object.values(ASEO.tareas || {}).filter(t => !axEx_('T' + t.id).archivada).concat(rtTareas_().filter(t => !axEx_('R' + t.rtId).archivada)); } // sin las archivadas (incidencia archivada)
-function atAloj_(hid) { const a = ocupGetAlojamientos().find(x => x.houseId === String(hid)); return a || { houseId: String(hid), nombre: 'Alojamiento ' + hid, corto: '' }; }
+function atAloj_(hid) { if (!hid) return { houseId: '', nombre: 'Sin alojamiento', corto: '' }; const a = ocupGetAlojamientos().find(x => x.houseId === String(hid)); return a || { houseId: String(hid), nombre: 'Alojamiento ' + hid, corto: '' }; } // el alojamiento es opcional en las tareas
 // Info de una tarea en un día (para el tablero, la ventana y el calendario).
 function atInfo_(t, dia) {
   if (t.rt) {
@@ -66314,10 +66314,10 @@ function atFormPintar_() {
     <div class="ad-db at-f">
       ${atDeptoSeg_(F.depto, 'atFormDepto_')}
       ${F._deRt ? '<div class="at-hint">Al guardar, el reporte técnico se convierte en esta tarea y sale de «Reportes técnicos».</div>' : ''}
-      <label class="at-l">Alojamiento <i>*</i></label>
-      <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Tipo de servicio</label>
       ${axSrvSeg_(F.srv || 'general', 'atFormSrv_')}
+      <label class="at-l">Alojamiento</label>
+      <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <div class="at-sec"><span>☑ Detalles de la tarea</span></div>
       ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
       <label class="at-l">Título de la tarea <i>*</i></label>
@@ -66416,7 +66416,6 @@ window.atSubir_ = async function (inp) {
 };
 window.atGuardar_ = async function () {
   const F = ASEO._tf;
-  if (!F.hid) return alert('Elige el alojamiento.');
   if (!F.depto) return alert('Elige el tipo de tarea: Aseo, Inspección o Mantenimiento.');
   if (!String(F.titulo || '').trim()) return alert('Escribe el título de la tarea.');
   if (!F.fecha) return alert('Elige la fecha.');
@@ -66623,10 +66622,10 @@ function rtFormPintarA_() {
     <div class="ad-db at-f">
       ${atDeptoSeg_('mantenimiento', 'rtFormCambiarDepto_')}
       <div class="at-hint">${F._deTarea ? 'Al guardar, la tarea se convierte en reporte técnico (Mantenimiento).' : 'Mantenimiento = reporte técnico (se guarda en «Reportes técnicos»).'}</div>
-      <label class="at-l">Alojamiento <i>*</i></label>
-      <select class="at-in" onchange="ASEO._rf._hid=this.value;ASEO._rf.Reservacion_id='';rtFormPintarA_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F._hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <label class="at-l">Tipo de servicio</label>
       ${axSrvSeg_(F._srv || 'general', 'rtFormSrv_')}
+      <label class="at-l">Alojamiento</label>
+      <select class="at-in" onchange="ASEO._rf._hid=this.value;ASEO._rf.Reservacion_id='';rtFormPintarA_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F._hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <div class="at-sec"><span>☑ Detalles del reporte</span></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F._prio, 'rtFormPrio_')}
       <label class="at-l">Categoría</label>${sel('Categoria', RT_CATEGORIAS, F.Categoria || 'otros')}
@@ -66682,7 +66681,6 @@ window.rtFormCambiarDepto_ = function (v) {
 };
 window.rtGuardarA_ = async function () {
   const F = ASEO._rf;
-  if (!F._hid) return alert('Elige el alojamiento.');
   if (!String(F.Titulo || '').trim()) return alert('Escribe el título.');
   if (!String(F.Descripcion || '').trim()) return alert('Describe la falla.');
   const a = atAloj_(F._hid);
