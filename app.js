@@ -67367,6 +67367,7 @@ window.icGuardar_ = async function () {
   const F = IC.f; if (!F) return;
   if (F.id && F.soloLev) { // solo levantar el reporte de una incidencia existente
     if (!F.hid) return alert('La incidencia no tiene un alojamiento del catálogo; edítala y elige el alojamiento.');
+    if (F.L && F.L.titulo != null && !String(F.L.titulo).trim()) return alert('Escribe el título de la tarea correctiva.');
     const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Creando…'; }
     try { await icLevantar_(F, F.id); IC.f = null; icRender_(); icAbrir_(F.id, F.ctx || undefined); try { aseoRender_(); } catch (_) {} }
     catch (e) { alert('No se pudo crear la tarea correctiva: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = 'Crear tarea correctiva'; } }
@@ -67376,6 +67377,7 @@ window.icGuardar_ = async function () {
   if (!F.mot.length) return alert('Elige al menos un motivo.');
   if (!String(F.desc || '').trim()) return alert('Escribe la descripción.');
   if (F.lev && !F.hid) return alert('Para crear la tarea correctiva elige el alojamiento.');
+  if (F.lev && F.L && F.L.titulo != null && !String(F.L.titulo).trim()) return alert('Escribe el título de la tarea correctiva.');
   const a = F.hid ? atAloj_(F.hid) : null;
   const old = F.id ? (INC_STATE.list || []).find(x => String(x.ID) === F.id) : null;
   const propiedad = a ? (a.propiedad || '') : String((old && old.Propiedad) || ''), depto = a ? String(a.depto || '') : String((old && old['# Departamento']) || '');
@@ -67491,6 +67493,9 @@ window.icClasifGuardar_ = async function () {
 // ── «Levantar reporte»: desde la incidencia se crea la tarea en «Aseo y Mantenimiento» ──
 // Ya se conocen alojamiento, reserva, prioridad, fecha, título y descripción; el tipo de tarea se infiere del motivo
 // (mismo nombre: Limpieza · Inspección · Insumos · Mantenimiento → reporte técnico) y el tipo de servicio es «Correctivo».
+// Título y descripción propuestos para la tarea correctiva (editables en el formulario).
+function icLevTitDef_(F) { return 'Incidencia · ' + (F.clas.join(', ') || F.mot.join(', ') || 'sin motivo'); }
+function icLevDescDef_(F, incId) { return [String(F.desc || '').trim(), F.rep ? 'Reportó: ' + F.rep : '', incId ? 'Folio de la incidencia: ' + incId : ''].filter(Boolean).join('\n'); }
 function icLevInfer_(F) { const t = F.mot.join(' '); return /manten/i.test(t) ? 'mantenimiento' : /inspec/i.test(t) ? 'inspeccion' : /insumo/i.test(t) ? 'insumos' : 'limpieza'; } // motivo = tipo de tarea
 window.icLev_ = function () {
   const F = IC.f; F.lev = !F.lev;
@@ -67515,6 +67520,9 @@ function icLevHtml_() {
   return `${atDeptoSeg_(L.depto, 'icLevDep_')}
     <div class="at-hint">${L.manual ? 'Elegido a mano.' : `Inferido del motivo (${pcEsc(F.mot.join(', ') || 'sin motivo')}).`}${mant ? ' Mantenimiento = reporte técnico.' : ''}</div>
     <label class="at-l">Tipo de servicio</label>${axSrvSeg_(L.srv, 'icLevSrv_')}
+    <label class="at-l">Título de la tarea <i>*</i></label>
+    <input class="at-in" placeholder="Introduce un título" value="${pcEsc(L.titulo != null ? L.titulo : icLevTitDef_(F))}" oninput="IC.f.L.titulo=this.value">
+    <textarea class="at-in" rows="3" placeholder="Añade una descripción…" oninput="IC.f.L.desc=this.value">${pcEsc(L.desc != null ? L.desc : icLevDescDef_(F, F.id))}</textarea>
     ${mant ? `<label class="at-l">Categoría</label><select class="at-in" onchange="IC.f.L.cat=this.value">${RT_CATEGORIAS.map(o => `<option value="${o.key}" ${o.key === L.cat ? 'selected' : ''}>${o.icon ? o.icon + ' ' : ''}${o.label}</option>`).join('')}</select>
       <div class="ad-tgl" style="margin-top:8px" onclick="IC.f.L.bloq=!IC.f.L.bloq;icFormPintar_()"><div><b>Bloquea habitabilidad</b><small>El alojamiento queda inhabitable hasta resolverlo</small></div>${sw(L.bloq).replace('ad-sw ', 'ad-sw ' + (L.bloq ? 'red ' : ''))}</div>
       <div class="ad-tgl" style="margin-top:6px" onclick="IC.f.L.rein=!IC.f.L.rein;icFormPintar_()"><div><b>Reincidente</b><small>Falla repetida del mismo activo</small></div>${sw(L.rein)}</div>
@@ -67528,7 +67536,7 @@ function icLevHtml_() {
         <input class="at-in at-tagin" placeholder="Añadir etiqueta y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.L.etiq.includes(v)){IC.f.L.etiq.push(v);icFormPintar_();}}"></div>`}
     <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">👤 Asignados</span><button type="button" class="ad-link" onclick="icLevAsig_(this)">＋ Añadir asignado</button></div>
     <div class="at-chips" id="ic-lev-asig">${icLevAsigChips_()}</div>
-    <div class="at-hint">Se toman de la incidencia: alojamiento, reserva, prioridad, fecha, título y descripción. Las fotos se adjuntan a la tarea.</div>`;
+    <div class="at-hint">Se toman de la incidencia: alojamiento, reserva, prioridad y fecha. El título y la descripción vienen propuestos y puedes cambiarlos. Las fotos se adjuntan a la tarea.</div>`;
 }
 function icLigTxt_(lig) {
   const id = String(lig || '').slice(1);
@@ -67546,8 +67554,8 @@ async function icLevantar_(F, incId) {
   const L = F.L, r = (INC_STATE.list || []).find(x => String(x.ID) === String(incId)) || {};
   const fotos = icSplit_(r.Fotos_URLs).filter(u => /\/incidencias\/foto\?/.test(u));
   const user = (typeof currentUser !== 'undefined' && currentUser) || '';
-  const titulo = 'Incidencia · ' + (F.clas.join(', ') || F.mot.join(', ') || 'sin motivo');
-  const desc = [String(F.desc || '').trim(), F.rep ? 'Reportó: ' + F.rep : '', 'Folio de la incidencia: ' + incId].filter(Boolean).join('\n');
+  const titulo = String(L.titulo != null ? L.titulo : icLevTitDef_(F)).trim() || icLevTitDef_(F);
+  const desc = String(L.desc != null ? L.desc : icLevDescDef_(F, incId)).trim();
   const post = (u, b) => fetch(`${BACKEND}${u}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
   let lig;
   if (L.depto === 'mantenimiento') {
