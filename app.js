@@ -65261,7 +65261,44 @@ function aseoEnsureCss_() {
   .aseo-side .pc-mv-list{max-height:none}
   .aseo-sel{background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:8px;margin-bottom:10px}
   .aseo-sel-h{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#92400e;margin-bottom:6px}
-  @media (max-width:1000px){.aseo-grid,.aseo-grid.con-cal{grid-template-columns:minmax(0,1fr)}.aseo-grid.con-cal .aseo-split{display:none}.aseo-side{position:static;max-height:none;overflow:visible}}`;
+  @media (max-width:1000px){.aseo-grid,.aseo-grid.con-cal{grid-template-columns:minmax(0,1fr)}.aseo-grid.con-cal .aseo-split{display:none}.aseo-side{position:static;max-height:none;overflow:visible}}
+  /* ── Card ejecutiva: tipografía y espacios afinados, jerarquía clara ── */
+  .ad-col{container-type:inline-size}
+  .ad-card{padding:8px 10px 7px;margin-bottom:6px;border-radius:9px}
+  .ad-card .r1{gap:6px}
+  .ad-card .code{font-size:12.5px;font-weight:700;letter-spacing:.03em}
+  .ad-card .prop{font-size:11px}
+  .ad-card .mv{gap:3px}
+  .ad-card .mv>span{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;line-height:1.5}
+  .ad-card .mv .s{background:#fef2f2}.ad-card .mv .e{background:#f0fdf4}
+  .ad-card .flag{margin-top:5px;font-size:10.5px;line-height:1.35;padding:3px 7px;border-radius:6px;background:#f8fafc}
+  .ad-card .flag.red{background:#fef2f2}.ad-card .flag.orange{background:#fff7ed}.ad-card .flag.violet{background:#f5f3ff}
+  .ad-card .flag i{box-shadow:none}
+  .ad-card .r2{margin-top:6px;font-size:10.5px;gap:4px 0}
+  .ad-card .r2 .sep{height:9px;margin:0 6px}
+  .ad-card .r2 .ax-cat{font-size:10px}
+  .ad-card .r4{margin-top:5px}
+  .ad-card .r4 .ax-inc:not(.on){border-color:transparent;padding:1px 3px;font-size:10px;color:#a3aab5;background:none}
+  .ad-card .r4 .ax-inc:not(.on):hover{color:#dc2626;border-color:#fca5a5}
+  .ad-card .ax-inc.on{font-size:10px;padding:2px 9px;border-radius:999px}
+  .ax-mini{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 5px;border-radius:5px;white-space:nowrap}
+  .ax-mini:hover{color:#dc2626;background:#fef2f2}
+  .ad-card .r3{margin-top:7px;padding-top:6px;gap:6px}
+  .ad-card .ad-av{width:20px;height:20px;font-size:9px}
+  .ad-card .ad-un{font-size:10.5px;white-space:nowrap}
+  .ad-card .ad-gd{font-size:10px}
+  .ad-card .p4e,.ad-card .p4{font-size:10.5px;gap:4px}
+  .ad-card .ad-det{font-size:10.5px;padding:2px 3px}
+  .ad-card .ad-qs{margin-top:6px;padding:2px;border-radius:6px}
+  .ad-card .ad-qs button{font-size:10px;padding:3px 1px;gap:3px}
+  /* Columnas angostas: prioridad solo con su medidor, guía como punto y «Detalles» como › */
+  @container (max-width:250px){
+    .ad-card .r3 .p4e b,.ad-card .r3 .p4 b{display:none}
+    .ad-card .ad-gd{font-size:0}.ad-card .ad-gd::before{content:"◉";font-size:11px}
+    .ad-card .ad-det{font-size:0;padding:0 3px}.ad-card .ad-det::after{content:"›";font-size:17px;line-height:1}
+    .ad-card .ad-qs button i{display:none}
+    .ax-mini{font-size:0;padding:1px 4px}.ax-mini::before{content:"＋⚠";font-size:11px}
+  }`;
   document.head.appendChild(st);
 }
 async function aseoRefresh_(force) {
@@ -65656,11 +65693,15 @@ window.icArchivar_ = function (id) {
   if (ctx && axIncActivas_(ctx.k).length) axIncAbrir_(ctx.k, ctx.hid, ctx.dia); else icCerrar_();
   try { aseoRender_(); } catch (_) {}
 };
+function axIncMini_(k, hid, dia) {
+  if (axEx_(k).incidencia) return '';
+  return `<button type="button" class="ax-mini" title="Reportar incidencia" onclick="event.stopPropagation();axReportar_('${pcEsc(String(k))}','${pcEsc(String(hid || ''))}','${pcEsc(String(dia || ''))}')">＋ Incidencia</button>`;
+}
 function axFila_(k, autoCO, hid, dia) { // renglón del botón de incidencia (el tipo de servicio va junto al tipo de tarea: axCatHtml_)
   const inc = !!axEx_(k).incidencia;
   // En un grupo vinculado cada incidencia se muestra una sola vez, en su puente; aquí solo las que no tienen puente.
   const cub = ASEO._sinInc && ASEO._sinInc.get(String(k)), act = inc ? axIncActivas_(k) : [], resto = cub ? act.filter(x => !cub.has(x)) : act;
-  if (cub && inc && !resto.length) return '';
+  if (!inc || (cub && !resto.length)) return ''; // sin incidencia: «＋ Incidencia» va en el pie de la card (axIncMini_)
   return `<div class="r4"><span class="sp"></span><button type="button" class="ax-inc ${inc ? 'on' : ''}" onclick="event.stopPropagation();${axIncClick_(k, inc, hid, dia)}" title="${inc ? 'Ver la incidencia' : 'Clic para reportar una incidencia'}">${inc ? axIncTxt_(k, cub ? resto : undefined) : 'Reportar incidencia'}</button></div>`;
 }
 function axDetalle_(k, autoCO, hid, dia) {
@@ -65691,7 +65732,7 @@ function adCard_(I) {
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
     ${axFila_(I.asigId, I.g.sal.length > 0, I.hid, aseoDia_())}
-    <div class="r3">${equipo}<span class="sp"></span>${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    <div class="r3">${equipo}<span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
@@ -66121,7 +66162,7 @@ function rtCardA_(I) {
     ${flags.join('')}
     <div class="r2">${axCatHtml_('mantenimiento', 'R' + t.rtId, false)}<span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
     ${axFila_('R' + t.rtId, false, t.hid, I.dia || t.fecha)}
-    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${axIncMini_('R' + t.rtId, t.hid, I.dia || t.fecha)}${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
     <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
   </div>`;
 }
@@ -66135,7 +66176,7 @@ function atCard_(I) {
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     ${axFila_('T' + t.id, false, t.hid, I.dia)}
-    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
 }
