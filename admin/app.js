@@ -64931,7 +64931,7 @@ function aseoEnsureCss_() {
   .ad-qs button i{width:6px;height:6px;border-radius:50%;background:var(--c);opacity:.55}
   .ad-qs button:hover{background:#fff;color:#0f1729}
   .ad-qs button.on{background:#fff;color:#0f1729;font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.12);cursor:default}.ad-qs button.on i{opacity:1}
-  .ad-card.tipo.ghost{border-left:4px dashed var(--tc)}
+  .ad-card.tipo.ghost{border-left:4px solid var(--tc)}
   .ad-card.tipo.alert,.ad-card.tipo.sel{border-left-color:var(--tc)}
   .ad-card .r2 .ty{font-weight:600}.ad-card .r2 .pr{color:#4f46e5;font-weight:600}
   .oc-task.ty-limpieza{border-left:3px solid #0ea5e9}.oc-task.ty-inspeccion{border-left:3px solid #8b5cf6}.oc-task.ty-mantenimiento{border-left:3px solid #f97316}
@@ -64971,11 +64971,17 @@ function aseoEnsureCss_() {
   .ax-cat .a{color:#b8bec8;padding:0 3px 0 5px;font-weight:600}
   .ax-cat .s{color:var(--sc);font-weight:600;padding:1px 7px 1px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ax-pre{font-size:10.5px;font-weight:600;color:#0369a1;background:#e0f2fe;border-radius:6px;padding:1px 7px}
-  .ad-vinc{border:1.5px dashed #f87171;border-radius:12px;padding:5px;margin:0 0 8px;background:#fff5f5}
+  .ad-vinc{border:1.5px solid #fecaca;border-radius:12px;padding:5px;margin:0 0 8px;background:#fff7f7}
   .ad-vinc>.ad-card{margin-bottom:0}
-  .ad-puente{position:relative;display:flex;justify-content:center;padding:6px 0}
-  .ad-puente:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:2px dashed #f87171}
-  .ad-puente .ax-inc{position:relative;font-size:10.5px;padding:3px 10px;border-radius:999px;box-shadow:0 0 0 3px #fff5f5}
+  /* Puente: franja a todo lo ancho que integra la card de origen con su tarea correctiva */
+  .ad-puente{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:6px;width:100%;margin:5px 0;padding:5px 8px;border-radius:8px;background:#fee2e2;border:1px dashed #f87171;color:#b91c1c;font-size:10.5px;font-weight:600}
+  .ad-puente:hover{background:#fecaca}
+  .ad-puente .ar{font-size:13px;line-height:1;color:#ef4444;flex:none}
+  .ad-puente .tx{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ad-puente .tx b{font-weight:700}
+  .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
+  /* Tareas creadas desde una incidencia: margen izquierdo punteado */
+  .ad-card.tipo.deinc{border-left:4px dashed var(--tc)}
   .ax-inc{all:unset;cursor:pointer;font-size:10.5px;font-weight:600;color:#6b7280;border:1px dashed #cbd5e1;border-radius:6px;padding:2px 8px;white-space:nowrap}
   .ax-inc:hover{color:#b91c1c;border-color:#fca5a5}
   .ax-inc.on{color:#fff;background:#dc2626;border:1px solid #b91c1c}
@@ -65037,7 +65043,7 @@ function aseoEnsureCss_() {
   .ad-card:hover{box-shadow:0 4px 14px rgba(16,24,40,.09)}
   .ad-card.sel{border-color:#4f46e5;box-shadow:0 0 0 3px #e0e7ff}
   .ad-card.alert{border-color:#fca5a5;box-shadow:0 0 0 3px #fee2e2}
-  .ad-card.ghost{background:transparent;border:1px dashed #c4c9d2;box-shadow:none;opacity:.85}
+  .ad-card.ghost{background:repeating-linear-gradient(135deg,#f3f4f7 0 7px,#eaedf1 7px 14px);border:1px solid #d6dae0;box-shadow:none;opacity:.92}
   .ad-card .r1{display:flex;align-items:center;gap:7px;min-width:0}
   .ad-card .code{font:600 12px ui-monospace,"JetBrains Mono",SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
   .ad-card .prop{color:var(--ad-mut);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -65717,6 +65723,8 @@ window.icArchivar_ = function (id) {
   if (ctx && axIncActivas_(ctx.k).length) axIncAbrir_(ctx.k, ctx.hid, ctx.dia); else icCerrar_();
   try { aseoRender_(); } catch (_) {}
 };
+// Tarea creada desde una incidencia («Crear tarea correctiva»).
+function axEsDeInc_(k) { return !!axEx_(k).deInc || (typeof INC_STATE !== 'undefined' && (INC_STATE.list || []).some(r => icLigs_(r).includes(String(k)))); }
 function axIncMini_(k, hid, dia) {
   if (axEx_(k).incidencia) return '';
   return `<button type="button" class="ax-mini" title="Reportar incidencia" onclick="event.stopPropagation();axReportar_('${pcEsc(String(k))}','${pcEsc(String(hid || ''))}','${pcEsc(String(dia || ''))}')">＋ Incidencia</button>`;
@@ -65785,7 +65793,10 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     const cubre = new Map(); H.forEach(h => [k, kDe(h)].forEach(x => { if (!cubre.has(x)) cubre.set(x, new Set()); cubre.get(x).add(puenteDe.get(h)); }));
     ASEO._sinInc = cubre;
     try {
-      const puente = h => { const id = puenteDe.get(h); return `<div class="ad-puente"><button type="button" class="ax-inc on split" title="Incidencia que vincula estas cards" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')">${axIncHtml_(k, [id])}</button></div>`; };
+      const puente = h => {
+        const id = puenteDe.get(h), r = axIncRow_(id), est = r ? icEstK_(r.Estatus) : '', E = IC_EST.find(e => e.k === est);
+        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx">⚠️ <b>Integradas</b></span>${E ? `<span class="st" style="--ec:${E.c}">${est}</span>` : ''}<span class="ar">⇅</span></button>`;
+      };
       return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
   };
@@ -66180,7 +66191,7 @@ function rtCardA_(I) {
   if (t.reincidente && !cerrado) flags.push('<div class="flag mute"><i></i>Reincidente</div>');
   const nF = rtFotos_(row.Fotos_antes_urls).length + rtFotos_(row.Fotos_despues_urls).length;
   const pasos = [['pendiente', 'Pend.', '#94a3b8'], ['en_proceso', 'Proceso', '#f59e0b'], ['terminado', 'Term.', '#10b981'], ['cancelado', 'Cancel.', '#64748b']];
-  return `<div class="ad-card tipo tarea ${t.bloquea && !cerrado ? 'alert' : ''} ${t.estado === 'cancelado' ? 'ghost' : ''} ${sel ? 'sel' : ''}" data-k="R${pcEsc(t.rtId)}" style="--tc:${D.c}" onclick="rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')"
+  return `<div class="ad-card tipo tarea ${t.bloquea && !cerrado ? 'alert' : ''} ${t.estado === 'cancelado' ? 'ghost' : ''} ${axEsDeInc_('R' + t.rtId) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="R${pcEsc(t.rtId)}" style="--tc:${D.c}" onclick="rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'R:${pcEsc(t.rtId)}','',true,true)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
     ${flags.join('')}
@@ -66194,7 +66205,7 @@ function atCard_(I) {
   if (I.t.rt) return rtCardA_(I);
   const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza;
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
-  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
+  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${axEsDeInc_('T' + t.id) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
@@ -67644,7 +67655,7 @@ async function icLevantar_(F, incId) {
     (ASEO.tareas = ASEO.tareas || {})[j.tarea.id] = j.tarea; lig = 'T' + j.tarea.id;
     if (typeof aseoRefresh_ === 'function') setTimeout(() => aseoRefresh_().catch(() => {}), 1200); // enlaces firmados de los adjuntos
   }
-  axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId), incIds: [String(incId)] }), F.hid);
+  axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId), incIds: [String(incId)], deInc: true }), F.hid);
   r.Tarea_ligada = icLigs_(r).concat(lig).join(', '); // se suma a los reportes ya levantados
   await post('/update-incidencia', { id: incId, fields: { tarea: r.Tarea_ligada } }).catch(() => null);
 }
