@@ -65621,21 +65621,24 @@ function axIncLista_(ctx) {
       const r = axIncRow_(id); if (!r) return `<div class="ic-li"><div class="t">${pcEsc(id)}</div><div class="s">⏳ Cargando…</div></div>`;
       const x = icRow_(r), E = IC_EST.find(e => e.k === x.est), M = icMotC_(x.mot[0]);
       return `<div class="ic-li" style="--tc:${M.c}" onclick="axIncAbrir_(${js},'${pcEsc(id)}')"><div class="t">${M.ico} ${pcEsc(x.titulo)}</div>
-        <div class="s"><i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${x.fecha ? aseoDiaTxt_(x.fecha) : ''} · ${r.Tarea_ligada ? '🔗 ' + pcEsc(icLigTxt_(r.Tarea_ligada)) : 'sin tarea'}</div></div>`;
+        <div class="s"><i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${x.fecha ? aseoDiaTxt_(x.fecha) : ''} · ${icLigsVal_(r).length ? '🔗 ' + icLigsVal_(r).map(l => pcEsc(icLigTxt_(l))).join(' · ') : 'sin tarea'}</div></div>`;
     }).join('') : '<div class="ad-hint">Esta card está marcada con una incidencia, pero no tiene un reporte registrado.</div>'}</div>
     <div class="ad-ft">${ids.length ? '' : `<button type="button" class="ad-bt" onclick="axIncQuitarMarca_(${js})">Quitar marca</button>`}<button type="button" class="ad-bt pri" onclick="axReportar_(${js})">＋ Reportar otra incidencia</button></div>`;
 }
 window.axIncQuitarMarca_ = function (k, hid) { if (!confirm('¿Quitar la marca de incidencia de esta card?')) return; axSet_(k, { incidencia: false, incIds: [], incId: '' }, hid); icCerrar_(); };
 // Liga / desliga una incidencia de una card.
+// Reportes levantados de una incidencia (puede haber varios): Tarea_ligada = "T<id>, R<id>, …".
+function icLigs_(r) { return String((r && r.Tarea_ligada) || '').split(',').map(s => s.trim()).filter(Boolean); }
+function icLigsVal_(r) { return icLigs_(r).filter(icLigValida_); }
 function axIncLigar_(k, hid, id, on) { const L = axIncIds_(k).filter(x => x !== String(id)); if (on) L.push(String(id)); axSet_(k, { incIds: L, incId: L[L.length - 1] || '', incidencia: L.length > 0 }, hid); }
 // Archivar: la incidencia queda «Archivada», su tarea levantada sale del tablero y se desliga de sus cards.
 window.icArchivar_ = function (id) {
   const r = axIncRow_(id); if (!r) return;
-  const lig = String(r.Tarea_ligada || ''), hid = rtHid_(r);
-  if (!confirm(lig ? 'Ya hay un reporte y tarea registrados, ¿deseas archivarlos?' : 'Ya hay un reporte registrado, ¿deseas archivarlo?')) return;
+  const ligs = icLigsVal_(r), hid = rtHid_(r);
+  if (!confirm(ligs.length ? `Ya hay un reporte y ${ligs.length > 1 ? ligs.length + ' tareas registradas' : 'tarea registrados'}, ¿deseas archivarlos?` : 'Ya hay un reporte registrado, ¿deseas archivarlo?')) return;
   const ctx = IC.dr && IC.dr.ctx;
-  if (lig) axSet_(lig, { archivada: true, incidencia: false, incIds: [], incId: '' }, hid);
-  Object.keys(ASEO.extra || {}).filter(k => k !== lig && axIncIds_(k).includes(String(id))).forEach(k => axIncLigar_(k, hid, id, false));
+  ligs.forEach(l => axSet_(l, { archivada: true, incidencia: false, incIds: [], incId: '' }, hid));
+  Object.keys(ASEO.extra || {}).filter(k => !ligs.includes(k) && axIncIds_(k).includes(String(id))).forEach(k => axIncLigar_(k, hid, id, false));
   icPatch_(id, { archivada: 'Sí' }, { Archivada: 'Sí' });
   if (ctx && axIncActivas_(ctx.k).length) axIncAbrir_(ctx.k, ctx.hid, ctx.dia); else icCerrar_();
   try { aseoRender_(); } catch (_) {}
@@ -67202,12 +67205,14 @@ function icPintar_(nuevo) {
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const E = IC_EST.find(e => e.k === x.est), sig = IC_EST[Math.min(2, IC_EST.findIndex(e => e.k === x.est) + 1)];
   const txt = v => pcEsc(v).replace(/\n/g, '<br>');
-  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(x.corto || '—')}</span><span class="t">${pcEsc(x.aloj)}</span><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+  // «＋ Nueva incidencia» junto a la ✕: desde una card, con su alojamiento y fecha; si no, con los de esta incidencia.
+  const nueva = IC.dr.ctx ? `axReportar_(${axIncJs_(IC.dr.ctx)})` : `icForm_(null,{hid:'${pcEsc(x.hid || '')}',fecha:'${pcEsc(x.fecha || '')}'})`;
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(x.corto || '—')}</span><span class="t">${pcEsc(x.aloj)}</span><button type="button" class="ad-link" style="margin-left:auto;white-space:nowrap;font-weight:600" onclick="${nueva}">＋ Nueva incidencia</button><button type="button" class="ad-close" style="margin-left:8px" onclick="icCerrar_()">✕</button></div>
       <div class="ic-tag">⚠️ Incidencia</div>
       <div class="ad-tt">${M.ico} ${pcEsc(x.titulo)}</div>
       <div class="ad-sub">${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'} · <i style="background:${E.c}"></i>${E.k} · ${prio4Html_(x.prio)} · ${pcEsc(x.id)}</div>
       ${!icCerrada_(x) && x.prio === 'critica' ? '<div class="ad-badge red"><i></i>Prioridad crítica</div>' : ''}${x.arch ? '<div class="ad-badge"><i style="background:#64748b"></i>🗄 Archivada</div>' : ''}
-      ${IC.dr.ctx ? (() => { const C = IC.dr.ctx, n = axIncActivas_(C.k).length, js = axIncJs_(C); return `<div class="ad-hint" style="margin-top:8px">${n > 1 ? `<a href="#" style="color:#4f46e5;font-weight:600" onclick="event.preventDefault();axIncLista_({k:'${pcEsc(C.k)}',hid:'${pcEsc(C.hid)}',dia:'${pcEsc(C.dia)}'})">‹ Las ${n} incidencias de esta card</a> · ` : ''}<a href="#" style="color:#4f46e5;font-weight:600" onclick="event.preventDefault();axReportar_(${js})">＋ Reportar otra incidencia</a></div>`; })() : ''}</div>
+      ${IC.dr.ctx ? (() => { const C = IC.dr.ctx, n = axIncActivas_(C.k).length; return n > 1 ? `<div class="ad-hint" style="margin-top:8px"><a href="#" style="color:#4f46e5;font-weight:600" onclick="event.preventDefault();axIncLista_({k:'${pcEsc(C.k)}',hid:'${pcEsc(C.hid)}',dia:'${pcEsc(C.dia)}'})">‹ Las ${n} incidencias de esta card</a></div>` : ''; })() : ''}</div>
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" onclick="icSetEst_('${id}','${e.k}')">${e.k}</button>`).join('')}</div>
       ${x.upd ? `<div class="ad-hint">Actualizado ${pcEsc(x.upd.replace('T', ' ').slice(0, 16))}</div>` : ''}
@@ -67218,10 +67223,10 @@ function icPintar_(nuevo) {
       <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
-        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${r.Tarea_ligada && icLigValida_(r.Tarea_ligada) ? `<span>Reporte levantado</span><b><a href="#" style="color:#4f46e5" onclick="event.preventDefault();icVerTarea_('${pcEsc(r.Tarea_ligada)}')">${pcEsc(icLigTxt_(r.Tarea_ligada))} ›</a></b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
+        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${icLigsVal_(r).length ? `<span>Reporte${icLigsVal_(r).length > 1 ? 's' : ''} levantado${icLigsVal_(r).length > 1 ? 's' : ''}</span><b>${icLigsVal_(r).map(l => `<a href="#" style="color:#4f46e5;display:block" onclick="event.preventDefault();icVerTarea_('${pcEsc(l)}')">${pcEsc(icLigTxt_(l))} ›</a>`).join('')}</b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
-      ${!x.arch && !icLigValida_(r.Tarea_ligada) ? `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🧾 Levantar reporte<small>Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></button>` : ''}
+      ${!x.arch ? (n => `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🧾 ${n ? 'Levantar otro reporte' : 'Levantar reporte'}<small>${n ? `Ya hay ${n} reporte${n > 1 ? 's' : ''} levantado${n > 1 ? 's' : ''}; crea otra tarea en «Aseo y Mantenimiento»` : 'Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia'}</small></button>`)(icLigsVal_(r).length) : ''}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')" title="Imprimir">🖨️</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : `<button type="button" class="ad-bt" onclick="icArchivar_('${id}')">🗄 Archivar</button>`}
       ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.k}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
@@ -67238,7 +67243,7 @@ window.icForm_ = function (id, pre, modo) {
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
     : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
   IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
-  IC.f.tareaLig = x && icLigValida_(r.Tarea_ligada) ? String(r.Tarea_ligada) : ''; IC.f.lev = false; IC.f.ctx = ctx || null;
+  IC.f.tareaLig = x ? icLigsVal_(r).join(', ') : ''; IC.f.lev = false; IC.f.ctx = ctx || null;
   IC.f0 = icFormFirma_(IC.f); // para detectar cambios (Guardar cambios solo si hay)
   if (modo && modo.soloLev) { IC.f.soloLev = true; icLev_(); return; } // «Levantar reporte»: solo esa sección
   icFormPintar_();
@@ -67275,7 +67280,7 @@ function icFormPintar_() {
   const mots = [...new Set(Object.keys(icCatalogo_()).concat(F.mot))];
   const cancelar = F.id ? `icFormCancelar_()` : 'icCerrar_()';
   if (F.soloLev) {
-    dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🧾 Levantar reporte</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+    dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🧾 ${F.tareaLig ? 'Levantar otro reporte' : 'Levantar reporte'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
         <div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc([F.clas.join(', ') || F.mot.join(', '), F.hid ? (atAloj_(F.hid).corto || '').toUpperCase() : '', F.id].filter(Boolean).join(' · '))}</div></div>
       <div class="ad-db at-f"><div class="ic-lev">${icLevHtml_()}</div></div>
       <div class="ad-ft"><button type="button" class="ad-bt" onclick="${cancelar}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()">Levantar reporte</button></div>`;
@@ -67305,8 +67310,9 @@ function icFormPintar_() {
       <div class="at-sec"><span>👤 Personas</span></div>
       <label class="at-l">Reportó</label>
       <select class="at-in" onchange="IC.f.rep=this.value"><option value="">Sin especificar</option>${nombres.map(n => `<option ${n === F.rep ? 'selected' : ''}>${pcEsc(n)}</option>`).join('')}</select>
-      ${F.tareaLig ? `<div class="ad-hint">Reporte ya levantado: ${pcEsc(icLigTxt_(F.tareaLig))}</div>` : `<div class="ic-ck ${F.lev ? 'on' : ''}" onclick="icLev_()"><span class="ck">${F.lev ? '✓' : ''}</span><div><b>Levantar reporte</b><small>Crea también la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></div></div>
-      ${F.lev ? `<div class="ic-lev">${icLevHtml_()}</div>` : ''}`}
+      ${F.tareaLig ? `<div class="ad-hint">Reporte ya levantado: ${F.tareaLig.split(', ').map(l => pcEsc(icLigTxt_(l))).join(' · ')}</div>` : ''}
+      <div class="ic-ck ${F.lev ? 'on' : ''}" onclick="icLev_()"><span class="ck">${F.lev ? '✓' : ''}</span><div><b>${F.tareaLig ? 'Levantar otro reporte' : 'Levantar reporte'}</b><small>Crea también la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></div></div>
+      ${F.lev ? `<div class="ic-lev">${icLevHtml_()}</div>` : ''}
       <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">Personas involucradas</span><button type="button" class="ad-link" onclick="icFormPers_(this)">＋ Añadir persona</button></div>
       <div class="at-chips" id="ic-pers">${icPersChips_()}</div>
       <div class="at-sec"><span>📷 Evidencia fotográfica</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="icFormFotos_(this)"></label></div>
@@ -67552,13 +67558,13 @@ async function icLevantar_(F, incId) {
     if (typeof aseoRefresh_ === 'function') setTimeout(() => aseoRefresh_().catch(() => {}), 1200); // enlaces firmados de los adjuntos
   }
   axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId), incIds: [String(incId)] }), F.hid);
-  r.Tarea_ligada = lig;
-  await post('/update-incidencia', { id: incId, fields: { tarea: lig } }).catch(() => null);
+  r.Tarea_ligada = icLigs_(r).concat(lig).join(', '); // se suma a los reportes ya levantados
+  await post('/update-incidencia', { id: incId, fields: { tarea: r.Tarea_ligada } }).catch(() => null);
 }
 window.icDesarchivar_ = function (id) {
   const r = axIncRow_(id); if (!r) return;
-  const lig = String(r.Tarea_ligada || ''), hid = rtHid_(r);
+  const hid = rtHid_(r);
   icPatch_(id, { archivada: '' }, { Archivada: '' });
-  if (lig) axSet_(lig, { archivada: false, incidencia: true, incId: String(id), incIds: [String(id)] }, hid); // la tarea vuelve al tablero
+  icLigs_(r).forEach(l => axSet_(l, { archivada: false, incidencia: true, incId: String(id), incIds: [String(id)] }, hid)); // las tareas vuelven al tablero
   if (r.Card_origen) axIncLigar_(String(r.Card_origen), hid, id, true); // y la card de origen recupera la marca
 };
