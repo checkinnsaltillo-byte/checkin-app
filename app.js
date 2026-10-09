@@ -65800,7 +65800,7 @@ function adCard_(I) {
 }
 // ── Tablero: indicadores + filtro de personal + 4 columnas por estado ──
 function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
-  const infos = gs.map(g => adInfo_(g, hoy, { esHoy: esHoy && !g.reprogDe }));
+  const infos = gs.map(g => adInfo_(g, hoy, { esHoy }) /* las reprogramadas a hoy también son del día en curso (guía, avisos) */);
   // Filtro de propiedad (varias a la vez; sin selección = todas) + vista por estado o por propiedad.
   const propDe = I => mvPropiedadDe_(I.g).replace(/^Calle\s+/i, '');
   // Tareas manuales del día (filtro de personal = sus asignados).
@@ -66098,7 +66098,7 @@ function adDrawerInfo_() {
   const { hoy, gs } = adGrupos_(D.dia);
   const g = gs.find(x => String(x.hid || x.k) === D.k); if (!g) return null;
   const esHoy = hoy === aseoHoyIso_();
-  return Object.assign(adInfo_(g, hoy, { esHoy: esHoy && !g.reprogDe }), { hoy });
+  return Object.assign(adInfo_(g, hoy, { esHoy }) /* las reprogramadas a hoy también son del día en curso (guía, avisos) */, { hoy });
 }
 function adEv_(cls, h, tit, sub) { return `<div class="ev ${cls}"><span class="h">${h}</span><div><b>${tit}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`; }
 function adPintar_(nuevo) {
@@ -66143,7 +66143,8 @@ function adPintar_(nuevo) {
   };
   const per = (n, rol) => `<div class="ad-pp">${adAv_(n, rol)}<span>${pcEsc(String(n).replace(/\s*\(WhatsApp\)\s*$/, ''))}</span><em>${rol}</em></div>`;
   const G = I.G;
-  const guiaTxt = !I.esHoyC ? '<div class="ad-hint">La guía solo muestra avisos del día en curso.</div>' : `<div class="ad-guide">📖 ${G && G.texto ? `«${pcEsc(G.texto)}»` : 'La guía no muestra ningún aviso'}</div>`;
+  const guiaTxt = !I.esHoyC ? '<div class="ad-hint">La guía solo muestra avisos del día en curso.</div>'
+    : `<div class="ad-guide">📖 ${G && G.texto ? `«${pcEsc(G.texto)}»` : G && G.noPub && G.textoPrev ? `No publicado. Al publicarlo, la guía dirá: «${pcEsc(G.textoPrev)}»` : 'La guía no muestra ningún aviso'}</div>`;
   const reservas = [...I.g.sal.map(x => pcMovRow_(x, 'sal', I.hoy, {})), ...I.g.ent.map(x => pcMovRow_(x, 'ent', I.hoy, {})), ...(I.g.cur || []).map(x => pcMovRow_(x, 'cur', I.hoy, {}))].join('');
   const sig = AD_EST[Math.min(AD_EST.length - 1, AD_EST.findIndex(e => e.k === I.selE) + 1)];
   const smsId = I.xe ? pcEsc(String(I.xe.b.Id)) : '';
