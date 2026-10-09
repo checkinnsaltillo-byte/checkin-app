@@ -57749,7 +57749,7 @@ function tdCard_(r, dia) {
   if (r.Origen === 'Bot WhatsApp') meta.push('<span>🤖 Bot</span>');
   if (r.Proceso_Codigo) meta.push(`<span>📘 ${esc(r.Proceso_Codigo)}</span>`);
   const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${TAR_ESTADOS.map(e => `<button type="button" class="${e.k === est ? 'on' : ''}" style="--c:${TD_EST[e.k]}" title="${e.k}" onclick="event.stopPropagation();${e.k === est ? '' : `tdSetEst_('${esc(r.ID)}','${dia}','${e.k}')`}"><i></i>${TD_CORTO[e.k]}</button>`).join('')}</div>`;
-  return `<div class="ad-card tipo td-card ${sel ? 'sel' : ''} ${est === 'Cancelado' ? 'ghost' : ''}" data-k="${esc(r.ID)}" style="--tc:${T.c}" onclick="tdAbrir_('${esc(r.ID)}')"
+  return `<div class="ad-card tipo est-tint td-card ${sel ? 'sel' : ''} ${est === 'Cancelado' ? 'ghost' : ''}" data-k="${esc(r.ID)}" style="--tc:${T.c};--sc:${TD_EST[est] || '#94a3b8'}" onclick="tdAbrir_('${esc(r.ID)}')"
       draggable="true" ondragstart="tdDragStart_(event,'${esc(r.ID)}')" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="ttl">${esc(r.Nombre || 'Sin nombre')}</span></div>
     ${flag}
@@ -64988,6 +64988,11 @@ function aseoEnsureCss_() {
   .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
   /* Tareas creadas desde una incidencia: margen izquierdo punteado */
   .ad-card.tipo.deinc{border-left:4px dashed var(--tc)}
+  /* Tinte por estado: fondo apenas teñido y borde a juego (elegante, se distingue a simple vista) */
+  .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 9%,#fff),color-mix(in srgb,var(--sc) 4%,#fff));border-color:color-mix(in srgb,var(--sc) 30%,#e8eaee)}
+  .ad-card.est-tint .r3{border-top-color:color-mix(in srgb,var(--sc) 18%,#eef0f3)}
+  .ad-card.est-tint.ghost{background:repeating-linear-gradient(135deg,#f3f4f7 0 7px,#eaedf1 7px 14px);border-color:#d6dae0}
+  .ad-card.est-tint.sel{border-color:#4f46e5}.ad-card.est-tint.alert{border-color:#fca5a5}
   /* Cards que pasaron al día siguiente (sombreadas): avisos en grises, no morados */
   .ad-card.ghost .flag.violet{color:#4b5563;background:#e5e7eb}
   .ad-card.ghost .flag.violet i{background:#6b7280;box-shadow:none}
@@ -65571,6 +65576,8 @@ const AD_EST = [
   { k: 'terminado', t: 'Terminado', c: '#10b981' },
   { k: 'inspeccionado', t: 'Inspeccionado', c: '#047857' },
 ];
+// Color del estado (para teñir la card): pendiente · en proceso · terminado · inspeccionado · cancelado.
+function adEstC_(k) { return (AD_EST.find(e => e.k === k) || {}).c || (k === 'cancelado' ? '#64748b' : '#94a3b8'); }
 function adHoraMx_() { return Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24; }
 function adIni_(n) { return String(n || '?').replace(/\s*\(WhatsApp\)\s*$/, '').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
 function adAv_(n, rol) { return `<span class="ad-av" style="background:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + n)}">${pcEsc(adIni_(n))}</span>`; }
@@ -65780,7 +65787,7 @@ function adCard_(I) {
   const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
-  return `<div class="ad-card tipo ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO.limpieza.c}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
+  return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO.limpieza.c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
@@ -66227,7 +66234,7 @@ function rtCardA_(I) {
   if (t.reincidente && !cerrado) flags.push('<div class="flag mute"><i></i>Reincidente</div>');
   const nF = rtFotos_(row.Fotos_antes_urls).length + rtFotos_(row.Fotos_despues_urls).length;
   const pasos = [['pendiente', 'Pend.', '#94a3b8'], ['en_proceso', 'Proceso', '#f59e0b'], ['terminado', 'Term.', '#10b981'], ['cancelado', 'Cancel.', '#64748b']];
-  return `<div class="ad-card tipo tarea ${t.bloquea && !cerrado ? 'alert' : ''} ${t.estado === 'cancelado' ? 'ghost' : ''} ${axEsDeInc_('R' + t.rtId) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="R${pcEsc(t.rtId)}" style="--tc:${D.c}" onclick="rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')"
+  return `<div class="ad-card tipo est-tint tarea ${t.bloquea && !cerrado ? 'alert' : ''} ${t.estado === 'cancelado' ? 'ghost' : ''} ${axEsDeInc_('R' + t.rtId) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="R${pcEsc(t.rtId)}" style="--tc:${D.c};--sc:${adEstC_(t.estado)}" onclick="rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'R:${pcEsc(t.rtId)}','',true,true)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">🔧 ${pcEsc(t.titulo)}</span></div>
     ${flags.join('')}
@@ -66241,7 +66248,7 @@ function atCard_(I) {
   if (I.t.rt) return rtCardA_(I);
   const t = I.t, D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza;
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
-  return `<div class="ad-card tipo tarea ${t.problema ? 'alert' : ''} ${axEsDeInc_('T' + t.id) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
+  return `<div class="ad-card tipo est-tint tarea ${t.problema ? 'alert' : ''} ${axEsDeInc_('T' + t.id) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c};--sc:${adEstC_(I.selE)}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
@@ -67283,7 +67290,7 @@ function icCard_(x) {
   const meta = [`<span class="ty" style="color:${M.c}">${pcEsc(x.mot.join(', ') || 'Sin motivo')}</span>`, `<span>${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'}</span>`];
   if (/bot/i.test(x.rep)) meta.push('<span>🤖 Bot</span>'); else if (x.rep) meta.push(`<span>Reportó ${pcEsc(aseoNombreCorto_(x.rep))}</span>`);
   const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === x.est ? '' : `icSetEst_('${id}','${e.k}')`}"><i></i>${e.s}</button>`).join('')}</div>`;
-  return `<div class="ad-card tipo ic-card ${sel ? 'sel' : ''} ${x.est === 'Cancelado' ? 'ghost' : ''} ${!icCerrada_(x) && x.prio === 'critica' ? 'alert' : ''}" data-k="${id}" style="--tc:${M.c}" onclick="icAbrir_('${id}')"
+  return `<div class="ad-card tipo est-tint ic-card ${sel ? 'sel' : ''} ${x.est === 'Cancelado' ? 'ghost' : ''} ${!icCerrada_(x) && x.prio === 'critica' ? 'alert' : ''}" data-k="${id}" style="--tc:${M.c};--sc:${(IC_EST.find(e => e.k === x.est) || IC_EST[0]).c}" onclick="icAbrir_('${id}')"
       draggable="true" ondragstart="icDragStart_(event,'${id}')" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(x.corto || '—')}</span><span class="prop">${M.ico} ${pcEsc(x.titulo)}</span></div>
     ${flag}
