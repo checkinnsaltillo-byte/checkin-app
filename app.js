@@ -64977,7 +64977,7 @@ function aseoEnsureCss_() {
   .ad-puente{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:6px;width:100%;margin:5px 0;padding:5px 8px;border-radius:8px;background:#fee2e2;border:1px dashed #f87171;color:#b91c1c;font-size:10.5px;font-weight:600}
   .ad-puente:hover{background:#fecaca}
   .ad-puente .ar{font-size:13px;line-height:1;color:#ef4444;flex:none}
-  .ad-puente .tx{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ad-puente .tx{flex:1;min-width:0;text-align:center;padding-right:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ad-puente .tx b{font-weight:700}
   .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
   /* Tareas creadas desde una incidencia: margen izquierdo punteado */
@@ -65794,8 +65794,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     ASEO._sinInc = cubre;
     try {
       const puente = h => {
-        const id = puenteDe.get(h), r = axIncRow_(id), est = r ? icEstK_(r.Estatus) : '', E = IC_EST.find(e => e.k === est);
-        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx">⚠️ <b>Integradas</b></span>${E ? `<span class="st" style="--ec:${E.c}">${est}</span>` : ''}<span class="ar">⇅</span></button>`;
+        const id = puenteDe.get(h);
+        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx">⚠️ <b>Tarea correctiva</b></span></button>`;
       };
       return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
