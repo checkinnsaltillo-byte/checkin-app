@@ -64988,6 +64988,11 @@ function aseoEnsureCss_() {
   .ad-puente .st{flex:none;background:var(--ec);color:#fff;border-radius:999px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap}
   /* Tareas creadas desde una incidencia: margen izquierdo punteado */
   .ad-card.tipo.deinc{border-left:4px dashed var(--tc)}
+  /* Historial de cambios */
+  #ad-drawer .ad-hist{margin-top:14px}
+  #ad-drawer .hist-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto;margin-top:8px}
+  #ad-drawer .hist-it{font-size:11.5px;color:#334155;padding:7px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;line-height:1.4}
+  #ad-drawer .hist-it .hm{color:#64748b;font-size:10.5px}#ad-drawer .hist-it s{color:#94a3b8}
   /* Bloque «Guía del huésped» en la ventana lateral */
   #ad-drawer .ad-guia{margin-top:10px;border:1px solid #d1fae5;background:#f0fdf4;border-radius:10px;padding:10px 12px}
   #ad-drawer .ad-guia.off{border-color:#e5e7eb;background:#f9fafb}
@@ -66178,6 +66183,7 @@ function adPintar_(nuevo) {
       ${I.xs && I.esHoyC && !I.esCopia ? `<div class="lab">Desalojo</div><div class="ad-tgl" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})"><div><b>${I.noSale ? 'El huésped NO ha desalojado' : '¿No ha desalojado?'}</b><small>${I.noSale ? 'Clic cuando ya haya salido' : 'Activa la alerta si el huésped sigue adentro'}</small></div><span class="ad-sw ${I.noSale ? 'red' : 'off'}"></span></div>` : ''}
       <div class="lab">Fecha de aseo</div>${aseoFechaCampo_(I.asigId, I.hid, I.hoy, I.g.reprogDe)}
       ${reservas ? `<details class="ad-res"><summary>Reservas y acciones (${I.ids.length})</summary>${reservas}</details>` : ''}
+      ${histSecHtml_([I.asigId].concat(I.ids || []).map(x => 'A:' + x))}
     </div>
     <div class="ad-ft">${smsId ? `<button type="button" class="ad-bt" onclick="aseoSmsPop_('${smsId}','${hid}')">Enviar SMS</button>` : ''}
       ${I.xs && I.esHoyC && !I.esCopia ? `<button type="button" class="ad-bt" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})">${I.noSale ? 'Ya desalojó' : 'No ha desalojado'}</button>` : ''}
@@ -66311,6 +66317,7 @@ function atPintar_(nuevo) {
         <span>Creada</span><b>${t.at ? new Date(t.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : ''}${t.by ? ' · ' + pcEsc(t.by) : ''}</b></div>
       <div class="lab">Asignados</div><div class="ad-ppl">${(t.asignados || []).map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin asignar</div>'}</div>
       ${(t.adjuntos || []).length ? `<div class="lab">Adjuntos</div><div class="ad-adjs">${t.adjuntos.map(a => `<a class="ad-adj" href="${BACKEND}${a.url}" target="_blank" rel="noopener">${/^image\//.test(a.tipo) ? `<img src="${BACKEND}${a.url}" alt="">` : '<span class="fi">📄</span>'}<span>${pcEsc(a.nombre)}</span></a>`).join('')}</div>` : ''}
+      ${histSecHtml_(['T:' + t.id])}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="atForm_('${pcEsc(t.id)}')">Editar</button><button type="button" class="ad-bt" onclick="atBorrar_('${pcEsc(t.id)}')">Eliminar</button>
       ${I.selE !== sig.k ? `<button type="button" class="ad-bt pri" onclick="aseoSetEstado_('${I.key}','','${sig.k}',true)">Marcar ${sig.t.toLowerCase()}</button>` : '<button type="button" class="ad-bt ok" disabled>✓ Completada</button>'}</div>`;
@@ -66498,7 +66505,7 @@ function prio4Sig_(v) { return PRIO4_ORD[(PRIO4_ORD.indexOf(prio4Key_(v)) + 1) %
 // Card de aseo: la prioridad elegida a mano reemplaza la calculada (aseo/prioridad.json).
 window.adPrioCiclo_ = function (id, cur) {
   const k = prio4Sig_(cur); (ASEO.prio = ASEO.prio || {})[id] = k; aseoRender_();
-  fetch(`${BACKEND}/aseo/prioridad`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, prioridad: k }) })
+  fetch(`${BACKEND}/aseo/prioridad`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, prioridad: k, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) })
     .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error); (ASEO._pend = ASEO._pend || {})['p:' + id] = { tipo: 'prio', id, rec: k, campos: [], t: Date.now() }; })
     .catch(e => alert('No se pudo guardar la prioridad: ' + (e.message || e)));
 };
@@ -66619,6 +66626,7 @@ function rtPintarA_(nuevo) {
       ${fotos(rtFotos_(row.Fotos_antes_urls), 'Fotos antes')}${fotos(rtFotos_(row.Fotos_despues_urls), 'Fotos después')}
       ${row.Descripcion_solucion ? `<div class="lab">Solución</div><div class="ad-desc">${pcEsc(row.Descripcion_solucion).replace(/\n/g, '<br>')}</div>` : ''}
       ${row.Notas ? `<div class="lab">Notas</div><div class="ad-desc">${pcEsc(row.Notas).replace(/\n/g, '<br>')}</div>` : ''}
+      ${histSecHtml_(['R:' + t.rtId])}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="rtFormA_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="rtBorrarA_('${id}')">Eliminar</button>
       ${t.estado === 'terminado' || t.estado === 'cancelado' ? `<button type="button" class="ad-bt ok" disabled>✓ ${cur[1]}</button>` : `<button type="button" class="ad-bt pri" onclick="adRtEst_('${id}','${sig[0]}')">Marcar ${sig[1].toLowerCase()}</button>`}</div>`;
@@ -67331,7 +67339,7 @@ async function icPatch_(id, fields, local) {
   icRender_(); if (IC.dr) icPintar_(); icRepintarAseo_();
   try {
     const x = icRow_(r);
-    const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, fields: Object.assign({}, fields, { UpdatedAt: new Date().toISOString() }), info: { motivos: x.mot.join(', '), clasificaciones: x.clas.join(', '), alojamiento: (x.corto ? x.corto + ' · ' : '') + x.aloj, estatus: x.est, nivel: IC_NIV[x.prio] } }) }).then(r => r.json());
+    const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, user: (typeof currentUser !== 'undefined' && currentUser) || '', fields: Object.assign({}, fields, { UpdatedAt: new Date().toISOString() }), info: { motivos: x.mot.join(', '), clasificaciones: x.clas.join(', '), alojamiento: (x.corto ? x.corto + ' · ' : '') + x.aloj, estatus: x.est, nivel: IC_NIV[x.prio] } }) }).then(r => r.json());
     if (!out.ok) throw new Error(out.error || 'Error');
     r.UpdatedAt = new Date().toISOString();
   } catch (e) { Object.assign(r, prev); icRender_(); if (IC.dr) icPintar_(); icRepintarAseo_(); alert('No se pudo guardar: ' + (e.message || e)); }
@@ -67385,6 +67393,7 @@ function icPintar_(nuevo) {
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
       ${!x.arch ? (n => `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🛠 ${n ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}<small>${n ? `Ya hay ${n} tarea${n > 1 ? 's' : ''} correctiva${n > 1 ? 's' : ''}; crea otra en «Aseo y Mantenimiento»` : 'Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia'}</small></button>`)(icLigsVal_(r).length) : ''}
+      ${histSecHtml_(['I:' + x.id])}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')" title="Imprimir">🖨️</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : `<button type="button" class="ad-bt" onclick="icArchivar_('${id}')">🗄 Archivar</button>`}
       ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.t}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.t.toLowerCase()}</button>`}</div>`;
@@ -67535,12 +67544,12 @@ window.icGuardar_ = async function () {
   try {
     let id = F.id;
     if (F.id) {
-      const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F.id, fields: Object.assign({}, datos, { UpdatedAt: new Date().toISOString() }), fotos: F.nuevas, keepUrls: F.keep }) }).then(r => r.json());
+      const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F.id, user: (typeof currentUser !== 'undefined' && currentUser) || '', fields: Object.assign({}, datos, { UpdatedAt: new Date().toISOString() }), fotos: F.nuevas, keepUrls: F.keep }) }).then(r => r.json());
       if (!out.ok) throw new Error(out.error || 'Error');
       const C = { fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento', alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos', clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus', reportante: 'Reportante', descripcion: 'Descripcion', acciones: 'Acciones', seguimiento: 'Seguimiento', reserva: 'Reservacion_id', huesped: 'Huesped_nombre' };
       if (old) { Object.keys(C).forEach(k => { old[C[k]] = Array.isArray(datos[k]) ? datos[k].join(', ') : datos[k]; }); if (typeof out.fotos_urls === 'string') old.Fotos_URLs = out.fotos_urls; old.UpdatedAt = new Date().toISOString(); }
     } else {
-      const out = await fetch(`${BACKEND}/save-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: datos, fotos: F.nuevas }) }).then(r => r.json());
+      const out = await fetch(`${BACKEND}/save-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: datos, fotos: F.nuevas, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
       if (!out.ok) throw new Error(out.error || 'Error');
       id = String(out.id || '');
       INC_STATE.list = INC_STATE.list || [];
@@ -67725,7 +67734,7 @@ async function icLevantar_(F, incId) {
   }
   axSet_(lig, Object.assign(axSrvPatch_(L.srv), { incidencia: true, incId: String(incId), incIds: [String(incId)], deInc: true }), F.hid);
   r.Tarea_ligada = icLigs_(r).concat(lig).join(', '); // se suma a los reportes ya levantados
-  await post('/update-incidencia', { id: incId, fields: { tarea: r.Tarea_ligada } }).catch(() => null);
+  await post('/update-incidencia', { id: incId, user, fields: { tarea: r.Tarea_ligada } }).catch(() => null);
 }
 window.icDesarchivar_ = function (id) {
   const r = axIncRow_(id); if (!r) return;
@@ -67734,3 +67743,30 @@ window.icDesarchivar_ = function (id) {
   icLigs_(r).forEach(l => axSet_(l, { archivada: false, incidencia: true, incId: String(id), incIds: [String(id)] }, hid)); // las tareas vuelven al tablero
   if (r.Card_origen) axIncLigar_(String(r.Card_origen), hid, id, true); // y la card de origen recupera la marca
 };
+// ── «Historial de cambios» al final de las ventanas de cards (aseo, tareas, mantenimiento, incidencias) ──
+// Servidor: GET /historial?k=A:…,T:…,R:…,I:… (quién cambió qué y cuándo).
+const HIST = { cache: {}, abiertos: new Set() };
+function histSecHtml_(keys) {
+  const k = [...new Set((keys || []).filter(x => x && !/:$/.test(x)))].join(',');
+  if (!k) return '';
+  const ab = HIST.abiertos.has(k), c = HIST.cache[k];
+  return `<details class="ad-res ad-hist" data-k="${pcEsc(k)}" ${ab ? 'open' : ''} ontoggle="histToggle_(this)"><summary>Historial de cambios</summary><div class="hist-box">${ab && c ? histListaHtml_(c.items) : '<div class="ad-hint">⏳ Cargando historial…</div>'}</div></details>`;
+}
+window.histToggle_ = async function (el) {
+  const k = el.dataset.k;
+  if (!el.open) { HIST.abiertos.delete(k); return; }
+  HIST.abiertos.add(k);
+  const c = HIST.cache[k];
+  if (c && Date.now() - c.ts < 20_000) { el.querySelector('.hist-box').innerHTML = histListaHtml_(c.items); return; }
+  try {
+    const j = await fetch(`${BACKEND}/historial?k=${encodeURIComponent(k)}`, { cache: 'no-store' }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'Error');
+    HIST.cache[k] = { ts: Date.now(), items: j.items || [] };
+    document.querySelectorAll(`#ad-drawer details.ad-hist[data-k="${CSS.escape(k)}"] .hist-box`).forEach(b => { b.innerHTML = histListaHtml_(j.items || []); });
+  } catch (e) { el.querySelector('.hist-box').innerHTML = `<div class="ad-hint" style="color:#dc2626">No se pudo cargar: ${pcEsc(e.message || e)}</div>`; }
+};
+function histListaHtml_(L) {
+  if (!L.length) return '<div class="ad-hint">Sin cambios registrados todavía.</div>';
+  const f = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); };
+  return `<div class="hist-list">${L.slice(0, 150).map(h => `<div class="hist-it"><div class="hm">${pcEsc(f(h.at))}${h.by ? ' · ' + pcEsc(h.by) : ''}</div><div><b>${pcEsc(h.campo || '')}</b>: ${h.antes ? `<s>${pcEsc(String(h.antes).slice(0, 120))}</s> → ` : ''}${pcEsc(String(h.despues || '—').slice(0, 160))}</div></div>`).join('')}</div>`;
+}
