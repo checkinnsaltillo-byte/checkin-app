@@ -24173,7 +24173,7 @@ async function incLoadIncidencias() {
       const res = await fetch(`${BACKEND}/incidencias-list`, { cache: 'no-store' });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'backend error');
-      INC_STATE.list = data.rows || [];
+      INC_STATE.list = data.rows || []; INC_STATE._ts = Date.now();
       if (data.catalogo) icSetCatalogo_(data.catalogo);
       if (cont) { incInitFilters(); incRenderCards(); }
       if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc');
@@ -65643,7 +65643,10 @@ function axIncRow_(id) { return (typeof INC_STATE !== 'undefined' ? INC_STATE.li
 // Vigentes (no archivadas). Si la lista de incidencias aún no carga, se carga una vez y se repinta.
 function axIncActivas_(k) {
   const ids = axIncIds_(k);
-  if (ids.length && typeof INC_STATE !== 'undefined' && !(INC_STATE.list || []).length && !axIncActivas_.c) { axIncActivas_.c = 1; incLoadIncidencias().then(() => { try { aseoRender_(); if (ASEO._dr) adPintar_(); } catch (_) {} }); }
+  if (ids.length && typeof INC_STATE !== 'undefined' && !axIncActivas_.c && (!(INC_STATE.list || []).length || Date.now() - (INC_STATE._ts || 0) > 60_000)) { // primera vez o cada minuto
+    axIncActivas_.c = 1;
+    incLoadIncidencias().then(() => { INC_STATE._ts = Date.now(); try { ASEO.calSig = ''; aseoRender_(); if (ASEO._dr) adPintar_(); } catch (_) {} }).finally(() => { axIncActivas_.c = 0; });
+  }
   return ids.filter(id => { const r = axIncRow_(id); return !r || !/^s[ií]/i.test(String(r.Archivada || '')); });
 }
 function axIncTxt_(k, ids) {
@@ -67225,14 +67228,16 @@ function icRegistro_(L) {
 async function icPatch_(id, fields, local) {
   const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (!r) return;
   const prev = {}; Object.keys(local).forEach(k => { prev[k] = r[k]; r[k] = local[k]; });
-  icRender_(); if (IC.dr) icPintar_();
+  icRender_(); if (IC.dr) icPintar_(); icRepintarAseo_();
   try {
     const x = icRow_(r);
     const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, fields: Object.assign({}, fields, { UpdatedAt: new Date().toISOString() }), info: { motivos: x.mot.join(', '), clasificaciones: x.clas.join(', '), alojamiento: (x.corto ? x.corto + ' · ' : '') + x.aloj, estatus: x.est, nivel: IC_NIV[x.prio] } }) }).then(r => r.json());
     if (!out.ok) throw new Error(out.error || 'Error');
     r.UpdatedAt = new Date().toISOString();
-  } catch (e) { Object.assign(r, prev); icRender_(); if (IC.dr) icPintar_(); alert('No se pudo guardar: ' + (e.message || e)); }
+  } catch (e) { Object.assign(r, prev); icRender_(); if (IC.dr) icPintar_(); icRepintarAseo_(); alert('No se pudo guardar: ' + (e.message || e)); }
 }
+// Las cards de «Aseo y Mantenimiento» muestran el estado de su incidencia: se repintan al cambiarla.
+function icRepintarAseo_() { try { if (typeof ASEO !== 'undefined' && typeof aseoRender_ === 'function') { ASEO.calSig = ''; aseoRender_(); } } catch (_) {} }
 window.icSetEst_ = function (id, k) { icPatch_(id, { estatus: k }, { Estatus: k }); };
 window.icPrioCiclo_ = function (id) { const r = (INC_STATE.list || []).find(x => String(x.ID) === String(id)); if (!r) return; const n = IC_NIV[prio4Sig_(prio4Key_(r.Nivel || 'Baja'))]; icPatch_(id, { nivel: n }, { Nivel: n }); };
 window.icSetPrio_ = function (id, k) { icPatch_(id, { nivel: IC_NIV[k] }, { Nivel: IC_NIV[k] }); };
@@ -67445,7 +67450,7 @@ window.icGuardar_ = async function () {
     }
     if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo crear la tarea correctiva: ' + (e.message || e)); } }
     if (F.desdeK && id) { try { axIncLigar_(F.desdeK, F.hid, id, true); } catch (_) {} } // se suma a las incidencias de la card // la card de origen queda «⚠️ Incidencia»
-    const ctx0 = F.ctx; IC.f = null; icRender_();
+    const ctx0 = F.ctx; IC.f = null; icRender_(); icRepintarAseo_();
     if (id) icAbrir_(id, ctx0 || undefined); else icCerrar_();
     try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
   } catch (e) { alert('No se pudo guardar la incidencia: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear incidencia'; } }
