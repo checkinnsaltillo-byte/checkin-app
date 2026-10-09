@@ -65770,6 +65770,8 @@ function adCard_(I) {
   if (I.trd) meta.push(`<span>Sale <b>${aseoHoraTxt_(I.trd.hora || '11:00')}</b> <span class="${I.trd.aceptada ? 'ok' : 'pd'}">· ${I.trd.aceptada ? 'tarde aceptada' : 'tarde pendiente'}</span></span>`);
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
   meta.unshift(axCatHtml_('limpieza', I.asigId, I.g.sal.length > 0));
+  // «No ha desalojado»: primer chip de la card de cada alojamiento con salida hoy
+  if (I.xs && I.esHoyC && !I.esCopia) meta.unshift(aseoNoSaleChip_(I.xs.b.Id, I.hid));
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
@@ -66140,6 +66142,7 @@ function adPintar_(nuevo) {
   const smsId = I.xe ? pcEsc(String(I.xe.b.Id)) : '';
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj || '')}</span><button type="button" class="ad-close" onclick="adCerrar_()" title="Cerrar">✕</button></div>
       <div class="ad-sub">${I.esHoyC ? 'Hoy' : aseoDiaTxt_(I.hoy)} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(I.prio)}${I.prioritaria ? ' · <b style="color:#4f46e5">Prioritaria</b>' : ''}</div>
+      ${I.xs && I.esHoyC && !I.esCopia ? `<div style="margin-top:8px">${aseoNoSaleChip_(I.xs.b.Id, I.hid)}</div>` : ''}
       ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
