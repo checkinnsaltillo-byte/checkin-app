@@ -67235,10 +67235,10 @@ function icPintar_(nuevo) {
       <textarea class="at-in td-com" rows="2" style="width:100%;box-sizing:border-box" placeholder="¿Qué falta por hacer?" onchange="icSeg_('${id}',this.value)">${pcEsc(x.seg)}</textarea>
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
-        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${icLigsVal_(r).length ? `<span>Reporte${icLigsVal_(r).length > 1 ? 's' : ''} levantado${icLigsVal_(r).length > 1 ? 's' : ''}</span><b>${icLigsVal_(r).map(l => `<a href="#" style="color:#4f46e5;display:block" onclick="event.preventDefault();icVerTarea_('${pcEsc(l)}')">${pcEsc(icLigTxt_(l))} ›</a>`).join('')}</b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
+        <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${icLigsVal_(r).length ? `<span>Tarea${icLigsVal_(r).length > 1 ? 's' : ''} correctiva${icLigsVal_(r).length > 1 ? 's' : ''}</span><b>${icLigsVal_(r).map(l => `<a href="#" style="color:#4f46e5;display:block" onclick="event.preventDefault();icVerTarea_('${pcEsc(l)}')">${pcEsc(icLigTxt_(l))} ›</a>`).join('')}</b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
       ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
-      ${!x.arch ? (n => `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🧾 ${n ? 'Levantar otro reporte' : 'Levantar reporte'}<small>${n ? `Ya hay ${n} reporte${n > 1 ? 's' : ''} levantado${n > 1 ? 's' : ''}; crea otra tarea en «Aseo y Mantenimiento»` : 'Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia'}</small></button>`)(icLigsVal_(r).length) : ''}
+      ${!x.arch ? (n => `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🛠 ${n ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}<small>${n ? `Ya hay ${n} tarea${n > 1 ? 's' : ''} correctiva${n > 1 ? 's' : ''}; crea otra en «Aseo y Mantenimiento»` : 'Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia'}</small></button>`)(icLigsVal_(r).length) : ''}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="icForm_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="icImprimir_('${id}')" title="Imprimir">🖨️</button>${x.arch ? `<button type="button" class="ad-bt" onclick="icDesarchivar_('${id}')">Desarchivar</button>` : `<button type="button" class="ad-bt" onclick="icArchivar_('${id}')">🗄 Archivar</button>`}
       ${icCerrada_(x) ? `<button type="button" class="ad-bt ok" disabled>✓ ${E.k}</button>` : `<button type="button" class="ad-bt pri" onclick="icSetEst_('${id}','${sig.k}')">Marcar ${sig.k.toLowerCase()}</button>`}</div>`;
@@ -67292,10 +67292,10 @@ function icFormPintar_() {
   const mots = [...new Set(Object.keys(icCatalogo_()).concat(F.mot))];
   const cancelar = F.id ? `icFormCancelar_()` : 'icCerrar_()';
   if (F.soloLev) {
-    dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🧾 ${F.tareaLig ? 'Levantar otro reporte' : 'Levantar reporte'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
+    dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🛠 ${F.tareaLig ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
         <div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc([F.clas.join(', ') || F.mot.join(', '), F.hid ? (atAloj_(F.hid).corto || '').toUpperCase() : '', F.id].filter(Boolean).join(' · '))}</div></div>
       <div class="ad-db at-f"><div class="ic-lev">${icLevHtml_()}</div></div>
-      <div class="ad-ft"><button type="button" class="ad-bt" onclick="${cancelar}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()">Levantar reporte</button></div>`;
+      <div class="ad-ft"><button type="button" class="ad-bt" onclick="${cancelar}">Cancelar</button><button type="button" class="ad-bt pri" id="ic-ok" onclick="icGuardar_()">Crear tarea correctiva</button></div>`;
     const b0 = dr.querySelector('.ad-db'); if (b0) b0.scrollTop = top;
     return;
   }
@@ -67322,8 +67322,8 @@ function icFormPintar_() {
       <div class="at-sec"><span>👤 Personas</span></div>
       <label class="at-l">Reportó</label>
       <select class="at-in" onchange="IC.f.rep=this.value"><option value="">Sin especificar</option>${nombres.map(n => `<option ${n === F.rep ? 'selected' : ''}>${pcEsc(n)}</option>`).join('')}</select>
-      ${F.tareaLig ? `<div class="ad-hint">Reporte ya levantado: ${F.tareaLig.split(', ').map(l => pcEsc(icLigTxt_(l))).join(' · ')}</div>` : ''}
-      <div class="ic-ck ${F.lev ? 'on' : ''}" onclick="icLev_()"><span class="ck">${F.lev ? '✓' : ''}</span><div><b>${F.tareaLig ? 'Levantar otro reporte' : 'Levantar reporte'}</b><small>Crea también la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></div></div>
+      ${F.tareaLig ? `<div class="ad-hint">Tarea correctiva ya creada: ${F.tareaLig.split(', ').map(l => pcEsc(icLigTxt_(l))).join(' · ')}</div>` : ''}
+      <div class="ic-ck ${F.lev ? 'on' : ''}" onclick="icLev_()"><span class="ck">${F.lev ? '✓' : ''}</span><div><b>${F.tareaLig ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}</b><small>Crea también la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></div></div>
       ${F.lev ? `<div class="ic-lev">${icLevHtml_()}</div>` : ''}
       <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">Personas involucradas</span><button type="button" class="ad-link" onclick="icFormPers_(this)">＋ Añadir persona</button></div>
       <div class="at-chips" id="ic-pers">${icPersChips_()}</div>
@@ -67367,15 +67367,15 @@ window.icGuardar_ = async function () {
   const F = IC.f; if (!F) return;
   if (F.id && F.soloLev) { // solo levantar el reporte de una incidencia existente
     if (!F.hid) return alert('La incidencia no tiene un alojamiento del catálogo; edítala y elige el alojamiento.');
-    const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Levantando…'; }
+    const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Creando…'; }
     try { await icLevantar_(F, F.id); IC.f = null; icRender_(); icAbrir_(F.id, F.ctx || undefined); try { aseoRender_(); } catch (_) {} }
-    catch (e) { alert('No se pudo levantar el reporte: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = 'Levantar reporte'; } }
+    catch (e) { alert('No se pudo crear la tarea correctiva: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = 'Crear tarea correctiva'; } }
     return;
   }
   if (!F.hid && !F.alojTxt) return alert('Elige el alojamiento.');
   if (!F.mot.length) return alert('Elige al menos un motivo.');
   if (!String(F.desc || '').trim()) return alert('Escribe la descripción.');
-  if (F.lev && !F.hid) return alert('Para levantar el reporte elige el alojamiento.');
+  if (F.lev && !F.hid) return alert('Para crear la tarea correctiva elige el alojamiento.');
   const a = F.hid ? atAloj_(F.hid) : null;
   const old = F.id ? (INC_STATE.list || []).find(x => String(x.ID) === F.id) : null;
   const propiedad = a ? (a.propiedad || '') : String((old && old.Propiedad) || ''), depto = a ? String(a.depto || '') : String((old && old['# Departamento']) || '');
@@ -67400,7 +67400,7 @@ window.icGuardar_ = async function () {
         Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Card_origen: datos.origen || '', Fotos_URLs: '' });
       if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
     }
-    if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo levantar el reporte: ' + (e.message || e)); } }
+    if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo crear la tarea correctiva: ' + (e.message || e)); } }
     if (F.desdeK && id) { try { axIncLigar_(F.desdeK, F.hid, id, true); } catch (_) {} } // se suma a las incidencias de la card // la card de origen queda «⚠️ Incidencia»
     const ctx0 = F.ctx; IC.f = null; icRender_();
     if (id) icAbrir_(id, ctx0 || undefined); else icCerrar_();
