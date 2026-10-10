@@ -66841,10 +66841,10 @@ function npProcs_() {
 }
 window.npSimular_ = async function (btn, n) {
   const fila = btn.closest('.np-p'), sel = fila.querySelector('.np-proc'), out = fila.querySelector('.np-sim'), pf = npPerfilDe_(n);
-  if (!sel || !sel.value || !pf.pruebaComo) return;
+  if (!sel || !sel.value) return;
   btn.disabled = true; const t0 = btn.textContent; btn.textContent = '⏳';
   try {
-    const j = await fetch(`${BACKEND}/bot/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: n, como: pf.pruebaComo, proceso: sel.value }) }).then(r => r.json());
+    const j = await fetch(`${BACKEND}/bot/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: n, como: pf.pruebaComo || n, proceso: sel.value }) }).then(r => r.json());
     if (!j.ok) throw new Error(j.error || 'Error');
     out.style.display = ''; out.textContent = j.texto + (j.enviado ? '\n\n✓ Enviado a tu WhatsApp' : '');
   } catch (e) { out.style.display = ''; out.textContent = '⚠️ ' + (e.message || e); }
@@ -66887,11 +66887,11 @@ function npFila_(n) {
       ${pf.rol === 'admin' || pf.pruebaComo || String(n).toLowerCase() === String((typeof currentUser !== 'undefined' && currentUser) || '').toLowerCase() ? `<div class="np-lab">🧪 Prueba como</div>
       <select class="at-in" onchange="npPrueba_(this.closest('.np-p').dataset.n,this.value)"><option value="">Nadie (el bot me responde normal)</option>${(typeof pzNombres_ === 'function' ? pzNombres_() : []).filter(x => x !== n).map(x => `<option ${x === pf.pruebaComo ? 'selected' : ''}>${pcEsc(x)}</option>`).join('')}</select>
       <div class="np-hint">${pf.pruebaComo ? `El bot te responde por WhatsApp como si fueras <b>${pcEsc(pf.pruebaComo)}</b> (sus permisos y configuración). Tus entradas/salidas no se registran mientras pruebas.` : 'Elige a alguien para que el bot te responda como lo haría con esa persona.'}</div>
-      ${pf.pruebaComo ? `<div class="np-lab">Proceso a simular</div>
+      <div class="np-lab">Proceso a simular</div>
       <div style="display:flex;gap:6px;align-items:center"><select class="at-in np-proc" style="flex:1">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
         <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,this.closest('.np-p').dataset.n)">▶ Simular</button></div>
-      <div class="np-hint">Te llega por WhatsApp lo que recibiría ${pcEsc(aseoNombreCorto_(pf.pruebaComo))} y aquí ves la vista previa.</div>
-      <pre class="np-sim" style="display:none"></pre>` : ''}` : ''}
+      <div class="np-hint">Te llega por WhatsApp lo que recibiría${pf.pruebaComo ? ' ' + pcEsc(aseoNombreCorto_(pf.pruebaComo)) : 's tú'} y aquí ves la vista previa.</div>
+      <pre class="np-sim" style="display:none"></pre>` : ''}
     </div>` : ''}
   </div>`;
 }
