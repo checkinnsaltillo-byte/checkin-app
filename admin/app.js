@@ -64874,6 +64874,21 @@ function clEmpCss_() {
     html body .ad-card .r2.ad-src>span+span{margin-left:10px;white-space:nowrap;color:#475569}
     .ad-card .ad-det{display:none!important} /* la card completa abre sus detalles */
     .ad-kl{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+    .ad-urows{display:flex;flex-direction:column;border:1px solid #e8eaee;border-radius:12px;background:#fff;overflow:hidden}
+    .ad-uord{display:flex;align-items:center;gap:8px;white-space:nowrap;padding:8px 12px;border-bottom:1px solid #eef0f3;font:600 12px Inter,system-ui,sans-serif;color:#475569}
+    .ad-uord select{font:600 12px Inter,system-ui,sans-serif;color:#4f46e5;border:0;background:transparent;cursor:pointer}
+    .ad-urow{display:flex;align-items:stretch;border-bottom:1px solid #eef0f3;min-height:96px}.ad-urow:last-child{border-bottom:0}
+    .ad-urow.sin{background:#f8fafc}
+    .ad-uh{flex:none;width:190px;display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-right:1px solid #eef0f3;background:#fff}
+    .ad-urow.sin .ad-uh{background:#f8fafc}
+    .ad-uav{flex:none;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font:700 11px Inter,system-ui,sans-serif}
+    .ad-uav.sin{background:#cbd5e1}
+    .ad-un2{display:flex;flex-direction:column;gap:3px;min-width:0}.ad-un2 b{font:600 12.5px Inter,system-ui,sans-serif;color:#0f1729;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ad-un2 small{font-size:11px;color:#64748b}
+    .ad-un2 .ad-colprog{margin:2px 0 0}
+    .ad-ucards{flex:1;min-width:0;display:flex;gap:8px;padding:8px 10px;overflow-x:auto;align-items:flex-start}
+    .ad-ucards>.ad-card,.ad-ucards>.ad-vinc{flex:none;width:236px;zoom:.88}
+    .ad-ucards .ad-empty{align-self:center}
+    @media (max-width:640px){.ad-uh{width:120px;padding:8px}.ad-ucards>.ad-card,.ad-ucards>.ad-vinc{width:210px}}
     #aseo-vercomo{display:inline-flex;align-items:center;gap:8px;margin-left:14px;vertical-align:middle}
     .ck-pb{all:unset;cursor:pointer;font:600 12px Inter,system-ui,sans-serif;padding:5px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151}
     .ck-pb.on{background:#fef3c7;border-color:#f59e0b;color:#92400e}
@@ -66189,9 +66204,9 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       const p = L.find(I => !I.tarea) || L.find(I => !['correctivo', 'preventivo'].includes(axSrv_(kDe(I)))) || L[0], pi = idsDe(p), hs = L.filter(I => I !== p);
       hijosDe.set(p, hs); hs.forEach(h => { padreDe.set(h, p); const hi = idsDe(h); puenteDe.set(h, hi.find(x => pi.includes(x)) || hi[0]); });
     }); }
-  const vista = ASEO.vista === 'estado' ? 'estado' : 'propiedad'; // predeterminada: por propiedad
+  const vista = ASEO.vista === 'estado' || ASEO.vista === 'usuario' ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
-  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
+  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -66236,7 +66251,18 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     return `<span class="ad-colprog" title="${term} de ${t} terminadas${proc ? ` · ${proc} en proceso` : ''}"><span class="ad-prog"><i style="width:${(term / t * 100).toFixed(1)}%;background:${adEstC_('terminado')}"></i><i style="width:${(proc / t * 100).toFixed(1)}%;background:${adEstC_('en_proceso')}"></i></span><b>${Math.round(term / t * 100)}%</b></span>`;
   };
   const totV = vivos.length;
-  const cols = vista === 'estado'
+  // Vista «Por usuario» (como Breezeway): un renglón por persona con sus cards a lo largo; primero lo sin asignar.
+  const filasUsuario = () => {
+    const quien = I => [...new Set([...(I.pA || []), ...(I.pI || [])])];
+    const tops = sinHijos(ver), nombres = new Map();
+    tops.forEach(I => quien(I).forEach(n => { const k = String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
+    const sinA = tops.filter(I => !quien(I).length);
+    const ord = ASEO.uOrd === 'carga' ? (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es') : ASEO.uOrd === 'za' ? (a, b) => b[0].localeCompare(a[0], 'es') : (a, b) => a[0].localeCompare(b[0], 'es');
+    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${nVis(L)} tarea${nVis(L) === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(pinta).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
+    const orden = `<div class="ad-uord"><span>Ordenar por</span><select onchange="ASEO.uOrd=this.value;aseoRender_()"><option value="az" ${!ASEO.uOrd || ASEO.uOrd === 'az' ? 'selected' : ''}>Alfabético (A–Z)</option><option value="za" ${ASEO.uOrd === 'za' ? 'selected' : ''}>Alfabético (Z–A)</option><option value="carga" ${ASEO.uOrd === 'carga' ? 'selected' : ''}>Más tareas</option></select></div>`;
+    return orden + (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
+  };
+  const cols = vista === 'usuario' ? filasUsuario() : vista === 'estado'
     ? AD_EST.map(E => {
       const L = ver.filter(I => !I.fantasma && adEstBase_(I.selE) === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : [], E.k === 'terminado' ? ver.filter(I => I.selE === 'cancelado') : []);
       return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh">${E.t}<span>${nVis(L)}</span>${(n => totV ? `<span class="ad-colprog" title="${n} de ${totV} (${Math.round(n / totV * 100)}%)"><span class="ad-prog"><i style="width:${(n / totV * 100).toFixed(1)}%;background:${E.c}"></i></span><b>${Math.round(n / totV * 100)}%</b></span>` : '')(L.filter(I => !I.fantasma && !I.tarea).length)}</div>${sinHijos(L).map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
@@ -66254,7 +66280,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   ASEO._hamHtml = `<button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}${nFil ? ` (${nFil} activo${nFil === 1 ? '' : 's'})` : ''}">☰${nFil ? `<b>${nFil}</b>` : ''}</button>`;
   ASEO._filtrosHtml = ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}${archHtml}</div>` : '';
   ASEO._segVHtml = segV;
-  return `${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  return `${ver.length ? (vista === 'usuario' ? `<div class="ad-urows">${cols}</div>` : `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>`) : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista2') || 'propiedad'; } catch (_) { ASEO.vista = 'propiedad'; }
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista2', v); } catch (_) {} aseoRenderSide_(); };
