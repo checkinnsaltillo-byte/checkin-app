@@ -66211,7 +66211,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const MP = clModoPersonal_();
   if (ASEO.simple == null) ASEO.simple = MP; // predeterminada: Simple para empleados, Detalles para administradores
   if (MP) { const mias = tInfos.filter(I => clEsMio_(I.pA)); tInfos.length = 0; mias.forEach(I => tInfos.push(I)); }
-  if (ASEO.simple) { const sinCorr = tInfos.filter(I => !axEsDeInc_(I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id)); tInfos.length = 0; sinCorr.forEach(I => tInfos.push(I)); } // «Simple»: sin tareas correctivas de incidencias
+  if (ASEO.simple && !(!MP && ASEO.vista === 'usuario')) { const sinCorr = tInfos.filter(I => !axEsDeInc_(I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id)); tInfos.length = 0; sinCorr.forEach(I => tInfos.push(I)); } // «Simple»: sin tareas correctivas de incidencias (salvo «Por usuario»: cada quien ve su renglón con todas sus tareas)
   const props = [...new Set(infos.concat(tInfos).map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
   const fP = (ASEO.fProp || []).filter(p => props.includes(p));
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
@@ -66319,13 +66319,13 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const filasUsuario = () => {
     const quien = I => [...new Set([...(I.pA || []), ...(I.pI || [])])];
     // Todas las cards cuentan, también las tareas ligadas a una incidencia (van en el renglón de su asignado).
-    const tops = sinHijos(ver), nombres = new Map();
+    const tops = ASEO.simple ? ver : sinHijos(ver), nombres = new Map();
     ver.forEach(I => quien(I).forEach(n => { const k = String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
     const sinA = tops.filter(I => !quien(I).length);
     const ord = (a, b) => a[0].localeCompare(b[0], 'es'); // siempre alfabético
     const pN = I => (PRIO4[I.tarea ? prio4Key_(I.t.prioridad) : I.prio] || { n: 0 }).n;
     nombres.forEach(L => L.sort((a, b) => pN(b) - pN(a))); sinA.sort((a, b) => pN(b) - pN(a));
-    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${L.length} tarea${L.length === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(I => padreDe.has(I) ? (L.includes(padreDe.get(I)) ? '' : pinta0(I)) : pinta(I)).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
+    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${L.length} tarea${L.length === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(I => ASEO.simple ? pinta0(I) : padreDe.has(I) ? (L.includes(padreDe.get(I)) ? '' : pinta0(I)) : pinta(I)).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
     return (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
   };
   const cols = vista === 'usuario' ? filasUsuario() : vista === 'estado'
