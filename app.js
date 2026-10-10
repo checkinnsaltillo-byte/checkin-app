@@ -64826,7 +64826,11 @@ function clEmpCss_() {
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
     html body .ad-card .ad-qs button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
     html body .ad-card .ad-qs button.on i{background:#fff}
-    .ad-card{position:relative}.ad-card>.r1:has(>.ad-insp){padding-right:28px}.ad-card>.r1:has(>.ad-insp) .mv{flex-shrink:1;min-width:0;flex-wrap:wrap;justify-content:flex-end;row-gap:3px}.ad-card>.r1>.ad-insp{position:absolute;top:8px;right:8px;margin:0}
+    html body .ad-steps button.ad-insp:before{display:none}
+    html body .ad-qs button.ad-insp,html body .ad-steps button.ad-insp{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;align-self:center;width:22px;height:22px;min-width:0;padding:0;margin:0 0 0 2px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;color:transparent;box-shadow:none;font:800 13px/1 Inter,system-ui,sans-serif}
+    html body .ad-steps button.ad-insp{width:34px;height:34px;font-size:16px;border-radius:8px}
+    html body .ad-qs button.ad-insp:hover,html body .ad-steps button.ad-insp:hover{border-color:#16a34a;color:#86efac;background:#fff}
+    html body .ad-qs button.ad-insp.on,html body .ad-steps button.ad-insp.on{background:#16a34a;border-color:#16a34a;color:#fff}.ad-card>.r1>.ad-insp{position:absolute;top:8px;right:8px;margin:0}
     .ad-insp{all:unset;box-sizing:border-box;cursor:pointer;flex:none;margin-left:6px;width:22px;height:22px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:transparent;font:800 13px/1 Inter,system-ui,sans-serif}
     .ad-insp:hover{border-color:#16a34a;color:#86efac}
     .ad-insp.on{background:#16a34a;border-color:#16a34a;color:#fff}
@@ -65793,7 +65797,7 @@ const AD_CORTO = { pendiente: 'Pend.', en_proceso: 'Proceso', terminado: 'Term.'
 function adEstRapido_(id, hid, sel, tarea, sinInsp) {
   const sb = adEstBase_(sel);
   return `<div class="ad-qs" onclick="event.stopPropagation()">${AD_EST.map(e =>
-    `<button type="button" class="${e.k === sb ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === sb ? '' : `aseoSetEstado_('${pcEsc(id)}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})`}"><i></i>${AD_CORTO[e.k]}</button>`).join('')}</div>`;
+    `<button type="button" class="${e.k === sb ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === sb ? '' : `aseoSetEstado_('${pcEsc(id)}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})`}"><i></i>${AD_CORTO[e.k]}</button>`).join('')}${sinInsp ? '' : adInspBtn_(id, hid, sel, tarea)}</div>`;
 }
 // Arrastrar una card a otra columna (vista por estado) → cambia su estado.
 window.adDragStart_ = function (ev, id, hid, tarea, sinInsp) {
@@ -65968,7 +65972,7 @@ function adCard_(I) {
   const sel = ASEO._dr && ASEO._dr.k === I.k;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span>${I.fantasma ? '' : adInspBtn_(I.asigId, I.hid, I.selE, false)}</div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${nsChip}
@@ -66357,7 +66361,7 @@ function adPintar_(nuevo) {
       ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
-      <div class="lab">Estado de aseo</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${pasos}</div>${adInspBtn_(I.asigId, I.hid, I.selE, false, true)}${guiaBox}
+      <div class="lab">Estado de aseo</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr) auto">${pasos}${adInspBtn_(I.asigId, I.hid, I.selE, false)}</div>${guiaBox}
       ${axTipoTareaHtml_(I.depto, null)}${I.soloEnt ? `<div class="ad-hint">Solo entra huésped hoy: no se programa limpieza, se requiere <b>inspección</b> antes de la entrada.${I.ultSal ? ` Última salida: ${aseoDiaTxt_(I.ultSal)} (${I.diasUlt === 0 ? 'hoy' : 'hace ' + I.diasUlt + ' día' + (I.diasUlt === 1 ? '' : 's')}).` : ''}</div>` : ''}
       ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
@@ -66452,7 +66456,7 @@ function atCard_(I) {
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
   return `<div class="ad-card tipo est-tint tarea ${t.problema ? 'alert' : ''} ${axEsDeInc_('T' + t.id) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c};--sc:${adEstC_(I.selE)}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span>${t.depto === 'limpieza' ? adInspBtn_(I.key, '', I.selE, true) : ''}</div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     ${I.arrastre ? `<div class="flag orange"><i></i>Sin resolver desde ${aseoDiaTxt_(t.fecha)} · sigue a su card</div>` : ''}
     <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
@@ -66488,7 +66492,7 @@ function atPintar_(nuevo) {
       <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(t.prioridad)}</div>
       ${t.problema ? '<div class="ad-badge red"><i></i>Creada como problema</div>' : ''}</div>
     <div class="ad-db">
-      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === adEstBase_(I.selE) ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>${t.depto === 'limpieza' ? adInspBtn_(I.key, '', I.selE, true, true) : ''}
+      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)${t.depto === 'limpieza' ? ' auto' : ''}">${pasos.map(e => `<button type="button" class="${e.k === adEstBase_(I.selE) ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}${t.depto === 'limpieza' ? adInspBtn_(I.key, '', I.selE, true) : ''}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
       <div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
@@ -67088,7 +67092,7 @@ const NP_REGLAS = [
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
     '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; en sus cards solo puede cambiar el <b>estado</b> (sin validar: «Terminado» queda por validar) y marcar <b>«¿No ha desalojado?»</b>; lo demás es de solo lectura (sin detalles).',
-    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado. «Inspeccionado» ya no es un estado aparte: es la palomita ✓ verde arriba a la derecha de la card y en su ventana de detalles (se marca sobre «Terminado»).',
+    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado. «Inspeccionado» ya no es un estado aparte: es el cuadro ✓ junto a «Terminado», en la card y en su ventana de detalles (se marca sobre «Terminado»).',
     '<b>Incidencia en una card:</b> aparece debajo de la card en un recuadro rojo; si sigue abierta y no tiene tarea correctiva, el enlace «🛠 Crear tarea correctiva» abre directo esa sección.',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
