@@ -65464,7 +65464,7 @@ function mvNpGuardar_() {
   clearTimeout(ASEO._npT);
   ASEO._npT = setTimeout(async () => {
     try {
-      const body = { on: ASEO._an.on, personas: [...ASEO._an.sel], user: (typeof currentUser !== 'undefined' && currentUser) || '' };
+      const body = { on: ASEO._an.on, user: (typeof currentUser !== 'undefined' && currentUser) || '' };
       const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
       ASEO.autonotif = r.autonotif || body;
@@ -66877,10 +66877,17 @@ window.npSimular_ = async function (btn, n, libre) {
 };
 window.npPrueba_ = function (n, v) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.pruebaComo = v || ''; npPruebaPintar_(); npRefila_(n); npGuardar_(); };
 window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.canal = k; npRefila_(n); npGuardar_(); };
-window.npAbrir_ = function () {
+window.npAbrir_ = async function () {
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
-  ASEO._np = { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), abierto: '', q: '' };
+  ASEO._np = { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), abierto: '', q: '', listo: false };
   ASEO._dr = { form: true, k: 'np' };
+  npPintar_();
+  // Configuración fresca del servidor (sin ella no se guarda nada) y Personal completo (nombres y celulares).
+  const pers = (typeof INC_STATE !== 'undefined' && (INC_STATE.personalRows || []).length) || typeof incLoadPersonal !== 'function' ? null : incLoadPersonal().catch(() => null);
+  try { const j = await fetch(`${BACKEND}/aseo/autonotif`).then(r => r.json()); if (j.ok) ASEO.autonotif = j.autonotif || {}; } catch (_) {}
+  await pers;
+  if (!ASEO._dr || ASEO._dr.k !== 'np') return;
+  Object.assign(ASEO._np, { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), listo: true });
   npPintar_();
 };
 function npResumen_(pf) {
@@ -66931,7 +66938,7 @@ function npPintar_() {
       <div class="np-list" id="np-list">${L.map(npFila_).join('') || '<div class="at-hint">⏳ Cargando personal…</div>'}</div>
     </div>
     <div class="ad-ft"><span class="np-save" id="np-save">Los cambios se guardan solos</span><button type="button" class="ad-bt pri" onclick="adCerrar_()">Listo</button></div>`;
-  if (!nombres.length) setTimeout(() => { if (ASEO._dr && ASEO._dr.k === 'np') npPintar_(); }, 900);
+  if (!(typeof pzNombres_ === 'function' ? pzNombres_() : []).length) setTimeout(() => { if (ASEO._dr && ASEO._dr.k === 'np') { const ab = ASEO._np.abierto; npPintar_(); ASEO._np.abierto = ab; } }, 900);
 }
 function npPintarLista_() {
   const box = document.getElementById('np-list'); if (!box) return;
@@ -66957,11 +66964,13 @@ window.npSet_ = function (n, k) {
 };
 window.npOn_ = function () { ASEO._np.on = !ASEO._np.on; npPintar_(); npGuardar_(); };
 function npGuardar_() {
-  const s = document.getElementById('np-save'); if (s) s.textContent = '⏳ Guardando…';
+  const s = document.getElementById('np-save');
+  if (!ASEO._np.listo) { if (s) s.textContent = '⏳ Cargando… intenta de nuevo en un momento'; return; }
+  if (s) s.textContent = '⏳ Guardando…';
   clearTimeout(ASEO._npT);
   ASEO._npT = setTimeout(async () => {
     try {
-      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.recordatorio === false || (p.canal && p.canal !== 'whatsapp') || p.pruebaComo) P[n] = p; });
+      const P = ASEO._np.perfiles;
       const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: ASEO._np.on, perfiles: P, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
       ASEO.autonotif = r.autonotif;
