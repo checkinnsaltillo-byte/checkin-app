@@ -59816,6 +59816,7 @@ function aseoCerrarPop_() {
 window.aseoSetEstado_ = async function (id, hid, k, validar) {
   aseoCerrarPop_();
   validar = !!validar || k !== 'terminado'; // solo "Terminado" requiere validación; el resto se publica directo
+  if (typeof clModoPersonal_ === 'function' && clModoPersonal_()) validar = false; // el personal no valida (igual que por WhatsApp)
   const prev = ASEO.estados[id];
   const cur0 = aseoEstDe_(id);
   if (!validar && cur0 && cur0.estado === k) return; // mismo estado: nada que cambiar
@@ -64783,6 +64784,7 @@ function clEmpCss_() {
     .ad-ham b{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#111827;color:#fff;font:700 10px/16px Inter,system-ui,sans-serif;text-align:center}
     .ad-gfil{margin:0 0 10px}
     #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
+    #module-aseo.cl-emp .ad-card .ad-qs,#module-aseo.cl-emp .ad-card .ad-qs button,#module-aseo.cl-emp .ad-card .mv-ns{pointer-events:auto!important;cursor:pointer!important}
     #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-mini,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}`;
   document.head.appendChild(st);
 }
@@ -66982,7 +66984,7 @@ const NP_REGLAS = [
     '<b>Nunca muestra códigos, folios ni claves:</b> identifica por alojamiento y descripción.',
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
-    '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; las cards son de solo lectura (sin detalles ni botones).',
+    '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; en sus cards solo puede cambiar el <b>estado</b> (sin validar: «Terminado» queda por validar) y marcar <b>«¿No ha desalojado?»</b>; lo demás es de solo lectura (sin detalles).',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
     'Si en un alojamiento sale una reserva confirmada y otra cancelada, la card (estado, asignación, prioridad) usa la confirmada.',
