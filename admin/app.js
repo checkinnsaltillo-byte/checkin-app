@@ -66073,6 +66073,8 @@ function axIncHtml_(k, ids) {
 function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')), sd = pcEsc(String(dia || '')); return inc ? `axIncAbrir_('${sk}','${sh}','${sd}')` : `axReportar_('${sk}','${sh}','${sd}')`; }
 // Clic en «⚠️ Incidencia»: siempre abre la ventana lateral (una → su detalle; varias → la lista de la card).
 // «🛠 Crear tarea correctiva» desde el recuadro de la incidencia: abre directo esa sección de la ventana lateral.
+// Motivo(s) de una incidencia para su recuadro rojo: « · Reglamento».
+function adIncMot_(id) { const r = axIncRow_(id); const m = r ? icRow_(r).mot : []; return m.length ? ' · ' + pcEsc(m.join(', ')) : ''; }
 window.axIncCorrectiva_ = async function (k, hid, dia, id) {
   if (!(INC_STATE.list || []).length) await incLoadIncidencias();
   icCss_(); IC.dr = { id: String(id), ctx: { k: String(k), hid: String(hid || ''), dia: String(dia || '') } };
@@ -66222,7 +66224,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const puenteSolo = (I, id) => {
     const k = kDe(I), sk = pcEsc(k), sh = pcEsc(String(I.hid || '')), dia = pcEsc(I.tarea ? (I.dia || hoy) : hoy), sid = pcEsc(id);
     const r = axIncRow_(id), conTarea = r ? icLigsVal_(r).length > 0 : false, x = r ? icRow_(r) : null, cerrada = x ? icCerrada_(x) : false;
-    return `<div class="ad-puente" role="button" title="Ver los detalles de la incidencia" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${sid}')"><span class="ar">⇅</span><span class="tx ad-pz"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia</span></span>${conTarea ? '<small>🛠 Tarea correctiva creada</small>' : cerrada ? `<small>${pcEsc((IC_EST.find(e => e.k === x.est) || {}).t || x.est)}</small>` : `<button type="button" class="ad-cta" onclick="event.stopPropagation();axIncCorrectiva_('${sk}','${sh}','${dia}','${sid}')">🛠 Crear tarea correctiva</button>`}</span></div>`;
+    return `<div class="ad-puente" role="button" title="Ver los detalles de la incidencia" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${sid}')"><span class="ar">⇅</span><span class="tx ad-pz"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia${adIncMot_(id)}</span></span>${conTarea ? '<small>🛠 Tarea correctiva creada</small>' : cerrada ? `<small>${pcEsc((IC_EST.find(e => e.k === x.est) || {}).t || x.est)}</small>` : `<button type="button" class="ad-cta" onclick="event.stopPropagation();axIncCorrectiva_('${sk}','${sh}','${dia}','${sid}')">🛠 Crear tarea correctiva</button>`}</span></div>`;
   };
   const pinta = I => {
     if (ASEO.simple) return pinta0(I); // vista «Simple»: la incidencia va como chip dentro de la card
@@ -66237,7 +66239,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     try {
       const puente = h => {
         const id = puenteDe.get(h);
-        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia</span></span><small>🛠 Tarea correctiva</small></span></button>`;
+        return `<button type="button" class="ad-puente" title="Incidencia que integra estas cards · clic para ver sus detalles" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${pcEsc(id)}')"><span class="ar">⇅</span><span class="tx"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia${adIncMot_(id)}</span></span><small>🛠 Tarea correctiva</small></span></button>`;
       };
       return `<div class="ad-vinc">${pinta0(I)}${H.map(h => puente(h) + pinta0(h)).join('')}</div>`;
     } finally { ASEO._sinInc = null; }
