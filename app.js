@@ -403,6 +403,7 @@ function sysApplyPermissions(user) {
     }
   }
   window.SYS_ALLOWED = allowed;
+  window.SYS_USER = user || null; // usuario de la sesión (para saber si es administrativo)
   // Check-list «modo personal» desde el primer instante: usuarios de Personal, salvo que la última vez resultaran administrativos.
   try { const c = JSON.parse(localStorage.getItem('cl-admin') || 'null'); document.body.classList.toggle('cl-emp-u', !!(user && Array.isArray(user.modulosKeys)) && !(c && c.n === user.Nombre && c.a)); } catch (_) {}
   document.querySelectorAll('[id^="nav-item-"]').forEach(el => {
@@ -64917,7 +64918,8 @@ function clEmpCss_() {
     #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
     #module-aseo.cl-emp .ad-card .ad-qs,#module-aseo.cl-emp .ad-card .ad-qs button,#module-aseo.cl-emp .ad-card .mv-ns,#module-aseo.cl-emp .ad-card .ad-insp{pointer-events:auto!important;cursor:pointer!important}
     #module-aseo.cl-emp .ad-puente{display:none!important}
-    #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-mini,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}`;
+    #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}
+    #module-aseo.cl-emp .ad-card .ax-mini{pointer-events:auto!important;cursor:pointer!important}`;
   document.head.appendChild(st);
 }
 function aseoEnsureCss_() {
@@ -65752,7 +65754,7 @@ function clEsAdminNombre_(yo) {
 }
 function clEsAdmin_() { const v = clVerComo_(); return v ? !!clEsAdminNombre_(v) : clEsAdminReal_(); }
 function clEsAdminReal_() {
-  const u = (typeof sysGetStoredUser === 'function' && sysGetStoredUser()) || {};
+  const u = window.SYS_USER || (typeof sysGetStoredUser === 'function' && sysGetStoredUser()) || {};
   if (!Array.isArray(u.modulosKeys)) return true;
   const yo = (typeof currentUser !== 'undefined' && currentUser) || u.Nombre || '';
   const P = ((typeof ASEO !== 'undefined' && ASEO.autonotif) || {}).perfiles || {};
@@ -67231,7 +67233,7 @@ window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.ass
 const NP_REGLAS = [
   ['👥', 'Roles y permisos', 'El rol de cada persona define TODO lo que puede hacer con el bot.', [
     '<b>Administrador:</b> todo — levantar incidencias, tareas de mantenimiento/insumos/inspección y tareas correctivas; crear tareas; aceptar entradas tempranas y salidas tardías; reprogramar y cambiar fechas; validar estados; cambiar prioridad; asignar responsables; consultar resúmenes, incidencias, historial y datos del huésped.',
-    '<b>Empleado:</b> solo consulta lo básico de <i>sus</i> tareas, cambia su estado (queda «sin validar») y puede avisar que un huésped no ha desalojado.',
+    '<b>Empleado:</b> solo consulta lo básico de <i>sus</i> tareas, cambia su estado (queda «sin validar»), puede avisar que un huésped no ha desalojado y, desde el sistema, reportar incidencias de <b>huésped</b> en sus cards (formulario simplificado: alojamiento, fecha, motivo, estado, descripción y fotos).',
     '<b>Desactivado:</b> sin avisos automáticos. Si está en Personal con celular, igual puede registrar entrada/salida y consultar sus tareas como empleado.',
     'Los administradores del sistema (Puesto «Administración») siempre tienen todos los permisos desde su número. Con «@» al inicio el bot ejecuta directo.']],
   ['📬', 'Mensajes automáticos', 'Se controlan con el interruptor de arriba. Si está apagado, el bot no manda nada por su cuenta.', [
@@ -67946,7 +67948,9 @@ window.icForm_ = function (id, pre, modo) {
   IC.dr = { id: id ? String(id) : '' };
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
     : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
-  IC.f.cls = x ? x.cls : (P.cls === 'huesped' ? 'huesped' : 'operativa');
+  IC.f.emp = !x && typeof clModoPersonal_ === 'function' && clModoPersonal_(); // personal no administrativo: reporte simplificado
+  IC.f.cls = x ? x.cls : (IC.f.emp || P.cls === 'huesped' ? 'huesped' : 'operativa');
+  if (IC.f.emp) IC.f.rep = yo;
   IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
   IC.f.tareaLig = x ? icLigsVal_(r).join(', ') : ''; IC.f.lev = false; IC.f.ctx = ctx || null;
   IC.f0 = icFormFirma_(IC.f); // para detectar cambios (Guardar cambios solo si hay)
@@ -68036,34 +68040,34 @@ function icFormPintar_() {
   }
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
     <div class="ad-db at-f">
-      <label class="at-l">Tipo de incidencia <i>*</i></label>
-      <div class="ad-steps" style="grid-template-columns:repeat(2,1fr)">${Object.entries(IC_CLS).map(([k, C]) => `<button type="button" class="${F.cls === k ? 'on' : ''}" style="--c:${C.c}" onclick="icFormCls_('${k}')">${C.ico} ${C.t}</button>`).join('')}</div>
+      ${F.emp ? '<div class="ad-hint" style="margin-top:0">👤 Incidencia de <b>huésped</b></div>' : `<label class="at-l">Tipo de incidencia <i>*</i></label>
+      <div class="ad-steps" style="grid-template-columns:repeat(2,1fr)">${Object.entries(IC_CLS).map(([k, C]) => `<button type="button" class="${F.cls === k ? 'on' : ''}" style="--c:${C.c}" onclick="icFormCls_('${k}')">${C.ico} ${C.t}</button>`).join('')}</div>`}
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="IC.f.hid=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
       <div class="at-row"><span class="at-k">Fecha</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" onchange="IC.f.fecha=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"></div>
-      <label class="at-l">Reserva</label>${icResSelect_()}
+      ${F.emp ? '' : `<label class="at-l">Reserva</label>${icResSelect_()}`}
       <label class="at-l">Motivo <i>*</i></label>
       <div class="ic-mots">${mots.map(m => `<button type="button" class="ic-mot ${F.mot.includes(m) ? 'on' : ''}" style="--c:${icMotC_(m).c}" data-m="${pcEsc(m)}" onclick="icFormTog_('mot',this.dataset.m)">${icMotC_(m).ico} ${pcEsc(m)}</button>`).join('')}</div>
-      <label class="at-l">Sub-motivo</label>
+      ${F.emp && !icClasDe_(F.mot).length ? '' : `<label class="at-l">Sub-motivo</label>
       <div class="ic-mots">${F.cls === 'huesped' && !icClasDe_(F.mot).length ? '<span class="ad-hint" style="margin:0 6px 0 0">Aún sin sub-motivos para esta clase.</span>' : ''}${icClasDe_(F.mot).map(c => `<button type="button" class="ic-mot ${F.clas.includes(c) ? 'on' : ''}" style="--c:#4f46e5" data-c="${pcEsc(c)}" onclick="icFormTog_('clas',this.dataset.c)">${pcEsc(c)}</button>`).join('')}
-        <input class="at-in at-tagin" style="max-width:170px" placeholder="＋ Otra y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.clas.includes(v)){IC.f.clas.push(v);icFormPintar_();}}"></div>
-      <label class="at-l">Prioridad</label>${prio4Sel_(F.prio, 'icFormPrio_')}
+        ${F.emp ? '' : `<input class="at-in at-tagin" style="max-width:170px" placeholder="＋ Otra y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.clas.includes(v)){IC.f.clas.push(v);icFormPintar_();}}">`}</div>`}
+      ${F.emp ? '' : `<label class="at-l">Prioridad</label>${prio4Sel_(F.prio, 'icFormPrio_')}`}
       <label class="at-l">Estado</label>
       <div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === F.est ? 'on' : ''}" style="--c:${e.c}" onclick="IC.f.est='${e.k}';icFormPintar_()">${e.t}</button>`).join('')}</div>
       <div class="at-sec"><span>📝 Reporte</span></div>
       <label class="at-l">Descripción detallada <small style="color:#9aa1ad;font-weight:500">(opcional)</small></label><textarea class="at-in" rows="3" placeholder="¿Qué pasó y dónde?" oninput="IC.f.desc=this.value">${pcEsc(F.desc)}</textarea>
-      <details class="ad-res" ${F.detAb || F.acc || F.seg ? 'open' : ''} ontoggle="IC.f.detAb=this.open"><summary>Acciones realizadas y seguimiento requerido</summary>
+      ${F.emp ? '' : `<details class="ad-res" ${F.detAb || F.acc || F.seg ? 'open' : ''} ontoggle="IC.f.detAb=this.open"><summary>Acciones realizadas y seguimiento requerido</summary>
         <label class="at-l">Acciones realizadas</label><textarea class="at-in" rows="2" oninput="IC.f.acc=this.value">${pcEsc(F.acc)}</textarea>
         <label class="at-l">Seguimiento requerido</label><textarea class="at-in" rows="2" oninput="IC.f.seg=this.value">${pcEsc(F.seg)}</textarea>
-      </details>
-      <div class="at-sec"><span>👤 Personas</span></div>
+      </details>`}
+      ${F.emp ? '' : `<div class="at-sec"><span>👤 Personas</span></div>
       <label class="at-l">Reportó</label>
       <select class="at-in" onchange="IC.f.rep=this.value"><option value="">Sin especificar</option>${nombres.map(n => `<option ${n === F.rep ? 'selected' : ''}>${pcEsc(n)}</option>`).join('')}</select>
       ${F.tareaLig ? `<div class="ad-hint">Tarea correctiva ya creada: ${F.tareaLig.split(', ').map(l => pcEsc(icLigTxt_(l))).join(' · ')}</div>` : ''}
       <div class="ic-ck ${F.lev ? 'on' : ''}" onclick="icLev_()"><span class="ck">${F.lev ? '✓' : ''}</span><div><b>${F.tareaLig ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}</b><small>Crea también la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia</small></div></div>
       ${F.lev ? `<div class="ic-lev">${icLevHtml_()}</div>` : ''}
       <div class="at-row" style="justify-content:space-between;margin-top:10px"><span class="at-k" style="width:auto">Personas involucradas</span><button type="button" class="ad-link" onclick="icFormPers_(this)">＋ Añadir persona</button></div>
-      <div class="at-chips" id="ic-pers">${icPersChips_()}</div>
+      <div class="at-chips" id="ic-pers">${icPersChips_()}</div>`}
       <div class="at-sec"><span>📷 Evidencia fotográfica</span><label class="ad-link">＋ Añadir fotos<input type="file" accept="image/*" multiple hidden onchange="icFormFotos_(this)"></label></div>
       <div class="ic-fotos" id="ic-fotos">${icFotosForm_()}</div>
     </div>
@@ -68142,7 +68146,8 @@ window.icGuardar_ = async function () {
     if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo crear la tarea correctiva: ' + (e.message || e)); } }
     if (F.desdeK && id) { try { axIncLigar_(F.desdeK, F.hid, id, true); } catch (_) {} } // se suma a las incidencias de la card // la card de origen queda «⚠️ Incidencia»
     const ctx0 = F.ctx; IC.f = null; icRender_(); icRepintarAseo_();
-    if (id) icAbrir_(id, ctx0 || undefined); else icCerrar_();
+    if (F.emp) { icCerrar_(); alert('✅ Incidencia reportada. Un administrador le dará seguimiento.'); }
+    else if (id) icAbrir_(id, ctx0 || undefined); else icCerrar_();
     try { if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc'); } catch (_) {}
   } catch (e) { alert('No se pudo guardar la incidencia: ' + (e.message || e)); if (btn) { btn.disabled = false; btn.textContent = F.id ? 'Guardar cambios' : 'Crear incidencia'; } }
 };
