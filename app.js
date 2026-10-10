@@ -64899,7 +64899,9 @@ function clEmpCss_() {
     #aseo-vista-slot{display:inline-flex;gap:8px}
     .ad-seg.ad-seg2{background:#eef2ff;border-color:#c7d2fe}
     .ad-seg.ad-seg2 button{color:#4338ca}.ad-seg.ad-seg2 button.on{background:#4f46e5;color:#fff}
-    #aseo-side .ad-ucards .ad-card .r3{flex-wrap:wrap;white-space:normal;row-gap:4px}
+    #aseo-side .ad-card .r3.ad-r3w{flex-wrap:wrap;row-gap:5px}
+    .ad-card .r3 .ad-r3b{flex:1 1 100%;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+    #aseo-side .ad-card.ad-simp .r3{flex-wrap:nowrap!important;white-space:nowrap;overflow:hidden}
     .ad-urow.drop{background:#eef2ff;box-shadow:inset 0 0 0 2px #6366f1}.ad-urow.drop .ad-uh{background:#eef2ff}
     @media (max-width:640px){.ad-uh{width:120px;padding:8px}.ad-ucards>.ad-card,.ad-ucards>.ad-vinc{width:210px}}
     #aseo-vercomo{display:inline-flex;align-items:center;gap:8px;margin-left:14px;vertical-align:middle}
@@ -66179,7 +66181,7 @@ function adCard_(I) {
     ${srcTxt || xR ? `<div class="r2 ad-src"><span>${pcEsc(srcTxt)}</span>${xR ? (n => n ? `<span title="Personas">👥 ${n}</span>` : '')(Number(xR.b.NumberOfGuests) || (Number(xR.b.Adults) || 0) + (Number(xR.b.Children) || 0)) + (xR.noches ? `<span title="Noches">🌙 ${xR.noches}</span>` : '') : ''}</div>` : ''}
     ${axFila_(I.asigId, I.g.sal.length > 0, I.hid, aseoDia_())}
     <div class="ad-eq">${equipo}</div>
-    <div class="r3">${nsChip}<span class="sp"></span><button type="button" class="ad-arch" title="${I.arch ? 'Regresar esta card al tablero' : 'Archivar esta card (sale del tablero)'}" onclick="event.stopPropagation();adArchivar_('${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',${!I.arch})">${I.arch ? 'Desarchivar' : 'Archivar'}</button>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    <div class="r3 ad-r3w">${nsChip}<span class="ad-r3b"><span class="sp"></span><button type="button" class="ad-arch" title="${I.arch ? 'Regresar esta card al tablero' : 'Archivar esta card (sale del tablero)'}" onclick="event.stopPropagation();adArchivar_('${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',${!I.arch})">${I.arch ? 'Desarchivar' : 'Archivar'}</button>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></span></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
@@ -66207,6 +66209,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       });
     }); }
   const MP = clModoPersonal_();
+  if (ASEO.simple == null) ASEO.simple = MP; // predeterminada: Simple para empleados, Detalles para administradores
   if (MP) { const mias = tInfos.filter(I => clEsMio_(I.pA)); tInfos.length = 0; mias.forEach(I => tInfos.push(I)); }
   if (ASEO.simple) { const sinCorr = tInfos.filter(I => !axEsDeInc_(I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id)); tInfos.length = 0; sinCorr.forEach(I => tInfos.push(I)); } // «Simple»: sin tareas correctivas de incidencias
   const props = [...new Set(infos.concat(tInfos).map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
@@ -66265,9 +66268,9 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       const p = L.find(I => !I.tarea) || L.find(I => !['correctivo', 'preventivo'].includes(axSrv_(kDe(I)))) || L[0], pi = idsDe(p), hs = L.filter(I => I !== p);
       hijosDe.set(p, hs); hs.forEach(h => { padreDe.set(h, p); const hi = idsDe(h); puenteDe.set(h, hi.find(x => pi.includes(x)) || hi[0]); });
     }); }
-  const vista = ASEO.vista === 'estado' || ASEO.vista === 'usuario' ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad
+  const vista = !MP && (ASEO.vista === 'estado' || ASEO.vista === 'usuario') ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad; empleados solo «por propiedad»
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
-  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div><div class="ad-seg ad-seg2"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
+  const segV = `${MP ? '' : `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div>`}<div class="ad-seg ad-seg2"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -66346,8 +66349,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   return `${ver.length ? (vista === 'usuario' ? `<div class="ad-urows">${cols}</div>` : `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>`) : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista2') || 'propiedad'; } catch (_) { ASEO.vista = 'propiedad'; }
-try { ASEO.simple = localStorage.getItem('aseo-simple') === '1'; } catch (_) {}
-window.adSimple_ = function (on) { ASEO.simple = !!on; try { localStorage.setItem('aseo-simple', on ? '1' : '0'); } catch (_) {} aseoRenderSide_(); };
+try { const v = localStorage.getItem('aseo-simple2'); if (v != null) ASEO.simple = v === '1'; } catch (_) {} // sin elección: según el rol (adTablero_)
+window.adSimple_ = function (on) { ASEO.simple = !!on; try { localStorage.setItem('aseo-simple2', on ? '1' : '0'); } catch (_) {} aseoRenderSide_(); };
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista2', v); } catch (_) {} aseoRenderSide_(); };
 window.adPrioFiltro_ = function (k) { const s = ASEO.fPrio = ASEO.fPrio || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
 window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
