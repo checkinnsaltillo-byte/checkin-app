@@ -9208,6 +9208,7 @@ function clNavPaint_() {
       #aseo-side .ad-card .r3{flex-wrap:nowrap;gap:6px;min-width:0;white-space:nowrap}
       .cl-nav-slot{max-width:100%;overflow-x:auto;scrollbar-width:none}.cl-nav-slot::-webkit-scrollbar{display:none}.cl-nav-slot .cl-g{flex-wrap:nowrap}
       @media (max-width:640px){.ck-bar .ck-sp{display:none}.ck-bar .ck-pri{order:3;font-size:0;width:32px;padding:0;justify-content:center}.ck-bar .ck-pri::before{content:'＋';font-size:16px}.ck-bar .ad-seg>span{display:none}#module-aseo .ck-bar .ck-live,#module-aseo .ck-bar #aseo-upd-btn,#module-aseo .ck-bar #aseo-vista-slot{order:5}#module-aseo #aseo-ham-slot,#module-aseo .ck-dnav,#module-aseo #aseo-cal-btn,#module-aseo #aseo-pub-btn{order:1}#module-aseo .ck-bar .ad-seg>span{display:none}
+      @media (max-width:640px){html body .ck-bar .aseo-btn.ck-pri{font-size:0!important;width:32px!important;min-width:32px;height:32px!important;padding:0!important;display:inline-flex!important;align-items:center;justify-content:center;flex:none;border-radius:8px;overflow:hidden}html body .ck-bar .aseo-btn.ck-pri::before{content:'+';font-size:20px;font-weight:600;line-height:1}} /* móvil: «Nueva tarea» = botón cuadrado «+» */
         .ck-kpis .ad-kpis{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important}.ck-kpis .ad-kpi{padding:8px 10px!important;min-width:0}.ck-kpis .ad-kpi.big{grid-column:1/-1}.ck-kpis .ad-kpi .n{font-size:18px!important}
         #aseo-kpis .ad-kpis{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important}
         #aseo-kpis .ad-kpi{padding:8px 10px!important;min-width:0}#aseo-kpis .ad-kpi.big{grid-column:1/-1}
@@ -64884,7 +64885,7 @@ function clEmpCss_() {
     .ad-uav{flex:none;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font:700 11px Inter,system-ui,sans-serif}
     .ad-uav.sin{background:#cbd5e1}
     .ad-un2{display:flex;flex-direction:column;gap:3px;min-width:0}.ad-un2 b{font:600 12.5px Inter,system-ui,sans-serif;color:#0f1729;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ad-un2 small{font-size:11px;color:#64748b}
-    .ad-un2 .ad-colprog{margin:2px 0 0}
+    .ad-un2 .ad-colprog{margin:2px 0 0}.ad-un2 b{white-space:normal!important;overflow-wrap:anywhere}.ad-un2 small.pu{color:#334155;font-weight:500;line-height:1.25}
     .ad-ucards{flex:1;min-width:0;display:flex;gap:8px;padding:8px 10px;overflow-x:auto;align-items:flex-start}
     .ad-ucards>.ad-card,.ad-ucards>.ad-vinc{flex:none;width:236px;zoom:.88}
     .ad-ucards .ad-empty{align-self:center}
@@ -65876,6 +65877,13 @@ function adInspBtn_(id, hid, sel, tarea, big) {
 function adEstC_(k) { return k === 'inspeccionado' ? AD_INSP_C : (AD_EST.find(e => e.k === k) || {}).c || (k === 'cancelado' ? '#64748b' : '#94a3b8'); }
 function adHoraMx_() { return Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24; }
 function adIni_(n) { return String(n || '?').replace(/\s*\(WhatsApp\)\s*$/, '').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+function adPuesto_(n) { // puesto en Personal (por nombre completo)
+  const q = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim().toLowerCase();
+  const rows = typeof INC_STATE !== 'undefined' && INC_STATE.personalRows || [];
+  if (!rows.length && !ASEO._puLoad && typeof incLoadPersonal === 'function') { ASEO._puLoad = 1; incLoadPersonal().then(() => { if ((INC_STATE.personalRows || []).length) aseoRenderSide_(); }).catch(() => {}); }
+  const pr = rows.find(r => _rhPersonalFullName_(r).toLowerCase() === q || String(r.Nombre || '').trim().toLowerCase() === q);
+  return pr ? String(pr.Puesto || '').trim() : '';
+}
 function adNom_(n, rol, onclick) { const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim(); return `<span class="ad-nm ${onclick ? 'lk' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)}${onclick ? ' · clic para cambiar' : ''}"${onclick ? ` onclick="event.stopPropagation();${onclick}"` : ''}>${pcEsc(t.split(/\s+/)[0] || '?')}</span>`; }
 function adAv_(n, rol) { return `<span class="ad-av" style="background:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + n)}">${pcEsc(adIni_(n))}</span>`; }
 // Todo lo que se necesita de una card (mismas reglas que pcAlojCard_ y que el bot).
@@ -66325,7 +66333,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     const ord = (a, b) => a[0].localeCompare(b[0], 'es'); // siempre alfabético
     const pN = I => (PRIO4[I.tarea ? prio4Key_(I.t.prioridad) : I.prio] || { n: 0 }).n;
     nombres.forEach(L => L.sort((a, b) => pN(b) - pN(a))); sinA.sort((a, b) => pN(b) - pN(a));
-    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${L.length} tarea${L.length === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(I => ASEO.simple ? pinta0(I) : padreDe.has(I) ? (L.includes(padreDe.get(I)) ? '' : pinta0(I)) : pinta(I)).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
+    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(String(n).split(/\s+/)[0])}</b>${sin ? '' : (p => p ? `<small class="pu">${pcEsc(p)}</small>` : '')(adPuesto_(n))}<small>${L.length} tarea${L.length === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(I => ASEO.simple ? pinta0(I) : padreDe.has(I) ? (L.includes(padreDe.get(I)) ? '' : pinta0(I)) : pinta(I)).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
     return (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
   };
   const cols = vista === 'usuario' ? filasUsuario() : vista === 'estado'
