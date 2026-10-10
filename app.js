@@ -9149,9 +9149,10 @@ const CL_BZW_OFF = true; // Breezeway desactivado por el momento (botón gris, s
 function clPuede_(m) { return !window.SYS_ALLOWED || window.SYS_ALLOWED.has(m); }
 function clNavHtml_(act) {
   const b = (k, l, mod) => `<button type="button" class="cl-b ${act === k ? 'on' : ''}" onclick="switchModule('${mod}')">${l}</button>`;
-  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Aseo y Mantenimiento', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
-  const op2 = clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '';
-  const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
+  const MPn = typeof clModoPersonal_ === 'function' && clModoPersonal_();
+  const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Aseo y Mantenimiento', 'aseo') : '', !MPn && (clPuede_('breezeway') || clPuede_('aseo')) ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
+  const op2 = !MPn && clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '';
+  const adm = !MPn && clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
   // «Check-list Bot» (notificaciones y permisos del bot) vive en Configuración admin › 🤖 Check-list Bot.
   return `<div class="cl-nav">${op || op2 ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}${op2}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}</div>`;
 }
@@ -64768,7 +64769,17 @@ function dxSearchMount_(cont, id, st, ph, onInput) {
 // del día). Barra ↔ card interactúan. Datos en vivo de Lodgify cada 30 s.
 // ═══════════════════════════════════════════════════════════════════════════
 window.ASEO = window.ASEO || { live: null, cambios: {}, asig: {}, ts: 0, sel: null, calSig: '', _baseTs: Date.now() };
+function clEmpCss_() {
+  if (document.getElementById('cl-emp-css')) return;
+  const st = document.createElement('style'); st.id = 'cl-emp-css';
+  st.textContent = `#module-aseo.cl-emp .aseo-head .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
+    #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
+    #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
+    #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-mini,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}`;
+  document.head.appendChild(st);
+}
 function aseoEnsureCss_() {
+  clEmpCss_();
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
   if (document.getElementById('aseo-css')) return;
   const st = document.createElement('style'); st.id = 'aseo-css';
@@ -65413,8 +65424,8 @@ async function aseoRefresh_(force) {
 // Barra "Última actualización" (Panel › Movimientos del día y Control de aseo).
 // Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
 const ASEO_POLL_S = 20;
-function mvSyncBar_(sinNotif) {
-  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button></div>`;
+function mvSyncBar_(donde) { // 'aseo': el «🔄 Actualizar» ya está en la barra de arriba de Aseo y Mantenimiento
+  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span>${donde === 'aseo' ? '' : `<button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button>`}</div>`;
 }
 // "Notificar actualizaciones": compara lo que se le envió a cada persona hoy contra sus
 // asignaciones actuales, muestra los cambios para confirmar y envía la lista actualizada.
@@ -65575,6 +65586,24 @@ window.aseoFiltroToggle_ = function (n) {
   const i = sel.indexOf(n); if (i >= 0) sel.splice(i, 1); else sel.push(n);
   aseoRender_();
 };
+// ── Check-list para personal NO administrativo («modo personal») ──
+// Administrativo = usuario del sistema anterior (sys_users), o Puesto «Administración» en Personal, o rol
+// Administrador en Check-list Bot. Los demás solo ven SUS asignaciones, sin botones de arriba (salvo Actualizar)
+// y con las cards en solo lectura.
+function clNorm_(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\(whatsapp\)/, '').replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(t => t.length > 1); }
+function clMisma_(a, b) { const A = clNorm_(a), B = clNorm_(b); if (!A.length || !B.length) return false; const [c, l] = A.length <= B.length ? [A, B] : [B, A]; return c.every(t => l.includes(t)); }
+function clEsAdmin_() {
+  const u = (typeof sysGetStoredUser === 'function' && sysGetStoredUser()) || {};
+  if (!Array.isArray(u.modulosKeys)) return true;
+  const yo = (typeof currentUser !== 'undefined' && currentUser) || u.Nombre || '';
+  const P = ((typeof ASEO !== 'undefined' && ASEO.autonotif) || {}).perfiles || {};
+  const k = Object.keys(P).find(x => clMisma_(x, yo)); if (k && P[k].rol === 'admin') return true;
+  if (typeof INC_STATE !== 'undefined' && (INC_STATE.personalRows || []).length && typeof incPuestoDe === 'function' && /administr/i.test(incPuestoDe(yo))) return true;
+  if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function' && !clEsAdmin_.c) { clEsAdmin_.c = 1; incLoadPersonal().then(() => { try { aseoRender_(); clNavPaint_(); } catch (_) {} }).catch(() => { clEsAdmin_.c = 0; }); }
+  return false;
+}
+function clModoPersonal_() { return !clEsAdmin_(); }
+function clEsMio_(nombres) { const yo = (typeof currentUser !== 'undefined' && currentUser) || ''; return (nombres || []).some(n => clMisma_(n, yo)); }
 function aseoVisible_() { const m = document.getElementById('module-aseo'); return !!(m && !m.classList.contains('hidden')); }
 function aseoRender_() {
   if (!aseoVisible_()) return;
@@ -65868,6 +65897,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
         I.arrastre = true; tInfos.push(I); ya.add(k);
       });
     }); }
+  const MP = clModoPersonal_();
+  if (MP) { const mias = tInfos.filter(I => clEsMio_(I.pA)); tInfos.length = 0; mias.forEach(I => tInfos.push(I)); }
   const props = [...new Set(infos.concat(tInfos).map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
   const fP = (ASEO.fProp || []).filter(p => props.includes(p));
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
@@ -65922,7 +65953,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const pct = vivos.length ? Math.round(listos / vivos.length * 100) : 0;
   const alertas = infos.filter(I => I.aviso && I.aviso.c === 'red').length, sinDes = infos.filter(I => I.noSale).length;
   const reqInsp = infos.filter(I => I.aviso && I.aviso.c === 'orange').length;
-  const inhab = rtTareas_().filter(t => rtAbierto_(t) && t.bloquea).length;
+  const inhab = (MP ? tInfos.filter(I => I.t && I.t.rt).map(I => I.t) : rtTareas_()).filter(t => rtAbierto_(t) && t.bloquea).length;
   const ent = vivos.filter(I => I.g.ent.length).length, temp = vivos.filter(I => I.temp).length;
   const porV = vivos.filter(I => I.selE === 'terminado' && !I.validado).length;
   const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
@@ -66091,6 +66122,7 @@ function adGrupos_(dia) {
 }
 // ── Ventana lateral ──
 window.adAbrir_ = function (k, dia, origen) {
+  if (clModoPersonal_()) return; // personal no administrativo: cards en solo lectura
   ASEO._dr = { k: String(k), dia: dia || aseoDia_() };
   const I = adDrawerInfo_();
   if (I && ASEO.cal) { ASEO.sel = String((I.xs || I.xe || {}).b ? (I.xs || I.xe).b.Id : ''); aseoMarcarSel_(); }
@@ -66938,6 +66970,7 @@ const NP_REGLAS = [
     '<b>Nunca muestra códigos, folios ni claves:</b> identifica por alojamiento y descripción.',
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
+    '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; las cards son de solo lectura (sin detalles ni botones).',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
     'Si en un alojamiento sale una reserva confirmada y otra cancelada, la card (estado, asignación, prioridad) usa la confirmada.',
@@ -67107,9 +67140,17 @@ function aseoRenderSide_() {
     if (selBlock && gs.some(g => g.ent.some(x => String(x.b.Id) === selId))) selBlock = '';
     const nIn = gs.filter(g => g.ent.length).length;
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
-    const filtro = aseoFiltroPers_(gs, hoy);
+    const MP = clModoPersonal_();
+    document.getElementById('module-aseo')?.classList.toggle('cl-emp', MP);
     selBlock = ''; // la reserva elegida en el calendario se abre en la ventana lateral
-    cuerpo = adTablero_(gs, filtro.gs, hoy, esHoy, filtro.html);
+    if (MP) { // personal no administrativo: solo sus asignaciones (KPIs incluidos), sin filtro de personal
+      ASEO.cal = false; ASEO.dia = null; ASEO._dr = null;
+      const mias = gs.filter(g => clEsMio_(aseoPersDe_(g)));
+      cuerpo = adTablero_(mias, mias, hoy, esHoy, '');
+    } else {
+      const filtro = aseoFiltroPers_(gs, hoy);
+      cuerpo = adTablero_(gs, filtro.gs, hoy, esHoy, filtro.html);
+    }
   } else {
     cuerpo = `<div class="pc-mv-col" style="--cc:#dc2626;--cb:transparent;border:0;padding:0">
     <div class="pc-mv-h"><span class="pc-mv-ico">🧳</span><span>Salen hoy${nChg ? ` · <span style="color:#dc2626">⚠️ ${nChg} con cambios</span>` : ''}</span><b>${sal.length}</b></div>
@@ -67117,7 +67158,7 @@ function aseoRenderSide_() {
   }
   // Barra de Lodgify + KPIs arriba de calendario y cards; el tablero en el panel derecho.
   const top = document.getElementById('aseo-top');
-  if (top) { top.innerHTML = `${mvSyncBar_(true)}${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
+  if (top) { top.innerHTML = `${mvSyncBar_('aseo')}${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
   else side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   side.classList.add('ad-v2');
   aseoPubTodasPaint_();
