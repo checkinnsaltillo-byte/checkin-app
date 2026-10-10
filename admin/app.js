@@ -66882,7 +66882,7 @@ function npPruebaHtml_() {
 }
 function npPruebaPintar_() { const el = document.getElementById('np-prueba-w'); if (el) el.outerHTML = npPruebaHtml_(); }
 const NP_EVT = [['ns', '🚨 No ha desalojado'], ['ns_off', '✅ Ya desalojó'], ['tardia', '🕚 Salida tardía aceptada'], ['temprana', '⏰ Entrada temprana aceptada'], ['terminado', '🧹 Limpieza terminada'],
-  ['inspeccionado', '✅ Inspeccionada'], ['asignado', '👤 Aseo asignado'], ['reserva', '🆕 Reserva nueva de hoy'], ['incidencia', '🚨 Incidencia nueva'], ['resumen', '📋 Resumen 2 pm']];
+  ['inspeccionado', '✅ Inspeccionada'], ['asignado', '👤 Aseo asignado'], ['reserva', '🆕 Reserva nueva de hoy'], ['incidencia', '🚨 Incidencia nueva'], ['resumen', '📋 Resumen 2 pm'], ['pend3', '⏳ Pendientes 3 pm']];
 window.npEvSel_ = function (k) { ASEO._np.ev = ASEO._np.ev === k ? '' : k; document.querySelectorAll('.np-ev').forEach(b => b.classList.toggle('on', b.getAttribute('onclick').includes(`'${ASEO._np.ev}'`) && !!ASEO._np.ev)); };
 window.npSimEvento_ = async function (btn) {
   const box = btn.closest('.np-prueba'), out = box.querySelector('.np-sim-ev'), yo = npYo_(), pf = npPerfilDe_(yo);
