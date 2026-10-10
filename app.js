@@ -59836,8 +59836,8 @@ window.aseoValidar_ = function (id, hid) {
   aseoSetEstado_(id, hid, k, true);
 };
 // Quitar la validación de «Terminado» (regresa a «por validar»; la guía vuelve a la etapa anterior).
-window.aseoDesvalidar_ = async function (id, hid) {
-  if (!confirm('¿Quitar la validación? La card regresa a «por validar» y la guía vuelve a mostrar la etapa anterior.')) return;
+window.aseoDesvalidar_ = async function (id, hid, directo) {
+  if (!directo && !confirm('¿Quitar la validación? La card regresa a «por validar» y la guía vuelve a mostrar la etapa anterior.')) return;
   const user = (typeof currentUser !== 'undefined' && currentUser) || '';
   try {
     const res = await fetch(`${BACKEND}/aseo/estado`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, estado: 'terminado', validar: false, desvalidar: true, user }) }).then(r => r.json());
@@ -64874,6 +64874,7 @@ function clEmpCss_() {
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
     html body .ad-card .ad-qs button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
     html body .ad-card .ad-qs button.on i{background:#fff}
+    html body .ad-card .ad-qs button.val i,html body .ad-steps button.val:before{display:none}
     html body .ad-steps button.ad-insp:before{display:none}
     html body .ad-qs button.ad-insp,html body .ad-steps button.ad-insp{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;align-self:center;width:22px;height:22px;min-width:0;padding:0;margin:0 0 0 2px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;color:#9ca3af;box-shadow:none;font:800 13px/1 Inter,system-ui,sans-serif}
     html body .ad-steps button.ad-insp{width:34px;height:34px;font-size:16px;border-radius:8px}
@@ -65842,11 +65843,36 @@ function adInfo_(g, hoy, o) {
 }
 // Selector rápido de estado al pie de la card (un clic) — mismo guardado que la ventana de detalles.
 const AD_CORTO = { pendiente: 'Pend.', en_proceso: 'Proceso', terminado: 'Term.', inspeccionado: 'Insp.' };
-function adEstRapido_(id, hid, sel, tarea, sinInsp) {
-  const sb = adEstBase_(sel);
-  return `<div class="ad-qs" onclick="event.stopPropagation()">${AD_EST.map(e =>
-    `<button type="button" class="${e.k === sb ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === sb ? '' : `aseoSetEstado_('${pcEsc(id)}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})`}"><i></i>${AD_CORTO[e.k]}</button>`).join('')}${sinInsp ? '' : adInspBtn_(id, hid, sel, tarea)}</div>`;
+// Estados en la card y en la ventana de detalles: Pendiente · En proceso · Terminado · Inspeccionado.
+// «Terminado» tiene dos pasos con el mismo botón: 1er clic = terminado (por validar) · 2º clic = validado (✓) · 3º = quitar validación.
+// Los demás estados no requieren validación. «Inspeccionado» pide confirmación.
+function adEstBtns_(id, hid, sel, tarea, sinInsp, largo) {
+  const reg = aseoEstDe_(id), val = !!(reg && (reg.validado === undefined || reg.validado));
+  const L = AD_EST.concat(sinInsp ? [] : [{ k: 'inspeccionado', t: 'Inspeccionado', c: '#000' }]);
+  return L.map(e => {
+    const on = e.k === sel, okT = e.k === 'terminado' && on && val && !tarea;
+    const tt = e.k === 'terminado' && !tarea ? (on ? (val ? 'Validado · clic para quitar la validación' : 'Terminado · clic otra vez para validar') : 'Terminado (queda por validar)') : e.t;
+    return `<button type="button" class="${on ? 'on' : ''} ${okT ? 'val' : ''}" style="--c:${e.c}" title="${tt}" onclick="event.stopPropagation();adEstClick_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})"><i></i>${okT ? '✓ ' : ''}${largo ? e.t : AD_CORTO[e.k]}</button>`;
+  }).join('');
 }
+function adEstRapido_(id, hid, sel, tarea, sinInsp) {
+  return `<div class="ad-qs" onclick="event.stopPropagation()">${adEstBtns_(id, hid, sel, tarea, sinInsp)}</div>`;
+}
+window.adEstClick_ = function (id, hid, k, tarea) {
+  const reg = aseoEstDe_(id), cur = reg ? reg.estado : 'pendiente', val = !!(reg && (reg.validado === undefined || reg.validado));
+  const MP = typeof clModoPersonal_ === 'function' && clModoPersonal_();
+  if (k === 'terminado' && !tarea) {
+    if (cur === 'terminado') { if (MP) return; return val ? aseoDesvalidar_(id, hid, true) : aseoSetEstado_(id, hid, 'terminado', true); }
+    return aseoSetEstado_(id, hid, 'terminado', false);
+  }
+  if (k === 'inspeccionado') {
+    if (cur === 'inspeccionado') return aseoSetEstado_(id, hid, 'terminado', tarea);
+    if (!confirm('¿Marcar como INSPECCIONADO?\nConfirma que el alojamiento ya fue revisado y está listo para recibir.')) return;
+    return aseoSetEstado_(id, hid, 'inspeccionado', tarea);
+  }
+  if (cur === k) return;
+  aseoSetEstado_(id, hid, k, tarea);
+};
 // Arrastrar una card a otra columna (vista por estado) → cambia su estado.
 window.adDragStart_ = function (ev, id, hid, tarea, sinInsp) {
   ASEO._dragEst = { id, hid, tarea: !!tarea, sinInsp: !!sinInsp };
@@ -66012,12 +66038,6 @@ function adCard_(I) {
   const nsChip = I.xs && I.esHoyC && !I.esCopia ? aseoNoSaleChip_(I.xs.b.Id, I.hid) : ''; // va en el renglón de acciones (r3)
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
-  if (I.selE === 'terminado') { // «Validar» ↔ «✅ Validado» (el personal no administrativo solo ve el estado)
-    const ida = pcEsc(I.asigId), hida = pcEsc(String(I.hid || ''));
-    if (typeof clModoPersonal_ === 'function' && clModoPersonal_()) meta.push(I.validado ? '<span class="ok">✅ Validado</span>' : '<span class="pd">Por validar</span>');
-    else meta.push(I.validado ? `<button type="button" class="ad-val ok" title="Validado · clic para regresarlo a «por validar»" onclick="event.stopPropagation();aseoDesvalidar_('${ida}','${hida}')">✅ Validado</button>`
-      : `<button type="button" class="ad-val" title="Validar y publicar en la guía del huésped" onclick="event.stopPropagation();aseoValidar_('${ida}','${hida}')">Validar</button>`);
-  }
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
   // Medio de reserva y clasificación del huésped (el que entra; si no entra nadie, el que sale), en todas las cards.
   const xR = I.xe || I.xs;
@@ -66471,7 +66491,7 @@ function adPintar_(nuevo) {
       ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
-      <div class="lab">Estado de aseo</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr) auto">${pasos}${adInspBtn_(I.asigId, I.hid, I.selE, false)}</div>${guiaBox}
+      <div class="lab">Estado de aseo</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${adEstBtns_(I.asigId, I.hid, I.selE, false, false, true)}</div>${guiaBox}
       ${axTipoTareaHtml_(I.depto, null)}${I.soloEnt ? `<div class="ad-hint">Solo entra huésped hoy: no se programa limpieza, se requiere <b>inspección</b> antes de la entrada.${I.ultSal ? ` Última salida: ${aseoDiaTxt_(I.ultSal)} (${I.diasUlt === 0 ? 'hoy' : 'hace ' + I.diasUlt + ' día' + (I.diasUlt === 1 ? '' : 's')}).` : ''}</div>` : ''}
       ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
@@ -66485,7 +66505,9 @@ function adPintar_(nuevo) {
     </div>
     <div class="ad-ft">${smsId ? `<button type="button" class="ad-bt" onclick="aseoSmsPop_('${smsId}','${hid}')">Enviar SMS</button>` : ''}
       ${I.xs && I.esHoyC && !I.esCopia ? `<button type="button" class="ad-bt" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})">${I.noSale ? 'Ya desalojó' : 'No ha desalojado'}</button>` : ''}
-      ${I.selE !== 'inspeccionado' ? `<button type="button" class="ad-bt pri" onclick="aseoSetEstado_('${id}','${hid}','${sig.k}',false)">Marcar ${sig.t.toLowerCase()}</button>` : '<button type="button" class="ad-bt ok" disabled>✓ Listo para recibir</button>'}</div>`;
+      ${I.selE === 'inspeccionado' ? '<button type="button" class="ad-bt ok" disabled>✓ Listo para recibir</button>'
+        : I.selE === 'terminado' ? `<button type="button" class="ad-bt pri" onclick="adEstClick_('${id}','${hid}','${I.validado ? 'inspeccionado' : 'terminado'}',false)">${I.validado ? 'Marcar inspeccionado' : '✓ Validar terminado'}</button>`
+        : `<button type="button" class="ad-bt pri" onclick="adEstClick_('${id}','${hid}','${sig.k}',false)">Marcar ${sig.t.toLowerCase()}</button>`}</div>`;
   if (!nuevo) { const b = dr.querySelector('.ad-db'); if (b) b.scrollTop = top; }
 }
 // ═══════════════════════════════════════════════════════════════════════════
@@ -66602,7 +66624,7 @@ function atPintar_(nuevo) {
       <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(t.prioridad)}</div>
       ${t.problema ? '<div class="ad-badge red"><i></i>Creada como problema</div>' : ''}</div>
     <div class="ad-db">
-      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)${t.depto === 'limpieza' ? ' auto' : ''}">${pasos.map(e => `<button type="button" class="${e.k === adEstBase_(I.selE) ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}${t.depto === 'limpieza' ? adInspBtn_(I.key, '', I.selE, true) : ''}</div>
+      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length + (t.depto === 'limpieza' ? 1 : 0)},1fr)">${adEstBtns_(I.key, '', I.selE, true, t.depto !== 'limpieza', true)}</div>
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
       <div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
@@ -67202,7 +67224,7 @@ const NP_REGLAS = [
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
     '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; en sus cards solo puede cambiar el <b>estado</b> (sin validar: «Terminado» queda por validar) y marcar <b>«¿No ha desalojado?»</b>; lo demás es de solo lectura (sin detalles).',
-    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado. «Inspeccionado» ya no es un estado aparte: es el cuadro negro ✓ junto a «Terminado», en la card y en su ventana de detalles (se marca sobre «Terminado»).',
+    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado · Inspeccionado. «Terminado» va en dos pasos con el mismo botón: 1er clic = terminado (por validar), 2º clic = validado (✓ Term.), otro clic quita la validación. Los demás no requieren validación. «Inspeccionado» pide confirmación.',
     '<b>Incidencia en una card:</b> aparece debajo de la card en un recuadro rojo; si sigue abierta y no tiene tarea correctiva, el enlace «🛠 Crear tarea correctiva» abre directo esa sección.',
     '<b>Archivar una card:</b> sale del tablero, de los KPIs y de las listas, resúmenes y avisos del bot. Se ven en ☰ › «Ver archivadas», donde se pueden desarchivar.',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
