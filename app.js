@@ -64915,10 +64915,11 @@ function clEmpCss_() {
     .ad-ham:hover,.ad-ham.on{background:#f1f5f9;border-color:#cbd5e1}
     .ad-ham b{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#111827;color:#fff;font:700 10px/16px Inter,system-ui,sans-serif;text-align:center}
     .ad-gfil{margin:0 0 10px}
-    #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
+    #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
+    #module-aseo.cl-emp .ad-cta,body.cl-emp-u #ad-drawer .ic-levbtn{display:none!important}
     #module-aseo.cl-emp .ad-card .ad-qs,#module-aseo.cl-emp .ad-card .ad-qs button,#module-aseo.cl-emp .ad-card .mv-ns,#module-aseo.cl-emp .ad-card .ad-insp{pointer-events:auto!important;cursor:pointer!important}
-    #module-aseo.cl-emp .ad-puente{display:none!important}
-    #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}
+
+    #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ad-card .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}
     #module-aseo.cl-emp .ad-card .ax-mini{pointer-events:auto!important;cursor:pointer!important}`;
   document.head.appendChild(st);
 }
@@ -67948,9 +67949,9 @@ window.icForm_ = function (id, pre, modo) {
   IC.dr = { id: id ? String(id) : '' };
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
     : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
-  IC.f.emp = !x && typeof clModoPersonal_ === 'function' && clModoPersonal_(); // personal no administrativo: reporte simplificado
+  IC.f.emp = typeof clModoPersonal_ === 'function' && clModoPersonal_(); // personal no administrativo: formulario simplificado (nueva o editar)
   IC.f.cls = x ? x.cls : (IC.f.emp || P.cls === 'huesped' ? 'huesped' : 'operativa');
-  if (IC.f.emp) IC.f.rep = yo;
+  if (IC.f.emp && !x) IC.f.rep = yo;
   IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
   IC.f.tareaLig = x ? icLigsVal_(r).join(', ') : ''; IC.f.lev = false; IC.f.ctx = ctx || null;
   IC.f0 = icFormFirma_(IC.f); // para detectar cambios (Guardar cambios solo si hay)
@@ -68040,7 +68041,7 @@ function icFormPintar_() {
   }
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
     <div class="ad-db at-f">
-      ${F.emp ? '<div class="ad-hint" style="margin-top:0">👤 Incidencia de <b>huésped</b></div>' : `<label class="at-l">Tipo de incidencia <i>*</i></label>
+      ${F.emp ? `<div class="ad-hint" style="margin-top:0">${IC_CLS[F.cls].ico} Incidencia ${F.cls === 'huesped' ? 'de <b>huésped</b>' : '<b>operativa</b>'}</div>` : `<label class="at-l">Tipo de incidencia <i>*</i></label>
       <div class="ad-steps" style="grid-template-columns:repeat(2,1fr)">${Object.entries(IC_CLS).map(([k, C]) => `<button type="button" class="${F.cls === k ? 'on' : ''}" style="--c:${C.c}" onclick="icFormCls_('${k}')">${C.ico} ${C.t}</button>`).join('')}</div>`}
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="IC.f.hid=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
