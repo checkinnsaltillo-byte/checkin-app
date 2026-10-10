@@ -64827,9 +64827,9 @@ function clEmpCss_() {
     html body .ad-card .ad-qs button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
     html body .ad-card .ad-qs button.on i{background:#fff}
     html body .ad-steps button.ad-insp:before{display:none}
-    html body .ad-qs button.ad-insp,html body .ad-steps button.ad-insp{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;align-self:center;width:22px;height:22px;min-width:0;padding:0;margin:0 0 0 2px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;color:transparent;box-shadow:none;font:800 13px/1 Inter,system-ui,sans-serif}
+    html body .ad-qs button.ad-insp,html body .ad-steps button.ad-insp{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;align-self:center;width:22px;height:22px;min-width:0;padding:0;margin:0 0 0 2px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;color:#9ca3af;box-shadow:none;font:800 13px/1 Inter,system-ui,sans-serif}
     html body .ad-steps button.ad-insp{width:34px;height:34px;font-size:16px;border-radius:8px}
-    html body .ad-qs button.ad-insp:hover,html body .ad-steps button.ad-insp:hover{border-color:#111;color:#9ca3af;background:#fff}
+    html body .ad-qs button.ad-insp:hover,html body .ad-steps button.ad-insp:hover{border-color:#6b7280;color:#4b5563;background:#f3f4f6}
     html body .ad-qs button.ad-insp.on,html body .ad-steps button.ad-insp.on{background:#000;border-color:#000;color:#fff}.ad-card>.r1>.ad-insp{position:absolute;top:8px;right:8px;margin:0}
     .ad-insp{all:unset;box-sizing:border-box;cursor:pointer;flex:none;margin-left:6px;width:22px;height:22px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:transparent;font:800 13px/1 Inter,system-ui,sans-serif}
     .ad-insp:hover{border-color:#16a34a;color:#86efac}
