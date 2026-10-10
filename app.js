@@ -64891,6 +64891,7 @@ function clEmpCss_() {
     .ad-card.ad-simp .ax-mini{font-size:0;padding:1px 3px}.ad-card.ad-simp .ax-mini::before{content:"＋⚠";font-size:11px}
     .ad-card.ad-simp .r2{margin-top:5px}
     .ad-card .ad-incrow{display:flex;margin-top:5px}
+    .ad-puente .ax-inc,.ad-puente .ax-inc .i1{white-space:normal;text-align:center;max-width:100%}
     .ad-incchip{all:unset;cursor:pointer;font:700 10.5px Inter,system-ui,sans-serif;color:#fff;background:#dc2626;padding:2px 8px;border-radius:999px;white-space:nowrap}
     .ad-incchip:hover{background:#b91c1c}
     #module-aseo.cl-emp .ad-card .ad-incchip{pointer-events:auto!important;cursor:pointer!important}.ad-card.ad-simp .r3{margin-top:6px}
@@ -66318,12 +66319,11 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     const tops = sinHijos(ver), nombres = new Map();
     ver.forEach(I => quien(I).forEach(n => { const k = String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
     const sinA = tops.filter(I => !quien(I).length);
-    const ord = ASEO.uOrd === 'carga' ? (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es') : ASEO.uOrd === 'za' ? (a, b) => b[0].localeCompare(a[0], 'es') : (a, b) => a[0].localeCompare(b[0], 'es');
+    const ord = (a, b) => a[0].localeCompare(b[0], 'es'); // siempre alfabético
     const pN = I => (PRIO4[I.tarea ? prio4Key_(I.t.prioridad) : I.prio] || { n: 0 }).n;
     nombres.forEach(L => L.sort((a, b) => pN(b) - pN(a))); sinA.sort((a, b) => pN(b) - pN(a));
     const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${L.length} tarea${L.length === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(I => padreDe.has(I) ? (L.includes(padreDe.get(I)) ? '' : pinta0(I)) : pinta(I)).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
-    const orden = `<div class="ad-uord"><span>Ordenar por</span><select onchange="ASEO.uOrd=this.value;aseoRender_()"><option value="az" ${!ASEO.uOrd || ASEO.uOrd === 'az' ? 'selected' : ''}>Alfabético (A–Z)</option><option value="za" ${ASEO.uOrd === 'za' ? 'selected' : ''}>Alfabético (Z–A)</option><option value="carga" ${ASEO.uOrd === 'carga' ? 'selected' : ''}>Más tareas</option></select></div>`;
-    return orden + (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
+    return (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
   };
   const cols = vista === 'usuario' ? filasUsuario() : vista === 'estado'
     ? AD_EST.map(E => {
