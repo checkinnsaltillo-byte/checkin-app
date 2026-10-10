@@ -65032,6 +65032,8 @@ function aseoEnsureCss_() {
   .np-nm{flex:1;min-width:0}.np-nm b{font-size:12.5px;font-weight:600}
   .np-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
   .np-sim{white-space:pre-wrap;font:11.5px/1.45 Inter,system-ui,sans-serif;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 10px;margin:8px 0 0;max-height:260px;overflow:auto;color:#1f2937}
+  .np-puede{margin:8px 0 0;padding:9px 10px 9px 26px;background:#f8fafc;border:1px solid #eef0f3;border-radius:8px;font-size:11.5px;line-height:1.5;color:#374151}
+  .np-puede li.h{list-style:none;margin-left:-16px;font-weight:600;color:#6b7280}
   .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
   .np-tel{font-size:11px;font-weight:500;color:#6b7280;margin-left:6px;white-space:nowrap}
   .np-tag.wa{background:#dcfce7;color:#15803d}.np-tag.sms{background:#dbeafe;color:#1d4ed8}.np-tag.am{background:#ede9fe;color:#6d28d9}
@@ -66802,18 +66804,26 @@ window.rtGuardarA_ = async function () {
 })();
 // ═══════════════════════════════════════════════════════════════════════════
 // «📣 Notificar actualizaciones» del Check-list: perfil del bot por persona.
-//  · Rol: Administrador / Empleado
-//  · Envío automático por WhatsApp por sección: Check-inn · Tareas programadas
+//  · Rol: Administrador / Empleado / Desactivado → define TODO lo que puede hacer con el bot (NP_PUEDE)
+//  · Mensajes automáticos (solo administradores): resumen 2 pm · alertas · cada cambio
 //  · Recordatorio diario de sus tareas asignadas (al registrar su entrada)
-//  · Funciones avanzadas: resúmenes de todas las secciones, aceptar entradas tempranas / salidas tardías
 // Se guarda en aseo/autonotif.json (perfiles) vía POST /aseo/autonotif.
 // ═══════════════════════════════════════════════════════════════════════════
+// Mensajes automáticos: acepta perfiles guardados con las claves anteriores (checkinn / tareas / incidencias).
+function npAuto_(a) { a = a || {}; const v = (k, d) => (typeof a[k] === 'boolean' ? a[k] : !!d); return { resumen: v('resumen', a.checkinn || a.tareas), alertas: v('alertas', a.incidencias || a.checkinn), cambios: v('cambios', a.checkinn || a.tareas) }; }
 function npPerfiles_() {
   const A = ASEO.autonotif || {}, P = JSON.parse(JSON.stringify(A.perfiles || {}));
-  (A.personas || []).forEach(n => { if (!P[n]) P[n] = { rol: '', auto: { checkinn: true, tareas: false }, recordatorio: true, avanzadas: true }; }); // configuración anterior
+  (A.personas || []).forEach(n => { if (!P[n]) P[n] = { rol: 'admin', auto: { resumen: true, alertas: true, cambios: true }, recordatorio: true }; }); // configuración anterior
+  Object.values(P).forEach(p => { p.auto = npAuto_(p.auto); delete p.avanzadas; });
   return P;
 }
-function npPerfilDe_(n) { return ASEO._np.perfiles[n] || { rol: '', auto: { checkinn: false, tareas: false }, recordatorio: true, avanzadas: false, canal: 'whatsapp' }; }
+function npPerfilDe_(n) { return ASEO._np.perfiles[n] || { rol: '', auto: { resumen: false, alertas: false, cambios: false }, recordatorio: true, canal: 'whatsapp' }; }
+// Qué puede hacer cada rol con el bot (lo mismo que valida el servidor).
+const NP_PUEDE = {
+  admin: ['Todo lo del empleado, y además:', 'Levantar tareas de mantenimiento, insumos e inspección', 'Levantar incidencias y crearles tareas correctivas', 'Crear tareas nuevas', 'Aceptar entradas tempranas y salidas tardías', 'Reprogramar tareas y cambiar sus fechas', 'Validar estados de tareas e incidencias', 'Cambiar la prioridad y asignar responsables', 'Consultar resúmenes, incidencias, historial y datos del huésped'],
+  empleado: ['Consultar los detalles básicos de SUS tareas', 'Cambiar el estado de SUS tareas (sin validarlo)', 'Avisar que un huésped no ha desalojado'],
+  '': ['El bot no le responde como personal ni le envía mensajes']
+};
 // Celular del Personal (10 dígitos) para mostrarlo junto al nombre.
 function npTel_(n) {
   const rows = (typeof INC_STATE !== 'undefined' && INC_STATE.personalRows) || [], norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -66851,11 +66861,9 @@ window.npAbrir_ = function () {
 function npResumen_(pf) {
   const b = [];
   if (pf.rol) b.push(`<span class="np-tag ${pf.rol}">${pf.rol === 'admin' ? 'Administrador' : 'Empleado'}</span>`);
-  if (pf.auto.checkinn) b.push('<span class="np-tag s">🧽 Aseo y Mant.</span>');
-  if (pf.auto.tareas) b.push('<span class="np-tag s">🗓️ Tareas</span>');
-  if (pf.auto.incidencias) b.push('<span class="np-tag s">🚨 Incidencias</span>');
+  const a = npAuto_(pf.auto);
+  if (pf.rol === 'admin') { if (a.resumen) b.push('<span class="np-tag s">📋 Resumen 2 pm</span>'); if (a.alertas) b.push('<span class="np-tag s">🚨 Alertas</span>'); if (a.cambios) b.push('<span class="np-tag s">🔄 Cambios</span>'); }
   if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
-  if (pf.avanzadas) b.push('<span class="np-tag a">⭐ Avanzadas</span>');
   if (pf.pruebaComo) b.push(`<span class="np-tag r">🧪 Probando como ${pcEsc(aseoNombreCorto_(pf.pruebaComo))}</span>`);
   if (b.length) { const C = NP_CANAL[pf.canal] || NP_CANAL.whatsapp; b.push(`<span class="np-tag ${C.cls}">${C.t}</span>`); }
   return b.join('') || '<span class="np-tag n">Sin funciones asignadas</span>';
@@ -66868,13 +66876,14 @@ function npFila_(n) {
     ${ab ? `<div class="np-b">
       <div class="np-lab">Rol</div>
       <div class="ad-steps np-rol" style="grid-template-columns:repeat(3,1fr)">${[['admin', 'Administrador'], ['empleado', 'Empleado'], ['', 'Desactivado']].map(([k, t]) => `<button type="button" class="${pf.rol === k ? 'on' : ''}" style="--c:${k === 'admin' ? '#4f46e5' : k === 'empleado' ? '#0ea5e9' : '#9aa1ad'}" onclick="npRol_(this.closest('.np-p').dataset.n,'${k}')">${t}</button>`).join('')}</div>
-      <div class="np-hint">${pf.rol === 'admin' ? 'Administrador: puede pedir resúmenes de todas las secciones y aceptar entradas tempranas o salidas tardías.' : pf.rol === 'empleado' ? 'Empleado: recibe su lista de tareas del día al registrar su entrada; no pide resúmenes.' : 'Desactivado: sin rol asignado. Elige Administrador o Empleado para darle permisos.'}</div>
+      <ul class="np-puede">${(NP_PUEDE[pf.rol || ''] || []).map((t, i) => `<li class="${pf.rol === 'admin' && !i ? 'h' : ''}">${t}</li>`).join('')}</ul>
       <div class="np-lab">Canal de envío ${npTel_(n) ? `· ${npTel_(n).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}` : '· <span style="color:#dc2626">sin celular en Personal</span>'}</div>
       <div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(NP_CANAL).map(([k, C]) => `<button type="button" class="${(pf.canal || 'whatsapp') === k ? 'on' : ''}" style="--c:${C.c}" onclick="npCanal_(this.closest('.np-p').dataset.n,'${k}')">${C.t}</button>`).join('')}</div>
-      <div class="np-lab">Envío automático</div>
-      ${ck(pf.auto.checkinn, '🧽 Aseo y Mantenimiento', 'Cambios en las cards de hoy y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'checkinn')`)}
-      ${ck(pf.auto.tareas, '🗓️ Tareas programadas', 'Cambios en las tareas y resumen de las 2 pm', `npSet_(this.closest('.np-p').dataset.n,'tareas')`)}
-      ${ck(pf.auto.incidencias, '🚨 Incidencias', 'Incidencias nuevas y cambios de estado, prioridad o seguimiento', `npSet_(this.closest('.np-p').dataset.n,'incidencias')`)}
+      ${pf.rol ? `<div class="np-lab">Mensajes que recibe</div>
+      ${ck(pf.recordatorio, '🔔 Sus tareas del día', 'Al registrar su entrada le llega la lista de lo que tiene asignado', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
+      ${pf.rol === 'admin' ? `${ck(npAuto_(pf.auto).resumen, '📋 Resumen del día · 2 pm', 'Toda la actividad del día: limpiezas, tareas, tareas programadas e incidencias', `npSet_(this.closest('.np-p').dataset.n,'resumen')`)}
+      ${ck(npAuto_(pf.auto).alertas, '🚨 Alertas', 'Incidencias nuevas o con cambios y huéspedes que no han desalojado', `npSet_(this.closest('.np-p').dataset.n,'alertas')`)}
+      ${ck(npAuto_(pf.auto).cambios, '🔄 Cada cambio en las tareas', 'Opcional: un aviso cada vez que alguien actualiza una tarea de hoy', `npSet_(this.closest('.np-p').dataset.n,'cambios')`)}` : '<div class="np-hint">El resumen de las 2 pm y las alertas solo les llegan a los administradores.</div>'}` : ''}
       ${pf.rol === 'admin' || pf.pruebaComo || String(n).toLowerCase() === String((typeof currentUser !== 'undefined' && currentUser) || '').toLowerCase() ? `<div class="np-lab">🧪 Prueba como</div>
       <select class="at-in" onchange="npPrueba_(this.closest('.np-p').dataset.n,this.value)"><option value="">Nadie (el bot me responde normal)</option>${(typeof pzNombres_ === 'function' ? pzNombres_() : []).filter(x => x !== n).map(x => `<option ${x === pf.pruebaComo ? 'selected' : ''}>${pcEsc(x)}</option>`).join('')}</select>
       <div class="np-hint">${pf.pruebaComo ? `El bot te responde por WhatsApp como si fueras <b>${pcEsc(pf.pruebaComo)}</b> (sus permisos y configuración). Tus entradas/salidas no se registran mientras pruebas.` : 'Elige a alguien para que el bot te responda como lo haría con esa persona.'}</div>
@@ -66883,9 +66892,6 @@ function npFila_(n) {
         <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,this.closest('.np-p').dataset.n)">▶ Simular</button></div>
       <div class="np-hint">Te llega por WhatsApp lo que recibiría ${pcEsc(aseoNombreCorto_(pf.pruebaComo))} y aquí ves la vista previa.</div>
       <pre class="np-sim" style="display:none"></pre>` : ''}` : ''}
-      <div class="np-lab">Funciones</div>
-      ${ck(pf.recordatorio, '🔔 Recordatorio diario de tareas asignadas', 'Al registrar su entrada recibe sus limpiezas y tareas programadas del día', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
-      ${ck(pf.avanzadas, '⭐ Funciones avanzadas', 'Pedir resúmenes de todas las secciones · aceptar entradas tempranas y salidas tardías', `npSet_(this.closest('.np-p').dataset.n,'avanzadas')`)}
     </div>` : ''}
   </div>`;
 }
@@ -66896,11 +66902,11 @@ function npPintar_() {
   const q = N.q.toLowerCase();
   const L = nombres.filter(n => !q || n.toLowerCase().includes(q))
     .sort((a, b) => (N.perfiles[b] ? 1 : 0) - (N.perfiles[a] ? 1 : 0) || a.localeCompare(b, 'es'));
-  const conPerfil = Object.values(N.perfiles).filter(p => p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas).length;
+  const conPerfil = Object.values(N.perfiles).filter(p => p.rol).length;
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">📣 Notificaciones y permisos del bot</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
       <div class="ad-sub">Check-list · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
     <div class="ad-db">
-      <div class="ad-tgl" onclick="npOn_()"><div><b>Reenvío automático por WhatsApp</b><small>${N.on ? 'Activo: cada cambio se envía 1 min después del último, a quien tenga la sección marcada' : 'Apagado: no se envía nada automáticamente'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
+      <div class="ad-tgl" onclick="npOn_()"><div><b>Mensajes automáticos</b><small>${N.on ? 'Activos: resumen de las 2 pm, alertas y avisos a los administradores' : 'Apagados: el bot no envía nada por su cuenta'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
       <button type="button" class="ad-bt" style="display:block;width:100%;margin-top:8px;box-sizing:border-box" onclick="adCerrar_();mvNotificar_(null)">📣 Enviar ahora la lista actualizada de Aseo y Mantenimiento</button>
       <div class="lab">Personal</div>
       <input class="at-in" placeholder="🔎 Buscar persona…" value="${pcEsc(N.q)}" oninput="ASEO._np.q=this.value;npPintarLista_()">
@@ -66921,13 +66927,13 @@ window.npToggleFila_ = function (n) { const prev = ASEO._np.abierto; ASEO._np.ab
 window.npRol_ = function (n, rol) {
   const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {});
   pf.rol = rol;
-  if (rol === 'admin') { pf.avanzadas = true; }
-  else if (rol === 'empleado') { pf.avanzadas = false; pf.recordatorio = true; }
+  if (rol === 'admin') { if (!Object.values(npAuto_(pf.auto)).some(Boolean)) pf.auto = { resumen: true, alertas: true, cambios: false }; }
+  else if (rol === 'empleado') { pf.recordatorio = true; }
   npRefila_(n); npGuardar_();
 };
 window.npSet_ = function (n, k) {
   const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {});
-  if (k === 'checkinn' || k === 'tareas' || k === 'incidencias') pf.auto = Object.assign({}, pf.auto, { [k]: !pf.auto[k] });
+  if (k === 'resumen' || k === 'alertas' || k === 'cambios') { const a = npAuto_(pf.auto); a[k] = !a[k]; pf.auto = a; }
   else pf[k] = !pf[k];
   npRefila_(n); npGuardar_();
 };
@@ -66937,7 +66943,7 @@ function npGuardar_() {
   clearTimeout(ASEO._npT);
   ASEO._npT = setTimeout(async () => {
     try {
-      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.auto.checkinn || p.auto.tareas || p.auto.incidencias || p.avanzadas || p.recordatorio === false || (p.canal && p.canal !== 'whatsapp') || p.pruebaComo) P[n] = p; });
+      const P = {}; Object.entries(ASEO._np.perfiles).forEach(([n, p]) => { if (p.rol || p.recordatorio === false || (p.canal && p.canal !== 'whatsapp') || p.pruebaComo) P[n] = p; });
       const r = await fetch(`${BACKEND}/aseo/autonotif`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: ASEO._np.on, perfiles: P, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
       ASEO.autonotif = r.autonotif;
