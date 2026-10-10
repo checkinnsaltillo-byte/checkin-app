@@ -65043,6 +65043,8 @@ function aseoEnsureCss_() {
   /* Tinte por estado: fondo apenas teñido y borde a juego (elegante, se distingue a simple vista) */
   .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in oklch,var(--sc) 34%,#fff),color-mix(in oklch,var(--sc) 18%,#fff));border-color:color-mix(in oklch,var(--sc) 80%,#fff);box-shadow:0 1px 0 color-mix(in oklch,var(--sc) 25%,transparent)}
   .ad-card.est-tint .r3{border-top-color:color-mix(in oklch,var(--sc) 45%,#fff)}
+  .ad-card.est-tint[style*="--sc:#94a3b8"]{background:#fff;border-color:#dfe3e8;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  .ad-card.est-tint[style*="--sc:#94a3b8"] .r3{border-top-color:#eef0f3}
   .ad-card.est-tint.ghost{background:repeating-linear-gradient(135deg,#f3f4f7 0 7px,#eaedf1 7px 14px);border-color:#d6dae0}
   .ad-card.est-tint.sel{border-color:#4f46e5}.ad-card.est-tint.alert{border-color:#fca5a5}
   /* Cards que pasaron al día siguiente (sombreadas): avisos en grises, no morados */
