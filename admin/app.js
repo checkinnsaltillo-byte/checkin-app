@@ -9204,7 +9204,7 @@ function clNavPaint_() {
       .ck-bar .ck-b.on{background:#0f1729;border-color:#0f1729;color:#fff}
       .ck-bar .ck-hint{font-size:11.5px;color:#64748b}
       @media (max-width:640px){.ck-bar .ck-q{min-width:0;flex:1 1 100%;order:0}}
-      #aseo-side .ad-card .r3{flex-wrap:wrap;row-gap:4px}
+      #aseo-side .ad-card .r3{flex-wrap:nowrap;gap:6px;min-width:0;white-space:nowrap}
       .cl-nav-slot{max-width:100%;overflow-x:auto;scrollbar-width:none}.cl-nav-slot::-webkit-scrollbar{display:none}.cl-nav-slot .cl-g{flex-wrap:nowrap}
       @media (max-width:640px){.ck-bar .ck-sp{display:none}.ck-bar .ck-pri{order:3;font-size:0;width:32px;padding:0;justify-content:center}.ck-bar .ck-pri::before{content:'＋';font-size:16px}.ck-bar .ad-seg>span{display:none}#module-aseo .ck-bar .ck-live,#module-aseo .ck-bar #aseo-upd-btn,#module-aseo .ck-bar #aseo-vista-slot{order:5}#module-aseo #aseo-ham-slot,#module-aseo .ck-dnav,#module-aseo #aseo-cal-btn,#module-aseo #aseo-pub-btn{order:1}#module-aseo .ck-bar .ad-seg>span{display:none}
         .ck-kpis .ad-kpis{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important}.ck-kpis .ad-kpi{padding:8px 10px!important;min-width:0}.ck-kpis .ad-kpi.big{grid-column:1/-1}.ck-kpis .ad-kpi .n{font-size:18px!important}
@@ -64821,6 +64821,20 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-card .r3 .mv-ns{height:18px!important;padding:0 6px!important;font-size:9.5px;font-weight:800;border-width:1px;flex:none}
+    .ad-arch{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 4px;border-radius:5px;white-space:nowrap;flex:none}
+    .ad-arch:hover{color:#475569;background:#f1f5f9}
+    @container (max-width:330px){
+      .ad-card .ad-arch{font-size:0}.ad-card .ad-arch::before{content:"🗄";font-size:11px}
+      .ad-card .r3 .ax-mini{font-size:0;padding:1px 3px}.ad-card .r3 .ax-mini::before{content:"＋⚠";font-size:11px}
+      .ad-card .r3 .ad-gd{font-size:0}.ad-card .r3 .ad-gd::before{content:"◉";font-size:11px}
+      .ad-card .r3 .p4e b,.ad-card .r3 .p4 b{display:none}
+      .ad-card .r3 .mv-ns.on{font-size:0}.ad-card .r3 .mv-ns.on::before{content:"🚨 No desalojado";font-size:9px}
+    }
+    @container (max-width:250px){
+      .ad-card .r3 .mv-ns{font-size:0;padding:0 5px!important}.ad-card .r3 .mv-ns::before{content:"🚪 ?";font-size:10px}
+      .ad-card .r3 .mv-ns.on::before{content:"🚨 No sale";font-size:9.5px}
+    }
     .ad-card .ad-eq{display:flex;align-items:center;margin-top:6px}
     html body .ad-card .r2.ad-src{display:flex;flex-wrap:wrap;align-items:center;gap:3px 0}
     html body .ad-card .r2.ad-src>span+span{margin-left:10px;white-space:nowrap;color:#475569}
@@ -64835,7 +64849,7 @@ function clEmpCss_() {
     .ad-asg{all:unset;cursor:pointer;font:600 11px Inter,system-ui,sans-serif;color:#4f46e5;padding:2px 7px;border:1px dashed #a5b4fc;border-radius:5px;white-space:nowrap}
     .ad-asg:hover{background:#eef2ff;border-style:solid}
     .ad-nm.lk{cursor:pointer}.ad-nm.lk:hover{filter:brightness(.95);box-shadow:0 0 0 2px color-mix(in srgb,var(--pc) 30%,transparent)}
-    #module-aseo.cl-emp .ad-asg{display:none!important}
+    #module-aseo.cl-emp .ad-asg,#module-aseo.cl-emp .ad-arch{display:none!important}
     html body .ad-card .ad-qs button{background:#f1f3f5;color:#6b7280;box-shadow:none}
     html body .ad-card .ad-qs button i{background:#9ca3af;opacity:1}
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
@@ -65976,7 +65990,7 @@ function adCard_(I) {
   if (I.temp) meta.push(`<span>Entra <b>${aseoHoraTxt_(I.temp.hora || '12:00')}</b> <span class="${I.temp.aceptada ? 'ok' : 'pd'}">· ${I.temp.aceptada ? 'temprano aceptada' : 'temprano pendiente'}</span></span>`);
   meta.unshift(axCatHtml_(I.depto, I.asigId, I.g.sal.length > 0));
   // «No ha desalojado»: primer chip de la card de cada alojamiento con salida hoy
-  const nsChip = I.xs && I.esHoyC && !I.esCopia ? `<div class="ad-ns-row">${aseoNoSaleChip_(I.xs.b.Id, I.hid)}</div>` : ''; // centrado en su propio renglón
+  const nsChip = I.xs && I.esHoyC && !I.esCopia ? aseoNoSaleChip_(I.xs.b.Id, I.hid) : ''; // va en el renglón de acciones (r3)
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
@@ -65999,14 +66013,16 @@ function adCard_(I) {
     ${srcTxt || xR ? `<div class="r2 ad-src"><span>${pcEsc(srcTxt)}</span>${xR ? (n => n ? `<span title="Personas">👥 ${n}</span>` : '')(Number(xR.b.NumberOfGuests) || (Number(xR.b.Adults) || 0) + (Number(xR.b.Children) || 0)) + (xR.noches ? `<span title="Noches">🌙 ${xR.noches}</span>` : '') : ''}</div>` : ''}
     ${axFila_(I.asigId, I.g.sal.length > 0, I.hid, aseoDia_())}
     <div class="ad-eq">${equipo}</div>
-    <div class="r3"><span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
-    ${nsChip}
+    <div class="r3">${nsChip}<span class="sp"></span><button type="button" class="ad-arch" title="${I.arch ? 'Regresar esta card al tablero' : 'Archivar esta card (sale del tablero)'}" onclick="event.stopPropagation();adArchivar_('${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',${!I.arch})">${I.arch ? 'Desarchivar' : 'Archivar'}</button>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
 // ── Tablero: indicadores + filtro de personal + 4 columnas por estado ──
 function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
-  const infos = gs.map(g => adInfo_(g, hoy, { esHoy }) /* las reprogramadas a hoy también son del día en curso (guía, avisos) */);
+  const infos0 = gs.map(g => adInfo_(g, hoy, { esHoy }) /* las reprogramadas a hoy también son del día en curso (guía, avisos) */);
+  infos0.forEach(I => { I.arch = !!axEx_(I.asigId).archivada; });
+  const nArch = infos0.filter(I => I.arch).length; if (!nArch) ASEO.verArch = false;
+  const infos = infos0.filter(I => ASEO.verArch ? I.arch : !I.arch); // archivadas: solo con «🗄 Ver archivadas»
   // Filtro de propiedad (varias a la vez; sin selección = todas) + vista por estado o por propiedad.
   const propDe = I => mvPropiedadDe_(I.g).replace(/^Calle\s+/i, '');
   // Tareas manuales del día (filtro de personal = sus asignados).
@@ -66123,9 +66139,10 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
   // Filtros generales (cards + calendario) detrás del botón ☰ — contraídos por defecto.
-  const nFil = (MP ? 0 : (ASEO.fPers || []).length) + fP.length + fT.length + fPr.length;
+  const nFil = (MP ? 0 : (ASEO.fPers || []).length) + fP.length + fT.length + fPr.length + (ASEO.verArch ? 1 : 0);
+  const archHtml = nArch && !MP ? `<div class="mv-pf ad-prf"><small>🗄 Archivadas:</small><button type="button" class="mv-pf-c ad-pr ${ASEO.verArch ? 'on' : ''}" onclick="ASEO.verArch=!ASEO.verArch;aseoRender_()">Ver archivadas<b>${nArch}</b></button></div>` : '';
   ASEO._hamHtml = `<button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}${nFil ? ` (${nFil} activo${nFil === 1 ? '' : 's'})` : ''}">☰${nFil ? `<b>${nFil}</b>` : ''}</button>`;
-  ASEO._filtrosHtml = ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>` : '';
+  ASEO._filtrosHtml = ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}${archHtml}</div>` : '';
   ASEO._segVHtml = segV;
   return `${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
@@ -66287,6 +66304,10 @@ window.adKpiMas_ = function (btn, key) {
   const rc = btn.getBoundingClientRect(), w = 260;
   pop.style.width = w + 'px'; pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px'; pop.style.top = (rc.bottom + 6) + 'px';
   setTimeout(() => { const out = e => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', out); } }; document.addEventListener('mousedown', out); }, 0);
+};
+window.adArchivar_ = function (k, hid, on) {
+  if (!confirm(on ? '¿Archivar esta card? Sale del tablero y de las listas del bot. Puedes verla en ☰ › Ver archivadas.' : '¿Regresar esta card al tablero?')) return;
+  axSet_(k, { archivada: !!on }, hid);
 };
 window.adFiltrosToggle_ = function () { ASEO.filtrosAb = !ASEO.filtrosAb; aseoRender_(); };
 window.adAbrir_ = function (k, dia, origen) {
