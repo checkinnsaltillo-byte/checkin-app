@@ -64895,7 +64895,9 @@ function clEmpCss_() {
     .ad-incchip:hover{background:#b91c1c}
     #module-aseo.cl-emp .ad-card .ad-incchip{pointer-events:auto!important;cursor:pointer!important}.ad-card.ad-simp .r3{margin-top:6px}
     #aseo-side .ad-card.ad-simp .r3{flex-wrap:nowrap}
-    #aseo-vista-slot{display:inline-flex;gap:6px}
+    #aseo-vista-slot{display:inline-flex;gap:8px}
+    .ad-seg.ad-seg2{background:#eef2ff;border-color:#c7d2fe}
+    .ad-seg.ad-seg2 button{color:#4338ca}.ad-seg.ad-seg2 button.on{background:#4f46e5;color:#fff}
     #aseo-side .ad-ucards .ad-card .r3{flex-wrap:wrap;white-space:normal;row-gap:4px}
     .ad-urow.drop{background:#eef2ff;box-shadow:inset 0 0 0 2px #6366f1}.ad-urow.drop .ad-uh{background:#eef2ff}
     @media (max-width:640px){.ad-uh{width:120px;padding:8px}.ad-ucards>.ad-card,.ad-ucards>.ad-vinc{width:210px}}
@@ -64928,6 +64930,7 @@ function clEmpCss_() {
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
     html body .ad-card .ad-qs button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
     html body .ad-card .ad-qs button.on i{background:#fff}
+    html body .ad-card .ad-qs button i{display:none!important}
     html body .ad-card .ad-qs button.val i,html body .ad-steps button.val:before{display:none}
     html body .ad-steps button.ad-insp:before{display:none}
     html body .ad-qs button.ad-insp,html body .ad-steps button.ad-insp{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;align-self:center;width:22px;height:22px;min-width:0;padding:0;margin:0 0 0 2px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;color:#9ca3af;box-shadow:none;font:800 13px/1 Inter,system-ui,sans-serif}
@@ -65923,8 +65926,8 @@ function adEstBtns_(id, hid, sel, tarea, sinInsp, largo) {
   const reg = aseoEstDe_(id), val = !!(reg && (reg.validado === undefined || reg.validado));
   const L = AD_EST.concat(sinInsp ? [] : [{ k: 'inspeccionado', t: 'Inspeccionado', c: '#000' }]);
   return L.map(e => {
-    const on = e.k === sel, okT = e.k === 'terminado' && on && val && !tarea;
-    const tt = e.k === 'terminado' && !tarea ? (on ? (val ? 'Validado · clic para quitar la validación' : 'Terminado · clic otra vez para validar') : 'Terminado (queda por validar)') : e.t;
+    const on = e.k === sel || (e.k === 'terminado' && sel === 'inspeccionado'), okT = e.k === 'terminado' && on && val && !tarea;
+    const tt = e.k === 'terminado' && sel === 'inspeccionado' ? 'Terminado (incluido en «Inspeccionado»)' : e.k === 'terminado' && !tarea ? (on ? (val ? 'Validado · clic para quitar la validación' : 'Terminado · clic otra vez para validar') : 'Terminado (queda por validar)') : e.t;
     return `<button type="button" class="${on ? 'on' : ''} ${okT ? 'val' : ''}" style="--c:${e.c}" title="${tt}" onclick="event.stopPropagation();adEstClick_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})"><i></i>${okT ? '✓ ' : ''}${largo ? e.t : AD_CORTO[e.k]}</button>`;
   }).join('');
 }
@@ -65934,6 +65937,7 @@ function adEstRapido_(id, hid, sel, tarea, sinInsp) {
 window.adEstClick_ = function (id, hid, k, tarea) {
   const reg = aseoEstDe_(id), cur = reg ? reg.estado : 'pendiente', val = !!(reg && (reg.validado === undefined || reg.validado));
   const MP = typeof clModoPersonal_ === 'function' && clModoPersonal_();
+  if (k === 'terminado' && cur === 'inspeccionado') return; // con «Inspeccionado» activo, «Terminado» no se puede quitar
   if (k === 'terminado' && !tarea) {
     if (cur === 'terminado') { if (MP) return; return val ? aseoDesvalidar_(id, hid, true) : aseoSetEstado_(id, hid, 'terminado', true); }
     return aseoSetEstado_(id, hid, 'terminado', false);
@@ -66260,7 +66264,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     }); }
   const vista = ASEO.vista === 'estado' || ASEO.vista === 'usuario' ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
-  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div><div class="ad-seg"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
+  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div><div class="ad-seg ad-seg2"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -66312,6 +66316,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     tops.forEach(I => quien(I).forEach(n => { const k = String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
     const sinA = tops.filter(I => !quien(I).length);
     const ord = ASEO.uOrd === 'carga' ? (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es') : ASEO.uOrd === 'za' ? (a, b) => b[0].localeCompare(a[0], 'es') : (a, b) => a[0].localeCompare(b[0], 'es');
+    const pN = I => (PRIO4[I.tarea ? prio4Key_(I.t.prioridad) : I.prio] || { n: 0 }).n;
+    nombres.forEach(L => L.sort((a, b) => pN(b) - pN(a))); sinA.sort((a, b) => pN(b) - pN(a));
     const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${nVis(L)} tarea${nVis(L) === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(pinta).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
     const orden = `<div class="ad-uord"><span>Ordenar por</span><select onchange="ASEO.uOrd=this.value;aseoRender_()"><option value="az" ${!ASEO.uOrd || ASEO.uOrd === 'az' ? 'selected' : ''}>Alfabético (A–Z)</option><option value="za" ${ASEO.uOrd === 'za' ? 'selected' : ''}>Alfabético (Z–A)</option><option value="carga" ${ASEO.uOrd === 'carga' ? 'selected' : ''}>Más tareas</option></select></div>`;
     return orden + (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
