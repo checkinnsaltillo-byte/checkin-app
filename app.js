@@ -65562,7 +65562,7 @@ function aseoEnsureCss_() {
   .ax-inc.split .i2{background:var(--ec);color:#fff;padding:2px 9px 2px 7px;white-space:nowrap;font-weight:700}
   .ax-inc.split .i1,.ax-inc.split .i2{display:inline-flex;align-items:center;line-height:1.35}
   .ax-inc.split .i1:only-child{padding:2px 9px}
-  .ax-mini{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 5px;border-radius:5px;white-space:nowrap}
+  .ax-mini{all:unset;cursor:pointer;font-size:11px;font-weight:600;color:#a3aab5;padding:2px 5px;border-radius:5px;white-space:nowrap}
   .ax-mini:hover{color:#dc2626;background:#fef2f2}
   .ad-card .r3{margin-top:7px;padding-top:6px;gap:6px}
   .ad-card .ad-av{width:20px;height:20px;font-size:9px}
@@ -66126,7 +66126,7 @@ window.icArchivar_ = function (id) {
 function axEsDeInc_(k) { return !!axEx_(k).deInc || (typeof INC_STATE !== 'undefined' && (INC_STATE.list || []).some(r => icLigs_(r).includes(String(k)))); }
 function axIncMini_(k, hid, dia) {
   if (axEx_(k).incidencia) return '';
-  return `<button type="button" class="ax-mini" title="Reportar incidencia" onclick="event.stopPropagation();axReportar_('${pcEsc(String(k))}','${pcEsc(String(hid || ''))}','${pcEsc(String(dia || ''))}')">＋ Incidencia</button>`;
+  return `<button type="button" class="ax-mini" title="Reportar incidencia" onclick="event.stopPropagation();axReportar_('${pcEsc(String(k))}','${pcEsc(String(hid || ''))}','${pcEsc(String(dia || ''))}')">＋⚠</button>`; // siempre el icono pequeño (Simple y Detalles)
 }
 function axFila_(k, autoCO, hid, dia) { // renglón del botón de incidencia (el tipo de servicio va junto al tipo de tarea: axCatHtml_)
   const inc = !!axEx_(k).incidencia;
