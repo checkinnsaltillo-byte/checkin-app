@@ -50113,7 +50113,7 @@ window._botcNotifRefreshBadge_ = async function() {
   } catch(_) {}
 };
 if (!window.__botcNotifBadgeTimer) {
-  window.__botcNotifBadgeTimer = setInterval(() => { try { window._botcNotifRefreshBadge_(); } catch(_){} }, 60000);
+  window.__botcNotifBadgeTimer = setInterval(() => { if (document.hidden) return; try { window._botcNotifRefreshBadge_(); } catch(_){} }, 60000); // pestaña oculta: no consulta (saturaba el servidor)
   setTimeout(() => { try { window._botcNotifRefreshBadge_(); } catch(_){} }, 3500);
 }
 
