@@ -64821,6 +64821,8 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-un-lk{all:unset;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+    .ad-un-lk:hover{text-decoration-style:solid}
     html body .ad-card .ad-qs button{background:#f1f3f5;color:#6b7280;box-shadow:none}
     html body .ad-card .ad-qs button i{background:#9ca3af;opacity:1}
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
@@ -65967,7 +65969,8 @@ function adCard_(I) {
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
   if (meta.length === 1 && !nsChip && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
-  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo')).join('')}${I.pI.map(n => adNom_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignación</span>';
+  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo')).join('')}${I.pI.map(n => adNom_(n, 'Inspección')).join('')}</span>`
+    : `<button type="button" class="ad-un ad-un-lk" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(I.asigId)}',this,'${I.depto === 'inspeccion' ? 'inspeccion' : 'aseo'}')">Sin asignación</button>`;
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
