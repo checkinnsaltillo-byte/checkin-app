@@ -68077,11 +68077,11 @@ window.icFotoVerForm_ = function (i) { const F = IC.f; if (!F) return; fotoVer_(
 window.fotoVer_ = function (urls, i) {
   urls = [].concat(urls || []).filter(Boolean); if (!urls.length) return;
   let k = Math.max(0, Math.min(urls.length - 1, i || 0)), s = 1, x = 0, y = 0;
-  if (!document.getElementById('fv-css')) { const st = document.createElement('style'); st.id = 'fv-css'; st.textContent = `.fv-ov{position:fixed;inset:0;z-index:20000;background:rgba(9,12,20,.92);display:flex;align-items:center;justify-content:center}
+  if (!document.getElementById('fv-css2')) { const st = document.createElement('style'); st.id = 'fv-css2'; st.textContent = `.fv-ov{position:fixed;inset:0;z-index:20000;background:rgba(9,12,20,.92);display:flex;align-items:center;justify-content:center}
     .fv-st{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
     .fv-img{max-width:94vw;max-height:88vh;object-fit:contain;user-select:none;-webkit-user-drag:none;transform-origin:center center;will-change:transform}
     .fv-ov button{all:unset;cursor:pointer;position:absolute;z-index:2;color:#fff;background:rgba(255,255,255,.12);border-radius:999px;display:flex;align-items:center;justify-content:center}
-    .fv-x{top:14px;right:14px;width:40px;height:40px;font-size:20px}.fv-p,.fv-n{top:50%;transform:translateY(-50%);width:44px;height:44px;font-size:26px}.fv-p{left:12px}.fv-n{right:12px}
+    .fv-ov .fv-x{top:max(14px,calc(env(safe-area-inset-top) + 10px));right:max(14px,calc(env(safe-area-inset-right) + 10px));width:44px;height:44px;font:700 22px/1 system-ui,-apple-system,sans-serif;background:rgba(0,0,0,.65);border:1.5px solid rgba(255,255,255,.85);box-shadow:0 2px 10px rgba(0,0,0,.5);z-index:5}.fv-ov .fv-x:hover{background:#000}.fv-ov .fv-p,.fv-ov .fv-n{top:50%;transform:translateY(-50%);width:44px;height:44px;font:700 28px/1 system-ui,-apple-system,sans-serif;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.7);z-index:5}.fv-ov .fv-p{left:10px}.fv-ov .fv-n{right:10px}
     .fv-c{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#fff;font:600 12px Inter,system-ui,sans-serif;background:rgba(255,255,255,.12);padding:4px 10px;border-radius:999px;z-index:2}`; document.head.appendChild(st); }
   const ov = document.createElement('div'); ov.className = 'fv-ov';
   ov.innerHTML = `<div class="fv-st"><img class="fv-img" alt="" draggable="false"></div><button type="button" class="fv-x" title="Cerrar">✕</button>${urls.length > 1 ? '<button type="button" class="fv-p" title="Anterior">‹</button><button type="button" class="fv-n" title="Siguiente">›</button><div class="fv-c"></div>' : ''}`;
