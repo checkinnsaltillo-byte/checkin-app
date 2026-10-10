@@ -64962,19 +64962,17 @@ function clEmpCss_() {
     .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
     .ad-syncrow>.ad-seg{align-self:stretch}
     #aseo-kpis .ad-kpis{margin:0 0 12px}
-    .ad-donas{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:9px;padding-top:8px;border-top:1px solid #eef0f3}
-    .ad-dn{display:flex;align-items:center;gap:7px}
-    .ad-dn .r{position:relative;width:34px;height:34px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center}
-    .ad-dn .r::before{content:'';position:absolute;inset:5px;border-radius:50%;background:#fff}
-    .ad-dn .r b{position:relative;font:700 12px Inter,system-ui,sans-serif;color:#0f1729}
-    .ad-dn .tx{display:flex;flex-direction:column;gap:1px;font:600 11px Inter,system-ui,sans-serif;color:#334155}
-    .ad-dn .tx small{font:600 10.5px Inter,system-ui,sans-serif;color:#64748b}
-    .ad-dn .tx>span{display:flex;align-items:center;gap:3px;white-space:nowrap}
-    .ad-dn i,.ad-dnl i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:4px}.ad-dn .tx>span i:first-child{margin-left:0}
-    .ad-dnl{margin-left:auto;font:500 10px Inter,system-ui,sans-serif;color:#94a3b8;white-space:nowrap}
-    .ad-kpi .ad-donas{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px}.ad-kpi .ad-dnl{display:none}
-    .ad-kpi .ad-dn .tx small{text-transform:none;letter-spacing:0;font-size:10.5px!important;color:#64748b;display:block}
-    .ad-kpi .ad-dn .r{width:30px;height:30px}.ad-kpi .ad-dn .r::before{inset:4px}.ad-kpi .ad-dn .r b{font-size:11px}
+    .ad-ktipo{display:flex;flex-direction:column;gap:4px}
+    .ad-ktipo{container-type:inline-size}
+    .ad-ktipo .ad-tr{display:grid;grid-template-columns:max-content minmax(40px,1fr) 30px 34px;align-items:center;gap:6px}
+    @container (max-width:230px){.ad-ktipo .ad-tr{grid-template-columns:max-content minmax(36px,1fr) 30px}.ad-ktipo .ad-tr em{display:none}}
+    @media (min-width:641px) and (max-width:1250px){#module-aseo .ad-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}#module-aseo .ad-kpi.big{grid-column:span 2}#module-aseo .ad-kpi.ad-ktipo{grid-column:span 3}}
+    .ad-ktipo .ad-tr small{text-transform:none!important;letter-spacing:0!important;font-size:11px!important;color:#475569!important;font-weight:600!important}
+    .ad-ktipo .ad-tr .ad-prog{margin:0!important;height:7px}
+    .ad-ktipo .ad-tr b{font:700 11px Inter,system-ui,sans-serif;color:#0f1729;text-align:right}
+    .ad-ktipo .ad-tr em{font:500 10px Inter,system-ui,sans-serif;color:#94a3b8;font-style:normal;text-align:right}
+    .ad-ktipo .ad-tr:first-of-type small{color:#0f1729!important}
+    @media (max-width:640px){.ad-kpi.ad-ktipo{grid-column:1/-1}}
     @media (max-width:700px){.ad-syncrow{flex-wrap:wrap}.ad-syncrow>.mv-sync{flex-basis:calc(100% - 42px)}}
     #aseo-top .ad-syncrow>.mv-sync{flex:1;min-width:0;margin:0!important}
     .ad-ham{all:unset;box-sizing:border-box;cursor:pointer;position:relative;flex:none;align-self:stretch;width:34px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:15px;line-height:1}
@@ -65122,7 +65120,7 @@ function aseoEnsureCss_() {
   .ad-v2 .mv-sync .h{background:#ecfdf5;color:#047857;font-weight:600}
   .ad-v2 .mv-sync-btn{background:#fff !important;color:#374151 !important;border:1px solid var(--ad-line) !important;font-weight:600 !important;border-radius:7px !important}
   .ad-v2 .mv-sync-btn.notif{background:var(--ad-tx) !important;color:#fff !important;border-color:var(--ad-tx) !important}
-  .ad-kpis{display:grid;grid-template-columns:2.3fr repeat(5,1fr);gap:10px;margin:0 0 14px}
+  .ad-kpis{display:grid;grid-template-columns:1.4fr 1.7fr repeat(5,1fr);gap:10px;margin:0 0 14px}
   .ad-kpi{background:#fff;border:1px solid var(--ad-line);border-radius:12px;padding:10px 13px;min-width:0}
   .ad-kpi small{display:block;font-size:10.5px;font-weight:500;color:var(--ad-mut);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ad-kpi .n{font-size:21px;font-weight:600;letter-spacing:-.02em;margin-top:2px;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
@@ -66334,16 +66332,16 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     const T = vivos.concat(tInfos).filter(I => I.selE !== 'cancelado');
     const tipo = I => I.tarea ? (I.t.rt ? 'mantenimiento' : (I.t.depto || 'limpieza')) : (I.depto || 'limpieza');
     const fin = I => I.tarea && I.t.rt ? !rtAbierto_(I.t) : I.selE === 'terminado' || I.selE === 'inspeccionado';
-    const dona = (t, L) => {
-      const tot = L.length, te = L.filter(fin).length, pr = L.filter(I => !fin(I) && I.selE === 'en_proceso').length, ni = tot - te - pr;
-      const a = tot ? te / tot * 360 : 0, b = tot ? a + pr / tot * 360 : 0;
-      return `<div class="ad-dn" title="${t}: ${te} terminado${te === 1 ? '' : 's'} · ${pr} en progreso · ${ni} sin iniciar"><span class="r" style="background:${tot ? `conic-gradient(#065f46 0 ${a}deg,#34d399 ${a}deg ${b}deg,#cbd5e1 ${b}deg 360deg)` : '#e2e8f0'}"><b>${tot}</b></span><span class="tx"><small>${t}</small><span><i style="background:#065f46"></i>${te}<i style="background:#34d399"></i>${pr}<i style="background:#cbd5e1"></i>${ni}</span></span></div>`;
+    const fila = (t, L) => {
+      const tot = L.length, te = L.filter(fin).length, pr = L.filter(I => !fin(I) && I.selE === 'en_proceso').length, ni = tot - te - pr, pc = tot ? Math.round(te / tot * 100) : 0;
+      return `<div class="ad-tr" title="${t}: ${te} terminado${te === 1 ? '' : 's'} · ${pr} en progreso · ${ni} sin iniciar"><small>${t}</small><span class="ad-prog"><i style="width:${tot ? (te / tot * 100).toFixed(1) : 0}%;background:#047857"></i><i style="width:${tot ? (pr / tot * 100).toFixed(1) : 0}%;background:#f59e0b"></i></span><b>${pc}%</b><em>${te}/${tot}</em></div>`;
     };
-    return `<div class="ad-donas">${dona('Total', T)}${['limpieza', 'inspeccion', 'mantenimiento'].map(k => dona(AT_DEPTO[k].t, T.filter(I => tipo(I) === k))).join('')}<span class="ad-dnl"><i style="background:#065f46"></i>Terminado <i style="background:#34d399"></i>En progreso <i style="background:#cbd5e1"></i>Sin iniciar</span></div>`;
+    return `<div class="ad-kpi ad-ktipo"><small>Avance por tipo</small>${fila('Total', T)}${['limpieza', 'inspeccion', 'mantenimiento'].map(k => fila(AT_DEPTO[k].t, T.filter(I => tipo(I) === k))).join('')}</div>`;
   })();
   const kpis = `<div class="ad-kpis">
     <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
-      <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div>${donas}</div>
+      <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
+    ${donas}
     ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', '', 'ent', vivos.filter(I => I.g.ent.length))}
     ${kpi('Pendientes', n('pendiente'), '', 'k-pend', 'pend', vivos.filter(I => I.selE === 'pendiente'))}${kpi('En proceso', n('en_proceso'), '', 'k-proc', 'proc', vivos.filter(I => I.selE === 'en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '', 'k-term', 'term', vivos.filter(I => I.selE === 'terminado'))}
     ${kpi('Alertas', aL.length, [aInc.length ? `${aInc.length} incidencia${aInc.length === 1 ? '' : 's'}` : '', aCorr.length ? `${aCorr.length} correctiva${aCorr.length === 1 ? '' : 's'}` : '', aNs.length ? `${aNs.length} sin desalojar` : ''].filter(Boolean).join(' · '), 'k-al', 'alert', aL)}
