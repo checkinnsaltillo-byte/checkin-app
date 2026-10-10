@@ -64859,6 +64859,13 @@ function clEmpCss_() {
     html body .ad-card .r2.ad-src>span+span{margin-left:10px;white-space:nowrap;color:#475569}
     .ad-card .ad-det{display:none!important} /* la card completa abre sus detalles */
     .ad-kl{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+    #aseo-kpis .ad-kpi.k-pend{background:#f1f5f9;border-color:#cbd5e1}
+    #aseo-kpis .ad-kpi.k-proc{background:color-mix(in oklch,#ffb300 30%,#fff);border-color:#ffb300}
+    #aseo-kpis .ad-kpi.k-term{background:color-mix(in oklch,#00c853 28%,#fff);border-color:#00c853}
+    #aseo-kpis .ad-kpi.k-ent{background:#e0f2fe;border-color:#7dd3fc}
+    #aseo-kpis .ad-kpi.k-al{background:#dc2626;border-color:#dc2626}
+    #aseo-kpis .ad-kpi.k-al,#aseo-kpis .ad-kpi.k-al small,#aseo-kpis .ad-kpi.k-al .n,#aseo-kpis .ad-kpi.k-al em{color:#fff!important}
+    #aseo-kpis .ad-kpi.k-al .ad-kc{background:rgba(255,255,255,.22);color:#fff}#aseo-kpis .ad-kpi.k-al .ad-kc:hover{background:rgba(255,255,255,.35)}
     .ad-kc{all:unset;cursor:pointer;font:600 10.5px Inter,system-ui,sans-serif;color:#4f46e5;padding:1px 6px;border-radius:5px;background:#eef2ff}
     .ad-kc:hover{background:#e0e7ff;text-decoration:underline}.ad-kc.mas{color:#475569;background:#f1f5f9}
     .ad-kpop{max-height:320px;overflow:auto;padding:6px}
@@ -66177,8 +66184,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const kpis = `<div class="ad-kpis">
     <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
       <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
-    ${kpi('Pendientes', n('pendiente'), '', '', 'pend', vivos.filter(I => I.selE === 'pendiente'))}${kpi('En proceso', n('en_proceso'), '', '', 'proc', vivos.filter(I => I.selE === 'en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '', '', 'term', vivos.filter(I => I.selE === 'terminado'))}
-    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', '', 'ent', vivos.filter(I => I.g.ent.length))}${kpi('Alertas', aL.length, [aInc.length ? `${aInc.length} incidencia${aInc.length === 1 ? '' : 's'}` : '', aCorr.length ? `${aCorr.length} correctiva${aCorr.length === 1 ? '' : 's'}` : '', aNs.length ? `${aNs.length} sin desalojar` : ''].filter(Boolean).join(' · '), aL.length ? 'al' : '', 'alert', aL)}
+    ${kpi('Pendientes', n('pendiente'), '', 'k-pend', 'pend', vivos.filter(I => I.selE === 'pendiente'))}${kpi('En proceso', n('en_proceso'), '', 'k-proc', 'proc', vivos.filter(I => I.selE === 'en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '', 'k-term', 'term', vivos.filter(I => I.selE === 'terminado'))}
+    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', 'k-ent', 'ent', vivos.filter(I => I.g.ent.length))}${kpi('Alertas', aL.length, [aInc.length ? `${aInc.length} incidencia${aInc.length === 1 ? '' : 's'}` : '', aCorr.length ? `${aCorr.length} correctiva${aCorr.length === 1 ? '' : 's'}` : '', aNs.length ? `${aNs.length} sin desalojar` : ''].filter(Boolean).join(' · '), 'k-al', 'alert', aL)}
   </div>`;
   // Barra de avance por columna (mismos colores que el KPI de arriba).
   const colProg = L => {
