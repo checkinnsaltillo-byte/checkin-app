@@ -59835,6 +59835,18 @@ window.aseoValidar_ = function (id, hid) {
   if (!confirm(`¿Validar el estado «${E.t}» y publicarlo en la guía de bienvenida?`)) return;
   aseoSetEstado_(id, hid, k, true);
 };
+// Quitar la validación de «Terminado» (regresa a «por validar»; la guía vuelve a la etapa anterior).
+window.aseoDesvalidar_ = async function (id, hid) {
+  if (!confirm('¿Quitar la validación? La card regresa a «por validar» y la guía vuelve a mostrar la etapa anterior.')) return;
+  const user = (typeof currentUser !== 'undefined' && currentUser) || '';
+  try {
+    const res = await fetch(`${BACKEND}/aseo/estado`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, hid, estado: 'terminado', validar: false, desvalidar: true, user }) }).then(r => r.json());
+    if (!res.ok) throw new Error(res.error || 'Error');
+    if (res.estado) ASEO.estados[id] = res.estado;
+    if (aseoVisible_()) aseoRenderSide_();
+    aseoRefresh_(true).then(() => { if (aseoVisible_()) aseoRenderSide_(); }).catch(() => {});
+  } catch (e) { alert('No se pudo quitar la validación: ' + (e.message || e)); }
+};
 window.aseoEstadoPop_ = function (id, hid, anchor) {
   aseoEnsureCss_();
   document.querySelectorAll('.pz-pop').forEach(p => p.remove());
@@ -64821,14 +64833,18 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-val{all:unset;cursor:pointer;font-weight:700;color:#b45309;text-decoration:underline;text-underline-offset:2px}
+    .ad-val:hover{color:#92400e}.ad-val.ok{color:#15803d}.ad-val.ok:hover{color:#166534}
     .ad-colprog{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none}
-    .ad-colprog .ad-prog{width:64px;margin:0;height:6px}
+    .ad-colprog .ad-prog{width:64px;margin:0;height:8px;border-radius:2px;background:#e5e7eb;overflow:hidden}
+    .ad-colprog .ad-prog i{border-radius:0;height:100%}
+    .ad-card .r2 .ad-val{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;height:auto!important}
     .ad-colprog b{font-size:10.5px;font-weight:700;color:#475569;min-width:28px;text-align:right}
     .ad-card .r3 .mv-ns{height:18px!important;padding:0 6px!important;font-size:9.5px;font-weight:800;border-width:1px;flex:none}
     .ad-arch{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 4px;border-radius:5px;white-space:nowrap;flex:none}
     .ad-arch:hover{color:#475569;background:#f1f5f9}
     @container (max-width:330px){
-      .ad-card .ad-arch{font-size:0}.ad-card .ad-arch::before{content:"🗄";font-size:11px}
+      .ad-card .ad-arch{font-size:0}.ad-card .ad-arch::before{content:"🗑";font-size:11px}
       .ad-card .r3 .ax-mini{font-size:0;padding:1px 3px}.ad-card .r3 .ax-mini::before{content:"＋⚠";font-size:11px}
       .ad-card .r3 .ad-gd{font-size:0}.ad-card .r3 .ad-gd::before{content:"◉";font-size:11px}
       .ad-card .r3 .p4e b,.ad-card .r3 .p4 b{display:none}
@@ -65996,7 +66012,12 @@ function adCard_(I) {
   const nsChip = I.xs && I.esHoyC && !I.esCopia ? aseoNoSaleChip_(I.xs.b.Id, I.hid) : ''; // va en el renglón de acciones (r3)
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
-  if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
+  if (I.selE === 'terminado') { // «Validar» ↔ «✅ Validado» (el personal no administrativo solo ve el estado)
+    const ida = pcEsc(I.asigId), hida = pcEsc(String(I.hid || ''));
+    if (typeof clModoPersonal_ === 'function' && clModoPersonal_()) meta.push(I.validado ? '<span class="ok">✅ Validado</span>' : '<span class="pd">Por validar</span>');
+    else meta.push(I.validado ? `<button type="button" class="ad-val ok" title="Validado · clic para regresarlo a «por validar»" onclick="event.stopPropagation();aseoDesvalidar_('${ida}','${hida}')">✅ Validado</button>`
+      : `<button type="button" class="ad-val" title="Validar y publicar en la guía del huésped" onclick="event.stopPropagation();aseoValidar_('${ida}','${hida}')">Validar</button>`);
+  }
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
   // Medio de reserva y clasificación del huésped (el que entra; si no entra nadie, el que sale), en todas las cards.
   const xR = I.xe || I.xs;
@@ -66116,24 +66137,34 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
   // Cada KPI lista sus alojamientos como enlaces (clic = detalles de la card); «+N» abre la lista completa.
   ASEO._kpiL = {};
+  const kItem = I => {
+    const aloj = String(I.aloj || '').replace(/^Calle\s+/i, ''), code = I.corto || aloj || '—';
+    if (!I.tarea) return { dk: I.k, code, aloj, est: adEstObj_(I.selE).t, open: `adAbrir_('${String(I.k).replace(/'/g, '')}')` };
+    const t = I.t, dia = I.dia || hoy;
+    return { dk: t.rt ? 'R' + t.rtId : 'T' + t.id, code, aloj: (t.titulo || aloj), est: t.rt ? 'Mantenimiento' : adEstObj_(I.selE).t, open: t.rt ? `rtAbrirA_('${t.rtId}','${dia}')` : `atAbrir_('${t.id}','${dia}')` };
+  };
   const kl = (key, L) => {
-    ASEO._kpiL[key] = L.map(I => ({ k: I.k, code: I.corto || String(I.aloj || '').replace(/^Calle\s+/i, ''), aloj: String(I.aloj || '').replace(/^Calle\s+/i, ''), est: adEstObj_(I.selE).t }));
+    ASEO._kpiL[key] = L.map(kItem);
     if (!L.length) return '';
     const M = 5, it = ASEO._kpiL[key];
-    return `<div class="ad-kl">${it.slice(0, M).map(x => `<button type="button" class="ad-kc" title="${pcEsc(x.aloj)} · ${pcEsc(x.est)}" onclick="event.stopPropagation();adKpiIr_('${pcEsc(x.k)}')">${pcEsc(x.code)}</button>`).join('')}${it.length > M ? `<button type="button" class="ad-kc mas" onclick="event.stopPropagation();adKpiMas_(this,'${key}')">+${it.length - M}</button>` : ''}</div>`;
+    return `<div class="ad-kl">${it.slice(0, M).map((x, i) => `<button type="button" class="ad-kc" title="${pcEsc(x.aloj)} · ${pcEsc(x.est)}" onclick="event.stopPropagation();adKpiIr_('${key}',${i})">${pcEsc(x.code)}</button>`).join('')}${it.length > M ? `<button type="button" class="ad-kc mas" onclick="event.stopPropagation();adKpiMas_(this,'${key}')">+${it.length - M}</button>` : ''}</div>`;
   };
+  // Alertas = incidencias abiertas + tareas correctivas sin cerrar + «no ha desalojado»
+  const incAb = I => { const k = kDe(I); return !!axEx_(k).incidencia && axIncActivas_(k).some(id => { const r = axIncRow_(id); return !r || !icCerrada_(icRow_(r)); }); };
+  const aInc = infos.filter(incAb), aNs = infos.filter(I => I.noSale), aCorr = tInfos.filter(I => axSrv_(kDe(I)) === 'correctivo' && (I.t && I.t.rt ? rtAbierto_(I.t) : !['terminado', 'inspeccionado', 'cancelado'].includes(I.selE)));
+  const aL = [...new Set([...aNs, ...aInc, ...aCorr])];
   const kpi = (t, v, s, cls, key, L) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div>${key ? kl(key, L || []) : ''}</div>`;
   const kpis = `<div class="ad-kpis">
     <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
       <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
     ${kpi('Pendientes', n('pendiente'), '', '', 'pend', vivos.filter(I => I.selE === 'pendiente'))}${kpi('En proceso', n('en_proceso'), '', '', 'proc', vivos.filter(I => I.selE === 'en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '', '', 'term', vivos.filter(I => I.selE === 'terminado'))}
-    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', '', 'ent', vivos.filter(I => I.g.ent.length))}${kpi('Alertas', alertas + inhab, [sinDes ? `${sinDes} sin desalojar` : '', inhab ? `${inhab} inhabitable${inhab === 1 ? '' : 's'}` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), (alertas + inhab ? 'al' : '') + '', 'alert', infos.filter(I => I.aviso && I.aviso.c === 'red'))}
+    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', '', 'ent', vivos.filter(I => I.g.ent.length))}${kpi('Alertas', aL.length, [aInc.length ? `${aInc.length} incidencia${aInc.length === 1 ? '' : 's'}` : '', aCorr.length ? `${aCorr.length} correctiva${aCorr.length === 1 ? '' : 's'}` : '', aNs.length ? `${aNs.length} sin desalojar` : ''].filter(Boolean).join(' · '), aL.length ? 'al' : '', 'alert', aL)}
   </div>`;
   // Barra de avance por columna (mismos colores que el KPI de arriba).
   const colProg = L => {
     const V = L.filter(I => !I.fantasma && !I.tarea && I.selE !== 'cancelado'), t = V.length; if (!t) return '';
-    const w = k => (V.filter(I => I.selE === k).length / t * 100).toFixed(1), listos = V.filter(I => I.pubE === 'inspeccionado' || I.pubE === 'terminado').length; // igual que el KPI: listos = validados
-    return `<span class="ad-colprog" title="${listos} de ${t} listos"><span class="ad-prog"><i style="width:${w('inspeccionado')}%;background:#047857"></i><i style="width:${w('terminado')}%;background:#10b981"></i><i style="width:${w('en_proceso')}%;background:#f59e0b"></i></span><b>${Math.round(listos / t * 100)}%</b></span>`;
+    const term = V.filter(I => I.selE === 'terminado' || I.selE === 'inspeccionado').length, proc = V.filter(I => I.selE === 'en_proceso').length; // avance hasta «Terminado»
+    return `<span class="ad-colprog" title="${term} de ${t} terminadas${proc ? ` · ${proc} en proceso` : ''}"><span class="ad-prog"><i style="width:${(term / t * 100).toFixed(1)}%;background:${adEstC_('terminado')}"></i><i style="width:${(proc / t * 100).toFixed(1)}%;background:${adEstC_('en_proceso')}"></i></span><b>${Math.round(term / t * 100)}%</b></span>`;
   };
   const totV = vivos.length;
   const cols = vista === 'estado'
@@ -66299,17 +66330,18 @@ function adGrupos_(dia) {
 }
 // ── Ventana lateral ──
 // KPI → card: abre sus detalles (el personal no administrativo solo la ubica en el tablero).
-window.adKpiIr_ = function (k) {
+window.adKpiIr_ = function (key, i) {
   document.querySelectorAll('.pz-pop').forEach(p => p.remove());
-  if (!(typeof clModoPersonal_ === 'function' && clModoPersonal_())) return adAbrir_(k);
-  const c = document.querySelector(`#aseo-side .ad-card[data-k="${CSS.escape(k)}"]`);
+  const x = ((ASEO._kpiL || {})[key] || [])[i]; if (!x) return;
+  if (!(typeof clModoPersonal_ === 'function' && clModoPersonal_())) { try { (new Function(x.open))(); } catch (_) {} return; }
+  const c = document.querySelector(`#aseo-side .ad-card[data-k="${CSS.escape(x.dk)}"]`);
   if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.classList.add('ad-flash'); setTimeout(() => c.classList.remove('ad-flash'), 1600); }
 };
 window.adKpiMas_ = function (btn, key) {
   document.querySelectorAll('.pz-pop').forEach(p => p.remove());
   const L = (ASEO._kpiL || {})[key] || []; if (!L.length) return;
   const pop = document.createElement('div'); pop.className = 'pz-pop ad-kpop';
-  pop.innerHTML = L.map(x => `<button type="button" class="ad-kli" onclick="adKpiIr_('${pcEsc(x.k)}')"><b>${pcEsc(x.code)}</b><span>${pcEsc(x.aloj)}</span><em>${pcEsc(x.est)}</em></button>`).join('');
+  pop.innerHTML = L.map((x, i) => `<button type="button" class="ad-kli" onclick="adKpiIr_('${key}',${i})"><b>${pcEsc(x.code)}</b><span>${pcEsc(x.aloj)}</span><em>${pcEsc(x.est)}</em></button>`).join('');
   document.body.appendChild(pop);
   const rc = btn.getBoundingClientRect(), w = 260;
   pop.style.width = w + 'px'; pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px'; pop.style.top = (rc.bottom + 6) + 'px';
