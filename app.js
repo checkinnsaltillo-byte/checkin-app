@@ -65970,7 +65970,9 @@ function adCard_(I) {
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
-  if (meta.length === 1 && !nsChip && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
+  // Medio de reserva y clasificación del huésped (el que entra; si no entra nadie, el que sale), en todas las cards.
+  const xR = I.xe || I.xs;
+  const srcTxt = xR ? [xR.b.Source ? String(xR.b.Source) : '', xR.tier ? xR.tier.label : (xR.stats && xR.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ') : '';
   // Asignar directo en la card: «＋ Asignar» o clic en el nombre para cambiarlo (sin abrir los detalles).
   const asg = rol => `aseoAsignar_('${pcEsc(I.asigId)}',this,'${rol}')`;
   const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo', asg('aseo'))).join('')}${I.pI.map(n => adNom_(n, 'Inspección', asg('inspeccion'))).join('')}</span>`
@@ -65984,6 +65986,7 @@ function adCard_(I) {
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${nsChip}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
+    ${srcTxt ? `<div class="r2"><span>${pcEsc(srcTxt)}</span></div>` : ''}
     ${axFila_(I.asigId, I.g.sal.length > 0, I.hid, aseoDia_())}
     <div class="r3">${equipo}<span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
