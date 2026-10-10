@@ -51440,85 +51440,7 @@ window._botcImgZoom_ = function(url) {
   ov.id = 'botc-img-lightbox';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
   ov.innerHTML = `
-    <button type="button" onclick="event.stopPropagation();_botcImgClose_()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:14px;width:44px;height:44px;border-radius:50%;background:#fff;color:#0f172a;border:0;font-size:22px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)">×</button>
-    <a href="${url}" target="_blank" rel="noopener" title="Abrir en pestaña" style="position:absolute;top:14px;right:70px;background:#fff;color:#0f172a;border-radius:6px;padding:10px 12px;font-size:12px;font-weight:800;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.4)">↗ Abrir</a>
-    <img src="${url}" style="max-width:96vw;max-height:92vh;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)" onclick="event.stopPropagation()">
-  `;
-  ov.onclick = _botcImgClose_;
-  document.body.appendChild(ov);
-  document.addEventListener('keydown', _botcImgKey_);
-};
-window._botcImgKey_ = function(e) { if (e.key === 'Escape') _botcImgClose_(); };
-window._botcImgClose_ = function() {
-  const ov = document.getElementById('botc-img-lightbox'); if (ov) ov.remove();
-  document.removeEventListener('keydown', _botcImgKey_);
-};
-
-// ─── Multi-selección de mensajes ───────────────────────────────────────────
-window.botcMsgSelToggle_ = function() {
-  BOTC_STATE.selectMode = !BOTC_STATE.selectMode;
-  BOTC_STATE.selectedMsgIdx = new Set();
-  if (typeof _botcRenderMain === 'function' && BOTC_STATE.selectedPhone) _botcRenderMain(BOTC_STATE.selectedPhone);
-};
-window.botcMsgToggle_ = function(idx) {
-  if (!BOTC_STATE.selectMode) { BOTC_STATE.selectMode = true; }
-  BOTC_STATE.selectedMsgIdx = BOTC_STATE.selectedMsgIdx || new Set();
-  const s = BOTC_STATE.selectedMsgIdx;
-  if (s.has(idx)) s.delete(idx); else s.add(idx);
-  if (typeof _botcRenderMain === 'function' && BOTC_STATE.selectedPhone) _botcRenderMain(BOTC_STATE.selectedPhone);
-};
-function _botcGetSelectedMsgs_() {
-  const msgs = BOTC_STATE.messages || [];
-  const s = BOTC_STATE.selectedMsgIdx || new Set();
-  return Array.from(s).sort((a,b)=>a-b).map(i => msgs[i]).filter(Boolean);
-}
-window.botcMsgCopy_ = async function() {
-  const sel = _botcGetSelectedMsgs_();
-  if (!sel.length) return;
-  const text = sel.map(m => {
-    const who = m.role === 'user' ? 'Huésped' : (m.role === 'admin' ? 'Admin' : (m.role === 'template' ? 'Template' : 'Bot'));
-    const ts = (typeof _botcFmtDateTime === 'function') ? _botcFmtDateTime(m.timestamp) : String(m.timestamp || '');
-    return `[${ts}] ${who}: ${String(m.body || '')}`;
-  }).join('\n');
-  try {
-    await navigator.clipboard.writeText(text);
-    alert(`${sel.length} mensaje${sel.length===1?'':'s'} copiado${sel.length===1?'':'s'} al portapapeles.`);
-  } catch (e) {
-    // Fallback: textarea + execCommand
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); alert('Copiado.'); } catch (_) { alert('No se pudo copiar: ' + e.message); }
-    ta.remove();
-  }
-};
-window.botcMsgForward_ = async function() {
-  const sel = _botcGetSelectedMsgs_();
-  if (!sel.length) return;
-  const phone = prompt('Reenviar a WhatsApp (ej. +5218441234567):');
-  if (!phone) return;
-  const clean = String(phone).replace(/[^\d+]/g, '');
-  if (clean.length < 10) { alert('Número inválido.'); return; }
-  const to = clean.startsWith('+') ? clean : ('+' + clean);
-  const body = sel.map(m => {
-    const who = m.role === 'user' ? '👤 Huésped' : (m.role === 'admin' ? '👨‍💼 Admin' : (m.role === 'template' ? '📩 Template' : '🤖 Bot'));
-    return `${who}: ${String(m.body || '')}`;
-  }).join('\n\n');
-  const wrap = `📤 *Mensajes reenviados* (${sel.length}):\n\n${body}`;
-  try {
-    const r = await fetch(`${BACKEND}/wa/send-forward`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: `whatsapp:${to}`, body: wrap }),
-    });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'error backend');
-    alert(`Reenviado a ${to}.`);
-    botcMsgSelToggle_();
-  } catch (e) { alert('Error al reenviar: ' + e.message); }
-};
-window.botcMsgComprobante_ = async function() {
-  const sel = _botcGetSelectedMsgs_();
-  if (!sel.length) return;
-  const phone = BOTC_STATE.selectedPhone;
+    <button type="button" onclick="event.stopPropagation();_botcImgClose_()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:14px;width:44px;height:44px;border-radius:50%;background:#fff;color:#0f172a;border:0;font-size:22px;font-weight:900;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                _STATE.selectedPhone;
   // Recolecta media_urls y texto de los mensajes seleccionados.
   const media = sel.map(m => m.meta && m.meta.media_url ? { url: m.meta.media_url, type: m.meta.media_type || '' } : null).filter(Boolean);
   const texts = sel.map(m => String(m.body || '')).filter(Boolean);
@@ -65040,8 +64962,8 @@ function aseoEnsureCss_() {
   #ad-drawer .gv button:hover{background:#059669}
   #ad-drawer .ad-guia .gm{font-size:10.5px;color:#6b7280;margin-top:6px}
   /* Tinte por estado: fondo apenas teñido y borde a juego (elegante, se distingue a simple vista) */
-  .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 9%,#fff),color-mix(in srgb,var(--sc) 4%,#fff));border-color:color-mix(in srgb,var(--sc) 30%,#e8eaee)}
-  .ad-card.est-tint .r3{border-top-color:color-mix(in srgb,var(--sc) 18%,#eef0f3)}
+  .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 24%,#fff),color-mix(in srgb,var(--sc) 12%,#fff));border-color:color-mix(in srgb,var(--sc) 60%,#e8eaee)}
+  .ad-card.est-tint .r3{border-top-color:color-mix(in srgb,var(--sc) 35%,#eef0f3)}
   .ad-card.est-tint.ghost{background:repeating-linear-gradient(135deg,#f3f4f7 0 7px,#eaedf1 7px 14px);border-color:#d6dae0}
   .ad-card.est-tint.sel{border-color:#4f46e5}.ad-card.est-tint.alert{border-color:#fca5a5}
   /* Cards que pasaron al día siguiente (sombreadas): avisos en grises, no morados */

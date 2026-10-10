@@ -65040,8 +65040,8 @@ function aseoEnsureCss_() {
   #ad-drawer .gv button:hover{background:#059669}
   #ad-drawer .ad-guia .gm{font-size:10.5px;color:#6b7280;margin-top:6px}
   /* Tinte por estado: fondo apenas teñido y borde a juego (elegante, se distingue a simple vista) */
-  .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 9%,#fff),color-mix(in srgb,var(--sc) 4%,#fff));border-color:color-mix(in srgb,var(--sc) 30%,#e8eaee)}
-  .ad-card.est-tint .r3{border-top-color:color-mix(in srgb,var(--sc) 18%,#eef0f3)}
+  .ad-card.est-tint{background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 24%,#fff),color-mix(in srgb,var(--sc) 12%,#fff));border-color:color-mix(in srgb,var(--sc) 60%,#e8eaee)}
+  .ad-card.est-tint .r3{border-top-color:color-mix(in srgb,var(--sc) 35%,#eef0f3)}
   .ad-card.est-tint.ghost{background:repeating-linear-gradient(135deg,#f3f4f7 0 7px,#eaedf1 7px 14px);border-color:#d6dae0}
   .ad-card.est-tint.sel{border-color:#4f46e5}.ad-card.est-tint.alert{border-color:#fca5a5}
   /* Cards que pasaron al día siguiente (sombreadas): avisos en grises, no morados */
