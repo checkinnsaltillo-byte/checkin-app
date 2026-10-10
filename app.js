@@ -64774,9 +64774,9 @@ function clEmpCss_() {
   const st = document.createElement('style'); st.id = 'cl-emp-css';
   st.textContent = `#module-aseo.cl-emp .aseo-head .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
-    .ad-syncrow{display:flex;align-items:stretch;gap:8px}
-    .ad-syncrow>.mv-sync{flex:1;min-width:0}
-    .ad-ham{all:unset;box-sizing:border-box;cursor:pointer;position:relative;flex:none;align-self:center;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:15px;line-height:1}
+    .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
+    #aseo-top .ad-syncrow>.mv-sync{flex:1;min-width:0;margin:0!important}
+    .ad-ham{all:unset;box-sizing:border-box;cursor:pointer;position:relative;flex:none;align-self:stretch;width:34px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:15px;line-height:1}
     .ad-ham:hover,.ad-ham.on{background:#f1f5f9;border-color:#cbd5e1}
     .ad-ham b{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#111827;color:#fff;font:700 10px/16px Inter,system-ui,sans-serif;text-align:center}
     .ad-gfil{margin:0 0 10px}
