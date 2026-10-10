@@ -66852,17 +66852,21 @@ function npPruebaHtml_() {
       <div class="np-lab">Proceso a simular</div>
       <div style="display:flex;gap:6px;align-items:center"><select class="at-in np-proc" style="flex:1">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
         <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,npYo_())">▶ Simular</button></div>
-      <div class="np-hint">Te llega por WhatsApp lo que recibiría${C ? ' ' + pcEsc(aseoNombreCorto_(C)) : 's tú'} y aquí ves la vista previa.</div>
+      <div class="np-lab">O escribe un mensaje</div>
+      <div style="display:flex;gap:6px;align-items:flex-end"><textarea class="at-in np-msg" rows="2" style="flex:1;resize:vertical" placeholder="Ej. «cu2 listo», «no ha salido JC3», «qué me toca hoy»…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();npSimular_(this.nextElementSibling,npYo_(),1)}"></textarea>
+        <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,npYo_(),1)">▶ Enviar</button></div>
+      <div class="np-hint">Te llega por WhatsApp lo que recibiría${C ? ' ' + pcEsc(aseoNombreCorto_(C)) : 's tú'} y aquí ves la vista previa. En los mensajes escritos no se guarda ni se avisa nada.</div>
       <pre class="np-sim" style="display:none"></pre>
     </div></div>`;
 }
 function npPruebaPintar_() { const el = document.getElementById('np-prueba-w'); if (el) el.outerHTML = npPruebaHtml_(); }
-window.npSimular_ = async function (btn, n) {
+window.npSimular_ = async function (btn, n, libre) {
   const fila = btn.closest('.np-prueba'), sel = fila.querySelector('.np-proc'), out = fila.querySelector('.np-sim'), pf = npPerfilDe_(n);
-  if (!sel || !sel.value) return;
+  const mensaje = libre ? fila.querySelector('.np-msg').value.trim() : '';
+  if (libre ? !mensaje : (!sel || !sel.value)) return;
   btn.disabled = true; const t0 = btn.textContent; btn.textContent = '⏳';
   try {
-    const j = await fetch(`${BACKEND}/bot/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: n, como: pf.pruebaComo || n, proceso: sel.value }) }).then(r => r.json());
+    const j = await fetch(`${BACKEND}/bot/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: n, como: pf.pruebaComo || n, proceso: libre ? '' : sel.value, mensaje }) }).then(r => r.json());
     if (!j.ok) throw new Error(j.error || 'Error');
     out.style.display = ''; out.textContent = j.texto + (j.enviado ? '\n\n✓ Enviado a tu WhatsApp' : '');
   } catch (e) { out.style.display = ''; out.textContent = '⚠️ ' + (e.message || e); }
