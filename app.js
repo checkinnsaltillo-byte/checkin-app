@@ -64888,6 +64888,8 @@ function clEmpCss_() {
     .ad-ucards{flex:1;min-width:0;display:flex;gap:8px;padding:8px 10px;overflow-x:auto;align-items:flex-start}
     .ad-ucards>.ad-card,.ad-ucards>.ad-vinc{flex:none;width:236px;zoom:.88}
     .ad-ucards .ad-empty{align-self:center}
+    #aseo-side .ad-ucards .ad-card .r3{flex-wrap:wrap;white-space:normal;row-gap:4px}
+    .ad-urow.drop{background:#eef2ff;box-shadow:inset 0 0 0 2px #6366f1}.ad-urow.drop .ad-uh{background:#eef2ff}
     @media (max-width:640px){.ad-uh{width:120px;padding:8px}.ad-ucards>.ad-card,.ad-ucards>.ad-vinc{width:210px}}
     #aseo-vercomo{display:inline-flex;align-items:center;gap:8px;margin-left:14px;vertical-align:middle}
     .ck-pb{all:unset;cursor:pointer;font:600 12px Inter,system-ui,sans-serif;padding:5px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151}
@@ -65939,10 +65941,43 @@ window.adEstClick_ = function (id, hid, k, tarea) {
 // Arrastrar una card a otra columna (vista por estado) → cambia su estado.
 window.adDragStart_ = function (ev, id, hid, tarea, sinInsp) {
   ASEO._dragEst = { id, hid, tarea: !!tarea, sinInsp: !!sinInsp };
+  const fila = ev.currentTarget.closest && ev.currentTarget.closest('.ad-urow'); // vista «Por usuario»: renglón de origen
+  ASEO._dragDe = fila ? (fila.dataset.n || '') : null; ASEO._dragDep = ev.currentTarget.dataset.dep || '';
   try { ev.dataTransfer.setData('text/plain', id); ev.dataTransfer.effectAllowed = 'move'; } catch (_) {}
   const c = ev.currentTarget; setTimeout(() => c.classList.add('dragging'), 0);
 };
-window.adDragEnd_ = function (ev) { ev.currentTarget.classList.remove('dragging'); document.querySelectorAll('.ad-col.drop').forEach(c => c.classList.remove('drop')); ASEO._dragEst = null; };
+window.adDragEnd_ = function (ev) { ev.currentTarget.classList.remove('dragging'); document.querySelectorAll('.ad-col.drop,.ad-urow.drop').forEach(c => c.classList.remove('drop')); ASEO._dragEst = null; };
+// Vista «Por usuario»: soltar una card en el renglón de otra persona cambia su asignación (quita a la de origen, pone a la de destino).
+window.adDragOverU_ = function (ev) { if (!ASEO._dragEst || ASEO._dragDe == null) return; ev.preventDefault(); const f = ev.currentTarget; document.querySelectorAll('.ad-urow.drop').forEach(r => { if (r !== f) r.classList.remove('drop'); }); f.classList.add('drop'); };
+window.adDropUser_ = async function (ev, dest) {
+  ev.preventDefault(); document.querySelectorAll('.ad-urow.drop').forEach(r => r.classList.remove('drop'));
+  const D = ASEO._dragEst, src = ASEO._dragDe || ''; dest = dest || '';
+  if (!D || ASEO._dragDe == null || src === dest) return;
+  const lim = n => String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim(), igual = (a, b) => lim(a) === lim(b);
+  const mover = L => { const out = (L || []).filter(x => !src || !igual(x, src)); if (dest && !out.some(x => igual(x, dest))) out.push(dest); return out; };
+  const user = (typeof currentUser !== 'undefined' && currentUser) || '';
+  try {
+    if (!D.tarea) { // card de aseo: rol del renglón de origen (aseo o inspección)
+      const a = ASEO.asig[D.id] || {}, aseoL = a.aseo || a.personal || [], inspL = a.inspeccion || [];
+      const rol = src ? (aseoL.some(x => igual(x, src)) ? 'aseo' : inspL.some(x => igual(x, src)) ? 'inspeccion' : 'aseo') : (ASEO._dragDep === 'inspeccion' ? 'inspeccion' : 'aseo');
+      const cur = rol === 'aseo' ? aseoL : inspL;
+      ASEO._pop = { id: D.id, rol, sel: new Set(mover(cur)), orig: cur.join('|') };
+      await aseoPopOk_();
+    } else if (/^R:/.test(D.id)) { // mantenimiento
+      const rid = D.id.slice(2), t = rtTareas_().find(x => String(x.rtId) === rid); if (!t) return;
+      const nuevo = mover(t.asignados);
+      const j = await fetch(`${BACKEND}/reportes-tecnicos-upsert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: { ID: rid, Asignado_a: nuevo.join(', '), UpdatedAt: new Date().toISOString(), Updated_by: user } }) }).then(r => r.json());
+      if (!j.ok) throw new Error(j.error || 'Error');
+      t.asignados = nuevo; (ASEO.rt || []).forEach(r => { if (String(r.ID) === rid) r.Asignado_a = nuevo.join(', '); });
+    } else { // tarea del Check-list
+      const m = String(D.id).match(/^T([a-z0-9]+)/i), t = m && (ASEO.tareas || {})[m[1]]; if (!t) return;
+      const j = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: Object.assign({}, t, { asignados: mover(t.asignados) }), user }) }).then(r => r.json());
+      if (!j.ok) throw new Error(j.error || 'Error');
+      if (j.tarea) ASEO.tareas[m[1]] = Object.assign({}, t, j.tarea);
+    }
+    aseoRenderSide_();
+  } catch (e) { alert('No se pudo cambiar la asignación: ' + (e.message || e)); aseoRenderSide_(); }
+};
 window.adDragOver_ = function (ev, k) {
   const D = ASEO._dragEst; if (!D || (k === 'inspeccionado' && D.sinInsp)) return; // mantenimiento/inspección no tienen "Inspeccionado"
   ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
@@ -66111,7 +66146,7 @@ function adCard_(I) {
     : `<button type="button" class="ad-asg" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();${asg(I.depto === 'inspeccion' ? 'inspeccion' : 'aseo')}">＋ Asignar</button>`;
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
-  return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
+  return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}')"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso && !(I.noSale && /desaloj/i.test(I.aviso.t)) ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
@@ -66258,7 +66293,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     tops.forEach(I => quien(I).forEach(n => { const k = String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
     const sinA = tops.filter(I => !quien(I).length);
     const ord = ASEO.uOrd === 'carga' ? (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es') : ASEO.uOrd === 'za' ? (a, b) => b[0].localeCompare(a[0], 'es') : (a, b) => a[0].localeCompare(b[0], 'es');
-    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${nVis(L)} tarea${nVis(L) === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(pinta).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
+    const fila = (n, L, sin) => `<div class="ad-urow ${sin ? 'sin' : ''}" data-n="${pcEsc(sin ? '' : n)}" ondragover="adDragOverU_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adDropUser_(event,this.dataset.n)"><div class="ad-uh">${sin ? '<span class="ad-uav sin">?</span>' : `<span class="ad-uav" style="background:${aseoPersonaColor_(n)}">${pcEsc(adIni_(n))}</span>`}<div class="ad-un2"><b title="${pcEsc(n)}">${sin ? 'Sin asignación' : pcEsc(aseoNombreCorto_(n))}</b><small>${nVis(L)} tarea${nVis(L) === 1 ? '' : 's'}</small>${colProg(L)}</div></div><div class="ad-ucards">${L.map(pinta).join('') || '<div class="ad-empty">Sin tareas</div>'}</div></div>`;
     const orden = `<div class="ad-uord"><span>Ordenar por</span><select onchange="ASEO.uOrd=this.value;aseoRender_()"><option value="az" ${!ASEO.uOrd || ASEO.uOrd === 'az' ? 'selected' : ''}>Alfabético (A–Z)</option><option value="za" ${ASEO.uOrd === 'za' ? 'selected' : ''}>Alfabético (Z–A)</option><option value="carga" ${ASEO.uOrd === 'carga' ? 'selected' : ''}>Más tareas</option></select></div>`;
     return orden + (sinA.length ? fila('', sinA, true) : '') + [...nombres.entries()].sort(ord).map(([n, L]) => fila(n, L)).join('');
   };
