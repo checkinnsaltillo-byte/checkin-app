@@ -64836,7 +64836,7 @@ function clEmpCss_() {
     }
     @container (max-width:250px){
       .ad-card .r3 .mv-ns{font-size:0;padding:0 5px!important}.ad-card .r3 .mv-ns::before{content:"🚪 ?";font-size:10px}
-      .ad-card .r3 .mv-ns.on::before{content:"🚨 No sale";font-size:9.5px}
+      .ad-card .r3 .mv-ns.on::before{content:"🚨 No desalojado";font-size:8.5px}
     }
     .ad-card .ad-eq{display:flex;align-items:center;margin-top:6px}
     html body .ad-card .r2.ad-src{display:flex;flex-wrap:wrap;align-items:center;gap:3px 0}
