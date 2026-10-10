@@ -65037,6 +65037,11 @@ function aseoEnsureCss_() {
   .np-sim{white-space:pre-wrap;font:11.5px/1.45 Inter,system-ui,sans-serif;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 10px;margin:8px 0 0;max-height:260px;overflow:auto;color:#1f2937}
   .np-puede{margin:8px 0 0;padding:9px 10px 9px 26px;background:#f8fafc;border:1px solid #eef0f3;border-radius:8px;font-size:11.5px;line-height:1.5;color:#374151}
   .np-puede li.h{list-style:none;margin-left:-16px;font-weight:600;color:#6b7280}
+  .np-sec{font-size:12px;font-weight:700;color:#92400e;margin:14px 0 2px;padding-top:10px;border-top:1px dashed #fcd34d}
+  .np-prueba .np-sec:first-of-type{border-top:0;padding-top:0}
+  .np-evs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .np-ev{font:500 11.5px Inter,system-ui,sans-serif;padding:6px 10px;border-radius:999px;border:1px solid #fde68a;background:#fff;color:#374151;cursor:pointer}
+  .np-ev.on{background:#111827;border-color:#111827;color:#fff}
   .np-prueba{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px}
   .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
   .np-tel{font-size:11px;font-weight:500;color:#6b7280;margin-left:6px;white-space:nowrap}
@@ -66852,21 +66857,43 @@ function npPruebaHtml_() {
       <div class="np-lab" style="margin-top:0">Prueba como</div>
       <select class="at-in" onchange="npPrueba_(npYo_(),this.value)"><option value="">Nadie (el bot me responde normal)</option>${(typeof pzNombres_ === 'function' ? pzNombres_() : []).filter(x => x !== yo).map(x => `<option ${x === C ? 'selected' : ''}>${pcEsc(x)}</option>`).join('')}</select>
       <div class="np-hint">${C ? `El bot te responde por WhatsApp como si fueras <b>${pcEsc(C)}</b> (sus permisos y configuración). Tus entradas/salidas no se registran mientras pruebas.` : 'Elige a alguien para que el bot te responda como lo haría con esa persona.'}</div>
+      <div class="np-sec">💬 Mensaje de ${C ? pcEsc(aseoNombreCorto_(C)) : 'ti'} al bot</div>
       <div class="np-lab">Proceso a simular</div>
-      <div style="display:flex;gap:6px;align-items:center"><select class="at-in np-proc" style="flex:1">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
-        <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,npYo_())">▶ Simular</button></div>
+      <select class="at-in np-proc">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
       <div class="np-lab">O escribe un mensaje</div>
-      <div style="display:flex;gap:6px;align-items:flex-end"><textarea class="at-in np-msg" rows="2" style="flex:1;resize:vertical" placeholder="Ej. «cu2 listo», «no ha salido JC3», «qué me toca hoy»…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();npSimular_(this.nextElementSibling,npYo_(),1)}"></textarea>
-        <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,npYo_(),1)">▶ Enviar</button></div>
-      <div class="np-hint">Te llega por WhatsApp lo que recibiría${C ? ' ' + pcEsc(aseoNombreCorto_(C)) : 's tú'} y aquí ves la vista previa. En los mensajes escritos no se guarda ni se avisa nada.</div>
+      <textarea class="at-in np-msg" rows="2" style="width:100%;box-sizing:border-box;resize:vertical" placeholder="Ej. «cu2 listo», «ya salí», «no ha salido JC3», «qué me toca hoy»…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();npSimular_(this.closest('.np-prueba').querySelector('.np-go'),npYo_())}"></textarea>
+      <button type="button" class="ad-bt pri np-go" style="display:block;width:100%;margin-top:8px" onclick="npSimular_(this,npYo_())">▶ Simular envío de mensaje</button>
+      <div class="np-hint">Si escribes un mensaje se simula ese mensaje; si lo dejas vacío, el proceso elegido. Te llega por WhatsApp lo que recibiría${C ? ' ' + pcEsc(aseoNombreCorto_(C)) : 's tú'}; aquí ves la vista previa. No se guarda ni se avisa nada.</div>
       <pre class="np-sim" style="display:none"></pre>
+      <div class="np-sec">⚙️ Evento del sistema (mensaje automático)</div>
+      <div class="np-hint" style="margin-top:0">Lo que el sistema envía solo cuando alguien hace una acción. Elige el evento y el alojamiento, o descríbelo.</div>
+      <div class="np-evs">${NP_EVT.map(([k, t]) => `<button type="button" class="np-ev ${ASEO._np.ev === k ? 'on' : ''}" onclick="npEvSel_('${k}')">${t}</button>`).join('')}</div>
+      <div style="display:flex;gap:6px;margin-top:8px"><input class="at-in np-ev-aloj" style="flex:1;min-width:0" placeholder="Alojamiento (ej. JC3)"><input class="at-in np-ev-hora" type="time" style="width:120px" title="Hora (solicitudes)"></div>
+      <textarea class="at-in np-ev-txt" rows="2" style="width:100%;box-sizing:border-box;resize:vertical;margin-top:6px" placeholder="O descríbelo: «solicitud aceptada de salida tardía de JC3 a la 1 pm»"></textarea>
+      <button type="button" class="ad-bt pri" style="display:block;width:100%;margin-top:8px" onclick="npSimEvento_(this)">▶ Simular evento</button>
+      <pre class="np-sim np-sim-ev" style="display:none"></pre>
     </div></div>`;
 }
 function npPruebaPintar_() { const el = document.getElementById('np-prueba-w'); if (el) el.outerHTML = npPruebaHtml_(); }
-window.npSimular_ = async function (btn, n, libre) {
+const NP_EVT = [['ns', '🚨 No ha desalojado'], ['ns_off', '✅ Ya desalojó'], ['tardia', '🕚 Salida tardía aceptada'], ['temprana', '⏰ Entrada temprana aceptada'], ['terminado', '🧹 Limpieza terminada'],
+  ['inspeccionado', '✅ Inspeccionada'], ['asignado', '👤 Aseo asignado'], ['reserva', '🆕 Reserva nueva de hoy'], ['incidencia', '🚨 Incidencia nueva'], ['resumen', '📋 Resumen 2 pm']];
+window.npEvSel_ = function (k) { ASEO._np.ev = ASEO._np.ev === k ? '' : k; document.querySelectorAll('.np-ev').forEach(b => b.classList.toggle('on', b.getAttribute('onclick').includes(`'${ASEO._np.ev}'`) && !!ASEO._np.ev)); };
+window.npSimEvento_ = async function (btn) {
+  const box = btn.closest('.np-prueba'), out = box.querySelector('.np-sim-ev'), yo = npYo_(), pf = npPerfilDe_(yo);
+  const texto = box.querySelector('.np-ev-txt').value.trim(), aloj = box.querySelector('.np-ev-aloj').value.trim(), hora = box.querySelector('.np-ev-hora').value;
+  if (!texto && !ASEO._np.ev) { out.style.display = ''; out.textContent = 'Elige un evento o descríbelo.'; return; }
+  btn.disabled = true; const t0 = btn.textContent; btn.textContent = '⏳ Simulando…';
+  try {
+    const j = await fetch(`${BACKEND}/bot/simular-evento`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: yo, como: pf.pruebaComo || yo, evento: ASEO._np.ev || '', aloj, hora, texto }) }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'Error');
+    out.style.display = ''; out.textContent = j.texto + (j.enviado ? '\n\n✓ Enviado a tu WhatsApp' : '');
+  } catch (e) { out.style.display = ''; out.textContent = '⚠️ ' + (e.message || e); }
+  finally { btn.disabled = false; btn.textContent = t0; }
+};
+window.npSimular_ = async function (btn, n) {
   const fila = btn.closest('.np-prueba'), sel = fila.querySelector('.np-proc'), out = fila.querySelector('.np-sim'), pf = npPerfilDe_(n);
-  const mensaje = libre ? fila.querySelector('.np-msg').value.trim() : '';
-  if (libre ? !mensaje : (!sel || !sel.value)) return;
+  const mensaje = fila.querySelector('.np-msg').value.trim(), libre = !!mensaje;
+  if (!libre && (!sel || !sel.value)) return;
   btn.disabled = true; const t0 = btn.textContent; btn.textContent = '⏳';
   try {
     const j = await fetch(`${BACKEND}/bot/simular`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ perfil: n, como: pf.pruebaComo || n, proceso: libre ? '' : sel.value, mensaje }) }).then(r => r.json());
