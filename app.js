@@ -66870,11 +66870,11 @@ function atFormPintar_() {
       <select class="at-in" onchange="ASEO._tf.hid=this.value;ASEO._tf.reserva='';atFormPintar_()"><option value="">Selecciona un alojamiento</option>${alojs.map(x => `<option value="${pcEsc(x.houseId)}" ${x.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((x.corto ? x.corto.toUpperCase() + ' · ' : '') + x.nombre)}</option>`).join('')}</select>
       <div class="at-sec"><span>☑ Detalles de la tarea</span></div>
       ${prio4Sel_(prio4Key_(F.prioridad), 'atFormPrio_')}
+      <label class="at-l">📋 Plantilla</label>
+      ${plSelTarea_()}
       <label class="at-l">Título de la tarea <i>*</i></label>
       <input class="at-in" placeholder="Introduce un título" value="${pcEsc(F.titulo)}" oninput="ASEO._tf.titulo=this.value">
       <textarea class="at-in" rows="4" placeholder="Añade una descripción…" oninput="ASEO._tf.desc=this.value">${pcEsc(F.desc)}</textarea>
-      <div class="at-sec"><span>📋 Plantilla</span></div>
-      ${plSelTarea_()}
       <div class="at-sec"><span>📅 Programar</span><label class="at-tg">Hacer que se repita ${sw(!!F.repite, "ASEO._tf.repite=ASEO._tf.repite?null:{tipo:'diario',n:1,fin:''};atFormPintar_()")}</label></div>
       <div class="at-row"><span class="at-k">Vence el</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" ${atResRango_()} onchange="ASEO._tf.fecha=this.value;atFormPintar_()">
         <select class="at-in" onchange="ASEO._tf.hora=this.value">${horas.map(h => `<option value="${h}" ${h === (F.hora || '') ? 'selected' : ''}>${h ? aseoHoraTxt_(h) : 'Sin hora'}</option>`).join('')}</select></div>
@@ -68749,7 +68749,7 @@ function plSelTarea_() {
 }
 window.plTareaElegir_ = function (id) {
   const F = ASEO._tf, p = ASEO.pl.lista[id]; F.plantilla = id;
-  if (p) { if (!String(F.titulo || '').trim()) F.titulo = p.titulo; if (!F.depto && p.depto !== 'mantenimiento') F.depto = p.depto; if (!F.desc && p.descripcion) F.desc = p.descripcion; }
+  if (p) { F.titulo = p.titulo; F.desc = p.descripcion || ''; if (!F.depto && p.depto !== 'mantenimiento') F.depto = p.depto; } // título y descripción = los de la plantilla
   atFormPintar_();
 };
 // ── Formulario de la plantilla dentro de la tarea ──
