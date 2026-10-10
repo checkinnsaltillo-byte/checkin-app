@@ -64821,6 +64821,9 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-colprog{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none}
+    .ad-colprog .ad-prog{width:64px;margin:0;height:6px}
+    .ad-colprog b{font-size:10.5px;font-weight:700;color:#475569;min-width:28px;text-align:right}
     .ad-card .r3 .mv-ns{height:18px!important;padding:0 6px!important;font-size:9.5px;font-weight:800;border-width:1px;flex:none}
     .ad-arch{all:unset;cursor:pointer;font-size:10px;font-weight:600;color:#a3aab5;padding:2px 4px;border-radius:5px;white-space:nowrap;flex:none}
     .ad-arch:hover{color:#475569;background:#f1f5f9}
@@ -66126,15 +66129,22 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     ${kpi('Pendientes', n('pendiente'), '', '', 'pend', vivos.filter(I => I.selE === 'pendiente'))}${kpi('En proceso', n('en_proceso'), '', '', 'proc', vivos.filter(I => I.selE === 'en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '', '', 'term', vivos.filter(I => I.selE === 'terminado'))}
     ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', '', 'ent', vivos.filter(I => I.g.ent.length))}${kpi('Alertas', alertas + inhab, [sinDes ? `${sinDes} sin desalojar` : '', inhab ? `${inhab} inhabitable${inhab === 1 ? '' : 's'}` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), (alertas + inhab ? 'al' : '') + '', 'alert', infos.filter(I => I.aviso && I.aviso.c === 'red'))}
   </div>`;
+  // Barra de avance por columna (mismos colores que el KPI de arriba).
+  const colProg = L => {
+    const V = L.filter(I => !I.fantasma && !I.tarea && I.selE !== 'cancelado'), t = V.length; if (!t) return '';
+    const w = k => (V.filter(I => I.selE === k).length / t * 100).toFixed(1), listos = V.filter(I => I.pubE === 'inspeccionado' || I.pubE === 'terminado').length; // igual que el KPI: listos = validados
+    return `<span class="ad-colprog" title="${listos} de ${t} listos"><span class="ad-prog"><i style="width:${w('inspeccionado')}%;background:#047857"></i><i style="width:${w('terminado')}%;background:#10b981"></i><i style="width:${w('en_proceso')}%;background:#f59e0b"></i></span><b>${Math.round(listos / t * 100)}%</b></span>`;
+  };
+  const totV = vivos.length;
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
       const L = ver.filter(I => !I.fantasma && adEstBase_(I.selE) === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : [], E.k === 'terminado' ? ver.filter(I => I.selE === 'cancelado') : []);
-      return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${nVis(L)}</span></div>${sinHijos(L).map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
+      return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh">${E.t}<span>${nVis(L)}</span>${(n => totV ? `<span class="ad-colprog" title="${n} de ${totV} (${Math.round(n / totV * 100)}%)"><span class="ad-prog"><i style="width:${(n / totV * 100).toFixed(1)}%;background:${E.c}"></i></span><b>${Math.round(n / totV * 100)}%</b></span>` : '')(L.filter(I => !I.fantasma && !I.tarea).length)}</div>${sinHijos(L).map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
     }).join('')
     : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
       const L = ver.filter(I => propDe(I) === p);
       const pts = AD_EST.map(E => { const c = L.filter(I => !I.fantasma && adEstBase_(I.selE) === E.k).length; return c ? `<i style="background:${E.c}" title="${E.t}: ${c}"></i>` : ''; }).join('');
-      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${nVis(L)}</span><em class="ad-pts">${pts}</em></div>${sinHijos(L).map(pinta).join('')}</div>`;
+      return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${nVis(L)}</span>${colProg(L)}</div>${sinHijos(L).map(pinta).join('')}</div>`;
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
