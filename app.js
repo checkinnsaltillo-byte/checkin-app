@@ -67682,7 +67682,10 @@ const IC_NIV = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica'
 const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo', 'Todo']];
 const IC = { fx: { mot: new Set(), pers: new Set(), prio: '', per: '30', arch: false }, dr: null, sec: 'tablero', q: '', cargando: false, cargado: false };
 const IC_PAL = ['#8b5cf6', '#e11d48', '#0d9488', '#ca8a04', '#2563eb', '#db2777', '#65a30d', '#7c3aed'];
-function icMotC_(m) { if (IC_MOT[m]) return IC_MOT[m]; let h = 0; for (const ch of String(m || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return { c: IC_PAL[h % IC_PAL.length], ico: '🚨' }; }
+// Incidencias de HUÉSPED (2.ª clase, además de «Operativa»): sus propios motivos; sus sub-motivos viven en el catálogo como «H:<motivo>».
+const IC_MOT_H = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Daños': { c: '#dc2626', ico: '💥' }, Faltantes: { c: '#ca8a04', ico: '🧺' }, Reglamento: { c: '#7c3aed', ico: '📜' } };
+const IC_CLS = { operativa: { t: 'Operativa', ico: '🛠', c: '#0ea5e9' }, huesped: { t: 'Huésped', ico: '👤', c: '#db2777' } };
+function icMotC_(m) { if (IC_MOT[m]) return IC_MOT[m]; if (IC_MOT_H[m]) return IC_MOT_H[m]; let h = 0; for (const ch of String(m || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return { c: IC_PAL[h % IC_PAL.length], ico: '🚨' }; }
 // Catálogo editable «Motivo › Sub-motivos» (Clasificaciones). Vive en Google Cloud (incidencias/catalogo.json).
 function icCatalogo_() { return (typeof INC_STATE !== 'undefined' && INC_STATE.catalogo) || INC_CLASIF_POR_MOTIVO; }
 function icSetCatalogo_(cat) {
@@ -67698,6 +67701,7 @@ function icRow_(row) {
   return { id: String(row.ID || ''), row, hid, corto: a && a.corto ? String(a.corto).toUpperCase() : '', aloj: (a && a.nombre) || String(row.Alojamiento || row.Propiedad || 'Sin alojamiento'),
     fecha: String(row.Fecha || row.Timestamp || '').slice(0, 10), est: icEstK_(row.Estatus), prio: prio4Key_(row.Nivel || 'Baja'), mot, clas,
     titulo: clas.join(', ') || mot.join(', ') || 'Incidencia', pers: icSplit_(row.Personas), rep: String(row.Reportante || ''),
+    cls: /hu[eé]sped/i.test(String(row.Clase || '')) ? 'huesped' : row.Clase ? 'operativa' : (mot.some(m => /^(daños|faltantes|reglamento)$/i.test(m)) ? 'huesped' : 'operativa'),
     arch: /^s[ií]/i.test(String(row.Archivada || '')), desc: String(row.Descripcion || ''), acc: String(row.Acciones || ''), seg: String(row.Seguimiento || ''), fotos: icSplit_(row.Fotos_URLs), upd: String(row.UpdatedAt || '') };
 }
 function icTodas_() { return (typeof INC_STATE !== 'undefined' ? INC_STATE.list || [] : []).filter(r => r && r.ID).map(icRow_).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
@@ -67840,7 +67844,7 @@ function icCard_(x) {
   let flag = '';
   if (!icCerrada_(x) && x.prio === 'critica') flag = '<div class="flag red"><i></i>Prioridad crítica</div>';
   else if (!icCerrada_(x) && x.fecha && x.fecha < icHaceDias_(7)) flag = `<div class="flag orange"><i></i>Abierta desde ${aseoDiaTxt_(x.fecha)}</div>`;
-  const meta = [`<span class="ty" style="color:${M.c}">${pcEsc(x.mot.join(', ') || 'Sin motivo')}</span>`, `<span>${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'}</span>`];
+  const meta = [`<span class="ty" style="color:${M.c}">${x.cls === 'huesped' ? '👤 ' : ''}${pcEsc(x.mot.join(', ') || 'Sin motivo')}</span>`, `<span>${x.fecha ? aseoDiaTxt_(x.fecha) : 'Sin fecha'}</span>`];
   if (/bot/i.test(x.rep)) meta.push('<span>🤖 Bot</span>'); else if (x.rep) meta.push(`<span>Reportó ${pcEsc(aseoNombreCorto_(x.rep))}</span>`);
   const qs = `<div class="ad-qs" onclick="event.stopPropagation()">${IC_EST.map(e => `<button type="button" class="${e.k === x.est ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === x.est ? '' : `icSetEst_('${id}','${e.k}')`}"><i></i>${e.s}</button>`).join('')}</div>`;
   return `<div class="ad-card tipo est-tint ic-card ${sel ? 'sel' : ''} ${x.est === 'Cancelado' ? 'ghost' : ''} ${!icCerrada_(x) && x.prio === 'critica' ? 'alert' : ''}" data-k="${id}" style="--tc:${M.c};--sc:${(IC_EST.find(e => e.k === x.est) || IC_EST[0]).c}" onclick="icAbrir_('${id}')"
@@ -67924,7 +67928,7 @@ function icPintar_(nuevo) {
       <div class="ad-kv"><span>Motivo</span><b style="color:${M.c}">${pcEsc(x.mot.join(', ') || '—')}</b><span>Sub-motivo</span><b>${pcEsc(x.clas.join(', ') || '—')}</b>
         <span>Fecha</span><b>${x.fecha ? aseoDiaTxt_(x.fecha) : '—'}</b>${r.Reservacion_id ? `<span>Reserva</span><b>${pcEsc(r.Huesped_nombre || '')} · ${pcEsc(r.Reservacion_id)}</b>` : ''}${icLigsVal_(r).length ? `<span>Tarea${icLigsVal_(r).length > 1 ? 's' : ''} correctiva${icLigsVal_(r).length > 1 ? 's' : ''}</span><b>${icLigsVal_(r).map(l => `<a href="#" style="color:#4f46e5;display:block" onclick="event.preventDefault();icVerTarea_('${pcEsc(l)}')">${pcEsc(icLigTxt_(l))} ›</a>`).join('')}</b>` : ''}<span>Reportó</span><b>${pcEsc(x.rep || '—')}</b><span>Folio</span><b>${pcEsc(x.id)}</b></div>
       <div class="lab">Personas involucradas</div><div class="ad-ppl">${x.pers.map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin personas</div>'}</div>
-      ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos">${x.fotos.map(u => `<a href="${pcEsc(icFoto_(u, 1600))}" target="_blank" rel="noopener"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
+      ${x.fotos.length ? `<div class="lab">Evidencia fotográfica · ${x.fotos.length}</div><div class="ic-fotos" data-u="${pcEsc(JSON.stringify(x.fotos.map(u => icFoto_(u, 1600))))}">${x.fotos.map((u, i) => `<a href="#" onclick="event.preventDefault();fotoVer_(JSON.parse(this.parentNode.dataset.u),${i})" style="cursor:zoom-in"><img src="${pcEsc(icFoto_(u, 300))}" alt="" loading="lazy"></a>`).join('')}</div>` : ''}
       ${!x.arch ? (n => `<button type="button" class="ic-levbtn" onclick="icForm_('${id}',null,{soloLev:true})">🛠 ${n ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}<small>${n ? `Ya hay ${n} tarea${n > 1 ? 's' : ''} correctiva${n > 1 ? 's' : ''}; crea otra en «Aseo y Mantenimiento»` : 'Crea la tarea en «Aseo y Mantenimiento» con los datos de esta incidencia'}</small></button>`)(icLigsVal_(r).length) : ''}
       ${histSecHtml_(['I:' + x.id])}
     </div>
@@ -67942,6 +67946,7 @@ window.icForm_ = function (id, pre, modo) {
   IC.dr = { id: id ? String(id) : '' };
   IC.f = x ? { id: x.id, hid: x.hid, fecha: x.fecha || aseoHoyIso_(), mot: x.mot.slice(), clas: x.clas.slice(), prio: x.prio, est: x.est, rep: x.rep, pers: x.pers.slice(), desc: x.desc, acc: x.acc, seg: x.seg, keep: x.fotos.slice(), nuevas: [], alojTxt: x.hid ? '' : x.aloj }
     : { id: '', hid: P.hid || '', fecha: P.fecha || aseoHoyIso_(), mot: [], clas: [], prio: 'media', est: 'Nuevo', rep: yo, pers: [], desc: '', acc: '', seg: '', keep: [], nuevas: [], alojTxt: '', desdeK: P.desdeK || '' };
+  IC.f.cls = x ? x.cls : (P.cls === 'huesped' ? 'huesped' : 'operativa');
   IC.f.reserva = x ? String(r.Reservacion_id || '') : ''; IC.f.huesped = x ? String(r.Huesped_nombre || '') : '';
   IC.f.tareaLig = x ? icLigsVal_(r).join(', ') : ''; IC.f.lev = false; IC.f.ctx = ctx || null;
   IC.f0 = icFormFirma_(IC.f); // para detectar cambios (Guardar cambios solo si hay)
@@ -67949,14 +67954,56 @@ window.icForm_ = function (id, pre, modo) {
   icFormPintar_();
 };
 function icClasDe_(mots) {
-  const C = icCatalogo_(), base = mots.length ? mots.flatMap(m => C[m] || []) : Object.values(C).flat();
+  const C = icCatalogo_(), H = IC.f && IC.f.cls === 'huesped', key = m => (H ? 'H:' + m : m);
+  const base = mots.length ? mots.flatMap(m => C[key(m)] || []) : H ? Object.keys(C).filter(k => /^H:/.test(k)).flatMap(k => C[k]) : Object.keys(C).filter(k => !/^H:/.test(k)).flatMap(k => C[k]);
   return [...new Set(base.concat(IC.f ? IC.f.clas : []))];
 }
 function icPersChips_() { return IC.f.pers.map(n => `<span class="at-chip" data-n="${pcEsc(n)}">${adAv_(n)}${pcEsc(n)}<b onclick="IC.f.pers=IC.f.pers.filter(x=>x!==this.parentNode.dataset.n);document.getElementById('ic-pers').innerHTML=icPersChips_()">✕</b></span>`).join('') || '<span class="at-hint">Sin personas</span>'; }
 function icFotosForm_() {
-  return IC.f.keep.map((u, i) => `<span><img src="${pcEsc(icFoto_(u, 300))}" alt=""><b onclick="IC.f.keep.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('')
-    + IC.f.nuevas.map((f, i) => `<span><img src="data:${f.mimeType};base64,${f.base64}" alt=""><b onclick="IC.f.nuevas.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('');
+  return IC.f.keep.map((u, i) => `<span><img src="${pcEsc(icFoto_(u, 300))}" alt="" onclick="icFotoVerForm_(${i})" style="cursor:zoom-in"><b onclick="IC.f.keep.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('')
+    + IC.f.nuevas.map((f, i) => `<span><img src="data:${f.mimeType};base64,${f.base64}" alt="" onclick="icFotoVerForm_(${IC.f.keep.length + i})" style="cursor:zoom-in"><b onclick="IC.f.nuevas.splice(${i},1);document.getElementById('ic-fotos').innerHTML=icFotosForm_()">✕</b></span>`).join('');
 }
+window.icFotoVerForm_ = function (i) { const F = IC.f; if (!F) return; fotoVer_(F.keep.map(u => icFoto_(u, 1600)).concat(F.nuevas.map(f => `data:${f.mimeType};base64,${f.base64}`)), i); };
+// Visor de fotos: ‹ › entre fotos · zoom con pellizco, doble toque / doble clic o rueda · arrastrar para moverse.
+window.fotoVer_ = function (urls, i) {
+  urls = [].concat(urls || []).filter(Boolean); if (!urls.length) return;
+  let k = Math.max(0, Math.min(urls.length - 1, i || 0)), s = 1, x = 0, y = 0;
+  if (!document.getElementById('fv-css')) { const st = document.createElement('style'); st.id = 'fv-css'; st.textContent = `.fv-ov{position:fixed;inset:0;z-index:20000;background:rgba(9,12,20,.92);display:flex;align-items:center;justify-content:center}
+    .fv-st{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+    .fv-img{max-width:94vw;max-height:88vh;object-fit:contain;user-select:none;-webkit-user-drag:none;transform-origin:center center;will-change:transform}
+    .fv-ov button{all:unset;cursor:pointer;position:absolute;z-index:2;color:#fff;background:rgba(255,255,255,.12);border-radius:999px;display:flex;align-items:center;justify-content:center}
+    .fv-x{top:14px;right:14px;width:40px;height:40px;font-size:20px}.fv-p,.fv-n{top:50%;transform:translateY(-50%);width:44px;height:44px;font-size:26px}.fv-p{left:12px}.fv-n{right:12px}
+    .fv-c{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#fff;font:600 12px Inter,system-ui,sans-serif;background:rgba(255,255,255,.12);padding:4px 10px;border-radius:999px;z-index:2}`; document.head.appendChild(st); }
+  const ov = document.createElement('div'); ov.className = 'fv-ov';
+  ov.innerHTML = `<div class="fv-st"><img class="fv-img" alt="" draggable="false"></div><button type="button" class="fv-x" title="Cerrar">✕</button>${urls.length > 1 ? '<button type="button" class="fv-p" title="Anterior">‹</button><button type="button" class="fv-n" title="Siguiente">›</button><div class="fv-c"></div>' : ''}`;
+  document.body.appendChild(ov);
+  const img = ov.querySelector('.fv-img'), st = ov.querySelector('.fv-st');
+  const ap = (anim) => { img.style.transition = anim ? 'transform .2s ease' : ''; img.style.transform = `translate(${x}px,${y}px) scale(${s})`; };
+  const load = () => { s = 1; x = 0; y = 0; ap(); img.src = urls[k]; const c = ov.querySelector('.fv-c'); if (c) c.textContent = `${k + 1} / ${urls.length}`; };
+  const nav = d => { k = (k + d + urls.length) % urls.length; load(); };
+  const zoomEn = (cx, cy) => { if (s > 1) { s = 1; x = 0; y = 0; } else { const r = img.getBoundingClientRect(); s = 2.5; x = (r.left + r.width / 2 - cx) * 1.5; y = (r.top + r.height / 2 - cy) * 1.5; } ap(true); };
+  const close = () => { ov.remove(); document.removeEventListener('keydown', kd); };
+  const kd = e => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight') nav(1); else if (e.key === 'ArrowLeft') nav(-1); };
+  ov.querySelector('.fv-x').onclick = close;
+  const p = ov.querySelector('.fv-p'), n = ov.querySelector('.fv-n'); if (p) p.onclick = () => nav(-1); if (n) n.onclick = () => nav(1);
+  img.addEventListener('dblclick', e => zoomEn(e.clientX, e.clientY));
+  st.addEventListener('wheel', e => { e.preventDefault(); s = Math.min(6, Math.max(1, s * (e.deltaY < 0 ? 1.15 : 0.87))); if (s === 1) { x = 0; y = 0; } ap(); }, { passive: false });
+  const P = new Map(); let d0 = 0, s0 = 1, last = null, movio = false, tap = 0;
+  st.addEventListener('pointerdown', e => { st.setPointerCapture(e.pointerId); P.set(e.pointerId, { x: e.clientX, y: e.clientY }); movio = false; if (P.size === 2) { const [a, b] = [...P.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y) || 1; s0 = s; } last = { x: e.clientX, y: e.clientY }; });
+  st.addEventListener('pointermove', e => {
+    if (!P.has(e.pointerId)) return; P.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (P.size === 2) { const [a, b] = [...P.values()]; s = Math.min(6, Math.max(1, s0 * Math.hypot(a.x - b.x, a.y - b.y) / d0)); if (s === 1) { x = 0; y = 0; } movio = true; ap(); }
+    else if (last) { const dx = e.clientX - last.x, dy = e.clientY - last.y; if (Math.abs(dx) + Math.abs(dy) > 3) movio = true; if (s > 1) { x += dx; y += dy; ap(); } last = { x: e.clientX, y: e.clientY }; }
+  });
+  const up = e => {
+    const tenia = P.size; P.delete(e.pointerId); last = P.size ? [...P.values()][0] : null;
+    if (tenia !== 1 || movio) return;
+    if (e.pointerType !== 'mouse') { const t = Date.now(); if (t - tap < 300) { zoomEn(e.clientX, e.clientY); tap = 0; return; } tap = t; } // doble toque
+    if (s === 1 && e.target === st) close(); // tocar fuera de la foto cierra
+  };
+  st.addEventListener('pointerup', up); st.addEventListener('pointercancel', e => { P.delete(e.pointerId); });
+  document.addEventListener('keydown', kd); load();
+};
 // Reservas confirmadas (Booked, las mismas del calendario) que entran o salen del alojamiento en la fecha de la incidencia.
 function icReservas_(hid, fecha) {
   if (!hid || !fecha || typeof pcMovBookings_ !== 'function') return [];
@@ -67977,7 +68024,7 @@ function icFormPintar_() {
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
   const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); if (F.rep && !nombres.includes(F.rep)) nombres.unshift(F.rep);
-  const mots = [...new Set(Object.keys(icCatalogo_()).concat(F.mot))];
+  const mots = F.cls === 'huesped' ? [...new Set(Object.keys(IC_MOT_H).concat(F.mot))] : [...new Set(Object.keys(icCatalogo_()).filter(k => !/^H:/.test(k)).concat(F.mot))];
   const cancelar = F.id ? `icFormCancelar_()` : 'icCerrar_()';
   if (F.soloLev) {
     dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🛠 ${F.tareaLig ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
@@ -67989,6 +68036,8 @@ function icFormPintar_() {
   }
   dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">${F.id ? 'Editar incidencia' : 'Nueva incidencia'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>${F.id ? `<div class="ic-tag">⚠️ Incidencia</div><div class="ad-sub">${pcEsc(F.id)}</div>` : ''}</div>
     <div class="ad-db at-f">
+      <label class="at-l">Tipo de incidencia <i>*</i></label>
+      <div class="ad-steps" style="grid-template-columns:repeat(2,1fr)">${Object.entries(IC_CLS).map(([k, C]) => `<button type="button" class="${F.cls === k ? 'on' : ''}" style="--c:${C.c}" onclick="icFormCls_('${k}')">${C.ico} ${C.t}</button>`).join('')}</div>
       <label class="at-l">Alojamiento <i>*</i></label>
       <select class="at-in" onchange="IC.f.hid=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"><option value="">${F.alojTxt ? pcEsc(F.alojTxt) : 'Selecciona un alojamiento'}</option>${alojs.map(a => `<option value="${pcEsc(a.houseId)}" ${a.houseId === String(F.hid) ? 'selected' : ''}>${pcEsc((a.corto ? a.corto.toUpperCase() + ' · ' : '') + a.nombre)}</option>`).join('')}</select>
       <div class="at-row"><span class="at-k">Fecha</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" onchange="IC.f.fecha=this.value;IC.f.reserva='';IC.f.huesped='';icFormPintar_()"></div>
@@ -67996,7 +68045,7 @@ function icFormPintar_() {
       <label class="at-l">Motivo <i>*</i></label>
       <div class="ic-mots">${mots.map(m => `<button type="button" class="ic-mot ${F.mot.includes(m) ? 'on' : ''}" style="--c:${icMotC_(m).c}" data-m="${pcEsc(m)}" onclick="icFormTog_('mot',this.dataset.m)">${icMotC_(m).ico} ${pcEsc(m)}</button>`).join('')}</div>
       <label class="at-l">Sub-motivo</label>
-      <div class="ic-mots">${icClasDe_(F.mot).map(c => `<button type="button" class="ic-mot ${F.clas.includes(c) ? 'on' : ''}" style="--c:#4f46e5" data-c="${pcEsc(c)}" onclick="icFormTog_('clas',this.dataset.c)">${pcEsc(c)}</button>`).join('')}
+      <div class="ic-mots">${F.cls === 'huesped' && !icClasDe_(F.mot).length ? '<span class="ad-hint" style="margin:0 6px 0 0">Aún sin sub-motivos para esta clase.</span>' : ''}${icClasDe_(F.mot).map(c => `<button type="button" class="ic-mot ${F.clas.includes(c) ? 'on' : ''}" style="--c:#4f46e5" data-c="${pcEsc(c)}" onclick="icFormTog_('clas',this.dataset.c)">${pcEsc(c)}</button>`).join('')}
         <input class="at-in at-tagin" style="max-width:170px" placeholder="＋ Otra y Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value.trim();if(v&&!IC.f.clas.includes(v)){IC.f.clas.push(v);icFormPintar_();}}"></div>
       <label class="at-l">Prioridad</label>${prio4Sel_(F.prio, 'icFormPrio_')}
       <label class="at-l">Estado</label>
@@ -68024,7 +68073,8 @@ function icFormPintar_() {
   if (F.id) { const upd = () => setTimeout(() => { const ok = document.getElementById('ic-ok'); if (ok && IC.f) ok.style.display = icFormSucio_() ? '' : 'none'; }, 0); dr.oninput = upd; dr.onchange = upd; dr.onclick = upd; }
   else { dr.oninput = dr.onchange = dr.onclick = null; }
 }
-function icFormFirma_(F) { const { id, hid, fecha, mot, clas, prio, est, rep, pers, desc, acc, seg, keep, reserva, lev, L } = F; return JSON.stringify({ id, hid, fecha, mot, clas, prio, est, rep, pers, desc, acc, seg, keep, n: (F.nuevas || []).length, reserva, lev, L: lev ? L : null }); }
+function icFormFirma_(F) { const { id, hid, fecha, mot, clas, prio, est, rep, pers, desc, acc, seg, keep, reserva, lev, L, cls } = F; return JSON.stringify({ id, hid, fecha, mot, clas, prio, est, rep, pers, desc, acc, seg, keep, n: (F.nuevas || []).length, reserva, lev, L: lev ? L : null, cls }); }
+window.icFormCls_ = function (k) { if (IC.f.cls === k) return; IC.f.cls = k; IC.f.mot = []; IC.f.clas = []; icFormPintar_(); };
 function icFormSucio_() { return !!IC.f && icFormFirma_(IC.f) !== IC.f0; }
 window.icFormCancelar_ = function () { const F = IC.f; IC.f = null; icAbrir_(F.id, F.ctx || undefined); };
 // La tarea ligada existe (no se eliminó ni se archivó). Si los datos aún no cargan se da por buena.
@@ -68070,7 +68120,7 @@ window.icGuardar_ = async function () {
   const propiedad = a ? (a.propiedad || '') : String((old && old.Propiedad) || ''), depto = a ? String(a.depto || '') : String((old && old['# Departamento']) || '');
   const datos = { fecha: F.fecha, propiedad, depto, alojamiento: propiedad && depto ? `${propiedad} - #${depto}` : (propiedad || (a && a.nombre) || F.alojTxt || ''),
     personas: F.pers.slice(), motivos: F.mot.slice(), clasificaciones: F.clas.slice(), nivel: IC_NIV[F.prio], estatus: F.est, reportante: F.rep,
-    descripcion: String(F.desc || '').trim(), acciones: String(F.acc || '').trim(), seguimiento: String(F.seg || '').trim(), reserva: F.reserva || '', huesped: F.reserva ? (F.huesped || '') : '' };
+    descripcion: String(F.desc || '').trim(), acciones: String(F.acc || '').trim(), seguimiento: String(F.seg || '').trim(), reserva: F.reserva || '', huesped: F.reserva ? (F.huesped || '') : '', clase: IC_CLS[F.cls === 'huesped' ? 'huesped' : 'operativa'].t };
   if (!F.id && F.desdeK) datos.origen = String(F.desdeK); // card desde la que se reportó
   const btn = document.getElementById('ic-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
@@ -68078,7 +68128,7 @@ window.icGuardar_ = async function () {
     if (F.id) {
       const out = await fetch(`${BACKEND}/update-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F.id, user: (typeof currentUser !== 'undefined' && currentUser) || '', fields: Object.assign({}, datos, { UpdatedAt: new Date().toISOString() }), fotos: F.nuevas, keepUrls: F.keep }) }).then(r => r.json());
       if (!out.ok) throw new Error(out.error || 'Error');
-      const C = { fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento', alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos', clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus', reportante: 'Reportante', descripcion: 'Descripcion', acciones: 'Acciones', seguimiento: 'Seguimiento', reserva: 'Reservacion_id', huesped: 'Huesped_nombre' };
+      const C = { fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento', alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos', clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus', reportante: 'Reportante', descripcion: 'Descripcion', acciones: 'Acciones', seguimiento: 'Seguimiento', reserva: 'Reservacion_id', huesped: 'Huesped_nombre', clase: 'Clase' };
       if (old) { Object.keys(C).forEach(k => { old[C[k]] = Array.isArray(datos[k]) ? datos[k].join(', ') : datos[k]; }); if (typeof out.fotos_urls === 'string') old.Fotos_URLs = out.fotos_urls; old.UpdatedAt = new Date().toISOString(); }
     } else {
       const out = await fetch(`${BACKEND}/save-incidencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: datos, fotos: F.nuevas, user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
@@ -68086,7 +68136,7 @@ window.icGuardar_ = async function () {
       id = String(out.id || '');
       INC_STATE.list = INC_STATE.list || [];
       INC_STATE.list.unshift(out.row || { ID: id, Timestamp: new Date().toISOString(), Fecha: datos.fecha, Propiedad: propiedad, '# Departamento': depto, Alojamiento: datos.alojamiento, Personas: datos.personas.join(', '), Motivos: datos.motivos.join(', '), Clasificacion: datos.clasificaciones.join(', '),
-        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Card_origen: datos.origen || '', Fotos_URLs: '' });
+        Nivel: datos.nivel, Estatus: datos.estatus, Reportante: datos.reportante, Descripcion: datos.descripcion, Acciones: datos.acciones, Seguimiento: datos.seguimiento, Reservacion_id: datos.reserva, Huesped_nombre: datos.huesped, Card_origen: datos.origen || '', Clase: datos.clase, Fotos_URLs: '' });
       if (F.nuevas.length) setTimeout(() => icInit_(), 1500); // URLs definitivas de las fotos
     }
     if (F.lev && id) { try { await icLevantar_(F, id); } catch (e) { alert('La incidencia se guardó, pero no se pudo crear la tarea correctiva: ' + (e.message || e)); } }
@@ -68183,7 +68233,7 @@ window.icClasifGuardar_ = async function () {
 // Título y descripción propuestos para la tarea correctiva (editables en el formulario).
 function icLevTitDef_(F) { return 'Incidencia · ' + (F.clas.join(', ') || F.mot.join(', ') || 'sin motivo'); }
 function icLevDescDef_(F, incId) { return [String(F.desc || '').trim(), F.rep ? 'Reportó: ' + F.rep : '', incId ? 'Folio de la incidencia: ' + incId : ''].filter(Boolean).join('\n'); }
-function icLevInfer_(F) { const t = F.mot.join(' '); return /manten/i.test(t) ? 'mantenimiento' : /inspec/i.test(t) ? 'inspeccion' : /insumo/i.test(t) ? 'insumos' : 'limpieza'; } // motivo = tipo de tarea
+function icLevInfer_(F) { const t = F.mot.join(' '); return /manten|daño/i.test(t) ? 'mantenimiento' : /inspec|reglamento/i.test(t) ? 'inspeccion' : /insumo|faltante/i.test(t) ? 'insumos' : 'limpieza'; } // motivo = tipo de tarea
 window.icLev_ = function () {
   const F = IC.f; F.lev = !F.lev;
   if (F.lev && !F.L) F.L = { depto: icLevInfer_(F), manual: false, srv: 'correctivo', problema: false, repite: null, asig: [], etiq: [], cat: 'otros', bloq: false, rein: false, comp: '' };
