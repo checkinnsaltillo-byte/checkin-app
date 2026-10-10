@@ -64809,6 +64809,12 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    html body .ad-card .ad-qs button{background:#f1f3f5;color:#6b7280;box-shadow:none}
+    html body .ad-card .ad-qs button i{background:#9ca3af;opacity:1}
+    html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
+    html body .ad-card .ad-qs button.on{background:#6b7280;color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
+    html body .ad-card .ad-qs button.on i{background:#fff}
+    html body .ad-card .ad-qs button.on[title="Inspeccionado"]{background:#000;color:#fff}
     .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
     .ad-syncrow>.ad-seg{align-self:stretch}
     #aseo-kpis .ad-kpis{margin:0 0 12px}
