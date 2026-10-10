@@ -268,6 +268,10 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
                 style="padding:8px 16px;border:1px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);cursor:pointer;font-size:14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600">
           🌙 <span>Tema</span>
         </button>
+        <button id="btn-cambiar-usuario" onclick="sysCambiarUsuario_()" title="Entrar con otra contraseña sin salir del sistema"
+                style="padding:8px 16px;border:1px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);cursor:pointer;font-size:14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600">
+          👤 <span>Cambiar usuario</span>
+        </button>
         <button id="btn-logout" onclick="logoutToPortal()" title="Cerrar sesión y volver al Portal del huésped"
                 style="padding:8px 16px;border:1.5px solid #ef4444;background:#fff;color:#b91c1c;cursor:pointer;font-size:14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700">
           🚪 <span>Cerrar sesión</span>
@@ -2914,7 +2918,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1713"></script>
+  <script src="app.js?v=1714"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

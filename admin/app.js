@@ -448,6 +448,11 @@ function sysRefreshMenuGroups_() {
   const d = document.getElementById('hm-date');
   if (d) { const t = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); d.textContent = t.charAt(0).toUpperCase() + t.slice(1); }
 }
+// «Cambiar usuario» (menú lateral): olvida al usuario actual y vuelve a pedir contraseña del sistema.
+window.sysCambiarUsuario_ = function () {
+  ['sys_user', 'cl-admin'].forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+  location.reload();
+};
 window.sysLogout = function () {
   try { localStorage.removeItem('sys_user'); } catch(_) {}
   location.reload();
