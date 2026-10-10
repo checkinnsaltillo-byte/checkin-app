@@ -64774,12 +64774,12 @@ function clEmpCss_() {
   const st = document.createElement('style'); st.id = 'cl-emp-css';
   st.textContent = `#module-aseo.cl-emp .aseo-head .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
-    .ad-gfil-w{margin:0 0 10px}
-    .ad-ham{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font:600 12.5px Inter,system-ui,sans-serif;color:#374151}
-    .ad-ham .ic{font-size:15px;line-height:1}
-    .ad-ham b{background:#111827;color:#fff;border-radius:999px;font-size:10.5px;padding:1px 7px}
-    .ad-ham.on{background:#111827;border-color:#111827;color:#fff}.ad-ham.on b{background:#fff;color:#111827}
-    .ad-gfil-w .ad-gfil{margin-top:8px}
+    .ad-syncrow{display:flex;align-items:stretch;gap:8px}
+    .ad-syncrow>.mv-sync{flex:1;min-width:0}
+    .ad-ham{all:unset;box-sizing:border-box;cursor:pointer;position:relative;flex:none;align-self:center;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:15px;line-height:1}
+    .ad-ham:hover,.ad-ham.on{background:#f1f5f9;border-color:#cbd5e1}
+    .ad-ham b{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#111827;color:#fff;font:700 10px/16px Inter,system-ui,sans-serif;text-align:center}
+    .ad-gfil{margin:0 0 10px}
     #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
     #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-mini,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}`;
   document.head.appendChild(st);
@@ -65984,7 +65984,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
   // Filtros generales (cards + calendario) detrás del botón ☰ — contraídos por defecto.
   const nFil = (MP ? 0 : (ASEO.fPers || []).length) + fP.length + fT.length + fPr.length;
-  ASEO._filtrosHtml = `<div class="ad-gfil-w"><button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}"><span class="ic">☰</span>Filtros${nFil ? `<b>${nFil}</b>` : ''}</button>${ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>` : ''}</div>`;
+  ASEO._hamHtml = `<button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}${nFil ? ` (${nFil} activo${nFil === 1 ? '' : 's'})` : ''}">☰${nFil ? `<b>${nFil}</b>` : ''}</button>`;
+  ASEO._filtrosHtml = ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>` : '';
   return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
@@ -67167,7 +67168,7 @@ function aseoRenderSide_() {
   }
   // Barra de Lodgify + KPIs arriba de calendario y cards; el tablero en el panel derecho.
   const top = document.getElementById('aseo-top');
-  if (top) { top.innerHTML = `${mvSyncBar_('aseo')}${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
+  if (top) { top.innerHTML = `<div class="ad-syncrow">${ASEO._hamHtml || ''}${mvSyncBar_('aseo')}</div>${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
   else side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   side.classList.add('ad-v2');
   aseoPubTodasPaint_();
