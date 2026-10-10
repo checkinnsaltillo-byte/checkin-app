@@ -64821,6 +64821,7 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-card .ad-det{display:none!important} /* la card completa abre sus detalles */
     .ad-kl{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
     .ad-kc{all:unset;cursor:pointer;font:600 10.5px Inter,system-ui,sans-serif;color:#4f46e5;padding:1px 6px;border-radius:5px;background:#eef2ff}
     .ad-kc:hover{background:#e0e7ff;text-decoration:underline}.ad-kc.mas{color:#475569;background:#f1f5f9}
