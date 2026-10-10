@@ -403,6 +403,8 @@ function sysApplyPermissions(user) {
     }
   }
   window.SYS_ALLOWED = allowed;
+  // Check-list «modo personal» desde el primer instante: usuarios de Personal, salvo que la última vez resultaran administrativos.
+  try { const c = JSON.parse(localStorage.getItem('cl-admin') || 'null'); document.body.classList.toggle('cl-emp-u', !!(user && Array.isArray(user.modulosKeys)) && !(c && c.n === user.Nombre && c.a)); } catch (_) {}
   document.querySelectorAll('[id^="nav-item-"]').forEach(el => {
     const key = el.id.replace('nav-item-', '');
     if (key === 'home') return;
@@ -67152,6 +67154,8 @@ function aseoRenderSide_() {
     const nX = gs.filter(g => g.extra).length, nE = gs.filter(g => g.soloEnt).length;
     const MP = clModoPersonal_();
     document.getElementById('module-aseo')?.classList.toggle('cl-emp', MP);
+    document.body.classList.toggle('cl-emp-u', MP);
+    try { localStorage.setItem('cl-admin', JSON.stringify({ n: currentUser, a: !MP })); } catch (_) {}
     selBlock = ''; // la reserva elegida en el calendario se abre en la ventana lateral
     if (MP) { // personal no administrativo: solo sus asignaciones (KPIs incluidos), sin filtro de personal
       ASEO.cal = false; ASEO.dia = null; ASEO._dr = null;

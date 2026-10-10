@@ -85,6 +85,9 @@
     body.dark .classify-tab { background: #1e293b !important; color: #e5e7eb !important; }
   </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>/* Check-list «modo personal»: se aplica desde el inicio de sesión (sin parpadeo de botones) */
+body.cl-emp-u #module-aseo .aseo-head .aseo-btn:not(.cl-keep),body.cl-emp-u #aseo-dnav,body.cl-emp-u #aseo-cal,body.cl-emp-u #aseo-split{display:none!important}
+body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</style>
 </head>
 <body>
 
@@ -2907,7 +2910,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1661"></script>
+  <script src="app.js?v=1662"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
