@@ -64829,8 +64829,8 @@ function clEmpCss_() {
     html body .ad-steps button.ad-insp:before{display:none}
     html body .ad-qs button.ad-insp,html body .ad-steps button.ad-insp{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;align-self:center;width:22px;height:22px;min-width:0;padding:0;margin:0 0 0 2px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;color:transparent;box-shadow:none;font:800 13px/1 Inter,system-ui,sans-serif}
     html body .ad-steps button.ad-insp{width:34px;height:34px;font-size:16px;border-radius:8px}
-    html body .ad-qs button.ad-insp:hover,html body .ad-steps button.ad-insp:hover{border-color:#16a34a;color:#86efac;background:#fff}
-    html body .ad-qs button.ad-insp.on,html body .ad-steps button.ad-insp.on{background:#16a34a;border-color:#16a34a;color:#fff}.ad-card>.r1>.ad-insp{position:absolute;top:8px;right:8px;margin:0}
+    html body .ad-qs button.ad-insp:hover,html body .ad-steps button.ad-insp:hover{border-color:#111;color:#9ca3af;background:#fff}
+    html body .ad-qs button.ad-insp.on,html body .ad-steps button.ad-insp.on{background:#000;border-color:#000;color:#fff}.ad-card>.r1>.ad-insp{position:absolute;top:8px;right:8px;margin:0}
     .ad-insp{all:unset;box-sizing:border-box;cursor:pointer;flex:none;margin-left:6px;width:22px;height:22px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:transparent;font:800 13px/1 Inter,system-ui,sans-serif}
     .ad-insp:hover{border-color:#16a34a;color:#86efac}
     .ad-insp.on{background:#16a34a;border-color:#16a34a;color:#fff}
@@ -65737,7 +65737,7 @@ const AD_EST = [
   { k: 'terminado', t: 'Terminado', c: '#00c853' },
 ];
 // «Inspeccionado» ya no es un estado más: es la palomita ✓ sobre «Terminado» (se guarda igual: estado 'inspeccionado').
-const AD_INSP_C = '#00a86b';
+const AD_INSP_C = '#00c853'; // mismo verde que «Terminado»
 const adEstBase_ = k => (k === 'inspeccionado' ? 'terminado' : k);
 function adEstObj_(k) { return k === 'inspeccionado' ? { k, t: 'Inspeccionado', c: AD_INSP_C } : (AD_EST.find(e => e.k === k) || AD_EST[0]); }
 function adInspBtn_(id, hid, sel, tarea, big) {
@@ -67092,7 +67092,7 @@ const NP_REGLAS = [
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
     '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; en sus cards solo puede cambiar el <b>estado</b> (sin validar: «Terminado» queda por validar) y marcar <b>«¿No ha desalojado?»</b>; lo demás es de solo lectura (sin detalles).',
-    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado. «Inspeccionado» ya no es un estado aparte: es el cuadro ✓ junto a «Terminado», en la card y en su ventana de detalles (se marca sobre «Terminado»).',
+    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado. «Inspeccionado» ya no es un estado aparte: es el cuadro negro ✓ junto a «Terminado», en la card y en su ventana de detalles (se marca sobre «Terminado»).',
     '<b>Incidencia en una card:</b> aparece debajo de la card en un recuadro rojo; si sigue abierta y no tiene tarea correctiva, el enlace «🛠 Crear tarea correctiva» abre directo esa sección.',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
