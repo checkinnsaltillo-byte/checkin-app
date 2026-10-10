@@ -9152,9 +9152,8 @@ function clNavHtml_(act) {
   const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Aseo y Mantenimiento', 'aseo') : '', clPuede_('breezeway') || clPuede_('aseo') ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
   const op2 = clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '';
   const adm = clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
-  const on = typeof ASEO !== 'undefined' && (ASEO.autonotif || {}).on;
-  const notif = `<button type="button" class="cl-notif" onclick="npAbrir_()" title="Notificaciones automáticas por WhatsApp y permisos del bot por persona">📣 Notificar actualizaciones${on ? ' · 🔁 auto' : ''}</button>`;
-  return `<div class="cl-nav">${op || op2 ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}${op2}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}${notif}</div>`;
+  // «Check-list Bot» (notificaciones y permisos del bot) vive en Configuración admin › 🤖 Check-list Bot.
+  return `<div class="cl-nav">${op || op2 ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}${op2}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}</div>`;
 }
 function clNavPaint_() {
   if (!document.getElementById('cl-css')) {
@@ -46617,6 +46616,7 @@ function cfgAdminRender() {
   const host = document.getElementById('cfg-view');
   if (!host) return;
   if (CFG_ADMIN.tab === 'boveda') return vaRenderModule_(host);
+  if (CFG_ADMIN.tab === 'clbot') return npCfgRender_(host);
   if (CFG_ADMIN.loading && !CFG_ADMIN.loaded) {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
@@ -65414,7 +65414,7 @@ async function aseoRefresh_(force) {
 // Verde ≤ 75 s · ámbar ≤ 3 min · rojo si es más viejo o hubo error. El reloj avanza cada segundo.
 const ASEO_POLL_S = 20;
 function mvSyncBar_(sinNotif) {
-  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button>${sinNotif ? '' : `<button type="button" class="mv-sync-btn notif" onclick="event.stopPropagation();npAbrir_()" title="Notificaciones y permisos del bot por persona">📣 Notificar actualizaciones${(ASEO.autonotif || {}).on ? ' · 🔁 auto' : ''}</button>`}</div>`;
+  return `<div class="mv-sync"><span class="mv-sync-t" data-sync>${mvSyncTxt_()}</span><button type="button" class="mv-sync-btn" onclick="event.stopPropagation();mvForzar_(this)" title="Consultar Lodgify ahora mismo">🔄 Actualizar</button></div>`;
 }
 // "Notificar actualizaciones": compara lo que se le envió a cada persona hoy contra sus
 // asignaciones actuales, muestra los cambios para confirmar y envía la lista actualizada.
@@ -66959,6 +66959,25 @@ window.npAyuda_ = function () {
     <div class="ad-ft"><span></span><button type="button" class="ad-bt pri" onclick="npPintar_()">← Volver</button></div>`;
   dr.querySelector('.ad-db').scrollTop = 0;
 };
+// Configuración admin › 🤖 Check-list Bot: resumen del estado y acceso a la ventana.
+async function npCfgRender_(host) {
+  const A0 = ASEO.autonotif || {};
+  const pinta = A => {
+    const P = Object.entries(A.perfiles || {}), adm = P.filter(([, p]) => p.rol === 'admin').length, emp = P.filter(([, p]) => p.rol === 'empleado').length;
+    host.innerHTML = `<div style="max-width:720px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px 22px;font-family:Inter,system-ui,sans-serif">
+      <div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🤖</div><div><div style="font-size:17px;font-weight:800;color:#0f172a">Check-list Bot</div>
+        <div style="font-size:12.5px;color:#64748b">Mensajes automáticos por WhatsApp, permisos del bot por persona y pruebas del bot.</div></div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin:16px 0">
+        <span style="font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:${A.on ? '#dcfce7' : '#f1f5f9'};color:${A.on ? '#15803d' : '#64748b'}">${A.on ? '🟢 Mensajes automáticos activos' : '⚪ Mensajes automáticos apagados'}</span>
+        <span style="font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:#eef2ff;color:#4338ca">${adm} administrador${adm === 1 ? '' : 'es'}</span>
+        <span style="font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:#e0f2fe;color:#0369a1">${emp} empleado${emp === 1 ? '' : 's'}</span>
+      </div>
+      <button type="button" onclick="npAbrir_()" style="padding:10px 18px;font-size:13.5px;font-weight:700;background:#111827;color:#fff;border:0;border-radius:10px;cursor:pointer">🤖 Abrir Check-list Bot</button>
+    </div>`;
+  };
+  pinta(A0);
+  try { const j = await fetch(`${BACKEND}/aseo/autonotif`).then(r => r.json()); if (j.ok) { ASEO.autonotif = j.autonotif || {}; if (CFG_ADMIN.tab === 'clbot') pinta(ASEO.autonotif); } } catch (_) {}
+}
 window.npAbrir_ = async function () {
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
   ASEO._np = { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), abierto: '', q: '', listo: false };
@@ -67009,8 +67028,8 @@ function npPintar_() {
   const L = nombres.filter(n => !q || n.toLowerCase().includes(q))
     .sort((a, b) => (N.perfiles[b] ? 1 : 0) - (N.perfiles[a] ? 1 : 0) || a.localeCompare(b, 'es'));
   const conPerfil = Object.values(N.perfiles).filter(p => p.rol).length;
-  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">📣 Notificaciones y permisos del bot</b><span style="display:flex;gap:6px"><button type="button" class="ad-close np-ayuda-bt" title="Reglas del bot" onclick="npAyuda_()">?</button><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></span></div>
-      <div class="ad-sub">Check-list · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🤖 Check-list Bot</b><span style="display:flex;gap:6px"><button type="button" class="ad-close np-ayuda-bt" title="Reglas del bot" onclick="npAyuda_()">?</button><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></span></div>
+      <div class="ad-sub">Notificaciones y permisos del bot · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
     <div class="ad-db">
       <div class="ad-tgl" onclick="npOn_()"><div><b>Mensajes automáticos</b><small>${N.on ? 'Activos: resumen de las 2 pm, alertas y avisos a los administradores' : 'Apagados: el bot no envía nada por su cuenta'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
       <button type="button" class="ad-bt" style="display:block;width:100%;margin-top:8px;box-sizing:border-box" onclick="adCerrar_();mvNotificar_(null)">📣 Enviar ahora la lista actualizada de Aseo y Mantenimiento</button>
