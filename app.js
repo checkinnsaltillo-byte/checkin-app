@@ -66939,7 +66939,7 @@ function npFila_(n) {
       <div class="np-lab">Canal de envío ${npTel_(n) ? `· ${npTel_(n).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}` : '· <span style="color:#dc2626">sin celular en Personal</span>'}</div>
       <div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(NP_CANAL).map(([k, C]) => `<button type="button" class="${(pf.canal || 'whatsapp') === k ? 'on' : ''}" style="--c:${C.c}" onclick="npCanal_(this.closest('.np-p').dataset.n,'${k}')">${C.t}</button>`).join('')}</div>
       ${pf.rol ? `<div class="np-lab">Mensajes que recibe</div>
-      ${ck(pf.recordatorio, '🔔 Sus tareas del día', 'Al registrar su entrada le llega la lista de lo que tiene asignado', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
+      ${ck(pf.recordatorio, '🔔 Sus tareas del día', 'Su lista al registrar su entrada, y otra vez cada que cambia algo en sus tareas (asignación, solicitudes, no ha desalojado…)', `npSet_(this.closest('.np-p').dataset.n,'recordatorio')`)}
       ${pf.rol === 'admin' ? `${ck(npAuto_(pf.auto).resumen, '📋 Resumen del día · 2 pm', 'Toda la actividad del día: limpiezas, tareas, tareas programadas e incidencias', `npSet_(this.closest('.np-p').dataset.n,'resumen')`)}
       ${ck(npAuto_(pf.auto).alertas, '🚨 Alertas', 'Incidencias nuevas o con cambios y huéspedes que no han desalojado', `npSet_(this.closest('.np-p').dataset.n,'alertas')`)}
       ${ck(npAuto_(pf.auto).cambios, '🔄 Cada cambio en las tareas', 'Opcional: un aviso cada vez que alguien actualiza una tarea de hoy', `npSet_(this.closest('.np-p').dataset.n,'cambios')`)}` : '<div class="np-hint">El resumen de las 2 pm y las alertas solo les llegan a los administradores.</div>'}` : ''}
