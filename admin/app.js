@@ -9134,7 +9134,7 @@ const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','aseo','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','proveedores','dir-inquilinos','inventarios','tuya','guias',
-  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica',
+  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica','plantillas',
 ]);
 function _bootModuleFromHash_() {
   const h = (location.hash || '').replace(/^#/, '').trim();
@@ -9160,7 +9160,7 @@ function clNavHtml_(act) {
   const MPn = typeof clModoPersonal_ === 'function' && clModoPersonal_();
   const op = [clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '🧽 Aseo y Mantenimiento', 'aseo') : '', !MPn && (clPuede_('breezeway') || clPuede_('aseo')) ? (CL_BZW_OFF ? `<button type="button" class="cl-b off" disabled title="Breezeway está desactivado por el momento">🧹 Breezeway</button>` : b('breezeway', '🧹 Breezeway', 'breezeway')) : ''].join('');
   const op2 = !MPn && clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '';
-  const adm = !MPn && clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
+  const adm = (!MPn && clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '') + (!MPn && clPuede_('aseo') ? b('plantillas', '📋 Plantillas', 'plantillas') : '');
   // «Check-list Bot» (notificaciones y permisos del bot) vive en Configuración admin › 🤖 Check-list Bot.
   const items = [op.replace(/<button[^>]*class="cl-b off"[\s\S]*?<\/button>/g, ''), op2, adm].join('');
   return items.trim() ? `<div class="cl-nav"><div class="cl-g">${items}</div></div>` : '';
@@ -9237,7 +9237,7 @@ function switchModule(mod) {
   if (mod === 'reportes-tecnicos') { if (typeof ASEO !== 'undefined') { ASEO.fTipo = ['mantenimiento']; ASEO.calSig = ''; } mod = 'aseo'; }
   // Permisos: un módulo no asignado (p. ej. por enlace #modulo) manda a Inicio.
   if (window.SYS_ALLOWED && mod !== 'home') {
-    const permKey = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
+    const permKey = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod === 'plantillas' ? 'aseo' : mod; // Plantillas es parte de Check-list
     if (!window.SYS_ALLOWED.has(permKey) && !window.SYS_ALLOWED.has(mod)) mod = 'home';
   }
   // Legacy: 'ocupacion' como módulo top-level se trata como Dashboard
@@ -9259,7 +9259,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "aseo", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "aseo", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica", "plantillas"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9391,6 +9391,7 @@ function switchModule(mod) {
   if (mod === "incidencias") {
     if (typeof icInit_ === 'function') icInit_(); // Check-list › Incidencias (nuevo diseño)
   }
+  if (mod === "plantillas" && typeof plInit_ === 'function') plInit_(); // Check-list › 📋 Plantillas
   if (mod === "objetos") {
     if (typeof objInit === 'function') objInit();
     if (typeof objLoadObjetos === 'function') objLoadObjetos();
@@ -66773,6 +66774,7 @@ function atCard_(I) {
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     ${I.arrastre ? `<div class="flag orange"><i></i>Sin resolver desde ${aseoDiaTxt_(t.fecha)} · sigue a su card</div>` : ''}
     <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
+    ${plCardBar_(t, I.key)}
     ${axFila_('T' + t.id, false, t.hid, I.dia)}
     <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adNom_(n)).join('')}</span>` : '<span class="ad-un">Sin asignación</span>'}<span class="sp"></span>${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
@@ -66810,6 +66812,7 @@ function atPintar_(nuevo) {
       <div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
       ${t.desc ? `<div class="lab">Descripción</div><div class="ad-desc">${pcEsc(t.desc).replace(/\n/g, '<br>')}</div>` : ''}
+      ${plTareaBox_(t, I.key)}
       <div class="lab">Detalles</div>
       <div class="ad-kv"><span>Programada</span><b>${aseoDiaTxt_(t.fecha)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''}</b>
         ${t.repite ? `<span>Se repite</span><b>${pcEsc(atRepTxt_(t.repite, t.fecha))}</b>` : ''}
@@ -66870,6 +66873,8 @@ function atFormPintar_() {
       <label class="at-l">Título de la tarea <i>*</i></label>
       <input class="at-in" placeholder="Introduce un título" value="${pcEsc(F.titulo)}" oninput="ASEO._tf.titulo=this.value">
       <textarea class="at-in" rows="4" placeholder="Añade una descripción…" oninput="ASEO._tf.desc=this.value">${pcEsc(F.desc)}</textarea>
+      <div class="at-sec"><span>📋 Plantilla</span></div>
+      ${plSelTarea_()}
       <div class="at-sec"><span>📅 Programar</span><label class="at-tg">Hacer que se repita ${sw(!!F.repite, "ASEO._tf.repite=ASEO._tf.repite?null:{tipo:'diario',n:1,fin:''};atFormPintar_()")}</label></div>
       <div class="at-row"><span class="at-k">Vence el</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" ${atResRango_()} onchange="ASEO._tf.fecha=this.value;atFormPintar_()">
         <select class="at-in" onchange="ASEO._tf.hora=this.value">${horas.map(h => `<option value="${h}" ${h === (F.hora || '') ? 'selected' : ''}>${h ? aseoHoraTxt_(h) : 'Sin hora'}</option>`).join('')}</select></div>
@@ -68504,4 +68509,365 @@ function histListaHtml_(L) {
   if (!L.length) return '<div class="ad-hint">Sin cambios registrados todavía.</div>';
   const f = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); };
   return `<div class="hist-list">${L.slice(0, 150).map(h => `<div class="hist-it"><div class="hist-h">${pcEsc(f(h.at))}${h.by ? ' · ' + pcEsc(h.by) : ''}</div><div><b>${pcEsc(h.campo || '')}</b>: ${h.antes ? `<s>${pcEsc(String(h.antes).slice(0, 120))}</s> → ` : ''}${pcEsc(String(h.despues || '—').slice(0, 160))}</div></div>`).join('')}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Check-list › 📋 Plantillas (formularios tipo Breezeway). Se crean y editan en la sección «Plantillas»;
+// una tarea puede llevar una plantilla (campo en el formulario de la tarea) y al abrirla se llena ese formulario.
+// Datos: GET/POST /aseo/plantillas · /aseo/plantilla(/borrar) · respuestas por día de tarea /aseo/plantilla-resp.
+// ═══════════════════════════════════════════════════════════════════════════
+const PL_TIPOS = {
+  condicion: { t: 'Condición', ico: '🔍', ph: 'Agregar instrucciones de estado' },
+  lista: { t: 'Lista de verificación', ico: '☑️', ph: 'Describa la tarea' },
+  foto: { t: 'Foto', ico: '📷', ph: 'Describa la foto que necesita' },
+  contar: { t: 'Contar', ico: '🔢', ph: '¿Qué se debe contar?' },
+  texto: { t: 'Texto', ico: '📝', ph: 'Describe la respuesta que deseas' },
+  sino: { t: 'Sí/No', ico: '❓', ph: 'Escribe una pregunta' },
+  calif: { t: 'Calificación', ico: '⭐', ph: '¿Qué se debe calificar?' },
+};
+const PL_COND = [['bueno', 'Bueno', '#16a34a'], ['regular', 'Regular', '#f59e0b'], ['malo', 'Malo', '#dc2626'], ['na', 'No aplica', '#94a3b8']];
+ASEO.pl = ASEO.pl || { lista: {}, cargado: false, idx: {}, resp: {}, q: '' };
+const plUser_ = () => (typeof currentUser !== 'undefined' && currentUser) || '';
+const plId_ = p => (p || 'x') + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 5);
+function plCss_() {
+  if (typeof aseoEnsureCss_ === 'function') aseoEnsureCss_(); // selector de prioridad, chips y ventana lateral
+  if (document.getElementById('pl-css')) return;
+  const st = document.createElement('style'); st.id = 'pl-css';
+  st.textContent = `
+  #module-plantillas{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f1729}
+  .pl-h{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 14px}.pl-h h1{margin:0;font-size:18px;font-weight:700}
+  .pl-h .sp{flex:1}
+  .pl-hint{font-size:12px;color:#64748b;line-height:1.45}
+  .pl-bt{all:unset;box-sizing:border-box;cursor:pointer;height:34px;display:inline-flex;align-items:center;gap:6px;padding:0 13px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:12.5px;font-weight:600;white-space:nowrap}
+  .pl-bt:hover{background:#f8fafc}.pl-bt.pri{background:#4f46e5;border-color:#4f46e5;color:#fff}.pl-bt.pri:hover{background:#4338ca}
+  .pl-bt.dan{color:#b91c1c;border-color:#fecaca}.pl-bt.dan:hover{background:#fef2f2}.pl-bt[disabled]{opacity:.6;cursor:default}
+  .pl-q{height:34px;border:1px solid #e2e8f0;border-radius:8px;padding:0 11px;font:500 13px Inter,system-ui,sans-serif;min-width:220px;background:#fff}
+  .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+  .pl-card{background:#fff;border:1px solid #e8eaee;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+  .pl-card:hover{border-color:#c7d2fe;box-shadow:0 4px 14px rgba(79,70,229,.08)}
+  .pl-card b{font-size:14px}.pl-card .m{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11.5px;color:#64748b}
+  .pl-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#f1f5f9;color:#334155}
+  .pl-card .ti{display:flex;flex-wrap:wrap;gap:4px}.pl-card .ti span{font-size:10.5px;color:#475569;background:#f8fafc;border:1px solid #eef0f3;border-radius:6px;padding:1px 6px}
+  .pl-card .ac{display:flex;gap:6px;margin-top:auto;padding-top:6px;border-top:1px solid #f1f5f9}.pl-card .ac .pl-bt{height:28px;padding:0 10px;font-size:11.5px}
+  .pl-ed{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}
+  .pl-side{position:sticky;top:12px;background:#f8fafc;border:1px solid #eef0f3;border-radius:12px;padding:12px;max-height:calc(100vh - 40px);overflow:auto}
+  .pl-side h3{margin:0 0 8px;font-size:15px}.pl-side a{display:block;padding:7px 9px;margin:0 0 5px;background:#fff;border:1px solid #e8eaee;border-radius:8px;font-size:12px;font-weight:600;color:#0f1729;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .pl-side a:hover{border-color:#c7d2fe}
+  .pl-main{background:#fff;border:1px solid #e8eaee;border-radius:12px;padding:18px 20px;min-width:0}
+  .pl-f{display:grid;gap:6px;max-width:560px;margin:0 0 18px}.pl-f label{font-size:11.5px;font-weight:600;color:#475569;margin-top:6px}.pl-f label i{color:#dc2626;font-style:normal}
+  .pl-in{box-sizing:border-box;width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font:500 13px Inter,system-ui,sans-serif;background:#f8fafc;color:#0f1729}
+  .pl-in:focus{outline:none;border-color:#818cf8;background:#fff}
+  textarea.pl-in{resize:vertical;min-height:70px}
+  .pl-sec{border-top:1px solid #e8eaee;padding:14px 0 6px;scroll-margin-top:12px}
+  .pl-sh{display:flex;align-items:center;gap:8px;margin:0 0 6px}.pl-sh input{all:unset;flex:1;font-size:16px;font-weight:700;color:#0f1729;border-bottom:1px dashed transparent;padding:2px 0}.pl-sh input:focus{border-bottom-color:#818cf8}
+  .pl-x{all:unset;cursor:pointer;color:#94a3b8;font-size:12px;padding:3px 7px;border-radius:6px}.pl-x:hover{color:#b91c1c;background:#fef2f2}
+  .pl-it{display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid #f1f5f9}
+  .pl-it .tp{font-size:12px;color:#64748b;padding-top:8px}.pl-it .bd{display:grid;gap:6px;min-width:0}.pl-it .tl{display:flex;gap:2px}
+  .pl-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:12px;color:#475569}
+  .pl-ck{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-size:12.5px;color:#334155}
+  .pl-ck .ck{width:18px;height:18px;border:1.5px solid #94a3b8;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background:#fff;flex:none;box-sizing:border-box}
+  .pl-ck.on .ck{background:#4f46e5;border-color:#4f46e5}
+  .pl-sm{width:70px!important;padding:5px 8px!important}
+  .pl-lnk{all:unset;cursor:pointer;color:#0284c7;font-size:12.5px;font-weight:600}.pl-lnk:hover{text-decoration:underline}
+  .pl-add{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 0 4px}
+  .pl-refs{display:flex;flex-wrap:wrap;gap:6px}.pl-refs span{position:relative}.pl-refs img{width:54px;height:54px;object-fit:cover;border-radius:7px;border:1px solid #e2e8f0;cursor:zoom-in;display:block}
+  .pl-refs b{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#0f1729;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .pl-ft{display:flex;gap:8px;position:sticky;bottom:0;background:#fff;padding:12px 0 2px;border-top:1px solid #e8eaee;margin-top:14px}
+  @media (max-width:760px){.pl-ed{grid-template-columns:1fr}.pl-side{position:static;max-height:none}.pl-it{grid-template-columns:1fr}.pl-it .tp{padding:0}.pl-main{padding:14px}}
+  /* Formulario dentro de la tarea */
+  .plf{border:1px solid #e0e7ff;border-radius:12px;overflow:hidden;margin:6px 0 4px;background:#fff}
+  .plf-h{padding:10px 12px;background:#eef2ff;display:grid;gap:6px}.plf-h b{font-size:13px;color:#312e81}
+  .plf-bar{display:flex;align-items:center;gap:8px;font:700 11.5px Inter,system-ui,sans-serif;color:#312e81}.plf-bar span{flex:1;height:8px;background:#e0e7ff;border-radius:999px;overflow:hidden}.plf-bar i{display:block;height:100%;background:#4f46e5;border-radius:999px;transition:width .2s}
+  .plf-bar.ok i{background:#16a34a}.plf-st{font-size:10.5px;color:#6366f1;font-weight:600}
+  .plf-sec{border-top:1px solid #eef0f3}.plf-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:12.5px;font-weight:700;color:#0f1729}
+  .plf-sec>summary::-webkit-details-marker{display:none}.plf-sec>summary small{margin-left:auto;font-weight:600;color:#94a3b8}.plf-sec>summary small.ok{color:#16a34a}
+  .plf-it{padding:8px 12px 10px;border-top:1px dashed #f1f5f9;display:grid;gap:6px}
+  .plf-q{font-size:12.5px;color:#0f1729;font-weight:600;display:flex;gap:6px;align-items:flex-start}.plf-q em{font-style:normal;font-size:10.5px;font-weight:600;color:#94a3b8;margin-left:auto;white-space:nowrap}
+  .plf-q .dn{color:#16a34a}
+  .plf-seg{display:flex;flex-wrap:wrap;gap:5px}.plf-seg button{all:unset;cursor:pointer;padding:5px 11px;border-radius:7px;border:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#475569;background:#fff}
+  .plf-seg button.on{background:var(--c,#4f46e5);border-color:var(--c,#4f46e5);color:#fff}
+  .plf-num{display:flex;align-items:center;gap:6px}.plf-num button{all:unset;cursor:pointer;width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#334155;background:#fff}
+  .plf-num input{width:70px;text-align:center}.plf-warn{font-size:11px;font-weight:600;color:#b45309}
+  .plf-stars{display:flex;gap:3px}.plf-stars button{all:unset;cursor:pointer;font-size:20px;color:#cbd5e1;line-height:1}.plf-stars button.on{color:#f59e0b}
+  .plf-fotos{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.plf-fotos img{width:58px;height:58px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;cursor:zoom-in;display:block}
+  .plf-fotos span{position:relative}.plf-fotos b{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#0f1729;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .plf-add{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border:1.5px dashed #a5b4fc;border-radius:8px;color:#4f46e5;font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.2}
+  .plf-ref{font-size:10.5px;color:#64748b}
+  .pl-cbar{display:flex;align-items:center;gap:6px;margin-top:6px;font:700 10.5px Inter,system-ui,sans-serif;color:#4338ca}.pl-cbar span{flex:1;height:5px;background:#e0e7ff;border-radius:999px;overflow:hidden}.pl-cbar i{display:block;height:100%;background:#4f46e5}
+  .pl-cbar.ok{color:#15803d}.pl-cbar.ok i{background:#16a34a}`;
+  document.head.appendChild(st);
+}
+async function plCargar_(fuerza) {
+  if (ASEO.pl.cargado && !fuerza) return ASEO.pl.lista;
+  if (ASEO.pl._p) return ASEO.pl._p;
+  ASEO.pl._p = (async () => {
+    try {
+      const [a, b] = await Promise.all([fetch(`${BACKEND}/aseo/plantillas`, { cache: 'no-store' }).then(r => r.json()), fetch(`${BACKEND}/aseo/plantilla-resp?idx=1`, { cache: 'no-store' }).then(r => r.json()).catch(() => null)]);
+      if (a && a.ok) { ASEO.pl.lista = a.plantillas || {}; ASEO.pl.cargado = true; }
+      if (b && b.ok) ASEO.pl.idx = b.idx || {};
+    } catch (_) {}
+    ASEO.pl._p = null; return ASEO.pl.lista;
+  })();
+  return ASEO.pl._p;
+}
+function plCampos_(p) { return (p.secciones || []).reduce((n, s) => n + (s.items || []).length, 0); }
+// ── Sección «Plantillas» (lista + editor) ──
+window.plInit_ = async function () {
+  plCss_();
+  const root = document.getElementById('pl-root'); if (!root) return;
+  if (!ASEO.pl.cargado) { root.innerHTML = plHead_() + '<div class="pl-hint">⏳ Cargando plantillas…</div>'; await plCargar_(); }
+  plPintar_();
+};
+function plHead_() { return `<div class="cl-nav-slot" data-act="plantillas">${typeof clNavHtml_ === 'function' ? clNavHtml_('plantillas') : ''}</div>`; }
+function plPintar_() {
+  const root = document.getElementById('pl-root'); if (!root) return;
+  if (ASEO.pl.ed) return plEdPintar_();
+  const q = (ASEO.pl.q || '').toLowerCase();
+  const L = Object.values(ASEO.pl.lista || {}).filter(p => !q || String(p.titulo).toLowerCase().includes(q)).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), 'es'));
+  const usos = id => Object.values(ASEO.tareas || {}).filter(t => t.plantilla === id).length;
+  root.innerHTML = `${plHead_()}
+    <div class="pl-h"><h1>📋 Plantillas</h1><span class="sp"></span><input class="pl-q" placeholder="🔎 Buscar plantilla…" value="${pcEsc(ASEO.pl.q || '')}" oninput="ASEO.pl.q=this.value;clearTimeout(ASEO.pl._qt);ASEO.pl._qt=setTimeout(()=>{plPintar_();const i=document.querySelector('.pl-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},250)"><button type="button" class="pl-bt pri" onclick="plNueva_()">＋ Nueva plantilla</button></div>
+    <div class="pl-hint" style="margin:0 0 12px">Las plantillas son formularios (condición, listas, fotos, conteos, preguntas…) que se asignan a una tarea desde su formulario; al abrir la tarea se llenan ahí y se mide su avance.</div>
+    ${L.length ? `<div class="pl-grid">${L.map(p => {
+      const D = AT_DEPTO[p.depto] || AT_DEPTO.inspeccion, cnt = {};
+      (p.secciones || []).forEach(s => (s.items || []).forEach(it => { cnt[it.tipo] = (cnt[it.tipo] || 0) + 1; }));
+      const u = usos(p.id);
+      return `<div class="pl-card" onclick="plEditar_('${pcEsc(p.id)}')"><b>${pcEsc(p.titulo)}</b>
+        <div class="m"><span class="pl-chip" style="background:${D.c}1a;color:${D.c}">${D.ico} ${D.t}</span>${prio4Html_(p.prioridad)}<span>${(p.secciones || []).length} sección${(p.secciones || []).length === 1 ? '' : 'es'} · ${plCampos_(p)} campos</span></div>
+        <div class="ti">${Object.entries(cnt).map(([k, n]) => `<span>${PL_TIPOS[k] ? PL_TIPOS[k].ico + ' ' + PL_TIPOS[k].t : k} · ${n}</span>`).join('')}</div>
+        ${p.descripcion ? `<div class="m">${pcEsc(p.descripcion).slice(0, 140)}</div>` : ''}
+        <div class="m">${u ? `Asignada a ${u} tarea${u === 1 ? '' : 's'}` : 'Sin tareas asignadas'}</div>
+        <div class="ac" onclick="event.stopPropagation()"><button type="button" class="pl-bt" onclick="plEditar_('${pcEsc(p.id)}')">✏️ Editar</button><button type="button" class="pl-bt" onclick="plDuplicar_('${pcEsc(p.id)}')">⧉ Duplicar</button><button type="button" class="pl-bt dan" onclick="plBorrar_('${pcEsc(p.id)}')">🗑 Eliminar</button></div></div>`;
+    }).join('')}</div>` : `<div class="pc-mv-empty">${q ? 'Ninguna plantilla coincide con la búsqueda.' : 'Aún no hay plantillas. Crea la primera con «＋ Nueva plantilla».'}</div>`}`;
+}
+window.plNueva_ = function () { ASEO.pl.ed = { id: '', titulo: '', depto: 'inspeccion', prioridad: 'media', descripcion: '', secciones: [{ id: plId_('s'), titulo: 'General', items: [] }] }; plEdPintar_(true); };
+window.plEditar_ = function (id) { const p = ASEO.pl.lista[id]; if (!p) return; ASEO.pl.ed = JSON.parse(JSON.stringify(p)); plEdPintar_(true); };
+window.plDuplicar_ = function (id) {
+  const p = ASEO.pl.lista[id]; if (!p) return;
+  const c = JSON.parse(JSON.stringify(p)); c.id = ''; c.titulo = p.titulo + ' (copia)';
+  c.secciones.forEach(s => { s.id = plId_('s'); s.items.forEach(it => { it.id = plId_('i'); }); });
+  ASEO.pl.ed = c; plEdPintar_(true);
+};
+window.plBorrar_ = async function (id) {
+  const p = ASEO.pl.lista[id]; if (!p) return;
+  const u = Object.values(ASEO.tareas || {}).filter(t => t.plantilla === id).length;
+  if (!confirm(`¿Eliminar la plantilla «${p.titulo}»?${u ? `\n\nEstá asignada a ${u} tarea${u === 1 ? '' : 's'}: esas tareas ya no mostrarán el formulario.` : ''}`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/aseo/plantilla/borrar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    delete ASEO.pl.lista[id]; plPintar_();
+  } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+};
+function plEdPintar_(arriba) {
+  const root = document.getElementById('pl-root'), P = ASEO.pl.ed; if (!root || !P) return;
+  const y = window.scrollY;
+  const ck = (on, fn, txt) => `<span class="pl-ck ${on ? 'on' : ''}" onclick="${fn}"><span class="ck">${on ? '✓' : ''}</span>${txt}</span>`;
+  const it = (s, i, si, ii) => {
+    const T = PL_TIPOS[i.tipo], a = `${si},${ii}`;
+    return `<div class="pl-it"><div class="tp">${T.ico} ${T.t}</div><div class="bd">
+      <input class="pl-in" placeholder="${T.ph}" value="${pcEsc(i.texto || '')}" oninput="ASEO.pl.ed.secciones[${si}].items[${ii}].texto=this.value">
+      ${i.tipo === 'lista' ? `<textarea class="pl-in" rows="2" placeholder="Agregar tareas a la lista (una por renglón, opcional)" oninput="ASEO.pl.ed.secciones[${si}].items[${ii}].sub=this.value.split('\\n').map(x=>x.trim()).filter(Boolean)">${pcEsc((i.sub || []).join('\n'))}</textarea>` : ''}
+      <div class="pl-row">
+        ${i.tipo !== 'foto' ? ck(i.foto, `plEdTg_(${a},'foto')`, 'Requerir una foto') : ''}
+        ${i.tipo === 'contar' ? `<span>Mín. <input class="pl-in pl-sm" type="number" value="${i.min ?? ''}" oninput="plEdNum_(${a},'min',this.value)"></span><span>Máx. <input class="pl-in pl-sm" type="number" value="${i.max ?? ''}" oninput="plEdNum_(${a},'max',this.value)"></span>` : ''}
+        ${i.tipo === 'calif' ? `<span>Escala <select class="pl-in pl-sm" onchange="ASEO.pl.ed.secciones[${si}].items[${ii}].escala=+this.value">${[3, 5, 10].map(n => `<option ${Number(i.escala || 5) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></span>` : ''}
+        <label class="pl-lnk">Subir foto de referencia +<input type="file" accept="image/*" hidden onchange="plEdRef_(this,${a})"></label>
+      </div>
+      ${(i.ref || []).length ? `<div class="pl-refs">${i.ref.map((f, fi) => `<span><img src="${BACKEND}${f.url}" alt="" onclick="fotoVer_(ASEO.pl.ed.secciones[${si}].items[${ii}].ref.map(x=>BACKEND+x.url),${fi})"><b onclick="ASEO.pl.ed.secciones[${si}].items[${ii}].ref.splice(${fi},1);plEdPintar_()">✕</b></span>`).join('')}</div>` : ''}
+    </div><div class="tl"><button type="button" class="pl-x" title="Subir" onclick="plEdMover_(${a},-1)">↑</button><button type="button" class="pl-x" title="Bajar" onclick="plEdMover_(${a},1)">↓</button><button type="button" class="pl-x" title="Quitar" onclick="ASEO.pl.ed.secciones[${si}].items.splice(${ii},1);plEdPintar_()">✕</button></div></div>`;
+  };
+  root.innerHTML = `${plHead_()}
+    <div class="pl-h"><button type="button" class="pl-bt" onclick="plEdCerrar_()">← Atrás</button><h1>${P.id ? 'Editar plantilla' : 'Nueva plantilla'}</h1></div>
+    <div class="pl-ed">
+      <div class="pl-side"><h3>Secciones</h3>${P.secciones.map((s, si) => `<a onclick="document.getElementById('pl-s${si}').scrollIntoView({behavior:'smooth',block:'start'})">${pcEsc(s.titulo || 'Sección')} <small style="color:#94a3b8">· ${s.items.length}</small></a>`).join('')}
+        <button type="button" class="pl-lnk" onclick="plEdSec_()">+ Añadir sección</button></div>
+      <div class="pl-main">
+        <div class="pl-f">
+          <label>Departamento <i>*</i></label>
+          <select class="pl-in" onchange="ASEO.pl.ed.depto=this.value">${Object.entries(AT_DEPTO).map(([k, D]) => `<option value="${k}" ${P.depto === k ? 'selected' : ''}>${D.ico} ${D.t}</option>`).join('')}</select>
+          <label>Prioridad</label>${prio4Sel_(prio4Key_(P.prioridad), 'plEdPrio_')}
+          <label>Título de la plantilla <i>*</i></label>
+          <input class="pl-in" placeholder="Ej. Inventario de Insumos" value="${pcEsc(P.titulo)}" oninput="ASEO.pl.ed.titulo=this.value">
+          <label>Descripción de la plantilla</label>
+          <textarea class="pl-in" rows="3" placeholder="Añadir descripción" oninput="ASEO.pl.ed.descripcion=this.value">${pcEsc(P.descripcion || '')}</textarea>
+        </div>
+        ${P.secciones.map((s, si) => `<div class="pl-sec" id="pl-s${si}">
+          <div class="pl-sh"><input value="${pcEsc(s.titulo)}" placeholder="Nombre de la sección" oninput="ASEO.pl.ed.secciones[${si}].titulo=this.value">
+            <button type="button" class="pl-x" title="Subir sección" onclick="plEdMoverSec_(${si},-1)">↑</button><button type="button" class="pl-x" title="Bajar sección" onclick="plEdMoverSec_(${si},1)">↓</button>
+            <button type="button" class="pl-x" onclick="plEdQuitarSec_(${si})">Quitar sección</button></div>
+          ${s.items.map((i, ii) => it(s, i, si, ii)).join('') || '<div class="pl-hint">Sección sin campos: agrega uno abajo.</div>'}
+          <div class="pl-add">${Object.entries(PL_TIPOS).map(([k, T]) => `<button type="button" class="pl-lnk" onclick="plEdItem_(${si},'${k}')">${T.t} +</button>`).join('')}</div>
+        </div>`).join('')}
+        <button type="button" class="pl-lnk" style="margin-top:12px" onclick="plEdSec_()">+ Añadir sección</button>
+        <div class="pl-ft"><button type="button" class="pl-bt pri" id="pl-ok" onclick="plEdGuardar_()">Guardar</button><button type="button" class="pl-bt" onclick="plEdCerrar_()">Cancelar</button></div>
+      </div>
+    </div>`;
+  window.scrollTo(0, arriba ? 0 : y);
+}
+window.plEdPrio_ = function (k) { ASEO.pl.ed.prioridad = k; plEdPintar_(); };
+window.plEdTg_ = function (si, ii, c) { const i = ASEO.pl.ed.secciones[si].items[ii]; i[c] = !i[c]; plEdPintar_(); };
+window.plEdNum_ = function (si, ii, c, v) { const i = ASEO.pl.ed.secciones[si].items[ii]; if (v === '' || isNaN(+v)) delete i[c]; else i[c] = +v; };
+window.plEdItem_ = function (si, tipo) { ASEO.pl.ed.secciones[si].items.push({ id: plId_('i'), tipo, texto: '', foto: false, ref: [], ...(tipo === 'calif' ? { escala: 5 } : {}), ...(tipo === 'lista' ? { sub: [] } : {}) }); plEdPintar_(); setTimeout(() => { const s = document.getElementById('pl-s' + si); const L = s && s.querySelectorAll('.pl-it .bd > input'); if (L && L.length) L[L.length - 1].focus(); }, 0); };
+window.plEdSec_ = function () { ASEO.pl.ed.secciones.push({ id: plId_('s'), titulo: '', items: [] }); plEdPintar_(); const n = ASEO.pl.ed.secciones.length - 1; setTimeout(() => { const s = document.getElementById('pl-s' + n); if (s) { s.scrollIntoView({ behavior: 'smooth', block: 'start' }); const i = s.querySelector('.pl-sh input'); if (i) i.focus(); } }, 0); };
+window.plEdQuitarSec_ = function (si) { const s = ASEO.pl.ed.secciones[si]; if (s.items.length && !confirm(`¿Quitar la sección «${s.titulo || 'Sección'}» y sus ${s.items.length} campos?`)) return; ASEO.pl.ed.secciones.splice(si, 1); plEdPintar_(); };
+window.plEdMover_ = function (si, ii, d) { const L = ASEO.pl.ed.secciones[si].items, j = ii + d; if (j < 0 || j >= L.length) return; [L[ii], L[j]] = [L[j], L[ii]]; plEdPintar_(); };
+window.plEdMoverSec_ = function (si, d) { const L = ASEO.pl.ed.secciones, j = si + d; if (j < 0 || j >= L.length) return; [L[si], L[j]] = [L[j], L[si]]; plEdPintar_(); };
+async function plSubirFoto_(f0) {
+  const f = await imgLigera_(f0);
+  if (f.size > 15 * 1024 * 1024) throw new Error(`«${f.name}» pesa más de 15 MB`);
+  const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+  const r = await fetch(`${BACKEND}/aseo/adjunto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: f.name, tipo: f.type, data }) }).then(r => r.json());
+  if (!r.ok) throw new Error(r.error || 'Error');
+  return { k: r.adjunto.k, url: r.adjunto.url, nombre: r.adjunto.nombre };
+}
+window.plEdRef_ = async function (inp, si, ii) {
+  const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
+  const lab = inp.parentNode; const t0 = lab.firstChild.textContent; lab.firstChild.textContent = '⏳ Subiendo… ';
+  try { const a = await plSubirFoto_(f); const i = ASEO.pl.ed.secciones[si].items[ii]; (i.ref = i.ref || []).push(a); plEdPintar_(); }
+  catch (e) { alert('No se pudo subir la foto: ' + (e.message || e)); lab.firstChild.textContent = t0; }
+};
+window.plEdCerrar_ = function () { if (!confirm('¿Salir sin guardar los cambios de la plantilla?')) return; ASEO.pl.ed = null; plPintar_(); window.scrollTo(0, 0); };
+window.plEdGuardar_ = async function () {
+  const P = ASEO.pl.ed;
+  if (!String(P.titulo || '').trim()) return alert('Escribe el título de la plantilla.');
+  P.secciones.forEach(s => { if (!String(s.titulo || '').trim()) s.titulo = 'General'; });
+  if (!P.secciones.some(s => s.items.length)) return alert('Agrega al menos un campo (Condición, Lista de verificación, Foto, Contar, Texto, Sí/No o Calificación).');
+  const b = document.getElementById('pl-ok'); if (b) { b.disabled = true; b.textContent = '⏳ Guardando…'; }
+  try {
+    const r = await fetch(`${BACKEND}/aseo/plantilla`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plantilla: P, user: plUser_() }) }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Error');
+    ASEO.pl.lista[r.plantilla.id] = r.plantilla; ASEO.pl.ed = null; plPintar_(); window.scrollTo(0, 0);
+  } catch (e) { alert('No se pudo guardar la plantilla: ' + (e.message || e)); if (b) { b.disabled = false; b.textContent = 'Guardar'; } }
+};
+// ── Campo «Plantilla» en el formulario de la tarea ──
+function plSelTarea_() {
+  const F = ASEO._tf || {};
+  if (!ASEO.pl.cargado) { plCargar_().then(() => { if (ASEO._tf && ASEO._dr && ASEO._dr.form) atFormPintar_(); }); return '<div class="at-hint">⏳ Cargando plantillas…</div>'; }
+  const L = Object.values(ASEO.pl.lista || {}).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), 'es'));
+  return `<select class="at-in" onchange="plTareaElegir_(this.value)"><option value="">Sin plantilla</option>${L.map(p => `<option value="${pcEsc(p.id)}" ${p.id === F.plantilla ? 'selected' : ''}>${pcEsc(p.titulo)} · ${plCampos_(p)} campos</option>`).join('')}</select>
+    ${F.plantilla && !ASEO.pl.lista[F.plantilla] ? '<div class="at-hint">La plantilla asignada ya no existe.</div>' : F.plantilla ? '<div class="at-hint">Al abrir la tarea aparecerá este formulario para llenarlo.</div>' : ''}`;
+}
+window.plTareaElegir_ = function (id) {
+  const F = ASEO._tf, p = ASEO.pl.lista[id]; F.plantilla = id;
+  if (p) { if (!String(F.titulo || '').trim()) F.titulo = p.titulo; if (!F.depto && p.depto !== 'mantenimiento') F.depto = p.depto; if (!F.desc && p.descripcion) F.desc = p.descripcion; }
+  atFormPintar_();
+};
+// ── Formulario de la plantilla dentro de la tarea ──
+function plHecho_(it, r) {
+  r = r || {}; const fotos = (r.fotos || []).length;
+  let ok;
+  if (it.tipo === 'lista') ok = (it.sub || []).length ? (it.sub || []).every((_, i) => r.v && r.v[i]) : r.v === true;
+  else if (it.tipo === 'foto') ok = fotos > 0;
+  else if (it.tipo === 'texto') ok = !!String(r.v || '').trim();
+  else if (it.tipo === 'calif') ok = Number(r.v) > 0;
+  else ok = r.v !== undefined && r.v !== null && r.v !== '';
+  return ok && (!it.foto || it.tipo === 'foto' || fotos > 0);
+}
+function plAvance_(p, resp) {
+  let h = 0, t = 0; (p.secciones || []).forEach(s => (s.items || []).forEach(it => { t++; if (plHecho_(it, (resp || {})[it.id])) h++; }));
+  return { h, t, p: t ? Math.round(h / t * 100) : 0 };
+}
+function plTareaBox_(t, key) {
+  if (!t || !t.plantilla) return '';
+  plCss_();
+  const p = ASEO.pl.lista[t.plantilla];
+  if (!ASEO.pl.cargado || !(key in ASEO.pl.resp)) {
+    const CR = ASEO.pl._cr = ASEO.pl._cr || {};
+    if (!CR[key]) {
+      CR[key] = 1;
+      Promise.all([plCargar_(), fetch(`${BACKEND}/aseo/plantilla-resp?k=${encodeURIComponent(key)}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null)]).then(([, j]) => {
+        ASEO.pl.resp[key] = (j && j.ok && j.resp && j.resp.resp) || {}; if (j && j.resp && j.resp.at) ASEO.pl.respAt = Object.assign(ASEO.pl.respAt || {}, { [key]: j.resp.at });
+        delete CR[key]; if (ASEO._dr && ASEO._dr.tarea === t.id) adPintar_();
+      });
+    }
+    return '<div class="lab">📋 Plantilla</div><div class="ad-hint">⏳ Cargando formulario…</div>';
+  }
+  if (!p) return '<div class="lab">📋 Plantilla</div><div class="ad-hint">La plantilla asignada ya no existe.</div>';
+  return `<div class="lab">📋 Plantilla</div><div class="plf" id="plf" data-k="${pcEsc(key)}" data-p="${pcEsc(p.id)}">${plFillHtml_(p, key)}</div>`;
+}
+function plFillHtml_(p, key) {
+  const resp = ASEO.pl.resp[key] || {}, A = plAvance_(p, resp);
+  const abiertas = ASEO.pl.abiertas = ASEO.pl.abiertas || {};
+  const at = (ASEO.pl.respAt || {})[key];
+  return `<div class="plf-h"><b>${pcEsc(p.titulo)}</b><div class="plf-bar ${A.p === 100 ? 'ok' : ''}"><span><i style="width:${A.p}%"></i></span>${A.p}% · ${A.h}/${A.t}</div>
+      <div class="plf-st" id="plf-st">${ASEO.pl._guardando === key ? '⏳ Guardando…' : at ? `Guardado ${new Date(at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : 'Se guarda solo al responder'}</div></div>
+    ${(() => { const pend = (p.secciones || []).findIndex(s => s.items.some(it => !plHecho_(it, resp[it.id]))); return (p.secciones || []).map((s, si) => {
+      // Abiertas: todas si son pocas secciones; si son muchas, solo la primera con campos pendientes (las demás con un clic).
+      const hs = s.items.filter(it => plHecho_(it, resp[it.id])).length, op = abiertas[key + '|' + si] ?? (p.secciones.length <= 3 || si === pend);
+      return `<details class="plf-sec" ${op ? 'open' : ''} ontoggle="(ASEO.pl.abiertas||(ASEO.pl.abiertas={}))['${pcEsc(key)}|${si}']=this.open"><summary>${pcEsc(s.titulo)}<small class="${hs === s.items.length ? 'ok' : ''}">${hs === s.items.length ? '✓ ' : ''}${hs}/${s.items.length}</small></summary>
+        ${s.items.map(it => plFillItem_(it, resp[it.id] || {}, s)).join('')}</details>`;
+    }).join(''); })()}`;
+}
+function plFillItem_(it, r, s) {
+  const T = PL_TIPOS[it.tipo], id = pcEsc(it.id), q = it.texto || (it.tipo === 'foto' ? 'Foto' : s.titulo);
+  const fotos = r.fotos || [];
+  const fotosHtml = (it.tipo === 'foto' || it.foto) ? `<div class="plf-fotos">${fotos.map((f, i) => `<span><img src="${BACKEND}${f.url}" alt="" onclick="plFotoVer_('${id}',${i})"><b onclick="plQuitarFoto_('${id}',${i})">✕</b></span>`).join('')}<label class="plf-add">📷<br>${it.tipo === 'foto' ? 'Agregar foto' : 'Foto'}<input type="file" accept="image/*" multiple hidden onchange="plFotoSubir_(this,'${id}')"></label></div>` : '';
+  let ctl = '';
+  if (it.tipo === 'condicion') ctl = `<div class="plf-seg">${PL_COND.map(([k, t, c]) => `<button type="button" class="${r.v === k ? 'on' : ''}" style="--c:${c}" onclick="plSet_('${id}','${k}')">${t}</button>`).join('')}</div>${r.v === 'regular' || r.v === 'malo' ? `<input class="pl-in" placeholder="¿Qué se encontró? (opcional)" value="${pcEsc(r.nota || '')}" oninput="plNota_('${id}',this.value)">` : ''}`;
+  else if (it.tipo === 'lista') ctl = (it.sub || []).length ? `<div style="display:grid;gap:6px">${it.sub.map((x, i) => { const on = !!(r.v && r.v[i]); return `<span class="pl-ck ${on ? 'on' : ''}" onclick="plSub_('${id}',${i})"><span class="ck">${on ? '✓' : ''}</span>${pcEsc(x)}</span>`; }).join('')}</div>` : `<span class="pl-ck ${r.v === true ? 'on' : ''}" onclick="plSet_('${id}',${r.v === true ? 'null' : 'true'})"><span class="ck">${r.v === true ? '✓' : ''}</span>Hecho / revisado</span>`;
+  else if (it.tipo === 'contar') { const v = r.v ?? '', n = v === '' ? null : Number(v); ctl = `<div class="plf-num"><button type="button" onclick="plCont_('${id}',-1)">−</button><input class="pl-in" type="number" min="0" value="${pcEsc(String(v))}" oninput="plSet_('${id}',this.value===''?'':+this.value,true)"><button type="button" onclick="plCont_('${id}',1)">+</button>${it.min != null || it.max != null ? `<span class="plf-ref">${it.min != null ? 'Mín. ' + it.min : ''}${it.min != null && it.max != null ? ' · ' : ''}${it.max != null ? 'Máx. ' + it.max : ''}</span>` : ''}</div>${n != null && it.min != null && n < it.min ? `<div class="plf-warn">⚠️ Por debajo del mínimo (${it.min})</div>` : n != null && it.max != null && n > it.max ? `<div class="plf-warn">⚠️ Arriba del máximo (${it.max})</div>` : ''}`; }
+  else if (it.tipo === 'texto') ctl = `<textarea class="pl-in" rows="2" placeholder="Escribe la respuesta" oninput="plSet_('${id}',this.value,true)">${pcEsc(r.v || '')}</textarea>`;
+  else if (it.tipo === 'sino') ctl = `<div class="plf-seg"><button type="button" class="${r.v === 'si' ? 'on' : ''}" style="--c:#16a34a" onclick="plSet_('${id}','si')">Sí</button><button type="button" class="${r.v === 'no' ? 'on' : ''}" style="--c:#dc2626" onclick="plSet_('${id}','no')">No</button></div>`;
+  else if (it.tipo === 'calif') { const E = Number(it.escala) || 5; ctl = `<div class="plf-stars">${Array.from({ length: E }, (_, i) => `<button type="button" class="${Number(r.v) > i ? 'on' : ''}" title="${i + 1} de ${E}" onclick="plSet_('${id}',${i + 1})">★</button>`).join('')}${r.v ? `<span class="plf-ref" style="align-self:center;margin-left:6px">${r.v} de ${E}</span>` : ''}</div>`; }
+  const hecho = plHecho_(it, r);
+  return `<div class="plf-it" data-i="${id}"><div class="plf-q"><span class="${hecho ? 'dn' : ''}">${hecho ? '✓' : T.ico}</span><span>${pcEsc(q)}</span><em>${T.t}${it.foto && it.tipo !== 'foto' ? ' · 📷 obligatoria' : ''}</em></div>
+    ${(it.ref || []).length ? `<div class="plf-fotos"><span class="plf-ref">Referencia:</span>${it.ref.map((f, i) => `<span><img src="${BACKEND}${f.url}" alt="" onclick="fotoVer_(${pcEsc(JSON.stringify(it.ref.map(x => BACKEND + x.url)))},${i})"></span>`).join('')}</div>` : ''}
+    ${ctl}${fotosHtml}</div>`;
+}
+function plCtx_() { const el = document.getElementById('plf'); if (!el) return null; const p = ASEO.pl.lista[el.dataset.p]; return p ? { el, key: el.dataset.k, p, resp: (ASEO.pl.resp[el.dataset.k] = ASEO.pl.resp[el.dataset.k] || {}) } : null; }
+function plItem_(p, id) { for (const s of p.secciones || []) for (const it of s.items || []) if (it.id === id) return it; return null; }
+function plRepinta_(suave) {
+  const C = plCtx_(); if (!C) return;
+  if (suave) { // al escribir: solo la barra y las palomitas, sin perder el foco
+    const A = plAvance_(C.p, C.resp), bar = C.el.querySelector('.plf-bar');
+    if (bar) { bar.classList.toggle('ok', A.p === 100); bar.innerHTML = `<span><i style="width:${A.p}%"></i></span>${A.p}% · ${A.h}/${A.t}`; }
+    return;
+  }
+  C.el.innerHTML = plFillHtml_(C.p, C.key);
+}
+function plGuardarLuego_() {
+  const C = plCtx_(); if (!C) return;
+  const key = C.key, pid = C.p.id;
+  const A = plAvance_(C.p, C.resp); ASEO.pl.idx[key] = { p: A.p, h: A.h, t: A.t, pl: pid };
+  const st = document.getElementById('plf-st'); if (st) st.textContent = '✎ Cambios sin guardar…';
+  clearTimeout(ASEO.pl._gt);
+  ASEO.pl._gt = setTimeout(async () => {
+    ASEO.pl._guardando = key; const s2 = document.getElementById('plf-st'); if (s2) s2.textContent = '⏳ Guardando…';
+    try {
+      const r = await fetch(`${BACKEND}/aseo/plantilla-resp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: key, plantilla: pid, resp: ASEO.pl.resp[key] || {}, avance: plAvance_(ASEO.pl.lista[pid], ASEO.pl.resp[key]), user: plUser_() }) }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Error');
+      (ASEO.pl.respAt = ASEO.pl.respAt || {})[key] = r.at;
+      const s3 = document.getElementById('plf-st'); if (s3) s3.textContent = `Guardado ${new Date(r.at).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })}`;
+      if (typeof aseoRenderSide_ === 'function' && aseoVisible_()) aseoRenderSide_(); // barra de avance en la card
+    } catch (e) { const s3 = document.getElementById('plf-st'); if (s3) s3.textContent = '⚠️ No se pudo guardar: ' + (e.message || e); }
+    ASEO.pl._guardando = null;
+  }, 900);
+}
+window.plSet_ = function (id, v, suave) {
+  const C = plCtx_(); if (!C) return; const r = C.resp[id] = C.resp[id] || {};
+  if (v === null || (!suave && r.v === v && typeof v !== 'number')) delete r.v; else r.v = v;
+  if (suave) { const it = plItem_(C.p, id), box = C.el.querySelector(`.plf-it[data-i="${id}"] .plf-q span`); if (box && it) { const h = plHecho_(it, r); box.className = h ? 'dn' : ''; box.textContent = h ? '✓' : PL_TIPOS[it.tipo].ico; } plRepinta_(true); }
+  else plRepinta_();
+  plGuardarLuego_();
+};
+window.plNota_ = function (id, v) { const C = plCtx_(); if (!C) return; (C.resp[id] = C.resp[id] || {}).nota = v; plGuardarLuego_(); };
+window.plSub_ = function (id, i) { const C = plCtx_(); if (!C) return; const r = C.resp[id] = C.resp[id] || {}; r.v = r.v && typeof r.v === 'object' ? r.v : {}; r.v[i] = !r.v[i]; plRepinta_(); plGuardarLuego_(); };
+window.plCont_ = function (id, d) { const C = plCtx_(); if (!C) return; const r = C.resp[id] = C.resp[id] || {}; r.v = Math.max(0, (Number(r.v) || 0) + d); plRepinta_(); plGuardarLuego_(); };
+window.plFotoVer_ = function (id, i) { const C = plCtx_(); if (!C) return; fotoVer_(((C.resp[id] || {}).fotos || []).map(f => BACKEND + f.url), i); };
+window.plQuitarFoto_ = function (id, i) { const C = plCtx_(); if (!C) return; const r = C.resp[id] || {}; (r.fotos || []).splice(i, 1); plRepinta_(); plGuardarLuego_(); };
+window.plFotoSubir_ = async function (inp, id) {
+  const files = [...(inp.files || [])]; inp.value = ''; if (!files.length) return;
+  const lab = inp.parentNode; lab.firstChild && (lab.innerHTML = '⏳<br>Subiendo' + lab.innerHTML.slice(lab.innerHTML.indexOf('<input')));
+  const subidas = await Promise.all(files.map(f => plSubirFoto_(f).catch(e => { alert('No se pudo subir una foto: ' + (e.message || e)); return null; })));
+  const C = plCtx_(); if (!C) return; const r = C.resp[id] = C.resp[id] || {};
+  r.fotos = (r.fotos || []).concat(subidas.filter(Boolean)); plRepinta_(); plGuardarLuego_();
+};
+// Barra de avance de la plantilla en la card de la tarea.
+function plCardBar_(t, key) {
+  if (!t.plantilla) return '';
+  if (!ASEO.pl.cargado && !ASEO.pl._p) plCargar_().then(() => { if (typeof aseoRenderSide_ === 'function' && aseoVisible_()) aseoRenderSide_(); });
+  const x = (ASEO.pl.idx || {})[key], p = ASEO.pl.lista[t.plantilla];
+  if (!x && !p) return '';
+  const pc = x ? x.p : 0;
+  return `<div class="pl-cbar ${pc === 100 ? 'ok' : ''}" title="${pcEsc(p ? p.titulo : 'Plantilla')}${x ? ` · ${x.h} de ${x.t} campos` : ' · sin respuestas'}">📋<span><i style="width:${pc}%"></i></span>${pc}%</div>`;
 }
