@@ -64821,6 +64821,7 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-card .ad-eq{display:flex;align-items:center;margin-top:6px}
     .ad-card .ad-det{display:none!important} /* la card completa abre sus detalles */
     .ad-kl{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
     .ad-kc{all:unset;cursor:pointer;font:600 10.5px Inter,system-ui,sans-serif;color:#4f46e5;padding:1px 6px;border-radius:5px;background:#eef2ff}
@@ -65992,11 +65993,12 @@ function adCard_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
-    ${nsChip}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
     ${srcTxt ? `<div class="r2"><span>${pcEsc(srcTxt)}</span></div>` : ''}
     ${axFila_(I.asigId, I.g.sal.length > 0, I.hid, aseoDia_())}
-    <div class="r3">${equipo}<span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    <div class="ad-eq">${equipo}</div>
+    <div class="r3"><span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${guia}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();adAbrir_('${pcEsc(I.k)}')">Detalles</button></div>
+    ${nsChip}
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
 }
