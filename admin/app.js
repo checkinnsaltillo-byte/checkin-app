@@ -65034,6 +65034,7 @@ function aseoEnsureCss_() {
   .np-sim{white-space:pre-wrap;font:11.5px/1.45 Inter,system-ui,sans-serif;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 10px;margin:8px 0 0;max-height:260px;overflow:auto;color:#1f2937}
   .np-puede{margin:8px 0 0;padding:9px 10px 9px 26px;background:#f8fafc;border:1px solid #eef0f3;border-radius:8px;font-size:11.5px;line-height:1.5;color:#374151}
   .np-puede li.h{list-style:none;margin-left:-16px;font-weight:600;color:#6b7280}
+  .np-prueba{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px}
   .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
   .np-tel{font-size:11px;font-weight:500;color:#6b7280;margin-left:6px;white-space:nowrap}
   .np-tag.wa{background:#dcfce7;color:#15803d}.np-tag.sms{background:#dbeafe;color:#1d4ed8}.np-tag.am{background:#ede9fe;color:#6d28d9}
@@ -66836,11 +66837,28 @@ const NP_CANAL = { whatsapp: { t: '💬 WhatsApp', cls: 'wa', c: '#16a34a' }, sm
 let NP_PROCS = null;
 function npProcs_() {
   if (NP_PROCS) return NP_PROCS;
-  if (!npProcs_.c) { npProcs_.c = 1; fetch(`${BACKEND}/bot/simular/procesos`).then(r => r.json()).then(j => { NP_PROCS = j.procesos || []; document.querySelectorAll('#np-list .np-p.ab').forEach(el => npRefila_(el.dataset.n)); }).catch(() => { npProcs_.c = 0; }); }
+  if (!npProcs_.c) { npProcs_.c = 1; fetch(`${BACKEND}/bot/simular/procesos`).then(r => r.json()).then(j => { NP_PROCS = j.procesos || []; npPruebaPintar_(); }).catch(() => { npProcs_.c = 0; }); }
   return [];
 }
+// «🧪 Prueba del bot» (arriba de la ventana): ejercicio general de quien está usando el sistema.
+function npYo_() { const u = String((typeof currentUser !== 'undefined' && currentUser) || '').trim(); const L = typeof pzNombres_ === 'function' ? pzNombres_() : []; return L.find(x => x.toLowerCase() === u.toLowerCase()) || u; }
+function npPruebaHtml_() {
+  const yo = npYo_(), pf = npPerfilDe_(yo), C = pf.pruebaComo || '';
+  return `<div id="np-prueba-w"><div class="lab">🧪 Prueba del bot</div>
+    <div class="np-prueba">
+      <div class="np-lab" style="margin-top:0">Prueba como</div>
+      <select class="at-in" onchange="npPrueba_(npYo_(),this.value)"><option value="">Nadie (el bot me responde normal)</option>${(typeof pzNombres_ === 'function' ? pzNombres_() : []).filter(x => x !== yo).map(x => `<option ${x === C ? 'selected' : ''}>${pcEsc(x)}</option>`).join('')}</select>
+      <div class="np-hint">${C ? `El bot te responde por WhatsApp como si fueras <b>${pcEsc(C)}</b> (sus permisos y configuración). Tus entradas/salidas no se registran mientras pruebas.` : 'Elige a alguien para que el bot te responda como lo haría con esa persona.'}</div>
+      <div class="np-lab">Proceso a simular</div>
+      <div style="display:flex;gap:6px;align-items:center"><select class="at-in np-proc" style="flex:1">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
+        <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,npYo_())">▶ Simular</button></div>
+      <div class="np-hint">Te llega por WhatsApp lo que recibiría${C ? ' ' + pcEsc(aseoNombreCorto_(C)) : 's tú'} y aquí ves la vista previa.</div>
+      <pre class="np-sim" style="display:none"></pre>
+    </div></div>`;
+}
+function npPruebaPintar_() { const el = document.getElementById('np-prueba-w'); if (el) el.outerHTML = npPruebaHtml_(); }
 window.npSimular_ = async function (btn, n) {
-  const fila = btn.closest('.np-p'), sel = fila.querySelector('.np-proc'), out = fila.querySelector('.np-sim'), pf = npPerfilDe_(n);
+  const fila = btn.closest('.np-prueba'), sel = fila.querySelector('.np-proc'), out = fila.querySelector('.np-sim'), pf = npPerfilDe_(n);
   if (!sel || !sel.value) return;
   btn.disabled = true; const t0 = btn.textContent; btn.textContent = '⏳';
   try {
@@ -66850,7 +66868,7 @@ window.npSimular_ = async function (btn, n) {
   } catch (e) { out.style.display = ''; out.textContent = '⚠️ ' + (e.message || e); }
   finally { btn.disabled = false; btn.textContent = t0; }
 };
-window.npPrueba_ = function (n, v) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.pruebaComo = v || ''; npRefila_(n); npGuardar_(); };
+window.npPrueba_ = function (n, v) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.pruebaComo = v || ''; npPruebaPintar_(); npRefila_(n); npGuardar_(); };
 window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.canal = k; npRefila_(n); npGuardar_(); };
 window.npAbrir_ = function () {
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
@@ -66884,14 +66902,6 @@ function npFila_(n) {
       ${pf.rol === 'admin' ? `${ck(npAuto_(pf.auto).resumen, '📋 Resumen del día · 2 pm', 'Toda la actividad del día: limpiezas, tareas, tareas programadas e incidencias', `npSet_(this.closest('.np-p').dataset.n,'resumen')`)}
       ${ck(npAuto_(pf.auto).alertas, '🚨 Alertas', 'Incidencias nuevas o con cambios y huéspedes que no han desalojado', `npSet_(this.closest('.np-p').dataset.n,'alertas')`)}
       ${ck(npAuto_(pf.auto).cambios, '🔄 Cada cambio en las tareas', 'Opcional: un aviso cada vez que alguien actualiza una tarea de hoy', `npSet_(this.closest('.np-p').dataset.n,'cambios')`)}` : '<div class="np-hint">El resumen de las 2 pm y las alertas solo les llegan a los administradores.</div>'}` : ''}
-      ${pf.rol === 'admin' || pf.pruebaComo || String(n).toLowerCase() === String((typeof currentUser !== 'undefined' && currentUser) || '').toLowerCase() ? `<div class="np-lab">🧪 Prueba como</div>
-      <select class="at-in" onchange="npPrueba_(this.closest('.np-p').dataset.n,this.value)"><option value="">Nadie (el bot me responde normal)</option>${(typeof pzNombres_ === 'function' ? pzNombres_() : []).filter(x => x !== n).map(x => `<option ${x === pf.pruebaComo ? 'selected' : ''}>${pcEsc(x)}</option>`).join('')}</select>
-      <div class="np-hint">${pf.pruebaComo ? `El bot te responde por WhatsApp como si fueras <b>${pcEsc(pf.pruebaComo)}</b> (sus permisos y configuración). Tus entradas/salidas no se registran mientras pruebas.` : 'Elige a alguien para que el bot te responda como lo haría con esa persona.'}</div>
-      <div class="np-lab">Proceso a simular</div>
-      <div style="display:flex;gap:6px;align-items:center"><select class="at-in np-proc" style="flex:1">${npProcs_().map(x => `<option value="${x.k}">${pcEsc(x.t)}</option>`).join('') || '<option value="">⏳ Cargando procesos…</option>'}</select>
-        <button type="button" class="ad-bt pri" style="flex:none;padding:8px 12px" onclick="npSimular_(this,this.closest('.np-p').dataset.n)">▶ Simular</button></div>
-      <div class="np-hint">Te llega por WhatsApp lo que recibiría${pf.pruebaComo ? ' ' + pcEsc(aseoNombreCorto_(pf.pruebaComo)) : 's tú'} y aquí ves la vista previa.</div>
-      <pre class="np-sim" style="display:none"></pre>` : ''}
     </div>` : ''}
   </div>`;
 }
@@ -66908,6 +66918,7 @@ function npPintar_() {
     <div class="ad-db">
       <div class="ad-tgl" onclick="npOn_()"><div><b>Mensajes automáticos</b><small>${N.on ? 'Activos: resumen de las 2 pm, alertas y avisos a los administradores' : 'Apagados: el bot no envía nada por su cuenta'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
       <button type="button" class="ad-bt" style="display:block;width:100%;margin-top:8px;box-sizing:border-box" onclick="adCerrar_();mvNotificar_(null)">📣 Enviar ahora la lista actualizada de Aseo y Mantenimiento</button>
+      ${npPruebaHtml_()}
       <div class="lab">Personal</div>
       <input class="at-in" placeholder="🔎 Buscar persona…" value="${pcEsc(N.q)}" oninput="ASEO._np.q=this.value;npPintarLista_()">
       <div class="np-list" id="np-list">${L.map(npFila_).join('') || '<div class="at-hint">⏳ Cargando personal…</div>'}</div>
