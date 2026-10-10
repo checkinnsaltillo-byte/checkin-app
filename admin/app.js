@@ -65042,6 +65042,12 @@ function aseoEnsureCss_() {
   .np-evs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .np-ev{font:500 11.5px Inter,system-ui,sans-serif;padding:6px 10px;border-radius:999px;border:1px solid #fde68a;background:#fff;color:#374151;cursor:pointer}
   .np-ev.on{background:#111827;border-color:#111827;color:#fff}
+  .np-ayuda-bt{font-weight:700}
+  .np-rg{border:1px solid #eef0f3;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#fff}
+  .np-rg-h{display:flex;gap:8px;align-items:center;font-size:13.5px;color:#111827}
+  .np-rg-s{font-size:11.5px;color:#6b7280;margin-top:3px}
+  .np-rg ul{margin:8px 0 0;padding-left:18px;font-size:12px;line-height:1.5;color:#374151}
+  .np-rg li{margin-bottom:4px}
   .np-prueba{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px}
   .np-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#6b7280}
   .np-tel{font-size:11px;font-weight:500;color:#6b7280;margin-left:6px;white-space:nowrap}
@@ -66904,6 +66910,55 @@ window.npSimular_ = async function (btn, n) {
 };
 window.npPrueba_ = function (n, v) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.pruebaComo = v || ''; npPruebaPintar_(); npRefila_(n); npGuardar_(); };
 window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {}); pf.canal = k; npRefila_(n); npGuardar_(); };
+// «?» Reglas del bot: resumen de todo lo que rige la interacción con el bot (mismo contenido que valida el servidor).
+const NP_REGLAS = [
+  ['👥', 'Roles y permisos', 'El rol de cada persona define TODO lo que puede hacer con el bot.', [
+    '<b>Administrador:</b> todo — levantar incidencias, tareas de mantenimiento/insumos/inspección y tareas correctivas; crear tareas; aceptar entradas tempranas y salidas tardías; reprogramar y cambiar fechas; validar estados; cambiar prioridad; asignar responsables; consultar resúmenes, incidencias, historial y datos del huésped.',
+    '<b>Empleado:</b> solo consulta lo básico de <i>sus</i> tareas, cambia su estado (queda «sin validar») y puede avisar que un huésped no ha desalojado.',
+    '<b>Desactivado:</b> el bot no lo atiende como personal ni le manda nada.',
+    'Los administradores del sistema (Puesto «Administración») siempre tienen todos los permisos desde su número. Con «@» al inicio el bot ejecuta directo.']],
+  ['📬', 'Mensajes automáticos', 'Se controlan con el interruptor de arriba. Si está apagado, el bot no manda nada por su cuenta.', [
+    '<b>Solo a administradores</b>, según lo que tengan marcado: 📋 <b>Resumen del día a las 2 pm</b> (limpiezas, tareas, tareas programadas e incidencias) · 🚨 <b>Alertas</b> (incidencias y «no ha desalojado») · 🔄 <b>Cada cambio</b> en las tareas de hoy (opcional).',
+    '<b>A empleados</b> (con «🔔 Sus tareas del día»): su lista al registrar entrada y su lista actualizada cuando un cambio toca <i>sus</i> tareas (asignación, solicitudes, no ha desalojado, reserva nueva, reprogramación). Los cambios de estado no la disparan.',
+    'Los cambios se juntan: se envían 1 minuto después del último, en <b>un solo mensaje por persona</b>.',
+    '<b>Sin repetir:</b> si una incidencia modifica su tarea, solo llega el aviso de la incidencia (con su tarea correctiva). Quien ya recibe el aviso general no recibe además su lista.',
+    'Canal por persona: WhatsApp, SMS o ambos. Necesita celular en Personal.']],
+  ['🕘', 'Entrada y salida del personal', 'Mensajes cortos como «entrada», «llegué», «salida», «ya salí», «ya me voy».', [
+    '<b>Entrada:</b> registra la hora y pide la ubicación (obligatoria). Al compartirla le llega su lista del día.',
+    '<b>Salida:</b> la hora se registra al momento. Le llega su lista actualizada y, si tiene tareas pendientes o en proceso, el bot le pide cómo quedaron.',
+    'Puede contestar en uno o varios renglones, con código corto o nombre largo, con errores de dedo o con el número de la lista («JC3 listo», «jose cardenas 2 a medias», «1 listo»).',
+    'El bot muestra lo que va a cambiar y pide «sí». Después guarda y manda la confirmación de salida.',
+    'Cerrar tareas <b>no es obligatorio</b>: «salir» registra la salida igual. Las limpiezas que pasaron al día siguiente no se preguntan.',
+    'No cuentan como entrada o salida los mensajes que hablan de un alojamiento o de la operación («no ha salido JC3», «entrada temprana CU2»).']],
+  ['💬', 'Cómo atiende el bot al personal', '', [
+    'Entiende los alojamientos escritos como sea: «CU2», «cumbres 2», «c4a», con errores de dedo.',
+    'Antes de guardar un cambio repite lo que hará y espera un «sí» en otro mensaje. Excepción: «no ha desalojado» se guarda de inmediato.',
+    'Tras «no ha desalojado» le pregunta a un administrador si quiere los datos del huésped y su reserva.',
+    '«De hoy», «del día» o «ayer» → lista <i>todo</i> lo de ese día con su estado actual. Sin fecha → solo lo abierto.',
+    '<b>Nunca muestra códigos, folios ni claves:</b> identifica por alojamiento y descripción.',
+    'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
+  ['🧽', 'Tareas y cards', '', [
+    '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
+    'Si en un alojamiento sale una reserva confirmada y otra cancelada, la card (estado, asignación, prioridad) usa la confirmada.',
+    'Un alojamiento que solo tiene entrada ese día es una <b>Inspección</b>. Si se reprograma una limpieza de salida para ese día, prevalece la limpieza.',
+    'Si a las 3 pm una limpieza de salida sigue pendiente y ese día no entra nadie, pasa al día siguiente. En el día original queda una card sombreada.',
+    'Las tareas ligadas a una incidencia aparecen juntas con un puente «⚠️ Incidencia · 🛠 Tarea correctiva».']],
+  ['🧪', 'Prueba del bot', 'Nada de lo que se simula se guarda ni se avisa a nadie más.', [
+    '<b>Prueba como:</b> el bot le contesta a tu número como lo haría con esa persona. Mientras esté puesta, tu entrada y salida no se registran. Regrésala a «Nadie» al terminar.',
+    '<b>Simular envío de mensaje:</b> un proceso de la lista o cualquier mensaje escrito. Te llega por WhatsApp y lo ves aquí.',
+    '<b>Evento del sistema:</b> lo que el sistema manda solo ante una acción. Te dice quién lo recibiría y si la persona elegida lo recibe o no, y por qué.']],
+  ['🔒', 'Seguridad de la configuración', '', [
+    'Los cambios de esta ventana se guardan solos. La ventana no deja guardar hasta terminar de cargar.',
+    'Guardar nunca borra a otras personas. Para quitarle funciones a alguien, ponlo en «Desactivado».']],
+];
+window.npAyuda_ = function () {
+  const dr = atShell_();
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">❓ Reglas del bot</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
+      <div class="ad-sub">Resumen de cómo funciona el bot con el personal</div></div>
+    <div class="ad-db">${NP_REGLAS.map(([ico, tit, sub, L]) => `<div class="np-rg"><div class="np-rg-h"><span>${ico}</span><b>${tit}</b></div>${sub ? `<div class="np-rg-s">${sub}</div>` : ''}<ul>${L.map(x => `<li>${x}</li>`).join('')}</ul></div>`).join('')}</div>
+    <div class="ad-ft"><span></span><button type="button" class="ad-bt pri" onclick="npPintar_()">← Volver</button></div>`;
+  dr.querySelector('.ad-db').scrollTop = 0;
+};
 window.npAbrir_ = async function () {
   if (typeof pcEnsureStyles_ === 'function') pcEnsureStyles_();
   ASEO._np = { on: !!(ASEO.autonotif || {}).on, perfiles: npPerfiles_(), abierto: '', q: '', listo: false };
@@ -66954,7 +67009,7 @@ function npPintar_() {
   const L = nombres.filter(n => !q || n.toLowerCase().includes(q))
     .sort((a, b) => (N.perfiles[b] ? 1 : 0) - (N.perfiles[a] ? 1 : 0) || a.localeCompare(b, 'es'));
   const conPerfil = Object.values(N.perfiles).filter(p => p.rol).length;
-  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">📣 Notificaciones y permisos del bot</b><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
+  dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">📣 Notificaciones y permisos del bot</b><span style="display:flex;gap:6px"><button type="button" class="ad-close np-ayuda-bt" title="Reglas del bot" onclick="npAyuda_()">?</button><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></span></div>
       <div class="ad-sub">Check-list · ${conPerfil} persona${conPerfil === 1 ? '' : 's'} con funciones asignadas</div></div>
     <div class="ad-db">
       <div class="ad-tgl" onclick="npOn_()"><div><b>Mensajes automáticos</b><small>${N.on ? 'Activos: resumen de las 2 pm, alertas y avisos a los administradores' : 'Apagados: el bot no envía nada por su cuenta'}</small></div><span class="ad-sw ${N.on ? '' : 'off'}"></span></div>
