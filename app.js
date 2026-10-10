@@ -64821,8 +64821,10 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
-    .ad-un-lk{all:unset;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
-    .ad-un-lk:hover{text-decoration-style:solid}
+    .ad-asg{all:unset;cursor:pointer;font:600 11px Inter,system-ui,sans-serif;color:#4f46e5;padding:2px 7px;border:1px dashed #a5b4fc;border-radius:5px;white-space:nowrap}
+    .ad-asg:hover{background:#eef2ff;border-style:solid}
+    .ad-nm.lk{cursor:pointer}.ad-nm.lk:hover{filter:brightness(.95);box-shadow:0 0 0 2px color-mix(in srgb,var(--pc) 30%,transparent)}
+    #module-aseo.cl-emp .ad-asg{display:none!important}
     html body .ad-card .ad-qs button{background:#f1f3f5;color:#6b7280;box-shadow:none}
     html body .ad-card .ad-qs button i{background:#9ca3af;opacity:1}
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
@@ -65750,7 +65752,7 @@ function adInspBtn_(id, hid, sel, tarea, big) {
 function adEstC_(k) { return k === 'inspeccionado' ? AD_INSP_C : (AD_EST.find(e => e.k === k) || {}).c || (k === 'cancelado' ? '#64748b' : '#94a3b8'); }
 function adHoraMx_() { return Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24; }
 function adIni_(n) { return String(n || '?').replace(/\s*\(WhatsApp\)\s*$/, '').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
-function adNom_(n, rol) { const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim(); return `<span class="ad-nm" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)}">${pcEsc(t.split(/\s+/)[0] || '?')}</span>`; }
+function adNom_(n, rol, onclick) { const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim(); return `<span class="ad-nm ${onclick ? 'lk' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)}${onclick ? ' · clic para cambiar' : ''}"${onclick ? ` onclick="event.stopPropagation();${onclick}"` : ''}>${pcEsc(t.split(/\s+/)[0] || '?')}</span>`; }
 function adAv_(n, rol) { return `<span class="ad-av" style="background:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + n)}">${pcEsc(adIni_(n))}</span>`; }
 // Todo lo que se necesita de una card (mismas reglas que pcAlojCard_ y que el bot).
 function adInfo_(g, hoy, o) {
@@ -65969,8 +65971,10 @@ function adCard_(I) {
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
   if (meta.length === 1 && !nsChip && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
-  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo')).join('')}${I.pI.map(n => adNom_(n, 'Inspección')).join('')}</span>`
-    : `<button type="button" class="ad-un ad-un-lk" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();aseoAsignar_('${pcEsc(I.asigId)}',this,'${I.depto === 'inspeccion' ? 'inspeccion' : 'aseo'}')">Sin asignación</button>`;
+  // Asignar directo en la card: «＋ Asignar» o clic en el nombre para cambiarlo (sin abrir los detalles).
+  const asg = rol => `aseoAsignar_('${pcEsc(I.asigId)}',this,'${rol}')`;
+  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo', asg('aseo'))).join('')}${I.pI.map(n => adNom_(n, 'Inspección', asg('inspeccion'))).join('')}</span>`
+    : `<button type="button" class="ad-asg" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();${asg(I.depto === 'inspeccion' ? 'inspeccion' : 'aseo')}">＋ Asignar</button>`;
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
