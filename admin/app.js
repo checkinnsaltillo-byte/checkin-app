@@ -64778,6 +64778,9 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .aseo-head .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
+    .ad-syncrow>.ad-seg{align-self:stretch}
+    #aseo-kpis .ad-kpis{margin:0 0 12px}
+    @media (max-width:700px){.ad-syncrow{flex-wrap:wrap}.ad-syncrow>.mv-sync{flex-basis:calc(100% - 42px)}}
     #aseo-top .ad-syncrow>.mv-sync{flex:1;min-width:0;margin:0!important}
     .ad-ham{all:unset;box-sizing:border-box;cursor:pointer;position:relative;flex:none;align-self:stretch;width:34px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:15px;line-height:1}
     .ad-ham:hover,.ad-ham.on{background:#f1f5f9;border-color:#cbd5e1}
@@ -65953,7 +65956,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       const p = L.find(I => !I.tarea) || L.find(I => !['correctivo', 'preventivo'].includes(axSrv_(kDe(I)))) || L[0], pi = idsDe(p), hs = L.filter(I => I !== p);
       hijosDe.set(p, hs); hs.forEach(h => { padreDe.set(h, p); const hi = idsDe(h); puenteDe.set(h, hi.find(x => pi.includes(x)) || hi[0]); });
     }); }
-  const vista = ASEO.vista === 'propiedad' ? 'propiedad' : 'estado';
+  const vista = ASEO.vista === 'estado' ? 'estado' : 'propiedad'; // predeterminada: por propiedad
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
   const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
@@ -65990,10 +65993,11 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const nFil = (MP ? 0 : (ASEO.fPers || []).length) + fP.length + fT.length + fPr.length;
   ASEO._hamHtml = `<button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}${nFil ? ` (${nFil} activo${nFil === 1 ? '' : 's'})` : ''}">☰${nFil ? `<b>${nFil}</b>` : ''}</button>`;
   ASEO._filtrosHtml = ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>` : '';
-  return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  ASEO._segVHtml = segV;
+  return `${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
-try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
-window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista', v); } catch (_) {} aseoRenderSide_(); };
+try { ASEO.vista = localStorage.getItem('aseo-vista2') || 'propiedad'; } catch (_) { ASEO.vista = 'propiedad'; }
+window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista2', v); } catch (_) {} aseoRenderSide_(); };
 window.adPrioFiltro_ = function (k) { const s = ASEO.fPrio = ASEO.fPrio || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
 window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
 window.adPropToggle_ = function (p) { const s = ASEO.fProp = ASEO.fProp || []; const i = s.indexOf(p); if (i >= 0) s.splice(i, 1); else s.push(p); aseoRender_(); };
@@ -67174,7 +67178,9 @@ function aseoRenderSide_() {
   }
   // Barra de Lodgify + KPIs arriba de calendario y cards; el tablero en el panel derecho.
   const top = document.getElementById('aseo-top');
-  if (top) { top.innerHTML = `<div class="ad-syncrow">${ASEO._hamHtml || ''}${mvSyncBar_('aseo')}</div>${ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
+  // KPIs arriba del menú; renglón: ☰ filtros · última actualización · vista
+  const kp = document.getElementById('aseo-kpis'); if (kp) kp.innerHTML = ASEO._kpisHtml || '';
+  if (top) { top.innerHTML = `<div class="ad-syncrow">${ASEO._hamHtml || ''}${mvSyncBar_('aseo')}${ASEO._segVHtml || ''}</div>${kp ? '' : ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
   else side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   side.classList.add('ad-v2');
   aseoPubTodasPaint_();
