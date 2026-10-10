@@ -66837,7 +66837,7 @@ function npPerfilDe_(n) { return ASEO._np.perfiles[n] || { rol: '', auto: { resu
 const NP_PUEDE = {
   admin: ['Todo lo del empleado, y además:', 'Levantar tareas de mantenimiento, insumos e inspección', 'Levantar incidencias y crearles tareas correctivas', 'Crear tareas nuevas', 'Aceptar entradas tempranas y salidas tardías', 'Reprogramar tareas y cambiar sus fechas', 'Validar estados de tareas e incidencias', 'Cambiar la prioridad y asignar responsables', 'Consultar resúmenes, incidencias, historial y datos del huésped'],
   empleado: ['Consultar los detalles básicos de SUS tareas', 'Cambiar el estado de SUS tareas (sin validarlo)', 'Avisar que un huésped no ha desalojado'],
-  '': ['El bot no le responde como personal ni le envía mensajes']
+  '': ['Si está en Personal con celular, puede registrar entrada/salida y consultar SUS tareas (igual que un empleado)', 'No recibe avisos automáticos ni su lista actualizada cuando cambian sus tareas']
 };
 // Celular del Personal (10 dígitos) para mostrarlo junto al nombre.
 function npTel_(n) {
@@ -66882,7 +66882,7 @@ function npPruebaHtml_() {
 }
 function npPruebaPintar_() { const el = document.getElementById('np-prueba-w'); if (el) el.outerHTML = npPruebaHtml_(); }
 const NP_EVT = [['ns', '🚨 No ha desalojado'], ['ns_off', '✅ Ya desalojó'], ['tardia', '🕚 Salida tardía aceptada'], ['temprana', '⏰ Entrada temprana aceptada'], ['terminado', '🧹 Limpieza terminada'],
-  ['inspeccionado', '✅ Inspeccionada'], ['asignado', '👤 Aseo asignado'], ['reserva', '🆕 Reserva nueva de hoy'], ['incidencia', '🚨 Incidencia nueva'], ['resumen', '📋 Resumen 2 pm'], ['pend3', '⏳ Pendientes 3 pm']];
+  ['inspeccionado', '✅ Inspeccionada'], ['asignado', '👤 Aseo asignado'], ['reserva', '🆕 Reserva nueva de hoy'], ['incidencia', '🚨 Incidencia nueva'], ['resumen', '📋 Resumen 2 pm'], ['pend3', '⏳ Pendientes 3 pm'], ['entrada', '🕘 Registro de entrada del personal'], ['salida', '🕕 Registro de salida del personal']];
 window.npEvSel_ = function (k) { ASEO._np.ev = ASEO._np.ev === k ? '' : k; document.querySelectorAll('.np-ev').forEach(b => b.classList.toggle('on', b.getAttribute('onclick').includes(`'${ASEO._np.ev}'`) && !!ASEO._np.ev)); };
 window.npSimEvento_ = async function (btn) {
   const box = btn.closest('.np-prueba'), out = box.querySelector('.np-sim-ev'), yo = npYo_(), pf = npPerfilDe_(yo);
@@ -66915,7 +66915,7 @@ const NP_REGLAS = [
   ['👥', 'Roles y permisos', 'El rol de cada persona define TODO lo que puede hacer con el bot.', [
     '<b>Administrador:</b> todo — levantar incidencias, tareas de mantenimiento/insumos/inspección y tareas correctivas; crear tareas; aceptar entradas tempranas y salidas tardías; reprogramar y cambiar fechas; validar estados; cambiar prioridad; asignar responsables; consultar resúmenes, incidencias, historial y datos del huésped.',
     '<b>Empleado:</b> solo consulta lo básico de <i>sus</i> tareas, cambia su estado (queda «sin validar») y puede avisar que un huésped no ha desalojado.',
-    '<b>Desactivado:</b> el bot no lo atiende como personal ni le manda nada.',
+    '<b>Desactivado:</b> sin avisos automáticos. Si está en Personal con celular, igual puede registrar entrada/salida y consultar sus tareas como empleado.',
     'Los administradores del sistema (Puesto «Administración») siempre tienen todos los permisos desde su número. Con «@» al inicio el bot ejecuta directo.']],
   ['📬', 'Mensajes automáticos', 'Se controlan con el interruptor de arriba. Si está apagado, el bot no manda nada por su cuenta.', [
     '<b>Solo a administradores</b>, según lo que tengan marcado: 📋 <b>Resumen del día a las 2 pm</b> (limpiezas, tareas, tareas programadas e incidencias) · 🚨 <b>Alertas</b> (incidencias y «no ha desalojado») · 🔄 <b>Cada cambio</b> en las tareas de hoy (opcional).',
@@ -66938,6 +66938,7 @@ const NP_REGLAS = [
     '<b>Nunca muestra códigos, folios ni claves:</b> identifica por alojamiento y descripción.',
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
+    '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
     'Si en un alojamiento sale una reserva confirmada y otra cancelada, la card (estado, asignación, prioridad) usa la confirmada.',
     'Un alojamiento que solo tiene entrada ese día es una <b>Inspección</b>. Si se reprograma una limpieza de salida para ese día, prevalece la limpieza.',
@@ -66946,7 +66947,7 @@ const NP_REGLAS = [
   ['🧪', 'Prueba del bot', 'Nada de lo que se simula se guarda ni se avisa a nadie más.', [
     '<b>Prueba como:</b> el bot le contesta a tu número como lo haría con esa persona. Mientras esté puesta, tu entrada y salida no se registran. Regrésala a «Nadie» al terminar.',
     '<b>Simular envío de mensaje:</b> un proceso de la lista o cualquier mensaje escrito. Te llega por WhatsApp y lo ves aquí.',
-    '<b>Evento del sistema:</b> lo que el sistema manda solo ante una acción. Te dice quién lo recibiría y si la persona elegida lo recibe o no, y por qué.']],
+    '<b>Evento del sistema:</b> lo que el sistema manda solo ante una acción. Te dice quién lo recibiría y si la persona elegida lo recibe o no, y por qué. Incluye el registro de entrada y de salida del personal (con el cierre de tareas) y el aviso de pendientes de las 3 pm.']],
   ['🔒', 'Seguridad de la configuración', '', [
     'Los cambios de esta ventana se guardan solos. La ventana no deja guardar hasta terminar de cargar.',
     'Guardar nunca borra a otras personas. Para quitarle funciones a alguien, ponlo en «Desactivado».']],
