@@ -67685,7 +67685,7 @@ const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo
 const IC = { fx: { mot: new Set(), pers: new Set(), prio: '', per: '30', arch: false }, dr: null, sec: 'tablero', q: '', cargando: false, cargado: false };
 const IC_PAL = ['#8b5cf6', '#e11d48', '#0d9488', '#ca8a04', '#2563eb', '#db2777', '#65a30d', '#7c3aed'];
 // Incidencias de HUÉSPED (2.ª clase, además de «Operativa»): sus propios motivos; sus sub-motivos viven en el catálogo como «H:<motivo>».
-const IC_MOT_H = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Daños': { c: '#dc2626', ico: '💥' }, Faltantes: { c: '#ca8a04', ico: '🧺' }, Reglamento: { c: '#7c3aed', ico: '📜' } };
+const IC_MOT_H = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Daños': { c: '#dc2626', ico: '💥' }, Faltantes: { c: '#ca8a04', ico: '🧺' }, Reglamento: { c: '#7c3aed', ico: '📜' }, Otro: { c: '#64748b', ico: '❔' } };
 const IC_CLS = { operativa: { t: 'Operativa', ico: '🛠', c: '#0ea5e9' }, huesped: { t: 'Huésped', ico: '👤', c: '#db2777' } };
 function icMotC_(m) { if (IC_MOT[m]) return IC_MOT[m]; if (IC_MOT_H[m]) return IC_MOT_H[m]; let h = 0; for (const ch of String(m || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return { c: IC_PAL[h % IC_PAL.length], ico: '🚨' }; }
 // Catálogo editable «Motivo › Sub-motivos» (Clasificaciones). Vive en Google Cloud (incidencias/catalogo.json).
@@ -68028,7 +68028,7 @@ function icFormPintar_() {
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const alojs = ocupGetAlojamientos().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
   const nombres = (typeof pzNombres_ === 'function' ? pzNombres_() : []).slice(); if (F.rep && !nombres.includes(F.rep)) nombres.unshift(F.rep);
-  const mots = F.cls === 'huesped' ? [...new Set(Object.keys(IC_MOT_H).concat(F.mot))] : [...new Set(Object.keys(icCatalogo_()).filter(k => !/^H:/.test(k)).concat(F.mot))];
+  const mots = F.cls === 'huesped' ? [...new Set(Object.keys(IC_MOT_H).concat(F.mot))] : [...new Set(Object.keys(icCatalogo_()).filter(k => !/^H:/.test(k)).concat(F.mot, ['Otro']))]; // «Otro» siempre al final
   const cancelar = F.id ? `icFormCancelar_()` : 'icCerrar_()';
   if (F.soloLev) {
     dr.innerHTML = `<div class="ad-dh"><div class="r"><b class="ad-ftit">🛠 ${F.tareaLig ? 'Crear otra tarea correctiva' : 'Crear tarea correctiva'}</b><button type="button" class="ad-close" onclick="icCerrar_()">✕</button></div>
