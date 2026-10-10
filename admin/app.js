@@ -64889,7 +64889,11 @@ function clEmpCss_() {
     .ad-ucards>.ad-card,.ad-ucards>.ad-vinc{flex:none;width:236px;zoom:.88}
     .ad-ucards .ad-empty{align-self:center}
     .ad-card.ad-simp .ax-mini{font-size:0;padding:1px 3px}.ad-card.ad-simp .ax-mini::before{content:"＋⚠";font-size:11px}
-    .ad-card.ad-simp .r2{margin-top:5px}.ad-card.ad-simp .r3{margin-top:6px}
+    .ad-card.ad-simp .r2{margin-top:5px}
+    .ad-card .ad-incrow{display:flex;margin-top:5px}
+    .ad-incchip{all:unset;cursor:pointer;font:700 10.5px Inter,system-ui,sans-serif;color:#fff;background:#dc2626;padding:2px 8px;border-radius:999px;white-space:nowrap}
+    .ad-incchip:hover{background:#b91c1c}
+    #module-aseo.cl-emp .ad-card .ad-incchip{pointer-events:auto!important;cursor:pointer!important}.ad-card.ad-simp .r3{margin-top:6px}
     #aseo-side .ad-card.ad-simp .r3{flex-wrap:nowrap}
     #aseo-vista-slot{display:inline-flex;gap:6px}
     #aseo-side .ad-ucards .ad-card .r3{flex-wrap:wrap;white-space:normal;row-gap:4px}
@@ -66156,6 +66160,7 @@ function adCard_(I) {
     <div class="r1"><span class="code">${pcEsc(I.corto || String(I.aloj || '—').replace(/^Calle\s+/i, ''))}</span><span class="mv">${mov}</span></div>
     <div class="r2">${axCatHtml_(I.depto, I.asigId, I.g.sal.length > 0)}</div>
     <div class="r3">${nsChip}<span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}</div>
+    ${(ids => ids.length ? `<div class="ad-incrow"><button type="button" class="ad-incchip" title="Ver la incidencia" onclick="event.stopPropagation();axIncAbrir_('${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}','${aseoDia_()}')">⚠️ ${ids.length > 1 ? `Incidencias (${ids.length})` : 'Incidencia'}${ids.some(id => { const r = axIncRow_(id); return r && icLigsVal_(r).length; }) ? ' (tarea)' : ''}</button></div>` : '')(axEx_(I.asigId).incidencia ? axIncActivas_(I.asigId) : [])}
     ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
   </div>`;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}')"
@@ -66196,6 +66201,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     }); }
   const MP = clModoPersonal_();
   if (MP) { const mias = tInfos.filter(I => clEsMio_(I.pA)); tInfos.length = 0; mias.forEach(I => tInfos.push(I)); }
+  if (ASEO.simple) { const sinCorr = tInfos.filter(I => !axEsDeInc_(I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id)); tInfos.length = 0; sinCorr.forEach(I => tInfos.push(I)); } // «Simple»: sin tareas correctivas de incidencias
   const props = [...new Set(infos.concat(tInfos).map(propDe))].sort((a, b) => (a === 'Otros') - (b === 'Otros') || a.localeCompare(b, 'es'));
   const fP = (ASEO.fProp || []).filter(p => props.includes(p));
   const vis = new Set(gsF.map(g => String(g.hid || g.k)));
@@ -66215,6 +66221,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     return `<div class="ad-puente" role="button" title="Ver los detalles de la incidencia" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${sid}')"><span class="ar">⇅</span><span class="tx ad-pz"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia</span></span>${conTarea ? '<small>🛠 Tarea correctiva creada</small>' : cerrada ? `<small>${pcEsc((IC_EST.find(e => e.k === x.est) || {}).t || x.est)}</small>` : `<button type="button" class="ad-cta" onclick="event.stopPropagation();axIncCorrectiva_('${sk}','${sh}','${dia}','${sid}')">🛠 Crear tarea correctiva</button>`}</span></div>`;
   };
   const pinta = I => {
+    if (ASEO.simple) return pinta0(I); // vista «Simple»: la incidencia va como chip dentro de la card
     if (!hijosDe.has(I)) {
       const ids = idsDe(I); if (!ids.length) return pinta0(I);
       ASEO._sinInc = new Map([[kDe(I), new Set(ids)]]); // la incidencia ya no se muestra dentro de la card
