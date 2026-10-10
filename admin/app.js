@@ -64859,6 +64859,13 @@ function clEmpCss_() {
     html body .ad-card .r2.ad-src>span+span{margin-left:10px;white-space:nowrap;color:#475569}
     .ad-card .ad-det{display:none!important} /* la card completa abre sus detalles */
     .ad-kl{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+    #aseo-vercomo{display:inline-flex;align-items:center;gap:8px;margin-left:14px;vertical-align:middle}
+    .ck-pb{all:unset;cursor:pointer;font:600 12px Inter,system-ui,sans-serif;padding:5px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151}
+    .ck-pb.on{background:#fef3c7;border-color:#f59e0b;color:#92400e}
+    .ck-vc-l{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font:600 12px Inter,system-ui,sans-serif;color:#92400e}
+    .ck-vc-s{font:500 12.5px Inter,system-ui,sans-serif;height:30px;padding:0 8px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#0f1729}
+    .ck-vc-tag{font:700 10.5px Inter,system-ui,sans-serif;padding:2px 8px;border-radius:999px;background:#0f1729;color:#fff}
+    #module-aseo.cl-prueba #aseo-kpis,#module-aseo.cl-prueba #aseo-side{outline:2px dashed #f59e0b;outline-offset:4px;border-radius:12px}
     #aseo-kpis .ad-kpi.k-pend{background:#f1f5f9;border-color:#cbd5e1}
     #aseo-kpis .ad-kpi.k-proc{background:color-mix(in oklch,#ffb300 30%,#fff);border-color:#ffb300}
     #aseo-kpis .ad-kpi.k-term{background:color-mix(in oklch,#00c853 28%,#fff);border-color:#00c853}
@@ -65736,7 +65743,15 @@ window.aseoFiltroToggle_ = function (n) {
 // y con las cards en solo lectura.
 function clNorm_(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\(whatsapp\)/, '').replace(/[^a-zñ ]/g, ' ').split(/\s+/).filter(t => t.length > 1); }
 function clMisma_(a, b) { const A = clNorm_(a), B = clNorm_(b); if (!A.length || !B.length) return false; const [c, l] = A.length <= B.length ? [A, B] : [B, A]; return c.every(t => l.includes(t)); }
-function clEsAdmin_() {
+// «🧪 Prueba · Ver como»: un administrador ve el Check-list como lo vería otra persona (sus permisos y asignaciones).
+function clVerComo_() { return (typeof ASEO !== 'undefined' && ASEO.verComo) || ''; }
+function clEsAdminNombre_(yo) {
+  const P = ((typeof ASEO !== 'undefined' && ASEO.autonotif) || {}).perfiles || {};
+  const k = Object.keys(P).find(x => clMisma_(x, yo)); if (k && P[k].rol === 'admin') return true;
+  return typeof INC_STATE !== 'undefined' && (INC_STATE.personalRows || []).length && typeof incPuestoDe === 'function' && /administr/i.test(incPuestoDe(yo));
+}
+function clEsAdmin_() { const v = clVerComo_(); return v ? !!clEsAdminNombre_(v) : clEsAdminReal_(); }
+function clEsAdminReal_() {
   const u = (typeof sysGetStoredUser === 'function' && sysGetStoredUser()) || {};
   if (!Array.isArray(u.modulosKeys)) return true;
   const yo = (typeof currentUser !== 'undefined' && currentUser) || u.Nombre || '';
@@ -65745,11 +65760,20 @@ function clEsAdmin_() {
   // Mientras no cargan perfiles ni Personal: lo que resultó la última vez en este navegador.
   if (!Object.keys(P).length && !((typeof INC_STATE !== 'undefined' && INC_STATE.personalRows) || []).length) { try { const c = JSON.parse(localStorage.getItem('cl-admin') || 'null'); if (c && c.n === yo && c.a) return true; } catch (_) {} }
   if (typeof INC_STATE !== 'undefined' && (INC_STATE.personalRows || []).length && typeof incPuestoDe === 'function' && /administr/i.test(incPuestoDe(yo))) return true;
-  if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function' && !clEsAdmin_.c) { clEsAdmin_.c = 1; incLoadPersonal().then(() => { try { aseoRender_(); clNavPaint_(); } catch (_) {} }).catch(() => { clEsAdmin_.c = 0; }); }
+  if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function' && !clEsAdminReal_.c) { clEsAdminReal_.c = 1; incLoadPersonal().then(() => { try { aseoRender_(); clNavPaint_(); } catch (_) {} }).catch(() => { clEsAdminReal_.c = 0; }); }
   return false;
 }
 function clModoPersonal_() { return !clEsAdmin_(); }
-function clEsMio_(nombres) { const yo = (typeof currentUser !== 'undefined' && currentUser) || ''; return (nombres || []).some(n => clMisma_(n, yo)); }
+function clEsMio_(nombres) { const yo = clVerComo_() || (typeof currentUser !== 'undefined' && currentUser) || ''; return (nombres || []).some(n => clMisma_(n, yo)); }
+function ckVerComoHtml_() {
+  if (!clEsAdminReal_()) return '';
+  const on = !!ASEO.pruebaOn, v = clVerComo_();
+  const L = typeof pzNombres_ === 'function' ? pzNombres_() : [];
+  return `<button type="button" class="ck-pb ${on ? 'on' : ''}" onclick="ckPrueba_()" title="Ver el Check-list como lo vería otra persona">🧪 Prueba</button>${on ? `<label class="ck-vc-l">Ver como:<select class="ck-vc-s" onchange="ckVerComo_(this.value)"><option value="">— Elige a alguien —</option>${L.map(n => `<option ${n === v ? 'selected' : ''}>${pcEsc(n)}</option>`).join('')}</select></label>${v ? `<span class="ck-vc-tag">${clEsAdminNombre_(v) ? 'Administrador' : 'Empleado'}</span>` : ''}` : ''}`;
+}
+function ckVerComoPaint_() { const el = document.getElementById('aseo-vercomo'); if (el) el.innerHTML = ckVerComoHtml_(); }
+window.ckPrueba_ = function () { ASEO.pruebaOn = !ASEO.pruebaOn; if (!ASEO.pruebaOn) ASEO.verComo = ''; ASEO.fPers = []; ASEO._mpNav = null; aseoRender_(); ckVerComoPaint_(); };
+window.ckVerComo_ = function (v) { ASEO.verComo = v || ''; ASEO.fPers = []; ASEO._mpNav = null; adCerrar_ && adCerrar_(); aseoRender_(); ckVerComoPaint_(); };
 function aseoVisible_() { const m = document.getElementById('module-aseo'); return !!(m && !m.classList.contains('hidden')); }
 function aseoRender_() {
   if (!aseoVisible_()) return;
@@ -67235,6 +67259,7 @@ const NP_REGLAS = [
     '<b>Estados de la card:</b> Pendiente · En proceso · Terminado · Inspeccionado. «Terminado» va en dos pasos con el mismo botón: 1er clic = terminado (por validar), 2º clic = validado (✓ Term.), otro clic quita la validación. Los demás no requieren validación. «Inspeccionado» pide confirmación.',
     '<b>Incidencia en una card:</b> aparece debajo de la card en un recuadro rojo; si sigue abierta y no tiene tarea correctiva, el enlace «🛠 Crear tarea correctiva» abre directo esa sección.',
     '<b>Archivar una card:</b> sale del tablero, de los KPIs y de las listas, resúmenes y avisos del bot. Se ven en ☰ › «Ver archivadas», donde se pueden desarchivar.',
+    '<b>🧪 Prueba · Ver como:</b> junto al título del Check-list, un administrador puede ver la pantalla como la vería cualquier persona del personal (sus permisos y asignaciones). El borde punteado ámbar indica que estás en prueba; lo que hagas se guarda a tu nombre.',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
     'Si en un alojamiento sale una reserva confirmada y otra cancelada, la card (estado, asignación, prioridad) usa la confirmada.',
@@ -67408,7 +67433,9 @@ function aseoRenderSide_() {
     document.getElementById('module-aseo')?.classList.toggle('cl-emp', MP);
     document.body.classList.toggle('cl-emp-u', MP);
     if (ASEO._mpNav !== MP) { ASEO._mpNav = MP; try { clNavPaint_(); } catch (_) {} } // menú de secciones acorde al rol
-    try { localStorage.setItem('cl-admin', JSON.stringify({ n: currentUser, a: !MP })); } catch (_) {}
+    if (!clVerComo_()) { try { localStorage.setItem('cl-admin', JSON.stringify({ n: currentUser, a: !MP })); } catch (_) {} }
+    ckVerComoPaint_();
+    document.getElementById('module-aseo')?.classList.toggle('cl-prueba', !!clVerComo_());
     selBlock = ''; // la reserva elegida en el calendario se abre en la ventana lateral
     if (MP) { // personal no administrativo: solo sus asignaciones (KPIs incluidos), sin filtro de personal
       ASEO.cal = false; ASEO.dia = null; ASEO._dr = null;
