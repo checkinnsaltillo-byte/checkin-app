@@ -64774,6 +64774,12 @@ function clEmpCss_() {
   const st = document.createElement('style'); st.id = 'cl-emp-css';
   st.textContent = `#module-aseo.cl-emp .aseo-head .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
+    .ad-gfil-w{margin:0 0 10px}
+    .ad-ham{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;font:600 12.5px Inter,system-ui,sans-serif;color:#374151}
+    .ad-ham .ic{font-size:15px;line-height:1}
+    .ad-ham b{background:#111827;color:#fff;border-radius:999px;font-size:10.5px;padding:1px 7px}
+    .ad-ham.on{background:#111827;border-color:#111827;color:#fff}.ad-ham.on b{background:#fff;color:#111827}
+    .ad-gfil-w .ad-gfil{margin-top:8px}
     #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
     #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-mini,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}`;
   document.head.appendChild(st);
@@ -65976,7 +65982,9 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
   ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
-  ASEO._filtrosHtml = `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>`; // filtros generales (cards + calendario)
+  // Filtros generales (cards + calendario) detrás del botón ☰ — contraídos por defecto.
+  const nFil = (MP ? 0 : (ASEO.fPers || []).length) + fP.length + fT.length + fPr.length;
+  ASEO._filtrosHtml = `<div class="ad-gfil-w"><button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}"><span class="ic">☰</span>Filtros${nFil ? `<b>${nFil}</b>` : ''}</button>${ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${tipoHtml}${prioHtml}</div>` : ''}</div>`;
   return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${ver.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista') || 'estado'; } catch (_) {}
@@ -66121,6 +66129,7 @@ function adGrupos_(dia) {
   return { hoy, gs: aseoAplicarReprog_(pcMovAlojGrupos_(cols, hoy), hoy) };
 }
 // ── Ventana lateral ──
+window.adFiltrosToggle_ = function () { ASEO.filtrosAb = !ASEO.filtrosAb; aseoRender_(); };
 window.adAbrir_ = function (k, dia, origen) {
   if (clModoPersonal_()) return; // personal no administrativo: cards en solo lectura
   ASEO._dr = { k: String(k), dia: dia || aseoDia_() };
