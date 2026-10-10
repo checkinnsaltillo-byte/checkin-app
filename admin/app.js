@@ -59927,6 +59927,9 @@ function pcMovAlojGrupos_(cols, dia) {
   const okB = x => /^booked$/i.test(String(x.b.Status || '').trim()) || (x.cambio && x.cambio.k === 'cancelada');
   cols = cols.map(c => Object.assign({}, c, { list: c.list.filter(okB) }));
   cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
+  // Si en el alojamiento sale una reserva confirmada y otra cancelada, la card (y su estado/asignación) es la confirmada.
+  const esCanc = x => !!(x.cambio && x.cambio.k === 'cancelada');
+  m.forEach(g => g.sal.sort((x, y) => esCanc(x) - esCanc(y)));
   // Entradas sin salida hoy en ese alojamiento → card propia (el estado de aseo es el de
   // su última salida, o el del alojamiento "H<hid>" si no tiene; igual que el bot y la guía).
   const hoyE = dia || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
