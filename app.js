@@ -66899,7 +66899,7 @@ window.atFormSrv_ = function (v) { ASEO._tf.srv = v; atFormPintar_(); };
 window.rtFormSrv_ = function (v) { ASEO._rf._srv = v; rtFormPintarA_(); };
 // Mantenimiento = reporte técnico: se cambia al formulario del reporte con los datos ya escritos.
 window.atFormDepto_ = function (v) {
-  if (v !== 'mantenimiento') { ASEO._tf.depto = v; atFormPintar_(); return; }
+  if (v !== 'mantenimiento') { const F = ASEO._tf, p = F.plantilla && ASEO.pl && ASEO.pl.lista[F.plantilla]; if (p && p.depto !== v) F.plantilla = ''; F.depto = v; atFormPintar_(); return; } // otra área: se quita la plantilla que no le corresponde
   const F = ASEO._tf;
   rtFormA_(null, { hid: F.hid, titulo: F.titulo, desc: F.desc, fecha: F.fecha, prioridad: F.prioridad, asignados: F.asignados, reserva: F.reserva, deTarea: F.id || '', srv: F.srv });
 };
@@ -68743,7 +68743,10 @@ window.plEdGuardar_ = async function () {
 function plSelTarea_() {
   const F = ASEO._tf || {};
   if (!ASEO.pl.cargado) { plCargar_().then(() => { if (ASEO._tf && ASEO._dr && ASEO._dr.form) atFormPintar_(); }); return '<div class="at-hint">⏳ Cargando plantillas…</div>'; }
-  const L = Object.values(ASEO.pl.lista || {}).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), 'es'));
+  // Anidada al «Tipo de tarea»: solo las plantillas de ese departamento (la ya asignada se conserva aunque sea de otro).
+  if (!F.depto) return '<div class="at-hint">Elige primero el tipo de tarea para ver sus plantillas.</div>';
+  const L = Object.values(ASEO.pl.lista || {}).filter(p => p.depto === F.depto || p.id === F.plantilla).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), 'es'));
+  if (!L.length) return `<div class="at-hint">No hay plantillas de ${pcEsc((AT_DEPTO[F.depto] || {}).t || F.depto)}. Créalas en «📋 Plantillas».</div>`;
   return `<select class="at-in" onchange="plTareaElegir_(this.value)"><option value="">Sin plantilla</option>${L.map(p => `<option value="${pcEsc(p.id)}" ${p.id === F.plantilla ? 'selected' : ''}>${pcEsc(p.titulo)} · ${plCampos_(p)} campos</option>`).join('')}</select>
     ${F.plantilla && !ASEO.pl.lista[F.plantilla] ? '<div class="at-hint">La plantilla asignada ya no existe.</div>' : F.plantilla ? '<div class="at-hint">Al abrir la tarea aparecerá este formulario para llenarlo.</div>' : ''}`;
 }
