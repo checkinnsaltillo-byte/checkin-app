@@ -9189,7 +9189,7 @@ function clNavPaint_() {
       .ck-bar .aseo-btn,.ck-dnav button{all:unset;box-sizing:border-box;cursor:pointer;height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:12.5px;font-weight:600;white-space:nowrap}
       .ck-bar .aseo-btn:hover,.ck-dnav button:hover{background:#f8fafc;border-color:#cbd5e1}
       .ck-bar .ck-ib{width:32px;padding:0;justify-content:center;font-size:15px}
-      .ck-bar .ck-ib .ck-rf{display:block;flex:none;color:#334155}.ck-bar .ck-ib:hover .ck-rf{color:#4f46e5}
+      .ck-bar .ck-ib .ck-rf{display:block;flex:none;color:#4f46e5}.ck-bar .ck-ib:has(.ck-rf){border-radius:9px;background:#fff;border:1px solid #e0e3ec;box-shadow:0 1px 2px rgba(15,23,42,.06);transition:background .15s,border-color .15s}.ck-bar .ck-ib:has(.ck-rf):hover{background:#eef2ff;border-color:#c7d2fe}.ck-bar .ck-ib:has(.ck-rf):active{transform:scale(.94)}
       .ck-bar .ck-ib.girando .ck-rf{animation:ckGira .8s linear infinite}@keyframes ckGira{to{transform:rotate(360deg)}}
       .ck-bar .ck-ib.on{background:#0f1729;border-color:#0f1729;color:#fff}
       .ck-bar .ck-pri{background:#4f46e5;border-color:#4f46e5;color:#fff}.ck-bar .ck-pri:hover{background:#4338ca;border-color:#4338ca}
@@ -67913,7 +67913,7 @@ function icRender_() {
       <div class="ad-seg"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="icSec_('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="icSec_('registro')">Registro</button></div>
       <span class="ck-sp"></span>
       ${nArch || IC.fx.arch ? `<button type="button" class="aseo-btn ${IC.fx.arch ? 'ck-b on' : ''}" onclick="IC.fx.arch=!IC.fx.arch;icRender_()" title="Ver incidencias archivadas">🗄 ${nArch}</button>` : ''}
-      ${IC.cargando ? '<span class="ck-hint">⏳</span>' : '<button type="button" class="aseo-btn ck-ib" onclick="icInit_()" title="Volver a cargar las incidencias" aria-label="Actualizar"><svg class="ck-rf" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>'}
+      ${IC.cargando ? '<span class="ck-hint">⏳</span>' : '<button type="button" class="aseo-btn ck-ib" onclick="icInit_()" title="Volver a cargar las incidencias" aria-label="Actualizar"><svg class="ck-rf" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>'}
       <button type="button" class="aseo-btn ck-ib" onclick="icClasif_()" title="Clasificaciones">⚙️</button>
       <button type="button" class="aseo-btn ck-pri" onclick="icForm_(null)">＋ Nueva incidencia</button></div>`;
   const vacio = !todas.length ? `<div class="pc-mv-empty">${IC.cargado ? 'Aún no hay incidencias registradas.' : '⏳ Cargando incidencias…'}</div>` : '';
