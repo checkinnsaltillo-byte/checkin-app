@@ -54421,11 +54421,25 @@ window._rtRemovePhotoUrl = function(tipo, url) {
 };
 
 async function _rtFileToBase64(file) {
-  const buf = await file.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
+  const url = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result || '')); r.onerror = ko; r.readAsDataURL(file); });
+  return url.slice(url.indexOf(',') + 1);
+}
+// Fotos ligeras: antes de subir se reducen a máx. 1600 px por lado en JPEG (~0.25 MB en vez de 3–8 MB de la cámara).
+// Respeta la orientación de la foto. Si algo falla (formato no soportado) o no ahorra, se sube la original.
+async function imgLigera_(file, max = 1600, q = 0.72) {
+  try {
+    if (!file || !/^image\//.test(file.type || '') || /gif|svg/i.test(file.type)) return file;
+    let src, w, h;
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); w = src.width; h = src.height; }
+    catch (_) { src = await new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = URL.createObjectURL(file); }); w = src.naturalWidth; h = src.naturalHeight; }
+    const k = Math.min(1, max / Math.max(w, h)), cw = Math.round(w * k), ch = Math.round(h * k);
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cw, ch); cx.drawImage(src, 0, 0, cw, ch);
+    if (src.close) src.close();
+    const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', q));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], String(file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (_) { return file; }
 }
 
 window.rtSave = async function() {
@@ -54438,11 +54452,11 @@ window.rtSave = async function() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
     // Fotos: convertir en paralelo y omitir arrays vacíos para acelerar.
-    const conv = f => _rtFileToBase64(f).then(base64 => ({
+    const conv = f0 => imgLigera_(f0).then(f => _rtFileToBase64(f).then(base64 => ({
       name: f.name || `rt_${Date.now()}.jpg`,
       mimeType: f.type || 'image/jpeg',
       base64,
-    }));
+    })));
     const [fotos_antes, fotos_despues] = await Promise.all([
       RT_STATE.fotosAntesPending.length ? Promise.all(RT_STATE.fotosAntesPending.map(conv)) : Promise.resolve([]),
       RT_STATE.fotosDespuesPending.length ? Promise.all(RT_STATE.fotosDespuesPending.map(conv)) : Promise.resolve([]),
@@ -66803,7 +66817,8 @@ function atAdjsHtml_() { return (ASEO._tf.adjuntos || []).map((a, i) => `<span c
 window.atSubir_ = async function (inp) {
   const files = [...(inp.files || [])]; inp.value = '';
   const box = document.getElementById('at-adjs');
-  for (const f of files) {
+  for (const f0 of files) {
+    const f = await imgLigera_(f0); // fotos ligeras
     if (f.size > 15 * 1024 * 1024) { alert(`«${f.name}» pesa más de 15 MB.`); continue; }
     const tmp = document.createElement('span'); tmp.className = 'ad-adj'; tmp.textContent = '⏳ ' + f.name; box && box.appendChild(tmp);
     try {
@@ -67097,7 +67112,7 @@ window.rtGuardarA_ = async function () {
     Reservacion_id: F.Reservacion_id || '', Huesped_nombre: res ? (res.GuestName || '') : (F.Huesped_nombre || ''), Notas: F.Notas || '', UpdatedAt: new Date().toISOString(), Updated_by: user };
   if (F.ID) payload.ID = F.ID;
   try {
-    const conv = f => _rtFileToBase64(f).then(base64 => ({ name: f.name || `rt_${Date.now()}.jpg`, mimeType: f.type || 'image/jpeg', base64 }));
+    const conv = f0 => imgLigera_(f0).then(f => _rtFileToBase64(f).then(base64 => ({ name: f.name || `rt_${Date.now()}.jpg`, mimeType: f.type || 'image/jpeg', base64 })));
     const [fa, fd] = await Promise.all([Promise.all(ASEO._rfFotos.antes.map(conv)), Promise.all(ASEO._rfFotos.despues.map(conv))]);
     const body = { payload }; if (fa.length) body.fotos_antes = fa; if (fd.length) body.fotos_despues = fd;
     const r = await fetch(`${BACKEND}/reportes-tecnicos-upsert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
@@ -68103,7 +68118,7 @@ window.icFormPers_ = function (anchor) {
 };
 window.icFormFotos_ = function (inp) {
   const files = [...(inp.files || [])]; inp.value = '';
-  Promise.all(files.map(f => _rtFileToBase64(f).then(base64 => ({ name: f.name || `inc_${Date.now()}.jpg`, mimeType: f.type || 'image/jpeg', base64 }))))
+  Promise.all(files.map(f0 => imgLigera_(f0).then(f => _rtFileToBase64(f).then(base64 => ({ name: f.name || `inc_${Date.now()}.jpg`, mimeType: f.type || 'image/jpeg', base64 })))))
     .then(L => { if (!IC.f) return; IC.f.nuevas.push(...L); const c = document.getElementById('ic-fotos'); if (c) c.innerHTML = icFotosForm_(); });
 };
 window.icGuardar_ = async function () {
