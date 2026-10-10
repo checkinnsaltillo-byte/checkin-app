@@ -57798,7 +57798,7 @@ function tdCard_(r, dia) {
     <div class="r1"><span class="ttl">${esc(r.Nombre || 'Sin nombre')}</span></div>
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
-    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}${prio4Html_(r.Prioridad || 'Medio', false, `tdPrioCiclo_('${esc(r.ID)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
+    <div class="r3">${pers.length ? `<span class="ad-avs">${pers.map(n => adNom_(n)).join('')}</span>` : '<span class="ad-un">Sin asignación</span>'}<span class="sp"></span>${r.WhatsApp === 'Sí' ? '<span class="wa" title="Envía WhatsApp">💬 WhatsApp</span>' : ''}${oc && oc.Comentarios ? '<span class="ad-gd" title="Tiene comentarios del día">💬</span>' : ''}${prio4Html_(r.Prioridad || 'Medio', false, `tdPrioCiclo_('${esc(r.ID)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();tdAbrir_('${esc(r.ID)}')">Detalles</button></div>
     ${qs}
   </div>`;
 }
@@ -64824,9 +64824,20 @@ function clEmpCss_() {
     html body .ad-card .ad-qs button{background:#f1f3f5;color:#6b7280;box-shadow:none}
     html body .ad-card .ad-qs button i{background:#9ca3af;opacity:1}
     html body .ad-card .ad-qs button:hover{background:#e5e7eb;color:#111827}
-    html body .ad-card .ad-qs button.on{background:#6b7280;color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
+    html body .ad-card .ad-qs button.on{background:var(--c);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.15)}
     html body .ad-card .ad-qs button.on i{background:#fff}
-    html body .ad-card .ad-qs button.on[title="Inspeccionado"]{background:#000;color:#fff}
+    .ad-card{position:relative}.ad-card>.r1:has(>.ad-insp){padding-right:28px}.ad-card>.r1:has(>.ad-insp) .mv{flex-shrink:1;min-width:0;flex-wrap:wrap;justify-content:flex-end;row-gap:3px}.ad-card>.r1>.ad-insp{position:absolute;top:8px;right:8px;margin:0}
+    .ad-insp{all:unset;box-sizing:border-box;cursor:pointer;flex:none;margin-left:6px;width:22px;height:22px;border-radius:6px;border:1.5px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:transparent;font:800 13px/1 Inter,system-ui,sans-serif}
+    .ad-insp:hover{border-color:#16a34a;color:#86efac}
+    .ad-insp.on{background:#16a34a;border-color:#16a34a;color:#fff}
+    .ad-insp.big{width:auto;height:36px;margin:8px 0 0;padding:0 12px;font:600 12.5px Inter,system-ui,sans-serif;color:#374151}
+    .ad-insp.big .ck{width:18px;height:18px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:transparent}
+    .ad-insp.big.on{background:#f0fdf4;border-color:#16a34a;color:#166534}.ad-insp.big.on .ck{background:#16a34a;border-color:#16a34a;color:#fff}
+    .ad-nm{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;background:color-mix(in srgb,var(--pc) 14%,#fff);border:1px solid color-mix(in srgb,var(--pc) 45%,#fff);color:color-mix(in srgb,var(--pc) 70%,#111);font:600 10.5px Inter,system-ui,sans-serif;white-space:nowrap}
+    .ad-avs:has(.ad-nm){display:inline-flex;flex-wrap:wrap;gap:3px}
+    .ad-pz{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ad-pz small{font-size:11px;color:#64748b}
+    .ad-pz .ad-cta{all:unset;cursor:pointer;font:700 11.5px Inter,system-ui,sans-serif;color:#dc2626;text-decoration:underline;text-underline-offset:2px}
+    .ad-pz .ad-cta:hover{color:#991b1b}
     .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
     .ad-syncrow>.ad-seg{align-self:stretch}
     #aseo-kpis .ad-kpis{margin:0 0 12px}
@@ -64837,7 +64848,8 @@ function clEmpCss_() {
     .ad-ham b{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:#111827;color:#fff;font:700 10px/16px Inter,system-ui,sans-serif;text-align:center}
     .ad-gfil{margin:0 0 10px}
     #module-aseo.cl-emp .ad-card,#module-aseo.cl-emp .at-card,#module-aseo.cl-emp .rt-card,#module-aseo.cl-emp .ad-puente,#module-aseo.cl-emp [draggable]{pointer-events:none!important;cursor:default!important}
-    #module-aseo.cl-emp .ad-card .ad-qs,#module-aseo.cl-emp .ad-card .ad-qs button,#module-aseo.cl-emp .ad-card .mv-ns{pointer-events:auto!important;cursor:pointer!important}
+    #module-aseo.cl-emp .ad-card .ad-qs,#module-aseo.cl-emp .ad-card .ad-qs button,#module-aseo.cl-emp .ad-card .mv-ns,#module-aseo.cl-emp .ad-card .ad-insp{pointer-events:auto!important;cursor:pointer!important}
+    #module-aseo.cl-emp .ad-puente{display:none!important}
     #module-aseo.cl-emp .ad-det,#module-aseo.cl-emp .ax-mini,#module-aseo.cl-emp .ax-inc,#module-aseo.cl-emp .cl-b.off{display:none!important}`;
   document.head.appendChild(st);
 }
@@ -65719,12 +65731,20 @@ const AD_EST = [
   { k: 'pendiente', t: 'Pendiente', c: '#94a3b8' },
   { k: 'en_proceso', t: 'En proceso', c: '#ffb300' },
   { k: 'terminado', t: 'Terminado', c: '#00c853' },
-  { k: 'inspeccionado', t: 'Inspeccionado', c: '#00a86b' },
 ];
+// «Inspeccionado» ya no es un estado más: es la palomita ✓ sobre «Terminado» (se guarda igual: estado 'inspeccionado').
+const AD_INSP_C = '#00a86b';
+const adEstBase_ = k => (k === 'inspeccionado' ? 'terminado' : k);
+function adEstObj_(k) { return k === 'inspeccionado' ? { k, t: 'Inspeccionado', c: AD_INSP_C } : (AD_EST.find(e => e.k === k) || AD_EST[0]); }
+function adInspBtn_(id, hid, sel, tarea, big) {
+  const on = sel === 'inspeccionado';
+  return `<button type="button" class="ad-insp ${on ? 'on' : ''} ${big ? 'big' : ''}" title="${on ? 'Inspeccionado · clic para quitar' : 'Marcar como inspeccionado'}" onclick="event.stopPropagation();aseoSetEstado_('${pcEsc(String(id))}','${pcEsc(String(hid || ''))}','${on ? 'terminado' : 'inspeccionado'}',${tarea ? 'true' : 'false'})"><span class="ck">✓</span>${big ? (on ? 'Inspeccionado' : 'Marcar como inspeccionado') : ''}</button>`;
+}
 // Color del estado (para teñir la card): pendiente · en proceso · terminado · inspeccionado · cancelado.
-function adEstC_(k) { return (AD_EST.find(e => e.k === k) || {}).c || (k === 'cancelado' ? '#64748b' : '#94a3b8'); }
+function adEstC_(k) { return k === 'inspeccionado' ? AD_INSP_C : (AD_EST.find(e => e.k === k) || {}).c || (k === 'cancelado' ? '#64748b' : '#94a3b8'); }
 function adHoraMx_() { return Number(new Date().toLocaleString('en-US', { timeZone: 'America/Monterrey', hour: 'numeric', hour12: false })) % 24; }
 function adIni_(n) { return String(n || '?').replace(/\s*\(WhatsApp\)\s*$/, '').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase(); }
+function adNom_(n, rol) { const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim(); return `<span class="ad-nm" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)}">${pcEsc(t.split(/\s+/)[0] || '?')}</span>`; }
 function adAv_(n, rol) { return `<span class="ad-av" style="background:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + n)}">${pcEsc(adIni_(n))}</span>`; }
 // Todo lo que se necesita de una card (mismas reglas que pcAlojCard_ y que el bot).
 function adInfo_(g, hoy, o) {
@@ -65771,8 +65791,9 @@ function adInfo_(g, hoy, o) {
 // Selector rápido de estado al pie de la card (un clic) — mismo guardado que la ventana de detalles.
 const AD_CORTO = { pendiente: 'Pend.', en_proceso: 'Proceso', terminado: 'Term.', inspeccionado: 'Insp.' };
 function adEstRapido_(id, hid, sel, tarea, sinInsp) {
-  return `<div class="ad-qs" onclick="event.stopPropagation()">${AD_EST.filter(e => !sinInsp || e.k !== 'inspeccionado').map(e =>
-    `<button type="button" class="${e.k === sel ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === sel ? '' : `aseoSetEstado_('${pcEsc(id)}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})`}"><i></i>${AD_CORTO[e.k]}</button>`).join('')}</div>`;
+  const sb = adEstBase_(sel);
+  return `<div class="ad-qs" onclick="event.stopPropagation()">${AD_EST.map(e =>
+    `<button type="button" class="${e.k === sb ? 'on' : ''}" style="--c:${e.c}" title="${e.t}" onclick="event.stopPropagation();${e.k === sb ? '' : `aseoSetEstado_('${pcEsc(id)}','${pcEsc(String(hid || ''))}','${e.k}',${tarea ? 'true' : 'false'})`}"><i></i>${AD_CORTO[e.k]}</button>`).join('')}</div>`;
 }
 // Arrastrar una card a otra columna (vista por estado) → cambia su estado.
 window.adDragStart_ = function (ev, id, hid, tarea, sinInsp) {
@@ -65863,6 +65884,12 @@ function axIncHtml_(k, ids) {
 }
 function axIncClick_(k, inc, hid, dia) { const sk = pcEsc(String(k)), sh = pcEsc(String(hid || '')), sd = pcEsc(String(dia || '')); return inc ? `axIncAbrir_('${sk}','${sh}','${sd}')` : `axReportar_('${sk}','${sh}','${sd}')`; }
 // Clic en «⚠️ Incidencia»: siempre abre la ventana lateral (una → su detalle; varias → la lista de la card).
+// «🛠 Crear tarea correctiva» desde el recuadro de la incidencia: abre directo esa sección de la ventana lateral.
+window.axIncCorrectiva_ = async function (k, hid, dia, id) {
+  if (!(INC_STATE.list || []).length) await incLoadIncidencias();
+  icCss_(); IC.dr = { id: String(id), ctx: { k: String(k), hid: String(hid || ''), dia: String(dia || '') } };
+  icForm_(String(id), null, { soloLev: true });
+};
 window.axIncAbrir_ = async function (k, hid, dia, id) {
   if (axIncIds_(k).length && !(INC_STATE.list || []).length) await incLoadIncidencias();
   const ids = axIncActivas_(k), ctx = { k: String(k), hid: String(hid || ''), dia: String(dia || '') };
@@ -65936,12 +65963,12 @@ function adCard_(I) {
   if (I.selE === 'terminado' && !I.validado) meta.push('<span class="pd">Por validar</span>');
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
   if (meta.length === 1 && !nsChip && I.xe) { const s = I.xe.b.Source ? String(I.xe.b.Source) : ''; meta.push('<span>' + pcEsc([s, I.xe.tier ? I.xe.tier.label : (I.xe.stats && I.xe.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ')) + '</span>'); }
-  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adAv_(n, 'Aseo')).join('')}${I.pI.map(n => adAv_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignar</span>';
+  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo')).join('')}${I.pI.map(n => adNom_(n, 'Inspección')).join('')}</span>` : '<span class="ad-un">Sin asignación</span>';
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" onclick="adAbrir_('${pcEsc(I.k)}')"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span>${I.fantasma ? '' : adInspBtn_(I.asigId, I.hid, I.selE, false)}</div>
     ${I.aviso ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${nsChip}
@@ -65984,8 +66011,19 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const kDe = I => I.tarea ? (I.t.rt ? 'R' + I.t.rtId : 'T' + I.t.id) : I.asigId;
   const idsDe = I => axEx_(kDe(I)).incidencia ? axIncActivas_(kDe(I)) : [];
   const padreDe = new Map(), hijosDe = new Map(), puenteDe = new Map(); // hijo → incidencia que lo une a la card de origen
+  // Incidencia de una card sin card vinculada: el mismo recuadro rojo, DEBAJO de la card; si aún no tiene
+  // tarea correctiva, enlace «Crear tarea correctiva» que abre directo esa sección de la ventana lateral.
+  const puenteSolo = (I, id) => {
+    const k = kDe(I), sk = pcEsc(k), sh = pcEsc(String(I.hid || '')), dia = pcEsc(I.tarea ? (I.dia || hoy) : hoy), sid = pcEsc(id);
+    const r = axIncRow_(id), conTarea = r ? icLigsVal_(r).length > 0 : false, x = r ? icRow_(r) : null, cerrada = x ? icCerrada_(x) : false;
+    return `<div class="ad-puente" role="button" title="Ver los detalles de la incidencia" onclick="event.stopPropagation();axIncAbrir_('${sk}','${sh}','${dia}','${sid}')"><span class="ar">⇅</span><span class="tx ad-pz"><span class="ax-inc on split"><span class="i1">⚠️ Incidencia</span></span>${conTarea ? '<small>🛠 Tarea correctiva creada</small>' : cerrada ? `<small>${pcEsc((IC_EST.find(e => e.k === x.est) || {}).t || x.est)}</small>` : `<button type="button" class="ad-cta" onclick="event.stopPropagation();axIncCorrectiva_('${sk}','${sh}','${dia}','${sid}')">🛠 Crear tarea correctiva</button>`}</span></div>`;
+  };
   const pinta = I => {
-    if (!hijosDe.has(I)) return pinta0(I);
+    if (!hijosDe.has(I)) {
+      const ids = idsDe(I); if (!ids.length) return pinta0(I);
+      ASEO._sinInc = new Map([[kDe(I), new Set(ids)]]); // la incidencia ya no se muestra dentro de la card
+      try { return `<div class="ad-vinc">${pinta0(I)}${ids.map(id => puenteSolo(I, id)).join('')}</div>`; } finally { ASEO._sinInc = null; }
+    }
     const H = hijosDe.get(I), k = kDe(I), sk = pcEsc(k), sh = pcEsc(String(I.hid || '')), dia = pcEsc(I.tarea ? (I.dia || hoy) : hoy);
     const cubre = new Map(); H.forEach(h => [k, kDe(h)].forEach(x => { if (!cubre.has(x)) cubre.set(x, new Set()); cubre.get(x).add(puenteDe.get(h)); }));
     ASEO._sinInc = cubre;
@@ -66040,12 +66078,12 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   </div>`;
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
-      const L = ver.filter(I => !I.fantasma && I.selE === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : [], E.k === 'terminado' ? ver.filter(I => I.selE === 'cancelado') : []);
+      const L = ver.filter(I => !I.fantasma && adEstBase_(I.selE) === E.k).concat(E.k === 'pendiente' ? ver.filter(I => I.fantasma) : [], E.k === 'terminado' ? ver.filter(I => I.selE === 'cancelado') : []);
       return `<div class="ad-col" ondragover="adDragOver_(event,'${E.k}')" ondrop="adDrop_(event,'${E.k}')"><div class="ad-colh"><i style="background:${E.c}"></i>${E.t}<span>${nVis(L)}</span></div>${sinHijos(L).map(pinta).join('') || '<div class="ad-empty">Suelta aquí una card</div>'}</div>`;
     }).join('')
     : props.filter(p => ver.some(I => propDe(I) === p)).map(p => {
       const L = ver.filter(I => propDe(I) === p);
-      const pts = AD_EST.map(E => { const c = L.filter(I => !I.fantasma && I.selE === E.k).length; return c ? `<i style="background:${E.c}" title="${E.t}: ${c}"></i>` : ''; }).join('');
+      const pts = AD_EST.map(E => { const c = L.filter(I => !I.fantasma && adEstBase_(I.selE) === E.k).length; return c ? `<i style="background:${E.c}" title="${E.t}: ${c}"></i>` : ''; }).join('');
       return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${nVis(L)}</span><em class="ad-pts">${pts}</em></div>${sinHijos(L).map(pinta).join('')}</div>`;
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
@@ -66113,14 +66151,14 @@ function aseoCalFiltrar_(m) {
 }
 function aseoCalTareaHtml_(t) {
   if (t.tarea) {
-    const tk = t.tarea, reg = aseoEstDe_(`T${tk.id}-${t.dia}`), E = AD_EST.find(e => e.k === ((reg || {}).estado || 'pendiente')) || AD_EST[0];
+    const tk = t.tarea, reg = aseoEstDe_(`T${tk.id}-${t.dia}`), E = adEstObj_((reg || {}).estado || 'pendiente');
     const D = AT_DEPTO[tk.depto] || AT_DEPTO.limpieza;
     const Ec = tk.rt ? ({ pendiente: '#94a3b8', en_proceso: '#f59e0b', terminado: '#10b981', cancelado: '#64748b' }[tk.estado]) : E.c;
     return `<div class="t1"><i style="background:${Ec}"></i><b>${D.ico} ${pcEsc(tk.titulo)}</b>${tk.repite ? '<span class="rp" title="Se repite">↻</span>' : ''}${tk.bloquea && rtAbierto_(tk) ? '<span class="al" title="Inhabitable">🚫</span>' : ''}</div>
       <div class="t2">${prio4Html_(tk.prioridad, true)}${(tk.asignados || []).length ? `<span class="ad-avs">${tk.asignados.slice(0, 4).map(n => adAv_(n)).join('')}</span>` : '<span class="un">Sin asignar</span>'}</div>`;
   }
   const reg = aseoEstDe_(t.id), k = (reg || {}).estado || 'pendiente';
-  const E = AD_EST.find(e => e.k === k) || AD_EST[0];
+  const E = adEstObj_(k);
   const a = (ASEO.asig || {})[t.id] || {}, pp = [...(a.aseo || a.personal || []), ...(a.inspeccion || [])];
   const ns = !t.ghost && aseoNoSaleOn_(t.id);
   const sub = t.ghost ? '<span class="vi">No se realizó · pasó a otro día</span>' : t.reprog ? `<span class="vi">↻ Reprogramada</span>` : '';
@@ -66274,9 +66312,9 @@ function adPintar_(nuevo) {
   if (!dr) { dr = document.createElement('aside'); dr.id = 'ad-drawer'; document.body.appendChild(dr); }
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const id = pcEsc(I.asigId), hid = pcEsc(String(I.hid || ''));
-  const E = AD_EST.find(e => e.k === I.selE) || AD_EST[0];
-  // Estado: selector de 4 posiciones
-  const pasos = AD_EST.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${id}','${hid}','${e.k}',false)">${e.t}</button>`).join('');
+  const E = adEstObj_(I.selE);
+  // Estado: Pendiente · En proceso · Terminado (+ palomita «Inspeccionado»)
+  const pasos = AD_EST.map(e => `<button type="button" class="${e.k === adEstBase_(I.selE) ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${id}','${hid}','${e.k}',false)">${e.t}</button>`).join('');
   // Línea del día
   const evs = [];
   I.g.sal.forEach(x => {
@@ -66311,7 +66349,7 @@ function adPintar_(nuevo) {
         <div class="gt">${G && G.texto ? `La guía dice: <b>«${pcEsc(G.texto)}»</b>` : G && G.noPub && G.textoPrev ? `Al publicarlo dirá: <b>«${pcEsc(G.textoPrev)}»</b>` : 'La guía no muestra ningún aviso por ahora.'}</div>
         ${valTxt}${meta}</div>`;
   const reservas = [...I.g.sal.map(x => pcMovRow_(x, 'sal', I.hoy, {})), ...I.g.ent.map(x => pcMovRow_(x, 'ent', I.hoy, {})), ...(I.g.cur || []).map(x => pcMovRow_(x, 'cur', I.hoy, {}))].join('');
-  const sig = AD_EST[Math.min(AD_EST.length - 1, AD_EST.findIndex(e => e.k === I.selE) + 1)];
+  const sig = AD_EST[Math.min(AD_EST.length - 1, AD_EST.findIndex(e => e.k === adEstBase_(I.selE)) + 1)];
   const smsId = I.xe ? pcEsc(String(I.xe.b.Id)) : '';
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj || '')}</span><button type="button" class="ad-close" onclick="adCerrar_()" title="Cerrar">✕</button></div>
       <div class="ad-sub">${I.esHoyC ? 'Hoy' : aseoDiaTxt_(I.hoy)} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(I.prio)}${I.prioritaria ? ' · <b style="color:#4f46e5">Prioritaria</b>' : ''}</div>
@@ -66319,7 +66357,7 @@ function adPintar_(nuevo) {
       ${I.aviso ? `<div class="ad-badge ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}</div>
     <div class="ad-db">
       ${(() => { const L = I.hid ? rtAbiertosDe_(I.hid) : []; return L.length ? `<div class="lab">Mantenimiento abierto en este alojamiento</div><div class="ad-ppl">${L.map(t => `<div class="ad-pp" style="cursor:pointer" onclick="rtAbrirA_('${pcEsc(t.rtId)}')">${prio4Html_(t.prioridad, true)}<span>🔧 ${pcEsc(t.titulo)}</span><em>${t.bloquea ? '<b style="color:#dc2626">🚫 Inhabitable</b>' : PRIO4[t.prioridad].t}</em></div>`).join('')}</div>` : ''; })()}
-      <div class="lab">Estado de aseo</div><div class="ad-steps">${pasos}</div>${guiaBox}
+      <div class="lab">Estado de aseo</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${pasos}</div>${adInspBtn_(I.asigId, I.hid, I.selE, false, true)}${guiaBox}
       ${axTipoTareaHtml_(I.depto, null)}${I.soloEnt ? `<div class="ad-hint">Solo entra huésped hoy: no se programa limpieza, se requiere <b>inspección</b> antes de la entrada.${I.ultSal ? ` Última salida: ${aseoDiaTxt_(I.ultSal)} (${I.diasUlt === 0 ? 'hoy' : 'hace ' + I.diasUlt + ' día' + (I.diasUlt === 1 ? '' : 's')}).` : ''}</div>` : ''}
       ${axDetalle_(I.asigId, I.g.sal.length > 0, I.hid, I.hoy || aseoDia_())}
       ${evs.length ? `<div class="lab">Línea del día</div><div class="ad-tl">${evs.join('')}</div>` : ''}
@@ -66404,7 +66442,7 @@ function rtCardA_(I) {
     ${flags.join('')}
     <div class="r2">${axCatHtml_('mantenimiento', 'R' + t.rtId, false)}<span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span></div>
     ${axFila_('R' + t.rtId, false, t.hid, I.dia || t.fecha)}
-    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${axIncMini_('R' + t.rtId, t.hid, I.dia || t.fecha)}${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${t.asignados.length ? `<span class="ad-avs">${t.asignados.map(n => adNom_(n)).join('')}</span>` : '<span class="ad-un">Sin asignación</span>'}<span class="sp"></span>${axIncMini_('R' + t.rtId, t.hid, I.dia || t.fecha)}${nF ? `<span class="ad-gd">📷 ${nF}</span>` : ''}${prio4Html_(t.prioridad, false, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')">Detalles</button></div>
     <div class="ad-qs" onclick="event.stopPropagation()">${pasos.map(p => `<button type="button" class="${p[0] === t.estado ? 'on' : ''}" style="--c:${p[2]}" onclick="event.stopPropagation();adRtEst_('${pcEsc(t.rtId)}','${p[0]}')"><i></i>${p[1]}</button>`).join('')}</div>
   </div>`;
 }
@@ -66414,12 +66452,12 @@ function atCard_(I) {
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
   return `<div class="ad-card tipo est-tint tarea ${t.problema ? 'alert' : ''} ${axEsDeInc_('T' + t.id) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c};--sc:${adEstC_(I.selE)}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span></div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${D.ico} ${pcEsc(t.titulo)}</span>${t.depto === 'limpieza' ? adInspBtn_(I.key, '', I.selE, true) : ''}</div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     ${I.arrastre ? `<div class="flag orange"><i></i>Sin resolver desde ${aseoDiaTxt_(t.fecha)} · sigue a su card</div>` : ''}
     <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${t.repite ? '<span class="sep"></span><span>↻ Se repite</span>' : ''}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     ${axFila_('T' + t.id, false, t.hid, I.dia)}
-    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin asignar</span>'}<span class="sp"></span>${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${(t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adNom_(n)).join('')}</span>` : '<span class="ad-un">Sin asignación</span>'}<span class="sp"></span>${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}${prio4Html_(t.prioridad, false, `atPrioCiclo_('${pcEsc(t.id)}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}
   </div>`;
 }
@@ -66441,16 +66479,16 @@ function atPintar_(nuevo) {
   const I = atInfo_(t, D0.dia), dr = atShell_();
   const top = dr.querySelector('.ad-db') ? dr.querySelector('.ad-db').scrollTop : 0;
   const D = AT_DEPTO[t.depto] || AT_DEPTO.limpieza;
-  const pasos = AD_EST.filter(e => t.depto === 'limpieza' || e.k !== 'inspeccionado');
-  const E = AD_EST.find(e => e.k === I.selE) || AD_EST[0];
+  const pasos = AD_EST;
+  const E = adEstObj_(I.selE);
   const res = t.reserva ? pcMovBookings_().find(b => String(b.Id) === String(t.reserva)) : null;
-  const sig = pasos[Math.min(pasos.length - 1, pasos.findIndex(e => e.k === I.selE) + 1)];
+  const sig = pasos[Math.min(pasos.length - 1, pasos.findIndex(e => e.k === adEstBase_(I.selE)) + 1)];
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj)}</span><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
       <div class="ad-tt">${D.ico} ${pcEsc(t.titulo)}</div>
       <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(t.prioridad)}</div>
       ${t.problema ? '<div class="ad-badge red"><i></i>Creada como problema</div>' : ''}</div>
     <div class="ad-db">
-      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === I.selE ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>
+      <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length},1fr)">${pasos.map(e => `<button type="button" class="${e.k === adEstBase_(I.selE) ? 'on' : ''}" style="--c:${e.c}" onclick="aseoSetEstado_('${I.key}','','${e.k}',true)">${e.t}</button>`).join('')}</div>${t.depto === 'limpieza' ? adInspBtn_(I.key, '', I.selE, true, true) : ''}
       ${I.reg && I.reg.at ? `<div class="ad-hint">Actualizado ${aseoHora_(I.reg.at)}${I.reg.by ? ' · ' + pcEsc(String(I.reg.by)) : ''}</div>` : ''}
       <div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${t.depto === k ? 'on' : ''}" style="--c:${X.c}" onclick="atCambiarDepto_('${pcEsc(t.id)}','${k}')">${X.ico} ${X.t}</button>`).join('')}</div>
       ${axDetalle_('T' + t.id, false, t.hid, I.dia)}
@@ -67050,6 +67088,8 @@ const NP_REGLAS = [
     'Si alguien pide algo que su rol no permite, responde en una línea: «Solo los administradores pueden…».']],
   ['🧽', 'Tareas y cards', '', [
     '<b>Check-list para personal no administrativo</b> (sin Puesto «Administración» ni rol Administrador): solo ve sus asignaciones; los KPIs y filtros cuentan solo lo suyo; arriba solo tiene «Actualizar»; no ve Incidencias ni Tareas programadas; en sus cards solo puede cambiar el <b>estado</b> (sin validar: «Terminado» queda por validar) y marcar <b>«¿No ha desalojado?»</b>; lo demás es de solo lectura (sin detalles).',
+    '<b>Estados de la card:</b> Pendiente · En proceso · Terminado. «Inspeccionado» ya no es un estado aparte: es la palomita ✓ verde arriba a la derecha de la card y en su ventana de detalles (se marca sobre «Terminado»).',
+    '<b>Incidencia en una card:</b> aparece debajo de la card en un recuadro rojo; si sigue abierta y no tiene tarea correctiva, el enlace «🛠 Crear tarea correctiva» abre directo esa sección.',
     '<b>Marcas en las listas:</b> ✱ = entra huésped hoy (prioridad) · ✱✱ = además la reserva pide entrada temprana.',
     '<b>Orden de las listas del bot:</b> agrupadas por propiedad, sin intercalar (todas las de José Cárdenas juntas, luego las de Cumbres…). Va primero la propiedad con la tarea más urgente. Dentro de cada propiedad, primero la <b>entrada más temprana</b> (hora de la entrada temprana o 3:00 p.m.) y al final la <b>salida más tardía</b> (hora de la salida tardía o 10:00 a.m.). Las que no tienen entrada ese día van después.',
     'Si en un alojamiento sale una reserva confirmada y otra cancelada, la card (estado, asignación, prioridad) usa la confirmada.',
@@ -67637,7 +67677,7 @@ function icCard_(x) {
     ${flag}
     <div class="r2">${meta.join('<span class="sep"></span>')}</div>
     <div class="r4"><span class="sp"></span><span class="ax-inc on split" style="cursor:default" title="Incidencia"><span class="i1">⚠️ Incidencia</span><span class="i2" style="--ec:${(IC_EST.find(e => e.k === x.est) || IC_EST[0]).c}">${icEstT_(x.est)}</span></span></div>
-    <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adAv_(n)).join('')}</span>` : '<span class="ad-un">Sin personas</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
+    <div class="r3">${x.pers.length ? `<span class="ad-avs">${x.pers.map(n => adNom_(n)).join('')}</span>` : '<span class="ad-un">Sin asignación</span>'}<span class="sp"></span>${x.fotos.length ? `<span class="ad-gd" title="Fotos">📷 ${x.fotos.length}</span>` : ''}${x.seg && !icCerrada_(x) ? '<span class="ad-gd" title="Tiene seguimiento requerido">↻</span>' : ''}${prio4Html_(x.prio, false, `icPrioCiclo_('${id}')`)}<button type="button" class="ad-det" onclick="event.stopPropagation();icAbrir_('${id}')">Detalles</button></div>
     ${qs}
   </div>`;
 }
