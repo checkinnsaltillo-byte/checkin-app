@@ -64888,6 +64888,10 @@ function clEmpCss_() {
     .ad-ucards{flex:1;min-width:0;display:flex;gap:8px;padding:8px 10px;overflow-x:auto;align-items:flex-start}
     .ad-ucards>.ad-card,.ad-ucards>.ad-vinc{flex:none;width:236px;zoom:.88}
     .ad-ucards .ad-empty{align-self:center}
+    .ad-card.ad-simp .ax-mini{font-size:0;padding:1px 3px}.ad-card.ad-simp .ax-mini::before{content:"＋⚠";font-size:11px}
+    .ad-card.ad-simp .r2{margin-top:5px}.ad-card.ad-simp .r3{margin-top:6px}
+    #aseo-side .ad-card.ad-simp .r3{flex-wrap:nowrap}
+    #aseo-vista-slot{display:inline-flex;gap:6px}
     #aseo-side .ad-ucards .ad-card .r3{flex-wrap:wrap;white-space:normal;row-gap:4px}
     .ad-urow.drop{background:#eef2ff;box-shadow:inset 0 0 0 2px #6366f1}.ad-urow.drop .ad-uh{background:#eef2ff}
     @media (max-width:640px){.ad-uh{width:120px;padding:8px}.ad-ucards>.ad-card,.ad-ucards>.ad-vinc{width:210px}}
@@ -66146,6 +66150,14 @@ function adCard_(I) {
     : `<button type="button" class="ad-asg" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();${asg(I.depto === 'inspeccion' ? 'inspeccion' : 'aseo')}">＋ Asignar</button>`;
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
+  if (ASEO.simple) // Vista «Simple»: nombre corto · Sale/Entra · tipo y servicio · no ha desalojado · ＋⚠ · prioridad · estados
+    return `<div class="ad-card tipo est-tint ad-simp ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}')"
+    draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
+    <div class="r1"><span class="code">${pcEsc(I.corto || String(I.aloj || '—').replace(/^Calle\s+/i, ''))}</span><span class="mv">${mov}</span></div>
+    <div class="r2">${axCatHtml_(I.depto, I.asigId, I.g.sal.length > 0)}</div>
+    <div class="r3">${nsChip}<span class="sp"></span>${axIncMini_(I.asigId, I.hid, aseoDia_())}${prio4Html_(I.prio, false, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}</div>
+    ${adEstRapido_(I.asigId, I.hid, I.selE, false, false)}
+  </div>`;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}')"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span><span class="prop">${pcEsc(String(I.aloj || '').replace(/^Calle\s+/i, '').replace('#', ''))}</span><span class="mv">${mov}</span></div>
@@ -66241,7 +66253,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     }); }
   const vista = ASEO.vista === 'estado' || ASEO.vista === 'usuario' ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
-  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div>`;
+  const segV = `<div class="ad-seg"><span>Vista</span><button type="button" class="${vista === 'estado' ? 'on' : ''}" onclick="adVista_('estado')">Por estado</button><button type="button" class="${vista === 'propiedad' ? 'on' : ''}" onclick="adVista_('propiedad')">Por propiedad</button><button type="button" class="${vista === 'usuario' ? 'on' : ''}" onclick="adVista_('usuario')">Por usuario</button></div><div class="ad-seg"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -66318,6 +66330,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   return `${ver.length ? (vista === 'usuario' ? `<div class="ad-urows">${cols}</div>` : `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>`) : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 try { ASEO.vista = localStorage.getItem('aseo-vista2') || 'propiedad'; } catch (_) { ASEO.vista = 'propiedad'; }
+try { ASEO.simple = localStorage.getItem('aseo-simple') === '1'; } catch (_) {}
+window.adSimple_ = function (on) { ASEO.simple = !!on; try { localStorage.setItem('aseo-simple', on ? '1' : '0'); } catch (_) {} aseoRenderSide_(); };
 window.adVista_ = function (v) { ASEO.vista = v; try { localStorage.setItem('aseo-vista2', v); } catch (_) {} aseoRenderSide_(); };
 window.adPrioFiltro_ = function (k) { const s = ASEO.fPrio = ASEO.fPrio || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
 window.adTipoToggle_ = function (k) { const s = ASEO.fTipo = ASEO.fTipo || []; const i = s.indexOf(k); if (i >= 0) s.splice(i, 1); else s.push(k); aseoRender_(); };
