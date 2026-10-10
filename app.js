@@ -9159,6 +9159,10 @@ function clNavHtml_(act) {
   const items = [op.replace(/<button[^>]*class="cl-b off"[\s\S]*?<\/button>/g, ''), op2, adm].join('');
   return items.trim() ? `<div class="cl-nav"><div class="cl-g">${items}</div></div>` : '';
 }
+// Barra compacta del Check-list (misma en Aseo, Incidencias y Tareas): ☰ filtros con contador de filtros activos.
+function ckFxN_(fx, def) { def = def || {}; return Object.entries(fx || {}).filter(([k, v]) => !(k in def && def[k] === v) && (v instanceof Set ? v.size : Array.isArray(v) ? v.length : !!v)).length; }
+function ckHam_(on, n, fn) { return `<button type="button" class="ad-ham ${on ? 'on' : ''}" onclick="${fn}" title="${on ? 'Ocultar filtros' : 'Mostrar filtros'}${n ? ` (${n} activo${n === 1 ? '' : 's'})` : ''}">☰${n ? `<b>${n}</b>` : ''}</button>`; }
+function ckDia_(iso, hoy) { const dif = Math.round((new Date(iso + 'T12:00:00') - new Date(hoy + 'T12:00:00')) / 864e5), d = new Date(iso + 'T12:00:00'), f = `${d.getDate()} ${ASEO_MES[d.getMonth()]}`; return dif === 0 ? `Hoy · ${f}` : dif === -1 ? `Ayer · ${f}` : dif === 1 ? `Mañana · ${f}` : `${['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d.getDay()]} ${f}`; }
 function clNavPaint_() {
   if (!document.getElementById('cl-css')) {
     const st = document.createElement('style'); st.id = 'cl-css';
@@ -9174,29 +9178,36 @@ function clNavPaint_() {
       .cl-title{font-size:20px;font-weight:700;color:#0f1729;letter-spacing:-.01em;margin:0 0 12px;font-family:Inter,system-ui,sans-serif}
       .cl-nav-slot{margin:0 0 8px}.cl-nav-slot .cl-nav{margin:0}
       .cl-g{gap:2px;padding:3px;border-radius:9px}.cl-b{padding:5px 11px;font-size:12px}
-      #module-aseo .ck-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;font-family:Inter,system-ui,sans-serif}
-      #module-aseo .ck-bar .ck-sp{flex:1}
-      #module-aseo .ck-bar .aseo-btn,#module-aseo .ck-dnav button{all:unset;box-sizing:border-box;cursor:pointer;height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:12.5px;font-weight:600;white-space:nowrap}
-      #module-aseo .ck-bar .aseo-btn:hover,#module-aseo .ck-dnav button:hover{background:#f8fafc;border-color:#cbd5e1}
-      #module-aseo .ck-bar .ck-ib{width:32px;padding:0;justify-content:center;font-size:15px}
-      #module-aseo .ck-bar .ck-ib.on{background:#0f1729;border-color:#0f1729;color:#fff}
-      #module-aseo .ck-bar .ck-pri{background:#4f46e5;border-color:#4f46e5;color:#fff}#module-aseo .ck-bar .ck-pri:hover{background:#4338ca;border-color:#4338ca}
-      #module-aseo .ck-bar .mv-pubt .ck{width:14px;height:14px;border:1.5px solid #9aa1ad;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1}
-      #module-aseo .ck-bar .mv-pubt.on .ck{background:#0f1729;border-color:#0f1729;color:#fff}
-      #module-aseo .ck-bar .mv-pubt:disabled{opacity:.5;cursor:default}
-      #module-aseo .ck-dnav{display:inline-flex;align-items:center}
-      #module-aseo .ck-dnav button{border-radius:0;margin-left:-1px;padding:0 9px}
-      #module-aseo .ck-dnav button:first-child{border-radius:8px 0 0 8px;margin-left:0}#module-aseo .ck-dnav button:last-child{border-radius:0 8px 8px 0}
-      #module-aseo .ck-dnav .lb{min-width:108px;justify-content:center;color:#0f1729}#module-aseo .ck-dnav .lb.otro{color:#4f46e5}
-      #module-aseo .ck-live{font-size:11.5px;color:#64748b;white-space:nowrap}
-      #module-aseo .ck-live-in{display:inline-flex;align-items:center;gap:6px;cursor:default}
-      #module-aseo .ck-live .d{width:7px;height:7px;border-radius:50%;background:#94a3b8;display:inline-block}
-      #module-aseo .ck-live-in.ok .d{background:#16a34a;box-shadow:0 0 0 3px #dcfce7}#module-aseo .ck-live-in.warn .d{background:#f59e0b}#module-aseo .ck-live-in.bad{color:#dc2626}#module-aseo .ck-live-in.bad .d{background:#dc2626}
-      #module-aseo .ck-bar .ad-ham{height:32px;width:32px;min-height:0}
-      #module-aseo .ck-bar .ad-seg{height:32px;box-sizing:border-box}
+      .ck-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;font-family:Inter,system-ui,sans-serif}
+      .ck-bar .ck-sp{flex:1}
+      .ck-bar .aseo-btn,.ck-dnav button{all:unset;box-sizing:border-box;cursor:pointer;height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:12.5px;font-weight:600;white-space:nowrap}
+      .ck-bar .aseo-btn:hover,.ck-dnav button:hover{background:#f8fafc;border-color:#cbd5e1}
+      .ck-bar .ck-ib{width:32px;padding:0;justify-content:center;font-size:15px}
+      .ck-bar .ck-ib.on{background:#0f1729;border-color:#0f1729;color:#fff}
+      .ck-bar .ck-pri{background:#4f46e5;border-color:#4f46e5;color:#fff}.ck-bar .ck-pri:hover{background:#4338ca;border-color:#4338ca}
+      .ck-bar .mv-pubt .ck{width:14px;height:14px;border:1.5px solid #9aa1ad;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1}
+      .ck-bar .mv-pubt.on .ck{background:#0f1729;border-color:#0f1729;color:#fff}
+      .ck-bar .mv-pubt:disabled{opacity:.5;cursor:default}
+      .ck-dnav{display:inline-flex;align-items:center}
+      .ck-dnav button{border-radius:0;margin-left:-1px;padding:0 9px}
+      .ck-dnav button:first-child{border-radius:8px 0 0 8px;margin-left:0}.ck-dnav button:last-child{border-radius:0 8px 8px 0}
+      .ck-dnav .lb{min-width:108px;justify-content:center;color:#0f1729}.ck-dnav .lb.otro{color:#4f46e5}
+      .ck-live{font-size:11.5px;color:#64748b;white-space:nowrap}
+      .ck-live-in{display:inline-flex;align-items:center;gap:6px;cursor:default}
+      .ck-live .d{width:7px;height:7px;border-radius:50%;background:#94a3b8;display:inline-block}
+      .ck-live-in.ok .d{background:#16a34a;box-shadow:0 0 0 3px #dcfce7}.ck-live-in.warn .d{background:#f59e0b}.ck-live-in.bad{color:#dc2626}.ck-live-in.bad .d{background:#dc2626}
+      .ck-bar .ad-ham{height:32px;width:32px;min-height:0}
+      .ck-bar .ad-seg{height:32px;box-sizing:border-box}
+      .ck-bar .ad-seg button{padding:0 10px}.ck-bar .ad-seg>span{display:none}
+      .ck-bar .ck-q{all:unset;box-sizing:border-box;height:32px;min-width:220px;padding:0 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:12.5px;color:#0f1729}
+      .ck-bar .ck-q:focus{border-color:#94a3b8}
+      .ck-bar .ck-b.on{background:#0f1729;border-color:#0f1729;color:#fff}
+      .ck-bar .ck-hint{font-size:11.5px;color:#64748b}
+      @media (max-width:640px){.ck-bar .ck-q{min-width:0;flex:1 1 100%;order:0}}
       #aseo-side .ad-card .r3{flex-wrap:wrap;row-gap:4px}
       .cl-nav-slot{max-width:100%;overflow-x:auto;scrollbar-width:none}.cl-nav-slot::-webkit-scrollbar{display:none}.cl-nav-slot .cl-g{flex-wrap:nowrap}
-      @media (max-width:640px){#module-aseo .ck-bar .ck-sp{display:none}#module-aseo .ck-bar .ck-pri{order:3;font-size:0;width:32px;padding:0;justify-content:center}#module-aseo .ck-bar .ck-pri::before{content:'＋';font-size:16px}#module-aseo .ck-bar .ck-live,#module-aseo .ck-bar #aseo-upd-btn,#module-aseo .ck-bar #aseo-vista-slot{order:5}#module-aseo #aseo-ham-slot,#module-aseo .ck-dnav,#module-aseo #aseo-cal-btn,#module-aseo #aseo-pub-btn{order:1}#module-aseo .ck-bar .ad-seg>span{display:none}
+      @media (max-width:640px){.ck-bar .ck-sp{display:none}.ck-bar .ck-pri{order:3;font-size:0;width:32px;padding:0;justify-content:center}.ck-bar .ck-pri::before{content:'＋';font-size:16px}.ck-bar .ad-seg>span{display:none}#module-aseo .ck-bar .ck-live,#module-aseo .ck-bar #aseo-upd-btn,#module-aseo .ck-bar #aseo-vista-slot{order:5}#module-aseo #aseo-ham-slot,#module-aseo .ck-dnav,#module-aseo #aseo-cal-btn,#module-aseo #aseo-pub-btn{order:1}#module-aseo .ck-bar .ad-seg>span{display:none}
+        .ck-kpis .ad-kpis{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important}.ck-kpis .ad-kpi{padding:8px 10px!important;min-width:0}.ck-kpis .ad-kpi.big{grid-column:1/-1}.ck-kpis .ad-kpi .n{font-size:18px!important}
         #aseo-kpis .ad-kpis{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important}
         #aseo-kpis .ad-kpi{padding:8px 10px!important;min-width:0}#aseo-kpis .ad-kpi.big{grid-column:1/-1}
         #aseo-kpis .ad-kpi small{font-size:9.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
@@ -57693,25 +57704,25 @@ function tdRender_() {
   const dia = tdDia_(), hoy = tarIso_(tarToday_());
   const sec = TAR_STATE.section === 'registro' ? 'registro' : 'tablero';
   const lbl = typeof aseoDiaLabel_ === 'function' ? aseoDiaLabel_(dia) : tarFmtFecha_(dia);
-  const head = `<div class="cl-title">✅ Check-list</div><div class="cl-nav-slot" data-act="tareas">${typeof clNavHtml_ === 'function' ? clNavHtml_('tareas') : ''}</div><div class="td-h1"><h1 style="font-size:16px">🗓️ Tareas programadas</h1>
-      <div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="tarSetSection('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="tarSetSection('registro')">Registro</button></div></div>
-    <div class="aseo-head">
-      ${sec === 'tablero' ? `<button type="button" class="aseo-btn" onclick="tdSetDia_(0)" title="Ir al día de hoy">📍 Hoy</button>
-      <div class="pc-mnav aseo-dnav"><button type="button" onclick="tdSetDia_(-1)" title="Día anterior">‹</button><div class="pc-mlabel" ${dia !== hoy ? 'onclick="tdSetDia_(0)" style="cursor:pointer" title="Volver a hoy"' : ''}>${lbl}</div><button type="button" onclick="tdSetDia_(1)" title="Día siguiente">›</button></div>
-      <button type="button" class="aseo-btn" onclick="tdToggleCal_()">${TAR_STATE.cal ? '✕ Ocultar calendario' : '📅 Mostrar calendario'}</button>` : ''}
-      <span style="flex:1"></span>
-      <button type="button" class="aseo-btn" onclick="tarOpenClasifManager()">⚙️ Clasificaciones</button>
-      <button type="button" class="aseo-btn td-rec" onclick="tarOpenPanel(null,'','Recordatorio')">＋ Nuevo recordatorio</button>
-      <button type="button" class="aseo-btn at-nueva" onclick="tarOpenPanel(null)">＋ Nueva tarea</button>
-    </div>`;
+  const nFx = ckFxN_(TAR_STATE.fx, { tipo: '', prio: '' });
+  const seg = `<div class="ad-seg"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="tarSetSection('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="tarSetSection('registro')">Registro</button></div>`;
+  const bar = `<div class="ck-bar">${ckHam_(TAR_STATE.filAb, nFx, 'TAR_STATE.filAb=!TAR_STATE.filAb;tdRender_()')}
+      ${sec === 'tablero' ? `<div class="ck-dnav"><button type="button" onclick="tdSetDia_(-1)" title="Día anterior">‹</button><button type="button" class="lb ${dia !== hoy ? 'otro' : ''}" onclick="tdSetDia_(0)" title="${dia !== hoy ? 'Volver a hoy' : lbl}">${ckDia_(dia, hoy)}</button><button type="button" onclick="tdSetDia_(1)" title="Día siguiente">›</button></div>
+      <button type="button" class="aseo-btn ck-ib ${TAR_STATE.cal ? 'on' : ''}" onclick="tdToggleCal_()" title="${TAR_STATE.cal ? 'Ocultar calendario' : 'Mostrar calendario'}">📅</button>` : ''}
+      ${seg}<span class="ck-sp"></span>__SEGV__
+      <button type="button" class="aseo-btn ck-ib" onclick="tarOpenClasifManager()" title="Clasificaciones">⚙️</button>
+      <button type="button" class="aseo-btn" onclick="tarOpenPanel(null,'','Recordatorio')" title="Nuevo recordatorio">＋ Recordatorio</button>
+      <button type="button" class="aseo-btn ck-pri" onclick="tarOpenPanel(null)">＋ Nueva tarea</button></div>`;
+  const nav = `<div class="cl-nav-slot" data-act="tareas">${typeof clNavHtml_ === 'function' ? clNavHtml_('tareas') : ''}</div>`;
+  const head = `<div class="cl-title">✅ Check-list</div>`;
   if (sec === 'registro') {
-    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}<div class="ad-v2">${tdFiltros_(TAR_STATE.list.slice())}</div><div id="tar-content">${tarRegistroHtml_()}</div></div>`;
+    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}${nav}${bar.replace('__SEGV__', '')}${TAR_STATE.filAb ? `<div class="ad-v2">${tdFiltros_(TAR_STATE.list.slice())}</div>` : ''}<div id="tar-content">${tarRegistroHtml_()}</div></div>`;
   } else {
-    const todos = tarDelDia_(dia), L = tdLista_(dia);
+    const todos = tarDelDia_(dia), L = tdLista_(dia), board = tdTablero_(L, dia);
     root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}
-      <div class="ad-v2">${typeof mvSyncBar_ === 'function' ? mvSyncBar_(true) : ''}${tdKpis_(todos, dia)}${tdFiltros_(todos)}</div>
+      <div class="ad-v2 ck-kpis">${tdKpis_(todos, dia)}</div>${nav}${bar.replace('__SEGV__', TAR_STATE._segV || '')}${TAR_STATE.filAb ? `<div class="ad-v2">${tdFiltros_(todos)}</div>` : ''}
       ${TAR_STATE.cal ? `<div class="td-cal">${tarCalendarioHtml_()}</div>` : ''}
-      <div class="ad-v2 td-board">${tdTablero_(L, dia)}</div></div>`;
+      <div class="ad-v2 td-board">${board}</div></div>`;
   }
   if (typeof pzRender_ === 'function') pzRender_();
   if (TAR_STATE.dr) tdPintar_();
@@ -57808,7 +57819,8 @@ function tdTablero_(L, dia) {
     }).join('');
   }
   const vacio = tarDelDia_(dia).length ? 'Ninguna tarea coincide con los filtros' : `No hay tareas ni recordatorios ${dia === tarIso_(tarToday_()) ? 'hoy' : 'el ' + aseoDiaTxt_(dia)}`;
-  return `<div class="ad-fil"><div class="ad-fil-l"></div>${segV}</div>${L.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
+  TAR_STATE._segV = segV; // va en la barra de arriba (tdRender_)
+  return `${L.length ? `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>` : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 window.tdSetEst_ = function (id, iso, k) {
   if (tarOcurEstado_(id, iso) === k) return;
@@ -66334,7 +66346,7 @@ function atDeptoSeg_(cur, fn) {
   return `<label class="at-l">Tipo de tarea <i>*</i></label><div class="ad-steps" style="grid-template-columns:repeat(4,1fr)">${Object.entries(AT_DEPTO).map(([k, D]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${D.c}" onclick="${fn}('${k}')">${D.ico} ${D.t}</button>`).join('')}</div>`;
 }
 // Homologado con los motivos de Incidencias: Limpieza · Inspección · Insumos · Mantenimiento.
-const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '📋', c: '#8b5cf6' }, insumos: { t: 'Insumos', ico: '📦', c: '#16a34a' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
+const AT_DEPTO = { limpieza: { t: 'Limpieza', ico: '🧹', c: '#0ea5e9' }, inspeccion: { t: 'Inspección', ico: '🔍', c: '#8b5cf6' }, insumos: { t: 'Insumos', ico: '📦', c: '#16a34a' }, mantenimiento: { t: 'Mantenimiento', ico: '🔧', c: '#f97316' } };
 const AT_PRIO = [null, { t: 'El más bajo', ico: '↓↓', c: '#8b5cf6' }, { t: 'Bajo', ico: '↓', c: '#2563eb' }, { t: 'Mediano', ico: '◇', c: '#059669' }, { t: 'Alto', ico: '↑', c: '#ea580c' }, { t: 'Urgente', ico: '‼', c: '#dc2626' }];
 const AT_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const AT_ORD = ['', '1.º', '2.º', '3.º', '4.º', '5.º'];
@@ -67453,7 +67465,7 @@ if (!window.__aseoTimer) {
 // Estados de incidencia homologados con los de las tareas (se guardan igual que antes: Nuevo/En proceso/Resuelto/Cancelado).
 const IC_EST = [{ k: 'Nuevo', t: 'Pendiente', c: '#94a3b8', s: 'Pend.' }, { k: 'En proceso', t: 'En proceso', c: '#f59e0b', s: 'Proceso' }, { k: 'Resuelto', t: 'Terminado', c: '#10b981', s: 'Term.' }, { k: 'Cancelado', t: 'Cancelado', c: '#64748b', s: 'Cancel.' }];
 function icEstT_(k) { return (IC_EST.find(e => e.k === k) || {}).t || k; }
-const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Inspección': { c: '#8b5cf6', ico: '📋' }, Insumos: { c: '#16a34a', ico: '📦' }, Mantenimiento: { c: '#f97316', ico: '🔧' } }; // = AT_DEPTO
+const IC_MOT = { Limpieza: { c: '#0ea5e9', ico: '🧹' }, 'Inspección': { c: '#8b5cf6', ico: '🔍' }, Insumos: { c: '#16a34a', ico: '📦' }, Mantenimiento: { c: '#f97316', ico: '🔧' } }; // = AT_DEPTO
 const IC_NIV = { baja: 'Baja', media: 'Media', alta: 'Alta', critica: 'Crítica' };
 const IC_PER = [['7', '7 días'], ['30', '30 días'], ['90', '90 días'], ['todo', 'Todo']];
 const IC = { fx: { mot: new Set(), pers: new Set(), prio: '', per: '30', arch: false }, dr: null, sec: 'tablero', q: '', cargando: false, cargado: false };
@@ -67550,20 +67562,25 @@ function icRender_() {
   const sec = IC.sec === 'registro' ? 'registro' : 'tablero';
   const T0 = icTodas_(), nArch = T0.filter(x => x.arch).length;
   const todas = T0.filter(x => IC.fx.arch ? x.arch : !x.arch); // archivadas: solo con «🗄 Archivadas»
-  const head = `<div class="cl-title">✅ Check-list</div><div class="cl-nav-slot" data-act="incidencias">${typeof clNavHtml_ === 'function' ? clNavHtml_('incidencias') : ''}</div>
-    <div class="td-h1"><h1>🚨 Incidencias</h1><div class="td-tabs"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="icSec_('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="icSec_('registro')">Registro</button></div></div>
-    <div class="aseo-head"><input class="ic-q" type="search" placeholder="🔎 Buscar alojamiento, motivo, persona…" value="${pcEsc(IC.q)}" oninput="IC.q=this.value;clearTimeout(IC._qt);IC._qt=setTimeout(()=>{icRender_();const i=document.querySelector('#ic-root .ic-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
-      <span style="flex:1"></span>${nArch || IC.fx.arch ? `<button type="button" class="aseo-btn" style="${IC.fx.arch ? 'background:#0f1729;color:#fff' : ''}" onclick="IC.fx.arch=!IC.fx.arch;icRender_()">🗄 Archivadas · ${nArch}</button>` : ''}${IC.cargando ? '<span class="ad-hint" style="margin:0">⏳ Actualizando…</span>' : `<button type="button" class="aseo-btn" onclick="icInit_()" title="Volver a cargar las incidencias">↻ Actualizar</button>`}
-      <button type="button" class="aseo-btn" onclick="icClasif_()">⚙️ Clasificaciones</button>
-      <button type="button" class="aseo-btn at-nueva" onclick="icForm_(null)">＋ Nueva incidencia</button></div>`;
+  const nFx = ckFxN_(IC.fx, { per: '30', arch: IC.fx.arch, prio: '' });
+  const head = `<div class="cl-title">✅ Check-list</div>`;
+  const nav = `<div class="cl-nav-slot" data-act="incidencias">${typeof clNavHtml_ === 'function' ? clNavHtml_('incidencias') : ''}</div>`;
+  const bar = `<div class="ck-bar">${ckHam_(IC.filAb, nFx, 'IC.filAb=!IC.filAb;icRender_()')}
+      <input class="ck-q ic-q" type="search" placeholder="🔎 Buscar alojamiento, motivo, persona…" value="${pcEsc(IC.q)}" oninput="IC.q=this.value;clearTimeout(IC._qt);IC._qt=setTimeout(()=>{icRender_();const i=document.querySelector('#ic-root .ic-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
+      <div class="ad-seg"><button type="button" class="${sec === 'tablero' ? 'on' : ''}" onclick="icSec_('tablero')">Tablero</button><button type="button" class="${sec === 'registro' ? 'on' : ''}" onclick="icSec_('registro')">Registro</button></div>
+      <span class="ck-sp"></span>
+      ${nArch || IC.fx.arch ? `<button type="button" class="aseo-btn ${IC.fx.arch ? 'ck-b on' : ''}" onclick="IC.fx.arch=!IC.fx.arch;icRender_()" title="Ver incidencias archivadas">🗄 ${nArch}</button>` : ''}
+      ${IC.cargando ? '<span class="ck-hint">⏳</span>' : '<button type="button" class="aseo-btn ck-ib" onclick="icInit_()" title="Volver a cargar las incidencias">⟳</button>'}
+      <button type="button" class="aseo-btn ck-ib" onclick="icClasif_()" title="Clasificaciones">⚙️</button>
+      <button type="button" class="aseo-btn ck-pri" onclick="icForm_(null)">＋ Nueva incidencia</button></div>`;
   const vacio = !todas.length ? `<div class="pc-mv-empty">${IC.cargado ? 'Aún no hay incidencias registradas.' : '⏳ Cargando incidencias…'}</div>` : '';
   if (sec === 'registro') {
     const L = todas.filter(x => icPasa_(x, true));
-    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}<div class="ad-v2">${icFiltros_(todas, true)}</div>${vacio || icRegistro_(L)}</div>`;
+    root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}${nav}${bar}${IC.filAb ? `<div class="ad-v2">${icFiltros_(todas, true)}</div>` : ''}${vacio || icRegistro_(L)}</div>`;
   } else {
     const L = todas.filter(x => icPasa_(x));
     root.innerHTML = `<div style="max-width:1440px;margin:0 auto">${head}
-      <div class="ad-v2">${typeof mvSyncBar_ === 'function' ? mvSyncBar_(true) : ''}${icKpis_(todas)}${icFiltros_(todas)}</div>
+      <div class="ad-v2 ck-kpis">${icKpis_(todas)}</div>${nav}${bar}${IC.filAb ? `<div class="ad-v2">${icFiltros_(todas)}</div>` : ''}
       ${vacio || `<div class="ad-v2 td-board">${icTablero_(L)}</div>`}</div>`;
   }
   try { clNavPaint_(); } catch (_) {}
@@ -67773,7 +67790,7 @@ function icFormPintar_() {
       <label class="at-l">Estado</label>
       <div class="ad-steps">${IC_EST.map(e => `<button type="button" class="${e.k === F.est ? 'on' : ''}" style="--c:${e.c}" onclick="IC.f.est='${e.k}';icFormPintar_()">${e.t}</button>`).join('')}</div>
       <div class="at-sec"><span>📝 Reporte</span></div>
-      <label class="at-l">Descripción detallada <i>*</i></label><textarea class="at-in" rows="3" placeholder="¿Qué pasó y dónde?" oninput="IC.f.desc=this.value">${pcEsc(F.desc)}</textarea>
+      <label class="at-l">Descripción detallada <small style="color:#9aa1ad;font-weight:500">(opcional)</small></label><textarea class="at-in" rows="3" placeholder="¿Qué pasó y dónde?" oninput="IC.f.desc=this.value">${pcEsc(F.desc)}</textarea>
       <details class="ad-res" ${F.detAb || F.acc || F.seg ? 'open' : ''} ontoggle="IC.f.detAb=this.open"><summary>Acciones realizadas y seguimiento requerido</summary>
         <label class="at-l">Acciones realizadas</label><textarea class="at-in" rows="2" oninput="IC.f.acc=this.value">${pcEsc(F.acc)}</textarea>
         <label class="at-l">Seguimiento requerido</label><textarea class="at-in" rows="2" oninput="IC.f.seg=this.value">${pcEsc(F.seg)}</textarea>
@@ -67834,7 +67851,6 @@ window.icGuardar_ = async function () {
   }
   if (!F.hid && !F.alojTxt) return alert('Elige el alojamiento.');
   if (!F.mot.length) return alert('Elige al menos un motivo.');
-  if (!String(F.desc || '').trim()) return alert('Escribe la descripción.');
   if (F.lev && !F.hid) return alert('Para crear la tarea correctiva elige el alojamiento.');
   if (F.lev && F.L && F.L.titulo != null && !String(F.L.titulo).trim()) return alert('Escribe el título de la tarea correctiva.');
   const a = F.hid ? atAloj_(F.hid) : null;
