@@ -64821,6 +64821,13 @@ function clEmpCss_() {
   st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
+    .ad-kl{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+    .ad-kc{all:unset;cursor:pointer;font:600 10.5px Inter,system-ui,sans-serif;color:#4f46e5;padding:1px 6px;border-radius:5px;background:#eef2ff}
+    .ad-kc:hover{background:#e0e7ff;text-decoration:underline}.ad-kc.mas{color:#475569;background:#f1f5f9}
+    .ad-kpop{max-height:320px;overflow:auto;padding:6px}
+    .ad-kli{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;width:100%;box-sizing:border-box;padding:6px 8px;border-radius:7px;font:12px Inter,system-ui,sans-serif;color:#0f1729}
+    .ad-kli:hover{background:#f1f5f9}.ad-kli b{font-family:ui-monospace,monospace}.ad-kli span{color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ad-kli em{font-style:normal;font-size:10.5px;color:#94a3b8}
+    .ad-card.ad-flash{box-shadow:0 0 0 3px #6366f1!important;transition:box-shadow .3s}
     .ad-asg{all:unset;cursor:pointer;font:600 11px Inter,system-ui,sans-serif;color:#4f46e5;padding:2px 7px;border:1px dashed #a5b4fc;border-radius:5px;white-space:nowrap}
     .ad-asg:hover{background:#eef2ff;border-style:solid}
     .ad-nm.lk{cursor:pointer}.ad-nm.lk:hover{filter:brightness(.95);box-shadow:0 0 0 2px color-mix(in srgb,var(--pc) 30%,transparent)}
@@ -66083,12 +66090,20 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const ent = vivos.filter(I => I.g.ent.length).length, temp = vivos.filter(I => I.temp).length;
   const porV = vivos.filter(I => I.selE === 'terminado' && !I.validado).length;
   const seg = k => vivos.length ? (n(k) / vivos.length * 100).toFixed(1) : 0;
-  const kpi = (t, v, s, cls) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div></div>`;
+  // Cada KPI lista sus alojamientos como enlaces (clic = detalles de la card); «+N» abre la lista completa.
+  ASEO._kpiL = {};
+  const kl = (key, L) => {
+    ASEO._kpiL[key] = L.map(I => ({ k: I.k, code: I.corto || String(I.aloj || '').replace(/^Calle\s+/i, ''), aloj: String(I.aloj || '').replace(/^Calle\s+/i, ''), est: adEstObj_(I.selE).t }));
+    if (!L.length) return '';
+    const M = 5, it = ASEO._kpiL[key];
+    return `<div class="ad-kl">${it.slice(0, M).map(x => `<button type="button" class="ad-kc" title="${pcEsc(x.aloj)} · ${pcEsc(x.est)}" onclick="event.stopPropagation();adKpiIr_('${pcEsc(x.k)}')">${pcEsc(x.code)}</button>`).join('')}${it.length > M ? `<button type="button" class="ad-kc mas" onclick="event.stopPropagation();adKpiMas_(this,'${key}')">+${it.length - M}</button>` : ''}</div>`;
+  };
+  const kpi = (t, v, s, cls, key, L) => `<div class="ad-kpi ${cls || ''}"><small>${t}</small><div class="n">${v}${s ? `<em>${s}</em>` : ''}</div>${key ? kl(key, L || []) : ''}</div>`;
   const kpis = `<div class="ad-kpis">
     <div class="ad-kpi big"><small>Avance ${esHoy ? 'del día' : aseoDiaTxt_(hoy)}</small><div class="n">${pct}%<em>${listos} de ${vivos.length} listos</em></div>
       <div class="ad-prog"><i style="width:${seg('inspeccionado')}%;background:#047857"></i><i style="width:${seg('terminado')}%;background:#10b981"></i><i style="width:${seg('en_proceso')}%;background:#f59e0b"></i></div></div>
-    ${kpi('Pendientes', n('pendiente'))}${kpi('En proceso', n('en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '')}
-    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '')}${kpi('Alertas', alertas + inhab, [sinDes ? `${sinDes} sin desalojar` : '', inhab ? `${inhab} inhabitable${inhab === 1 ? '' : 's'}` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), alertas + inhab ? 'al' : '')}
+    ${kpi('Pendientes', n('pendiente'), '', '', 'pend', vivos.filter(I => I.selE === 'pendiente'))}${kpi('En proceso', n('en_proceso'), '', '', 'proc', vivos.filter(I => I.selE === 'en_proceso'))}${kpi('Terminados', n('terminado'), porV ? `${porV} por validar` : '', '', 'term', vivos.filter(I => I.selE === 'terminado'))}
+    ${kpi(esHoy ? 'Entran hoy' : 'Entran', ent, temp ? `${temp} temprano` : '', '', 'ent', vivos.filter(I => I.g.ent.length))}${kpi('Alertas', alertas + inhab, [sinDes ? `${sinDes} sin desalojar` : '', inhab ? `${inhab} inhabitable${inhab === 1 ? '' : 's'}` : '', reqInsp ? `${reqInsp} por inspeccionar` : ''].filter(Boolean).join(' · '), (alertas + inhab ? 'al' : '') + '', 'alert', infos.filter(I => I.aviso && I.aviso.c === 'red'))}
   </div>`;
   const cols = vista === 'estado'
     ? AD_EST.map(E => {
@@ -66251,6 +66266,23 @@ function adGrupos_(dia) {
   return { hoy, gs: aseoAplicarReprog_(pcMovAlojGrupos_(cols, hoy), hoy) };
 }
 // ── Ventana lateral ──
+// KPI → card: abre sus detalles (el personal no administrativo solo la ubica en el tablero).
+window.adKpiIr_ = function (k) {
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  if (!(typeof clModoPersonal_ === 'function' && clModoPersonal_())) return adAbrir_(k);
+  const c = document.querySelector(`#aseo-side .ad-card[data-k="${CSS.escape(k)}"]`);
+  if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.classList.add('ad-flash'); setTimeout(() => c.classList.remove('ad-flash'), 1600); }
+};
+window.adKpiMas_ = function (btn, key) {
+  document.querySelectorAll('.pz-pop').forEach(p => p.remove());
+  const L = (ASEO._kpiL || {})[key] || []; if (!L.length) return;
+  const pop = document.createElement('div'); pop.className = 'pz-pop ad-kpop';
+  pop.innerHTML = L.map(x => `<button type="button" class="ad-kli" onclick="adKpiIr_('${pcEsc(x.k)}')"><b>${pcEsc(x.code)}</b><span>${pcEsc(x.aloj)}</span><em>${pcEsc(x.est)}</em></button>`).join('');
+  document.body.appendChild(pop);
+  const rc = btn.getBoundingClientRect(), w = 260;
+  pop.style.width = w + 'px'; pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, rc.left)) + 'px'; pop.style.top = (rc.bottom + 6) + 'px';
+  setTimeout(() => { const out = e => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', out); } }; document.addEventListener('mousedown', out); }, 0);
+};
 window.adFiltrosToggle_ = function () { ASEO.filtrosAb = !ASEO.filtrosAb; aseoRender_(); };
 window.adAbrir_ = function (k, dia, origen) {
   if (clModoPersonal_()) return; // personal no administrativo: cards en solo lectura
