@@ -9156,7 +9156,8 @@ function clNavHtml_(act) {
   const op2 = !MPn && clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '';
   const adm = !MPn && clPuede_('tareas') ? b('tareas', '🗓️ Tareas programadas', 'tareas') : '';
   // «Check-list Bot» (notificaciones y permisos del bot) vive en Configuración admin › 🤖 Check-list Bot.
-  return `<div class="cl-nav">${op || op2 ? `<div class="cl-g"><span class="cl-l">Operación</span>${op}${op2}</div>` : ''}${adm ? `<div class="cl-g"><span class="cl-l">Administración</span>${adm}</div>` : ''}</div>`;
+  const items = [op.replace(/<button[^>]*class="cl-b off"[\s\S]*?<\/button>/g, ''), op2, adm].join('');
+  return items.trim() ? `<div class="cl-nav"><div class="cl-g">${items}</div></div>` : '';
 }
 function clNavPaint_() {
   if (!document.getElementById('cl-css')) {
@@ -9170,7 +9171,36 @@ function clNavPaint_() {
       .cl-notif:hover{background:#1e293b}
       @media (max-width:640px){.cl-notif{margin-left:0}}
       .cl-b.off,.cl-b.off:hover{color:#c0c6d0;background:transparent;cursor:not-allowed;text-decoration:line-through}
-      .cl-title{font-size:22px;font-weight:700;color:#0f1729;letter-spacing:-.01em;margin-bottom:10px;font-family:Inter,system-ui,sans-serif}`;
+      .cl-title{font-size:20px;font-weight:700;color:#0f1729;letter-spacing:-.01em;margin:0 0 12px;font-family:Inter,system-ui,sans-serif}
+      .cl-nav-slot{margin:0 0 8px}.cl-nav-slot .cl-nav{margin:0}
+      .cl-g{gap:2px;padding:3px;border-radius:9px}.cl-b{padding:5px 11px;font-size:12px}
+      #module-aseo .ck-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px;font-family:Inter,system-ui,sans-serif}
+      #module-aseo .ck-bar .ck-sp{flex:1}
+      #module-aseo .ck-bar .aseo-btn,#module-aseo .ck-dnav button{all:unset;box-sizing:border-box;cursor:pointer;height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:12.5px;font-weight:600;white-space:nowrap}
+      #module-aseo .ck-bar .aseo-btn:hover,#module-aseo .ck-dnav button:hover{background:#f8fafc;border-color:#cbd5e1}
+      #module-aseo .ck-bar .ck-ib{width:32px;padding:0;justify-content:center;font-size:15px}
+      #module-aseo .ck-bar .ck-ib.on{background:#0f1729;border-color:#0f1729;color:#fff}
+      #module-aseo .ck-bar .ck-pri{background:#4f46e5;border-color:#4f46e5;color:#fff}#module-aseo .ck-bar .ck-pri:hover{background:#4338ca;border-color:#4338ca}
+      #module-aseo .ck-bar .mv-pubt .ck{width:14px;height:14px;border:1.5px solid #9aa1ad;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1}
+      #module-aseo .ck-bar .mv-pubt.on .ck{background:#0f1729;border-color:#0f1729;color:#fff}
+      #module-aseo .ck-bar .mv-pubt:disabled{opacity:.5;cursor:default}
+      #module-aseo .ck-dnav{display:inline-flex;align-items:center}
+      #module-aseo .ck-dnav button{border-radius:0;margin-left:-1px;padding:0 9px}
+      #module-aseo .ck-dnav button:first-child{border-radius:8px 0 0 8px;margin-left:0}#module-aseo .ck-dnav button:last-child{border-radius:0 8px 8px 0}
+      #module-aseo .ck-dnav .lb{min-width:108px;justify-content:center;color:#0f1729}#module-aseo .ck-dnav .lb.otro{color:#4f46e5}
+      #module-aseo .ck-live{font-size:11.5px;color:#64748b;white-space:nowrap}
+      #module-aseo .ck-live-in{display:inline-flex;align-items:center;gap:6px;cursor:default}
+      #module-aseo .ck-live .d{width:7px;height:7px;border-radius:50%;background:#94a3b8;display:inline-block}
+      #module-aseo .ck-live-in.ok .d{background:#16a34a;box-shadow:0 0 0 3px #dcfce7}#module-aseo .ck-live-in.warn .d{background:#f59e0b}#module-aseo .ck-live-in.bad{color:#dc2626}#module-aseo .ck-live-in.bad .d{background:#dc2626}
+      #module-aseo .ck-bar .ad-ham{height:32px;width:32px;min-height:0}
+      #module-aseo .ck-bar .ad-seg{height:32px;box-sizing:border-box}
+      #aseo-side .ad-card .r3{flex-wrap:wrap;row-gap:4px}
+      .cl-nav-slot{max-width:100%;overflow-x:auto;scrollbar-width:none}.cl-nav-slot::-webkit-scrollbar{display:none}.cl-nav-slot .cl-g{flex-wrap:nowrap}
+      @media (max-width:640px){#module-aseo .ck-bar .ck-sp{display:none}#module-aseo .ck-bar .ck-pri{order:3;font-size:0;width:32px;padding:0;justify-content:center}#module-aseo .ck-bar .ck-pri::before{content:'＋';font-size:16px}#module-aseo .ck-bar .ck-live,#module-aseo .ck-bar #aseo-upd-btn,#module-aseo .ck-bar #aseo-vista-slot{order:5}#module-aseo #aseo-ham-slot,#module-aseo .ck-dnav,#module-aseo #aseo-cal-btn,#module-aseo #aseo-pub-btn{order:1}#module-aseo .ck-bar .ad-seg>span{display:none}
+        #aseo-kpis .ad-kpis{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:6px!important}
+        #aseo-kpis .ad-kpi{padding:8px 10px!important;min-width:0}#aseo-kpis .ad-kpi.big{grid-column:1/-1}
+        #aseo-kpis .ad-kpi small{font-size:9.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+        #aseo-kpis .ad-kpi .n{font-size:18px!important}#aseo-kpis .ad-kpi:not(.big) .n em{display:none}}`;
     document.head.appendChild(st);
   }
   document.querySelectorAll('.cl-nav-slot').forEach(el => { el.innerHTML = clNavHtml_(el.dataset.act); });
@@ -60261,6 +60291,7 @@ function aseoPubTodasPaint_() {
   const on = els.filter(e => e.classList.contains('on')).length;
   const est = !els.length ? 'none' : on === els.length ? 'on' : on ? 'mix' : 'off';
   b.className = `aseo-btn mv-pubt ${est}`; b.disabled = !els.length;
+  if (b.closest('.ck-bar')) { b.innerHTML = `<span class="ck">${est === 'on' ? '✓' : est === 'mix' ? '–' : ''}</span>Publicar`; b.title = (!els.length ? 'No hay cards con aviso de guía' : est === 'on' ? 'Publicado en todas las guías · clic para quitar' : 'Publicar el aviso en las guías de todas las cards'); return; }
   b.innerHTML = `<span class="ck">${est === 'on' ? '✓' : est === 'mix' ? '–' : ''}</span>Publicar en guías`;
   b.title = !els.length ? 'No hay cards con aviso de guía en pantalla' : est === 'on' ? 'Todas publicadas · clic para que ninguna guía muestre aviso' : 'Clic para publicar el aviso en las guías de todas las cards';
 }
@@ -64775,7 +64806,7 @@ window.ASEO = window.ASEO || { live: null, cambios: {}, asig: {}, ts: 0, sel: nu
 function clEmpCss_() {
   if (document.getElementById('cl-emp-css')) return;
   const st = document.createElement('style'); st.id = 'cl-emp-css';
-  st.textContent = `#module-aseo.cl-emp .aseo-head .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
+  st.textContent = `#module-aseo.cl-emp .ck-bar .aseo-btn:not(.cl-keep),#module-aseo.cl-emp #aseo-dnav,#module-aseo.cl-emp #aseo-cal,#module-aseo.cl-emp #aseo-split{display:none!important}
     #module-aseo.cl-emp .aseo-grid{grid-template-columns:1fr!important}
     .ad-ns-row{display:flex;justify-content:center;margin:6px 0 4px}
     .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
@@ -65569,7 +65600,14 @@ function mvSyncTxt_() {
     + (ASEO.netErr ? ` <span class="e">⚠️ Sin conexión con el servidor: ${pcEsc(ASEO.netErr)}</span>` : '')
     + (!ASEO.err && !ASEO.netErr && nivel !== 'ok' ? ' <span class="e">⚠️ Datos atrasados — oprime 🔄 Actualizar</span>' : '');
 }
-function mvSyncTick_() { document.querySelectorAll('[data-sync]').forEach(el => { el.innerHTML = mvSyncTxt_(); }); }
+function mvSyncMini_() {
+  if (!ASEO.ts) return `<i class="d"></i>Conectando…`;
+  const seg = Math.max(0, Math.round((Date.now() - ASEO.ts) / 1000)), nivel = ASEO.err || ASEO.netErr || seg > 180 ? 'bad' : seg > 75 ? 'warn' : 'ok';
+  const hace = seg < 60 ? `hace ${seg} s` : seg < 3600 ? `hace ${Math.floor(seg / 60)} min` : `hace ${Math.floor(seg / 3600)} h`;
+  const t = new Date(ASEO.ts), full = `Última actualización con Lodgify: ${t.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })} · ${t.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}${ASEO.err ? ' · ⚠️ Lodgify no respondió: ' + ASEO.err : ''}${ASEO.netErr ? ' · ⚠️ Sin conexión: ' + ASEO.netErr : ''}`;
+  return `<span class="ck-live-in ${nivel}" title="${pcEsc(full)}"><i class="d"></i>${nivel === 'bad' ? '⚠️ ' : ''}Lodgify ${hace}</span>`;
+}
+function mvSyncTick_() { document.querySelectorAll('[data-sync]').forEach(el => { el.innerHTML = mvSyncTxt_(); }); document.querySelectorAll('[data-sync-mini]').forEach(el => { el.innerHTML = mvSyncMini_(); }); }
 if (!window.__mvSyncTick) window.__mvSyncTick = setInterval(() => { if (document.visibilityState === 'visible') mvSyncTick_(); }, 1000);
 // Carga base (copia del sistema + registros de huéspedes + extensiones), una vez.
 async function aseoEnsureBase_() {
@@ -65614,6 +65652,8 @@ function clEsAdmin_() {
   const yo = (typeof currentUser !== 'undefined' && currentUser) || u.Nombre || '';
   const P = ((typeof ASEO !== 'undefined' && ASEO.autonotif) || {}).perfiles || {};
   const k = Object.keys(P).find(x => clMisma_(x, yo)); if (k && P[k].rol === 'admin') return true;
+  // Mientras no cargan perfiles ni Personal: lo que resultó la última vez en este navegador.
+  if (!Object.keys(P).length && !((typeof INC_STATE !== 'undefined' && INC_STATE.personalRows) || []).length) { try { const c = JSON.parse(localStorage.getItem('cl-admin') || 'null'); if (c && c.n === yo && c.a) return true; } catch (_) {} }
   if (typeof INC_STATE !== 'undefined' && (INC_STATE.personalRows || []).length && typeof incPuestoDe === 'function' && /administr/i.test(incPuestoDe(yo))) return true;
   if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function' && !clEsAdmin_.c) { clEsAdmin_.c = 1; incLoadPersonal().then(() => { try { aseoRender_(); clNavPaint_(); } catch (_) {} }).catch(() => { clEsAdmin_.c = 0; }); }
   return false;
@@ -65630,9 +65670,8 @@ function aseoRender_() {
   // Calendario: oculto por defecto; se despliega a la izquierda con el botón.
   const grid = document.getElementById('aseo-grid');
   if (grid) grid.classList.toggle('con-cal', !!ASEO.cal);
-  const cb = document.getElementById('aseo-cal-btn'); if (cb) cb.textContent = ASEO.cal ? '✕ Ocultar calendario' : '📅 Mostrar calendario';
+  const cb = document.getElementById('aseo-cal-btn'); if (cb) { cb.classList.toggle('on', !!ASEO.cal); cb.title = ASEO.cal ? 'Ocultar calendario' : 'Mostrar calendario'; }
   const tb = document.getElementById('aseo-todas-btn'); if (tb) tb.textContent = ASEO.todas ? '▾ Contraer todas' : '▸ Expandir todas las cards';
-  const hb = document.getElementById('aseo-hoy-btn'); if (hb) hb.style.display = '';
   // Solo se re-pinta si cambió algo (conserva el scroll del usuario).
   const cal = ASEO.cal ? document.getElementById('aseo-cal') : null;
   // Mismos criterios que el módulo Calendario: solo Booked/Tentative (como
@@ -67165,6 +67204,7 @@ function aseoRenderSide_() {
     const MP = clModoPersonal_();
     document.getElementById('module-aseo')?.classList.toggle('cl-emp', MP);
     document.body.classList.toggle('cl-emp-u', MP);
+    if (ASEO._mpNav !== MP) { ASEO._mpNav = MP; try { clNavPaint_(); } catch (_) {} } // menú de secciones acorde al rol
     try { localStorage.setItem('cl-admin', JSON.stringify({ n: currentUser, a: !MP })); } catch (_) {}
     selBlock = ''; // la reserva elegida en el calendario se abre en la ventana lateral
     if (MP) { // personal no administrativo: solo sus asignaciones (KPIs incluidos), sin filtro de personal
@@ -67184,7 +67224,10 @@ function aseoRenderSide_() {
   const top = document.getElementById('aseo-top');
   // KPIs arriba del menú; renglón: ☰ filtros · última actualización · vista
   const kp = document.getElementById('aseo-kpis'); if (kp) kp.innerHTML = ASEO._kpisHtml || '';
-  if (top) { top.innerHTML = `<div class="ad-syncrow">${ASEO._hamHtml || ''}${mvSyncBar_('aseo')}${ASEO._segVHtml || ''}</div>${kp ? '' : ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
+  const hs = document.getElementById('aseo-ham-slot'), vs = document.getElementById('aseo-vista-slot');
+  if (hs) hs.innerHTML = ASEO._hamHtml || ''; if (vs) vs.innerHTML = ASEO._segVHtml || '';
+  document.querySelectorAll('[data-sync-mini]').forEach(e => { e.innerHTML = mvSyncMini_(); });
+  if (top) { top.innerHTML = `${hs ? '' : `<div class="ad-syncrow">${ASEO._hamHtml || ''}${mvSyncBar_('aseo')}${ASEO._segVHtml || ''}</div>`}${kp ? '' : ASEO._kpisHtml || ''}${ASEO._filtrosHtml || ''}`; side.innerHTML = `${selBlock}${cuerpo}`; }
   else side.innerHTML = `${mvSyncBar_()}${selBlock}${cuerpo}`;
   side.classList.add('ad-v2');
   aseoPubTodasPaint_();
@@ -67243,6 +67286,13 @@ function aseoDiaLabel_(iso) {
 }
 function aseoDnavPaint_() {
   const el = document.getElementById('aseo-dnav'); if (!el) return;
+  if (el.classList.contains('ck-dnav')) {
+    const iso = aseoDia_(), hoy = aseoHoyIso_(), dif = Math.round((new Date(iso + 'T12:00:00') - new Date(hoy + 'T12:00:00')) / 864e5);
+    const d = new Date(iso + 'T12:00:00'), f = `${d.getDate()} ${ASEO_MES[d.getMonth()]}`;
+    const t = dif === 0 ? `Hoy · ${f}` : dif === -1 ? `Ayer · ${f}` : dif === 1 ? `Mañana · ${f}` : `${['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d.getDay()]} ${f}`;
+    el.innerHTML = `<button type="button" onclick="aseoSetDia_(-1)" title="Día anterior">‹</button><button type="button" class="lb ${dif ? 'otro' : ''}" onclick="aseoHoy_()" title="${dif ? 'Volver a hoy' : aseoDiaTxt_(iso)}">${t}</button><button type="button" onclick="aseoSetDia_(1)" title="Día siguiente">›</button>`;
+    return;
+  }
   el.innerHTML = `<button type="button" onclick="aseoSetDia_(-1)" title="Día anterior">‹</button><div class="pc-mlabel" ${ASEO.dia && ASEO.dia !== aseoHoyIso_() ? `onclick="aseoSetDia_(0)" title="Volver a hoy" style="cursor:pointer"` : ''}>${aseoDiaLabel_(aseoDia_())}</div><button type="button" onclick="aseoSetDia_(1)" title="Día siguiente">›</button>`;
 }
 window.aseoSetDia_ = function (delta) {

@@ -86,7 +86,7 @@
   </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>/* Check-list «modo personal»: se aplica desde el inicio de sesión (sin parpadeo de botones) */
-body.cl-emp-u #module-aseo .aseo-head .aseo-btn:not(.cl-keep),body.cl-emp-u #aseo-dnav,body.cl-emp-u #aseo-cal,body.cl-emp-u #aseo-split{display:none!important}
+body.cl-emp-u #module-aseo .ck-bar .aseo-btn:not(.cl-keep),body.cl-emp-u #aseo-dnav,body.cl-emp-u #aseo-cal,body.cl-emp-u #aseo-split{display:none!important}
 body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</style>
 </head>
 <body>
@@ -1809,14 +1809,17 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
       <div class="cl-title">✅ Check-list</div>
       <div id="aseo-kpis" class="ad-v2"></div>
       <div class="cl-nav-slot" data-act="checkinn"></div>
-      <div class="aseo-head">
-        <div class="st" id="aseo-status">Conectando con Lodgify…</div>
-        <button type="button" class="aseo-btn" id="aseo-hoy-btn" onclick="aseoHoy_()" title="Ir al día de hoy">📍 Hoy</button>
-        <div class="pc-mnav aseo-dnav" id="aseo-dnav"></div>
-        <button type="button" class="aseo-btn" id="aseo-cal-btn" onclick="aseoToggleCal_()" title="Mostrar/ocultar el calendario a la izquierda">📅 Mostrar calendario</button>
-        <button type="button" class="aseo-btn at-nueva" onclick="atForm_()" title="Crear una tarea de limpieza, inspección o mantenimiento">＋ Nueva tarea</button>
+      <div class="ck-bar">
+        <span id="aseo-ham-slot"></span>
+        <div class="ck-dnav" id="aseo-dnav"></div>
+        <button type="button" class="ck-ib aseo-btn" id="aseo-cal-btn" onclick="aseoToggleCal_()" title="Mostrar calendario">📅</button>
         <button type="button" class="aseo-btn mv-pubt" id="aseo-pub-btn" onclick="aseoPubTodas_()" title="Publicar o no el aviso en las guías de todas las cards"><span class="ck"></span>Publicar en guías</button>
-        <button type="button" class="aseo-btn cl-keep" onclick="aseoRecargar_()" title="Actualizar ahora">🔄 Actualizar</button>
+        <span class="ck-sp"></span>
+        <span class="ck-live" data-sync-mini></span>
+        <button type="button" class="ck-ib aseo-btn cl-keep" id="aseo-upd-btn" onclick="aseoRecargar_()" title="Actualizar ahora con Lodgify">⟳</button>
+        <span id="aseo-vista-slot"></span>
+        <button type="button" class="aseo-btn ck-pri at-nueva" onclick="atForm_()" title="Crear una tarea de limpieza, inspección o mantenimiento">＋ Nueva tarea</button>
+        <span id="aseo-status" hidden></span><span id="aseo-hoy-btn" hidden></span>
       </div>
       <div id="aseo-top" class="ad-v2"></div>
       <div class="aseo-grid" id="aseo-grid">
@@ -2911,7 +2914,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1668"></script>
+  <script src="app.js?v=1669"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
