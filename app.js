@@ -64962,6 +64962,17 @@ function clEmpCss_() {
     .ad-syncrow{display:flex;align-items:stretch;gap:8px;margin:0 0 10px}
     .ad-syncrow>.ad-seg{align-self:stretch}
     #aseo-kpis .ad-kpis{margin:0 0 12px}
+    .ad-donas{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;background:#fff;border:1px solid #e8eaee;border-radius:12px;padding:8px 12px;margin:0 0 12px}
+    .ad-dn{display:flex;align-items:center;gap:7px}
+    .ad-dn .r{position:relative;width:34px;height:34px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center}
+    .ad-dn .r::before{content:'';position:absolute;inset:5px;border-radius:50%;background:#fff}
+    .ad-dn .r b{position:relative;font:700 12px Inter,system-ui,sans-serif;color:#0f1729}
+    .ad-dn .tx{display:flex;flex-direction:column;gap:1px;font:600 11px Inter,system-ui,sans-serif;color:#334155}
+    .ad-dn .tx small{font:600 10.5px Inter,system-ui,sans-serif;color:#64748b}
+    .ad-dn .tx>span{display:flex;align-items:center;gap:3px;white-space:nowrap}
+    .ad-dn i,.ad-dnl i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:4px}.ad-dn .tx>span i:first-child{margin-left:0}
+    .ad-dnl{margin-left:auto;font:500 10px Inter,system-ui,sans-serif;color:#94a3b8;white-space:nowrap}
+    @media (max-width:640px){.ad-donas{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}.ad-dnl{grid-column:1/-1;margin:0}}
     @media (max-width:700px){.ad-syncrow{flex-wrap:wrap}.ad-syncrow>.mv-sync{flex-basis:calc(100% - 42px)}}
     #aseo-top .ad-syncrow>.mv-sync{flex:1;min-width:0;margin:0!important}
     .ad-ham{all:unset;box-sizing:border-box;cursor:pointer;position:relative;flex:none;align-self:stretch;width:34px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#374151;font-size:15px;line-height:1}
@@ -66354,7 +66365,19 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       return `<div class="ad-col"><div class="ad-colh">🏘️ ${pcEsc(p)}<span>${nVis(L)}</span>${colProg(L)}</div>${sinHijos(L).map(pinta).join('')}</div>`;
     }).join('');
   const vacio = gs.length || tInfos.length ? 'Ninguna card coincide con los filtros' : `Ningún alojamiento con aseo ${esHoy ? 'hoy' : 'el ' + aseoDiaTxt_(hoy)}`;
-  ASEO._kpisHtml = kpis; // se pintan arriba del calendario y de las cards (#aseo-top)
+  // Mini-donas por tipo (Total · Limpieza · Inspección · Mantenimiento): terminado / en progreso / sin iniciar, en una sola caja.
+  const donas = (() => {
+    const T = vivos.concat(tInfos).filter(I => I.selE !== 'cancelado');
+    const tipo = I => I.tarea ? (I.t.rt ? 'mantenimiento' : (I.t.depto || 'limpieza')) : (I.depto || 'limpieza');
+    const fin = I => I.tarea && I.t.rt ? !rtAbierto_(I.t) : I.selE === 'terminado' || I.selE === 'inspeccionado';
+    const dona = (t, L) => {
+      const tot = L.length, te = L.filter(fin).length, pr = L.filter(I => !fin(I) && I.selE === 'en_proceso').length, ni = tot - te - pr;
+      const a = tot ? te / tot * 360 : 0, b = tot ? a + pr / tot * 360 : 0;
+      return `<div class="ad-dn" title="${t}: ${te} terminado${te === 1 ? '' : 's'} · ${pr} en progreso · ${ni} sin iniciar"><span class="r" style="background:${tot ? `conic-gradient(#065f46 0 ${a}deg,#34d399 ${a}deg ${b}deg,#cbd5e1 ${b}deg 360deg)` : '#e2e8f0'}"><b>${tot}</b></span><span class="tx"><small>${t}</small><span><i style="background:#065f46"></i>${te}<i style="background:#34d399"></i>${pr}<i style="background:#cbd5e1"></i>${ni}</span></span></div>`;
+    };
+    return `<div class="ad-donas">${dona('Total', T)}${['limpieza', 'inspeccion', 'mantenimiento'].map(k => dona(AT_DEPTO[k].t, T.filter(I => tipo(I) === k))).join('')}<span class="ad-dnl"><i style="background:#065f46"></i>Terminado <i style="background:#34d399"></i>En progreso <i style="background:#cbd5e1"></i>Sin iniciar</span></div>`;
+  })();
+  ASEO._kpisHtml = kpis + donas; // se pintan arriba del calendario y de las cards (#aseo-top)
   // Filtros generales (cards + calendario) detrás del botón ☰ — contraídos por defecto.
   const nFil = (MP ? 0 : (ASEO.fPers || []).length) + fP.length + fT.length + fPr.length + (ASEO.verArch ? 1 : 0);
   const archHtml = nArch && !MP ? `<div class="mv-pf ad-prf"><small>🗄 Archivadas:</small><button type="button" class="mv-pf-c ad-pr ${ASEO.verArch ? 'on' : ''}" onclick="ASEO.verArch=!ASEO.verArch;aseoRender_()">Ver archivadas<b>${nArch}</b></button></div>` : '';
