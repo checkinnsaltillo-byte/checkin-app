@@ -7093,7 +7093,8 @@ window.__waPopupOptIn = true; // default ON al cargar
 </div>
 </div>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwqMfC6tITLXlhEwYzQ5mKzw-KD6-nV7XVKIuekj6pK4Po50oRfVKClZeHcr-si3ppB/exec";
+// Pasa por el servidor (api.check-inn.mx/as): lo que ya vive en Google Cloud se atiende ahí; lo demás se reenvía a Apps Script.
+const WEB_APP_URL = "https://api.check-inn.mx/as";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
 
 const ladas = [
@@ -19919,7 +19920,7 @@ document.addEventListener("DOMContentLoaded", function(){
 (function(){
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const WEB_APP_URL = window.CHECKIN_WEB_APP_URL || "https://script.google.com/macros/s/AKfycbwqMfC6tITLXlhEwYzQ5mKzw-KD6-nV7XVKIuekj6pK4Po50oRfVKClZeHcr-si3ppB/exec";
+  const WEB_APP_URL = window.CHECKIN_WEB_APP_URL || "https://api.check-inn.mx/as";
 
   const state = {
     items: [],
