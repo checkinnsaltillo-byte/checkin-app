@@ -2926,7 +2926,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=1752"></script>
+  <script src="app.js?v=1753"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
@@ -2945,12 +2945,12 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
     }
     body{padding-bottom:44px !important}
     @media (max-width:767px){body{padding-bottom:40px !important}}
-    /* Header de chat (Chats bot): en móvil el nombre ocupa toda la fila
-       y los chips/acciones bajan a una segunda fila alineada a la izquierda. */
+    body{padding-bottom:0!important} /* TEMP: menú inferior oculto (ver #sys-bottom-nav arriba) → no se reserva su espacio */
+    /* Header de chat (Chats bot) en móvil: nombre a la izquierda; saldo, modo y menú en la esquina superior derecha. */
     @media (max-width:767px){
       .botc-chat-header{padding:8px 12px 10px !important;gap:8px !important}
-      .botc-chat-header-nameblock{flex:0 0 100% !important;width:100%}
-      .botc-chat-header-actions{margin-left:0 !important;width:100%;justify-content:flex-start !important}
+      .botc-chat-header-nameblock{flex:1 1 0 !important;min-width:0 !important}
+      .botc-chat-header-actions{margin-left:auto !important;flex:none !important}
       .botc-chat-header .botc-chat-name{font-size:15px !important}
     }
   </style>
