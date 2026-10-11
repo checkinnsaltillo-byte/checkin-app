@@ -59,6 +59,17 @@ jobs:
           cp tv-src/app.js     admin/app.js
           rm -rf tv-src
 
+      # El sitio sirve app.js MINIFICADO (≈30 % menos de descarga en datos móviles).
+      # Si terser fallara, se queda la copia sin minificar (funciona igual, solo pesa más).
+      - name: Minify app.js
+        run: |
+          if npx --yes terser@5 app.js -c -m --ecma 2020 -o app.min.js && node --check app.min.js; then
+            cp app.min.js app.js && cp app.min.js admin/app.js && rm app.min.js
+            echo "app.js minificado: $(wc -c < app.js) bytes"
+          else
+            echo "⚠️ terser falló; se publica sin minificar"; rm -f app.min.js
+          fi
+
       - name: Detect changes
         id: changes
         run: |
