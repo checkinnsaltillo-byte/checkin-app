@@ -738,7 +738,7 @@ function openBooking_(){
 }
 
 // ─── Auto-facturación express: popup 3 pasos ─────────────────────────────
-const FACT_APPS_URL = 'https://script.google.com/macros/s/AKfycbwqMfC6tITLXlhEwYzQ5mKzw-KD6-nV7XVKIuekj6pK4Po50oRfVKClZeHcr-si3ppB/exec';
+const FACT_APPS_URL = 'https://api.check-inn.mx/as'; // pasa por el servidor (perfiles en Google Cloud; lo demás se reenvía a Apps Script)
 const FACT_STATE = { step:1, mode:'cel', reserva:null, perfil:null, phone:'' };
 function openFacturacion_(){
   document.getElementById('fact-modal').style.display = 'flex';
