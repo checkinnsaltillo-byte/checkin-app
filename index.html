@@ -180,6 +180,7 @@
   .rsv-empty .icon{width:76px;height:76px;margin:0 auto 14px;border-radius:24px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fff3c4,#ffe08a);font-size:34px;box-shadow:0 12px 24px -12px rgba(254,197,3,.8)}
   .ck-foot{max-width:1080px;margin:40px auto 0;padding:24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid rgba(17,24,39,.06);font-size:12px;color:#6b7280}
   .ck-foot img{height:26px}
+  body:has(.rsv-float-bar.visible) .ck-foot{padding-bottom:90px} /* el pie queda debajo de «Ver mapa» y «Compartir» */
   .ck-foot-info{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#374151}.ck-foot-info a{color:#2563eb;text-decoration:underline;text-underline-offset:2px}.ck-foot-info a:hover{color:#1d4ed8}
 </style>
 </head>
@@ -219,7 +220,7 @@
     <div class="rsv-count" id="rsv-count"></div>
   </div>
   <div id="rsv-float-bar" class="rsv-float-bar">
-    <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float" onclick="rsvOpenMap_()">🗺️ Ver resultados en mapa</button>
+    <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float" onclick="rsvOpenMap_()">🗺️ Ver mapa</button>
     <button type="button" id="rsv-share-btn" class="rsv-share-btn-float" onclick="rsvShare_(this)" title="Copiar liga con estos resultados">🔗 Compartir</button>
   </div>
   <div id="rsv-results">
