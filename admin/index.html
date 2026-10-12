@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#dc2626">
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=169">
+  <link rel="stylesheet" href="styles.css?v=170">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -85,7 +85,7 @@
     body.dark .classify-tab { background: #1e293b !important; color: #e5e7eb !important; }
   </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>/* Check-list «modo personal»: se aplica desde el inicio de sesión (sin parpadeo de botones) */
+<style>/* CheckFlow «modo personal»: se aplica desde el inicio de sesión (sin parpadeo de botones) */
 body.cl-emp-u #module-aseo .ck-bar .aseo-btn:not(.cl-keep),body.cl-emp-u #aseo-dnav,body.cl-emp-u #aseo-cal,body.cl-emp-u #aseo-split{display:none!important}
 body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</style>
 </head>
@@ -156,9 +156,9 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
         </li>
         <li class="nav-item" id="nav-item-aseo"
             onclick="switchModule('aseo');closeNavMenu()">
-          ✅ Check-list
+          🔄 CheckFlow
         </li>
-        <!-- Breezeway es una pestaña dentro de "Check-list" -->
+        <!-- Breezeway es una pestaña dentro de "CheckFlow" -->
         <li class="nav-item hidden" id="nav-item-breezeway"
             onclick="switchModule('breezeway');closeNavMenu()">
           🧹 Breezeway
@@ -302,14 +302,13 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
       </div>
       <div class="hm-quick gb-quick" aria-label="Acceso directo">
         <span class="gb-quick-l">⚡</span>
-              <button type="button" class="hm-q" data-mod="aseo" onclick="switchModule('aseo')"><span>✅</span>Check-list</button>
               <button type="button" class="hm-q" data-mod="efectivo" onclick="bnEfectivoOpenFromHome()"><span>💵</span>Efectivo</button>
               <button type="button" class="hm-q" data-mod="pagos" onclick="switchModule('pagos')"><span>💳</span>Pagos</button>
-              <button type="button" class="hm-q" data-mod="bot-chats" onclick="switchModule('bot-chats')"><span>🤖</span>Chats bot</button>
-              <button type="button" class="hm-q" data-mod="tareas" onclick="switchModule('tareas')"><span>🗓️</span>Tareas programadas</button>
               <button type="button" class="hm-q" data-mod="guias" onclick="hmGuiasMenu_(this)" title="Link de la guía de bienvenida de un alojamiento"><span>📖</span>Guías de bienvenida <b style="font-size:9px;opacity:.8">▾</b></button>
       </div>
       <div class="gb-right">
+        <button type="button" class="ug-panel hm-q-r" data-mod="aseo" onclick="switchModule('aseo')" title="Ir a CheckFlow">🔄<span class="ug-panel-txt"> CheckFlow</span></button>
+        <button type="button" class="ug-panel hm-q-r" data-mod="bot-chats" onclick="switchModule('bot-chats')" title="Ir a Chats bot">🤖<span class="ug-panel-txt"> Chats bot</span></button>
         <button type="button" id="ug-panel-btn" class="ug-panel" onclick="switchModule('panel-control')" title="Ir al Panel de control">📊<span class="ug-panel-txt"> Panel de control</span></button>
       </div>
     </div>
@@ -324,7 +323,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
               <button type="button" class="hm-tile home-card-tareas" onclick="switchModule('tareas')"><span class="hm-ico">🗓️</span><span class="hm-tx"><b>Tareas programadas</b><small>Asignación y seguimiento de tareas al personal</small></span></button>
               <button type="button" class="hm-tile home-card-procesos" onclick="switchModule('procesos')"><span class="hm-ico">📘</span><span class="hm-tx"><b>Documentación de procesos</b><small>Procedimientos, checklists, roles y versiones</small></span></button>
               <button type="button" class="hm-tile home-card-senaletica" onclick="switchModule('senaletica')"><span class="hm-ico">🪧</span><span class="hm-tx"><b>Señalética</b><small>Kit editable de señales para impresión</small></span></button>
-              <button type="button" class="hm-tile home-card-aseo" onclick="switchModule('aseo')"><span class="hm-ico">✅</span><span class="hm-tx"><b>Check-list</b><small>Limpieza, inspección y mantenimiento del día · Breezeway</small></span></button>
+              <button type="button" class="hm-tile home-card-aseo" onclick="switchModule('aseo')"><span class="hm-ico">🔄</span><span class="hm-tx"><b>CheckFlow</b><small>Limpieza, inspección y mantenimiento del día · Breezeway</small></span></button>
               <button type="button" class="hm-tile home-card-incidencias" onclick="switchModule('incidencias')"><span class="hm-ico">🚨</span><span class="hm-tx"><b>Incidencias</b><small>Reportes con evidencia fotográfica</small></span></button>
               <button type="button" class="hm-tile home-card-reportes-tecnicos" onclick="switchModule('reportes-tecnicos')"><span class="hm-ico">🛠️</span><span class="hm-tx"><b>Reportes técnicos</b><small>Bitácora técnica y refacciones</small></span></button>
               <button type="button" class="hm-tile home-card-inventarios" onclick="switchModule('inventarios')"><span class="hm-ico">📦</span><span class="hm-tx"><b>Inventarios</b><small>Stock, órdenes de compra y reposición</small></span></button>
@@ -1667,7 +1666,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
     <!-- ══ MÓDULO: Breezeway ═══════════════════════════════════════ -->
     <div id="module-breezeway" class="hidden" style="padding:20px 24px 60px">
-      <div class="cl-title">✅ Check-list</div>
+      <div class="cl-title">🔄 CheckFlow</div>
       <div class="cl-nav-slot" data-act="breezeway"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <div>
@@ -1813,9 +1812,9 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
       <div id="bzw-detail-backdrop" class="bzw-detail-backdrop hidden" onclick="bzwCloseDetailPanel()"></div>
     </div><!-- /module-breezeway -->
 
-    <!-- ══ MÓDULO: Check-list › Operación › Check-inn (antes Control de aseo) ═══════════════════════════════ -->
+    <!-- ══ MÓDULO: CheckFlow › Operación › Check-inn (antes Control de aseo) ═══════════════════════════════ -->
     <div id="module-aseo" class="hidden" style="padding:20px 24px 30px">
-      <div class="cl-title">✅ Check-list<span id="aseo-vercomo"></span></div>
+      <div class="cl-title">🔄 CheckFlow<span id="aseo-vercomo"></span></div>
       <div id="aseo-kpis" class="ad-v2"></div>
       <div class="cl-nav-slot" data-act="checkinn"></div>
       <div class="ck-bar">
@@ -2700,7 +2699,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
           <button type="button" class="rh-tab active" data-cfg-tab="templates" onclick="cfgSetTab('templates')">💬 Templates de mensajes programados</button>
           <button type="button" class="rh-tab" data-cfg-tab="prompts" onclick="cfgSetTab('prompts')">📋 Prompts (procesos)</button>
           <button type="button" class="rh-tab" data-cfg-tab="boveda" onclick="cfgSetTab('boveda')">🔐 Control de contraseñas y accesos</button>
-          <button type="button" class="rh-tab" data-cfg-tab="clbot" onclick="cfgSetTab('clbot')">🤖 Check-list Bot</button>
+          <button type="button" class="rh-tab" data-cfg-tab="clbot" onclick="cfgSetTab('clbot')">🤖 CheckFlow Bot</button>
         </div>
         <div id="cfg-view" class="rh-view">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
@@ -2929,7 +2928,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=1792"></script>
+  <script src="app.js?v=1793"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

@@ -6744,3 +6744,11 @@ body.dark .hm-tile:hover{background:#172036 !important}
 /* Barra superior (saludo + menú de accesos) fija al hacer scroll. --gb-h = su altura,
    para que otros elementos "sticky" de página se acomoden debajo de ella. */
 .user-greeting.gb{position:sticky;top:0;z-index:950}
+
+/* Encabezado: CheckFlow · Chats bot · Panel de control (mismo formato). Pantalla angosta → cuadrado con solo el ícono. */
+.user-greeting.gb .gb-right .ug-panel{display:inline-flex;align-items:center;justify-content:center;gap:0;height:32px;box-sizing:border-box}
+@media (max-width:900px){
+  .user-greeting.gb .gb-right .ug-panel-txt{display:none}
+  .user-greeting.gb .gb-right .ug-panel{width:34px;height:34px;padding:0;font-size:16px;line-height:1}
+  .user-greeting.gb .gb-right{gap:6px}
+}
