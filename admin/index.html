@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script>/* www.check-inn.mx/ es la landing de reservas; el sistema vive en /admin/. Si la sincronización automática deja este archivo en la raíz, se redirige solo. */
+  (function(){var L=location;if(/(^|\.)check-inn\.mx$/.test(L.hostname)&&(L.pathname==='/'||L.pathname==='/index.html')){L.replace(L.hash&&L.hash!=='#home'?'/admin/'+L.search+L.hash:'/reservas/'+L.search);}})();</script>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión inmobiliaria | Check Inn Saltillo</title>
@@ -2929,7 +2931,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=1800"></script>
+  <script src="app.js?v=1801"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
