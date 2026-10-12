@@ -2,7 +2,7 @@
   "name": "Check-inn Saltillo · Sistema de gestión",
   "short_name": "Check-inn",
   "description": "Sistema de gestión inmobiliaria de Check-inn Saltillo.",
-  "start_url": "/",
+  "start_url": "/admin/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#fbbf24",
