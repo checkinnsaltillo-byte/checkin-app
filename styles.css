@@ -6753,17 +6753,15 @@ body.dark .hm-tile:hover{background:#172036 !important}
   .user-greeting.gb .gb-right{gap:6px}
 }
 
-/* ═══ Barra superior blanca · botones con el amarillo del logo (#FEC503) · accesos rápidos en el mismo tono claro ═══ */
-body:not(.dark) .user-greeting.gb{background:#fff;color:#1f2937;box-shadow:0 1px 0 #eef0f3,0 4px 14px rgba(15,23,42,.06)}
-body:not(.dark) .user-greeting.gb .gb-eyebrow{color:#a87800}
-body:not(.dark) .user-greeting.gb .gb-title{color:#111}
-body:not(.dark) .user-greeting.gb .gb-meta{color:#64748b}
-body:not(.dark) .user-greeting.gb .ug-hello strong{color:#111}
-body:not(.dark) .user-greeting.gb #ug-version{color:#7a5800;background:#fff8dc;border-color:#ffe28a}
-body:not(.dark) .user-greeting.gb .ug-hamburger{background:#fff;border-color:#e2e8f0;color:#334155}
-body:not(.dark) .user-greeting.gb .ug-hamburger:hover{background:#fff8dc;border-color:#ffd54a}
-body:not(.dark) .user-greeting.gb .hm-q{background:#fff6d6;border-color:#ffe28a;color:#5c4300;backdrop-filter:none}
-body:not(.dark) .user-greeting.gb .hm-q:hover{background:#ffedb0;border-color:#ffd54a}
-/* Check-Flow · Chats bot · Panel de control: amarillo-naranja del logo con texto negro (como el logo) */
-body:not(.dark) .user-greeting.gb .gb-right .ug-panel{background:#fec503;border:1px solid #e9b200;color:#111;box-shadow:0 2px 8px rgba(254,197,3,.4)}
-body:not(.dark) .user-greeting.gb .gb-right .ug-panel:hover{filter:brightness(1.05)}
+/* ═══ Barra superior: amarillo del logo (#FEC503) sólido con texto blanco · botones grandes en tono más oscuro · accesos rápidos en tono más claro ═══ */
+body:not(.dark) .user-greeting.gb{background:#fec503;color:#fff;box-shadow:0 4px 14px rgba(200,150,0,.25)}
+body:not(.dark) .user-greeting.gb .gb-eyebrow,body:not(.dark) .user-greeting.gb .gb-title,body:not(.dark) .user-greeting.gb .gb-meta,body:not(.dark) .user-greeting.gb .ug-hello strong{color:#fff;text-shadow:0 1px 2px rgba(120,80,0,.35)}
+body:not(.dark) .user-greeting.gb .gb-meta{opacity:.95}
+body:not(.dark) .user-greeting.gb #ug-version{color:#fff;background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.45)}
+body:not(.dark) .user-greeting.gb .ug-hamburger{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff}
+body:not(.dark) .user-greeting.gb .ug-hamburger:hover{background:rgba(255,255,255,.35)}
+body:not(.dark) .user-greeting.gb .hm-q{background:#ffe27a;border-color:#ffd84d;color:#5c4300;backdrop-filter:none}
+body:not(.dark) .user-greeting.gb .hm-q:hover{background:#ffeba3;border-color:#ffe27a}
+/* Check-Flow · Chats bot · Panel de control: tono más oscuro del amarillo con texto claro */
+body:not(.dark) .user-greeting.gb .gb-right .ug-panel{background:#c99400;border:1px solid #b58500;color:#fff;box-shadow:0 2px 8px rgba(120,80,0,.3)}
+body:not(.dark) .user-greeting.gb .gb-right .ug-panel:hover{filter:brightness(1.08)}
