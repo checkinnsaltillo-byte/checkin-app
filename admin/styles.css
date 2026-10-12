@@ -6754,7 +6754,27 @@ body.dark .hm-tile:hover{background:#172036 !important}
 }
 
 /* ═══ Barra superior: amarillo del logo (#FEC503) sólido · textos negro/grises · botones grandes en negro (como el texto del logo) · accesos rápidos en amarillo claro ═══ */
-body:not(.dark) .user-greeting.gb{background:#fec503;color:#111;box-shadow:0 4px 14px rgba(200,150,0,.25)}
+body:not(.dark) .user-greeting.gb{color:#111;box-shadow:0 4px 14px rgba(200,150,0,.18);isolation:isolate;overflow:hidden;
+  background:radial-gradient(700px 200px at 8% -40%,rgba(254,197,3,.55),transparent 70%),radial-gradient(560px 200px at 100% 0%,rgba(227,20,27,.18),transparent 70%),linear-gradient(180deg,#fff6dc 0%,#fffaf0 100%)}
+/* Mismo fondo animado de la landing: aurora + retícula en perspectiva + haces de luz + destellos */
+body:not(.dark) .user-greeting.gb::before{content:'';position:absolute;z-index:-2;inset:-300% -40%;pointer-events:none;
+  background:conic-gradient(from 0deg at 50% 50%,rgba(254,197,3,0),rgba(254,197,3,.55),rgba(255,149,0,.45),rgba(227,20,27,.25),rgba(255,255,255,0) 60%,rgba(254,197,3,.35),rgba(254,197,3,0));
+  filter:blur(60px);opacity:.8;animation:ckAurora 22s linear infinite}
+body:not(.dark) .user-greeting.gb::after{content:'';position:absolute;z-index:-1;left:-50%;right:-50%;bottom:-2px;height:120%;pointer-events:none;
+  background-image:linear-gradient(rgba(234,88,12,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(234,88,12,.22) 1px,transparent 1px);background-size:34px 34px;
+  transform:perspective(260px) rotateX(58deg);transform-origin:50% 100%;
+  -webkit-mask-image:linear-gradient(to top,#000 5%,transparent 90%);mask-image:linear-gradient(to top,#000 5%,transparent 90%);animation:ckGrid 2.6s linear infinite}
+@keyframes ckAurora{to{transform:rotate(360deg)}}
+@keyframes ckGrid{to{background-position:0 34px,0 0}}
+.gb-fx{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+body.dark .gb-fx{display:none}
+.gb-fx .ck-beam{position:absolute;height:2px;width:30%;border-radius:2px;background:linear-gradient(90deg,transparent,rgba(254,197,3,.95),rgba(255,149,0,.95),transparent);filter:drop-shadow(0 0 6px rgba(254,197,3,.8));opacity:0;animation:ckBeam 7s ease-in-out infinite}
+.gb-fx .ck-beam.b1{top:28%}.gb-fx .ck-beam.b2{top:60%;animation-delay:2.3s;background:linear-gradient(90deg,transparent,rgba(227,20,27,.7),rgba(255,149,0,.8),transparent)}.gb-fx .ck-beam.b3{top:85%;animation-delay:4.6s;width:22%}
+@keyframes ckBeam{0%{transform:translateX(-120%);opacity:0}15%{opacity:1}60%{opacity:1}100%{transform:translateX(420%);opacity:0}}
+.gb-fx .ck-orb{position:absolute;width:5px;height:5px;border-radius:50%;background:#fec503;box-shadow:0 0 10px 3px rgba(254,197,3,.8);animation:ckFloat 9s ease-in-out infinite}
+.gb-fx .ck-orb.o1{left:30%;top:30%}.gb-fx .ck-orb.o2{left:58%;top:22%;animation-delay:-3s;background:#ff9500}.gb-fx .ck-orb.o3{left:44%;top:70%;animation-delay:-6s;background:#e3141b;box-shadow:0 0 10px 3px rgba(227,20,27,.6)}.gb-fx .ck-orb.o4{left:76%;top:68%;animation-delay:-1.5s}
+@keyframes ckFloat{0%,100%{transform:translate(0,0);opacity:.5}50%{transform:translate(14px,-10px);opacity:1}}
+@media (prefers-reduced-motion:reduce){body:not(.dark) .user-greeting.gb::before,body:not(.dark) .user-greeting.gb::after,.gb-fx .ck-beam,.gb-fx .ck-orb{animation:none}}
 body:not(.dark) .user-greeting.gb .gb-title{color:#111}
 body:not(.dark) .user-greeting.gb .gb-eyebrow{color:#4a4a4a}
 body:not(.dark) .user-greeting.gb .gb-meta{color:#3f3f3f}
