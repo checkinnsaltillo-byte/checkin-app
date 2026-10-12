@@ -2091,6 +2091,8 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
     <!-- ═══════════════ MÓDULO OBJETOS OLVIDADOS ═══════════════ -->
     <div id="module-objetos" class="hidden" style="padding:20px 24px 60px">
+      <div id="ob-root"></div>
+      <div id="obj-legacy" style="display:none"><!-- diseño anterior (lo usa Gestión de reservas) -->
       <div style="max-width:1440px;margin:0 auto">
         <div class="obj-hero">
           <div>
@@ -2249,6 +2251,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
         <button type="button" onclick="objCloseZoom()" class="inc-zoom-close" title="Cerrar">✕</button>
         <img id="obj-zoom-img" src="" alt="" onclick="event.stopPropagation()">
       </div>
+      </div><!-- /obj-legacy -->
     </div><!-- /module-objetos -->
 
     <!-- ═══════════════ MÓDULO OCUPACIÓN — calendario de reservas ═══════════════ -->
@@ -2926,7 +2929,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=1781"></script>
+  <script src="app.js?v=1782"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
