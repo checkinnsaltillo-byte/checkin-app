@@ -6753,18 +6753,17 @@ body.dark .hm-tile:hover{background:#172036 !important}
   .user-greeting.gb .gb-right{gap:6px}
 }
 
-/* ═══ Barra superior en amarillo degradado (tonos del logo: #f8d010 → naranja) ═══ */
-body:not(.dark) .user-greeting.gb{background:radial-gradient(900px 220px at 0% 0%,rgba(255,255,255,.28),transparent 60%),linear-gradient(120deg,#fad414 0%,#f8c40f 50%,#f5a20c 100%);color:#2b1a02;box-shadow:0 4px 16px rgba(180,110,0,.25)}
-body:not(.dark) .user-greeting.gb .gb-eyebrow{color:#8a4b00}
-body:not(.dark) .user-greeting.gb .gb-title{color:#2b1a02}
-body:not(.dark) .user-greeting.gb .gb-meta{color:#5c3a06}
-body:not(.dark) .user-greeting.gb .ug-hello strong{color:#2b1a02}
-body:not(.dark) .user-greeting.gb #ug-version{color:#6b3f00;background:rgba(255,255,255,.4);border-color:rgba(120,70,0,.22)}
-body:not(.dark) .user-greeting.gb .ug-hamburger{background:rgba(255,255,255,.35);border-color:rgba(120,70,0,.25);color:#2b1a02}
-body:not(.dark) .user-greeting.gb .ug-hamburger:hover{background:rgba(255,255,255,.55);border-color:rgba(120,70,0,.4)}
-body:not(.dark) .user-greeting.gb .gb-quick-l{color:#9a4d00}
-body:not(.dark) .user-greeting.gb .hm-q{background:rgba(255,255,255,.35);border-color:rgba(120,70,0,.22);color:#3a2303}
-body:not(.dark) .user-greeting.gb .hm-q:hover{background:rgba(255,255,255,.6);border-color:rgba(120,70,0,.4)}
-/* Check-Flow · Chats bot · Panel de control: amarillo crema (menos saturado) para contrastar con la barra */
-body:not(.dark) .user-greeting.gb .gb-right .ug-panel{background:linear-gradient(120deg,#fffbea,#fdeeb5);border:1px solid rgba(160,95,0,.35);color:#3a2303;box-shadow:0 2px 6px rgba(150,90,0,.22)}
-body:not(.dark) .user-greeting.gb .gb-right .ug-panel:hover{filter:none;background:linear-gradient(120deg,#ffffff,#fff3c9)}
+/* ═══ Barra superior blanca · botones de la derecha en naranja · accesos rápidos en naranja claro ═══ */
+body:not(.dark) .user-greeting.gb{background:#fff;color:#1f2937;box-shadow:0 1px 0 #eef0f3,0 4px 14px rgba(15,23,42,.06)}
+body:not(.dark) .user-greeting.gb .gb-eyebrow{color:#c2410c}
+body:not(.dark) .user-greeting.gb .gb-title{color:#0f172a}
+body:not(.dark) .user-greeting.gb .gb-meta{color:#64748b}
+body:not(.dark) .user-greeting.gb .ug-hello strong{color:#0f172a}
+body:not(.dark) .user-greeting.gb #ug-version{color:#9a3412;background:#fff7ed;border-color:#fed7aa}
+body:not(.dark) .user-greeting.gb .ug-hamburger{background:#fff;border-color:#e2e8f0;color:#334155}
+body:not(.dark) .user-greeting.gb .ug-hamburger:hover{background:#fff7ed;border-color:#fdba74}
+body:not(.dark) .user-greeting.gb .hm-q{background:#fff3e6;border-color:#fed7aa;color:#9a3412;backdrop-filter:none}
+body:not(.dark) .user-greeting.gb .hm-q:hover{background:#ffe8cc;border-color:#fdba74}
+/* Check-Flow · Chats bot · Panel de control */
+body:not(.dark) .user-greeting.gb .gb-right .ug-panel{background:linear-gradient(120deg,#f97316,#fb923c);border:1px solid #ea580c;color:#fff;box-shadow:0 2px 8px rgba(234,88,12,.3)}
+body:not(.dark) .user-greeting.gb .gb-right .ug-panel:hover{filter:brightness(1.06)}
