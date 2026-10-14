@@ -1822,6 +1822,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
       <div class="cl-nav-slot" data-act="checkinn"></div>
       <div class="ck-bar">
         <span id="aseo-ham-slot"></span>
+        <input class="ck-q aseo-q" type="search" placeholder="🔎 Buscar alojamiento, tipo, servicio, persona…" oninput="ASEO.q=this.value;clearTimeout(ASEO._qt);ASEO._qt=setTimeout(()=>{ASEO.calSig='';aseoRender_()},250)">
         <div class="ck-dnav" id="aseo-dnav"></div>
         <button type="button" class="ck-ib aseo-btn" id="aseo-cal-btn" onclick="aseoToggleCal_()" title="Mostrar calendario">📅</button>
         <button type="button" class="aseo-btn mv-pubt" id="aseo-pub-btn" onclick="aseoPubTodas_()" title="Publicar o no el aviso en las guías de todas las cards"><span class="ck"></span>Publicar en guías</button>
@@ -2931,7 +2932,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=1858"></script>
+  <script src="app.js?v=1860"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
