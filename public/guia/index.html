@@ -679,7 +679,7 @@ async function loadAlojamientos_(id){
   // Estrategia cache-first: si tenemos algo cacheado, devolver YA.
   const cache = readCache_();
   const cachedRow = cache && Array.isArray(cache.rows)
-    ? cache.rows.find(r => String(r.HouseId || r.HouseID || r.ID || '').trim().toLowerCase() === String(id||'').toLowerCase())
+    ? cache.rows.find(r => String(r.HouseId || r.HouseID || r.id_lodgify || r.ID || '').trim().toLowerCase() === String(id||'').toLowerCase())
     : null;
   if (cachedRow) {
     // Refresh en background — actualiza cache para próxima visita.
@@ -693,7 +693,7 @@ async function loadAlojamientos_(id){
           // Merge: mantener cache global, actualizar sólo el row del id.
           const prev = readCache_() || { rows: [] };
           const otras = (prev.rows || []).filter(x =>
-            String(x.HouseId || x.HouseID || x.ID || '').trim().toLowerCase() !== String(id).toLowerCase()
+            String(x.HouseId || x.HouseID || x.id_lodgify || x.ID || '').trim().toLowerCase() !== String(id).toLowerCase()
           );
           writeCache_(otras.concat(j.rows));
         }
@@ -1253,7 +1253,7 @@ function aseoBadgePaint_() {
     const { rows, fromCache, stale } = await loadAlojamientos_(id);
     stopTimer();
     const target = rows.find(r => {
-      const rid = String(r.HouseId || r.HouseID || r.ID || '').trim();
+      const rid = String(r.HouseId || r.HouseID || r.id_lodgify || r.ID || '').trim();
       return rid.toLowerCase() === id.toLowerCase();
     });
     if (!target) {
