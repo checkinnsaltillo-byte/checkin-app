@@ -6772,3 +6772,8 @@ body:not(.dark) .user-greeting.gb .gb-right .ug-panel:hover{background:#fffbe8;f
 .user-greeting.gb .gb-pin{height:42px;width:auto;flex:none;display:block;cursor:pointer;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
 .user-greeting.gb .gb-left:has(.gb-pin){gap:10px}
 @media (max-width:640px){.user-greeting.gb .gb-pin{height:34px}}
+
+/* Casillas de Programación (rbEmergHtml_ / rbSugAutoHtml_) — globales para que funcionen antes de programar y en el panel 🪄 */
+.rb-chk{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;font-weight:600;color:#334155;user-select:none;padding:6px 10px;border:1px solid #e2e8f0;border-radius:9px;background:#fff}
+.rb-chk i{width:18px;height:18px;border:1.5px solid #cbd5e1;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:800;color:#fff;background:#fff;box-sizing:border-box;flex:none}
+.rb-chk.on i{background:#16a34a;border-color:#16a34a}
