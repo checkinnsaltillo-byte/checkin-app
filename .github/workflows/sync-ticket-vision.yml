@@ -51,7 +51,7 @@ jobs:
           # (www.check-inn.mx = admin) como a /admin/ (paralelo, para
           # bookmarks antiguos). Dockerfile, cloudbuild.yaml y files/ son
           # del backend Cloud Run — no aplican.
-          cp tv-src/index.html index.html
+
           cp tv-src/styles.css styles.css
           cp tv-src/app.js     app.js
           cp tv-src/index.html admin/index.html
