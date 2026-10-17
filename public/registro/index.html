@@ -5374,7 +5374,8 @@ body.has-session #vehicleFilterActions{ display:none !important; }
 }
 
 /* ───── Form: ocultar secciones del perfil cuando hay sesión ───── */
-body.has-session #section_celular_principal,
+/* «Identifícate» (paso 1) ya NO se oculta con sesión: es el único contenido del paso 1 y sin él el paso quedaba
+   vacío (el huésped necesita identificar su reserva por celular o código aunque haya iniciado sesión). */
 body.has-session #section_contacto_huesped,
 body.has-session #field_identificacion,
 body.has-session #field_motivo,
