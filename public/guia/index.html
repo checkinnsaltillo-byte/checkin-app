@@ -1321,7 +1321,10 @@ window.showWelcomeTour_ = function (force) {
     else callout.style.top = (bottom + gap) + 'px';
   });
   const bd = document.getElementById('wt-backdrop');
-  if (bd && !bd.__hooked) { bd.__hooked = true; bd.addEventListener('click', window.closeWelcomeTour_); }
+  if (bd && !bd.__hooked) { bd.__hooked = true; bd.addEventListener('click', e => {
+    // Si el toque cae sobre un botón resaltado (Check-in / Check-out), además de cerrar el aviso se abre esa acción.
+    const hit = ['checkin-btn', 'checkout-btn'].map(id => document.getElementById(id)).find(b => { if (!b) return false; const r = b.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; });
+    window.closeWelcomeTour_(); if (hit) setTimeout(() => hit.click(), 0); }); }
   if (!document.__wtEscHooked) {
     document.__wtEscHooked = true;
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.closeWelcomeTour_(); });
