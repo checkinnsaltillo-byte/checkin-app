@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1e293b">
+<meta name="theme-color" content="#EEEDEA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <meta name="robots" content="noindex,nofollow">
 <!-- preconnect al backend via dominio propio (evita bloqueos ISP a *.run.app) -->
 <link rel="preconnect" href="https://api.check-inn.mx" crossorigin>
@@ -123,6 +125,82 @@ details.section>summary::-webkit-details-marker{display:none}
 .state{padding:80px 20px;text-align:center;color:#64748b;font-size:14px}
 .state .sp{width:44px;height:44px;border:3px solid #e2e8f0;border-top-color:#f59e0b;border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 16px}
 @keyframes sp{to{transform:rotate(360deg)}}
+
+/* ═══════════ Diseño «Piedra»: gris piedra, tipografía Sora, íconos de línea, sin recuadros ═══════════ */
+:root{--pd-bg:#EEEDEA;--pd-ink:#26282B;--pd-mut:#66696E;--pd-line:#DCDAD5;--pd-y:#F2B705;--pd-r:#D7262E;--pd-rd:#A3121A}
+html,body{background:var(--pd-bg);color:var(--pd-ink);font-family:'Sora',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+body{padding-bottom:96px}
+.logo-bar,.quicknav{display:none!important}
+.pd-hero{position:relative;height:250px;max-width:640px;margin:0 auto}
+.pd-hero .pd-img{position:absolute;inset:0;background:#cfcac2 center 35%/cover no-repeat;border-radius:0 0 0 64px}
+.pd-top{position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:3}
+.pd-brand{padding:7px 12px;border-radius:18px;background:#fff;font-size:13px;font-weight:700;color:var(--pd-ink)}
+.pd-lang{display:flex;align-items:center;gap:2px;padding:4px;border-radius:18px;background:#fff;box-shadow:0 4px 14px -6px rgba(0,0,0,.25)}
+.pd-lang button{all:unset;cursor:pointer;padding:5px 8px;border-radius:14px;font-size:11.5px;font-weight:600;color:var(--pd-ink);min-width:18px;text-align:center}
+.pd-lang button.on{background:var(--pd-ink);color:#fff}
+.pd-photos{position:absolute;right:16px;bottom:14px;z-index:3;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:18px;background:rgba(255,255,255,.92);font-size:12px;font-weight:600;color:var(--pd-ink);text-decoration:none}
+.pd-head{max-width:640px;margin:0 auto;padding:20px 22px 6px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.pd-head h1{font-size:25px;font-weight:600;letter-spacing:-.8px;line-height:1.1;margin:0}
+.pd-sub{font-size:11.5px;color:var(--pd-mut);margin-top:4px;line-height:1.4}
+.pd-times{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:10.5px;color:var(--pd-mut);white-space:nowrap}
+.pd-times b{color:var(--pd-ink);font-weight:700}
+.pd-bar{max-width:640px;margin:8px auto 0;padding:0 22px;display:flex;gap:4px}.pd-bar span{height:3px;border-radius:2px}
+.wrap{max-width:640px;margin:0 auto;padding:6px 22px 28px}
+/* Secciones como lista: ícono + título + resumen + flecha */
+details.section{background:transparent;border:0;border-bottom:1px solid var(--pd-line);border-radius:0;margin:0;box-shadow:none;overflow:visible}
+details.section>summary{gap:16px;padding:13px 0}
+.sec-ico{width:30px;height:30px;border-radius:0;background:none!important;color:var(--pd-ink)}
+.sec-ico svg{width:28px;height:28px}
+.sec-title{font-size:14px;font-weight:600;color:var(--pd-ink);line-height:1.25}
+.sec-title small{display:block;font-size:11px;font-weight:400;color:var(--pd-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chev{color:#9A9CA0;font-size:0;transition:transform .2s}.chev svg{width:16px;height:16px}
+details.section[open] .chev{transform:rotate(90deg)}
+details.section[open]>summary .sec-ico{color:var(--pd-r)}
+.sec-body{padding:0 0 18px 46px}
+.kv{border-bottom:1px solid var(--pd-line);padding:9px 0;gap:12px}.kv:last-child{border-bottom:0}
+.kv .k{width:104px;font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--pd-mut);padding-top:2px}
+.kv .v{font-size:13px;color:var(--pd-ink);line-height:1.5}
+.callout{background:none;border:0;border-left:3px solid var(--pd-y);border-radius:0;padding:4px 0 4px 12px;margin-top:12px;font-size:12.5px;color:#4C4F54;gap:8px}
+.callout .ci{display:none}
+.callout.danger{background:none;border-left-color:var(--pd-r);color:var(--pd-rd)}
+.btn-map{display:inline-flex;align-items:center;gap:8px;background:var(--pd-ink);color:#fff;box-shadow:none;border-radius:12px;font-weight:600;font-size:13.5px;padding:12px 18px;margin:4px 0 10px}
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}
+.chip{background:none;border:0;border-radius:0;padding:5px 0;color:var(--pd-ink);font-size:12.5px;gap:8px;align-items:flex-start}
+.chip>span:first-child{display:none}
+.chip::before{content:'';flex:none;width:5px;height:5px;border-radius:50%;background:var(--pd-y);margin-top:7px}
+.chip.no{background:none;color:var(--pd-rd)}.chip.no::before{background:var(--pd-r)}
+.rule{border-bottom:1px solid var(--pd-line);padding:9px 0}
+.rule .mk{width:20px;height:20px;border-radius:50%;background:none!important;font-size:11px;box-shadow:inset 0 0 0 1.5px currentColor}
+.rule .mk.no{color:var(--pd-r)}.rule .mk.yes{color:#15803d}.rule .mk.info{color:#B78A00}
+.rule .t,.iconrow .t{font-size:13px;color:var(--pd-ink)}
+.iconrow{border-bottom:1px solid var(--pd-line)}.iconrow .mk{background:none;width:24px;height:24px;font-size:15px}
+.step{padding:0 0 16px 40px}
+.step .num{background:none;color:#B9B4AA;width:30px;height:30px;font-size:24px;font-weight:300;place-items:start}
+.step .line{display:none}
+.step h4{font-size:13.5px;font-weight:600!important;color:var(--pd-ink)}
+.step p{font-size:12.5px;color:#4C4F54}
+.wifi{background:none;color:var(--pd-ink);padding:0;border-radius:0}
+.wifi .row{border-bottom:1px solid var(--pd-line);padding:11px 0}
+.wifi .lbl{font-size:10.5px;opacity:1;color:var(--pd-mut);font-weight:600}
+.wifi .val{font-family:'Sora',system-ui,sans-serif;font-size:15px;font-weight:600}
+.wifi button{background:none;color:#8A6500;padding:6px 2px;font-size:12.5px}
+.emerg a{background:none;border:0;border-bottom:1px solid var(--pd-line);border-radius:0;padding:12px 0}
+.emerg .em-ico{width:40px;height:40px;border-radius:50%;background:none!important;box-shadow:inset 0 0 0 1.5px var(--pd-ink);color:var(--pd-ink);font-size:0}
+.emerg .em-ico::before{content:'';width:18px;height:18px;background:var(--pd-ink);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2'/%3E%3C/svg%3E") center/contain no-repeat}
+.emerg .em-call{color:var(--pd-rd);font-weight:600}
+.aseo-badge{border:0;border-radius:14px;box-shadow:none;background:#fff;margin:4px 0 8px}
+.gl-cargando .pd-lang{opacity:.6;pointer-events:none}
+.pd-veh{display:flex;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid var(--pd-line);cursor:pointer}
+/* Barra inferior */
+.checkin-fab{background:rgba(238,237,234,.96);backdrop-filter:blur(10px);border-top:1px solid var(--pd-line);padding:10px 14px calc(12px + env(safe-area-inset-bottom))}
+.checkin-fab .cin-row{max-width:640px;gap:8px;align-items:center}
+.checkin-fab #checkin-btn,.checkin-fab #checkout-btn,.checkin-fab #book-btn-inline,.checkin-fab #fact-btn-inline{background:#fff!important;color:var(--pd-ink);box-shadow:none!important;text-shadow:none;border-radius:12px;font-size:11px;font-weight:600;padding:12px 4px;animation:none;font-family:'Sora',system-ui,sans-serif;letter-spacing:-.1px;line-height:1.2}
+.checkin-fab #checkin-btn,.checkin-fab #checkout-btn{font-size:12px;white-space:nowrap}
+.checkin-fab #checkin-btn{background:var(--pd-ink)!important;color:#fff}
+.checkin-fab #checkout-btn{color:var(--pd-rd)}
+.wa-fab a{width:48px;height:48px;border-radius:50%;box-shadow:none;border:0}
+.wa-fab a svg{width:24px;height:24px}
+#wt-spot{border-color:var(--pd-y)!important;box-shadow:0 0 0 9999px rgba(38,40,43,.6),0 10px 30px rgba(242,183,5,.4)!important}
 </style>
 </head>
 <body>
@@ -131,22 +209,16 @@ details.section>summary::-webkit-details-marker{display:none}
   <div>Cargando guía…</div>
 </div>
 <div id="root" style="display:none">
-  <div class="logo-bar">
-    <div class="logo-bar-inner">
-      <img class="tx" src="/public/registro/loader_text.png" alt="Check-inn">
-      <img class="pn" src="/public/registro/loader_pin.png" alt="">
-    </div>
-  </div>
-  <header class="hero">
-    <div id="hero-bg" class="hero-bg"></div>
-    <div class="hero-card">
-      <span class="hero-badge">Guía de Bienvenida</span>
-      <h1 id="hero-title">—</h1>
-      <div id="hero-subtitle" class="hero-subtitle" style="display:none"></div>
-      <p id="hero-desc" style="display:none"></p>
-      <a id="hero-photos" href="#" target="_blank" rel="noopener" class="btn-photos" style="display:none;cursor:pointer">📷 Ver fotos del alojamiento</a>
-    </div>
+  <header class="pd-hero">
+    <div id="hero-bg" class="pd-img"></div>
+    <div class="pd-top"><span class="pd-brand" data-notr>Check-inn</span><div class="pd-lang" id="pd-lang" data-notr aria-label="Idioma"></div></div>
+    <a id="hero-photos" href="#" target="_blank" rel="noopener" class="pd-photos" style="display:none;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>Ver fotos</a>
   </header>
+  <div class="pd-head">
+    <div style="min-width:0"><h1 id="hero-title">—</h1><div id="hero-subtitle" class="pd-sub" style="display:none"></div><div id="pd-addr" class="pd-sub"></div><p id="hero-desc" style="display:none"></p></div>
+    <div class="pd-times" id="pd-times"></div>
+  </div>
+  <div class="pd-bar"><span style="width:40px;background:var(--pd-y)"></span><span style="width:10px;background:var(--pd-r)"></span></div>
   <main class="wrap">
     <nav class="quicknav" id="quicknav"></nav>
     <div id="aseo-badge" class="aseo-badge" style="display:none"></div>
@@ -317,7 +389,7 @@ function steps(list) {
     let title = raw.trim(), desc = '';
     if (p > 0 && c > p) { title = raw.slice(0,p).trim().replace(/[:\-–]\s*$/,''); desc = raw.slice(p+1,c).trim(); }
     const last = i === list.length-1;
-    return `<div class="step"><div class="num">${i+1}</div>${!last?'<div class="line"></div>':''}<h4 style="font-weight:${/bienvenido/i.test(title)||desc?800:500}">${esc(title)}</h4>${desc?`<p>${esc(desc).replace(/(c[oó]digo[:\s]*)(\d+)/i,'$1<b style="font-weight:800;font-size:16px;color:#1d4ed8">$2</b>')}</p>`:''}</div>`;
+    return `<div class="step"><div class="num">${i+1}</div>${!last?'<div class="line"></div>':''}<h4 style="font-weight:${/bienvenido/i.test(title)||desc?800:500}">${esc(title)}</h4>${desc?`<p>${esc(desc).replace(/(c[oó]digo[:\s]*)(\d+)/i,'$1<b style="font-weight:700;font-size:16px;color:var(--pd-ink);letter-spacing:1px">$2</b>')}</p>`:''}</div>`;
   }).join('')}</div>`;
 }
 function wifi(red, pass, aviso) {
@@ -345,8 +417,29 @@ function emerg(n1, num1, n2, num2) {
   };
   return `<div class="emerg">${card(n1,num1,0)}${card(n2,num2,1)}</div>`;
 }
-function section(id, ico, icoBg, title, inner, open) {
-  return `<details class="section" id="${id}"${open?' open':''}><summary><div class="sec-ico" style="background:${icoBg}">${ico}</div><div class="sec-title">${esc(title)}</div><div class="chev">▼</div></summary><div class="sec-body">${inner}</div></details>`;
+// Íconos de línea (diseño Piedra) por sección.
+const PD_ICO = {
+  'gu-loc':'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12.2a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4z',
+  'gu-time':'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  'gu-arr':'M7.5 14.5a4.5 4.5 0 1 1 3.2-1.3L21 3.5M17 7.5l2.5 2.5M14.5 10l2 2',
+  'gu-rules':'M9 4h6v3H9zM7 5.5H5.5V21h13V5.5H17M8.5 11h7M8.5 14.5h7M8.5 18h4',
+  'gu-wifi':'M2.5 8.8a14 14 0 0 1 19 0M5.5 12.2a9.5 9.5 0 0 1 13 0M8.6 15.5a5 5 0 0 1 6.8 0M12 19h.01',
+  'gu-house':'M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5h4v5',
+  'gu-park':'M5 16.5V12l2-5h10l2 5v4.5M3.5 12h17M7 16.5v2M17 16.5v2M7.5 14h.01M16.5 14h.01M5 16.5h14',
+  'gu-wash':'M5 3h14v18H5zM5 7h14M8 5h.01M11 5h.01M12 17.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+  'gu-supply':'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9',
+  'gu-amen':'M4 12V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3M3 18v-5a2 2 0 0 1 4 0v1h10v-1a2 2 0 0 1 4 0v5zM5 18v2M19 18v2',
+  'gu-grill':'M12 3c2 3 5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-7.5z',
+  'gu-out':'M14 4H6v16h8M10 12h10M17 9l3 3-3 3',
+  'gu-reco':'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16.5 3c-1.7 0-3 2-3 5s1.3 4 3 4V21',
+  'gu-costos':'M3 7h18v10H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 10v4M18 10v4',
+  'gu-emerg':'M12 3 4.5 6v5.5c0 4.6 3.2 8 7.5 9.5 4.3-1.5 7.5-4.9 7.5-9.5V6zM12 8.5v6M9 11.5h6',
+  'gu-veh':'M3 13l2-6h14l2 6v5H3zM3 13h18M7 18v2M17 18v2M7 15.5h.01M17 15.5h.01'
+};
+function pdIco(id, color) { return `<svg viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${PD_ICO[id] || PD_ICO['gu-rules']}"/></svg>`; }
+const PD_CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+function section(id, ico, icoBg, title, inner, open, sub) {
+  return `<details class="section" id="${id}"${open?' open':''}><summary><div class="sec-ico"${id === 'gu-emerg' ? ' style="color:var(--pd-r)"' : ''}>${pdIco(id)}</div><div class="sec-title">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}</div><div class="chev">${PD_CHEV}</div></summary><div class="sec-body">${inner}</div></details>`;
 }
 window.addEventListener('message', ev => {
   const data = ev.data || {};
@@ -437,6 +530,44 @@ window.jumpTo = function (id) {
   return false;
 };
 
+// ═══ Idiomas (ES · EN · 中文 · हिन्दी · FR): traduce los textos visibles de la guía con el servidor; guarda las traducciones en el navegador ═══
+const GL_LANGS = [['es','ES','Español'],['en','EN','English'],['zh','中','中文'],['hi','हि','हिन्दी'],['fr','FR','Français']];
+let GLANG = (() => { try { const s = localStorage.getItem('guia_lang'); if (s && GL_LANGS.some(l => l[0] === s)) return s; } catch (_) {} const n = String(navigator.language || 'es').slice(0, 2).toLowerCase(); return GL_LANGS.some(l => l[0] === n) ? n : 'es'; })();
+function glPintaSel_() { const el = $('pd-lang'); if (!el) return; el.innerHTML = GL_LANGS.map(([c, t, n]) => `<button type="button" class="${c === GLANG ? 'on' : ''}" title="${n}" aria-label="${n}" onclick="glSet_('${c}')">${t}</button>`).join(''); }
+window.glSet_ = function (c) { GLANG = c; try { localStorage.setItem('guia_lang', c); } catch (_) {} glPintaSel_(); glAplicar_(); };
+function glNodos_() { const out = [];
+  ['root', 'checkin-fab', 'welcome-tour', 'notfound'].map(id => $(id)).filter(Boolean).forEach(rt => {
+    const w = document.createTreeWalker(rt, NodeFilter.SHOW_TEXT, { acceptNode: n => { const p = n.parentElement;
+      if (!p || /^(SCRIPT|STYLE|TEXTAREA)$/.test(p.tagName) || p.closest('[data-notr],.val,#wifi-pass')) return NodeFilter.FILTER_REJECT;
+      return /\p{L}{2,}/u.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+    let n; while ((n = w.nextNode())) out.push(n); });
+  return out; }
+const glCache = {};
+function glCacheGet_(l) { if (!glCache[l]) { try { glCache[l] = JSON.parse(localStorage.getItem('guia_tr_' + l) || '{}'); } catch (_) { glCache[l] = {}; } } return glCache[l]; }
+let glBusy = false, glAgain = false, glT = null;
+async function glAplicar_() {
+  if (glBusy) { glAgain = true; return; } glBusy = true;
+  try {
+    document.documentElement.lang = GLANG;
+    const nodos = glNodos_();
+    nodos.forEach(n => { if (n.__es == null || (n.nodeValue !== n.__tr && n.nodeValue !== n.__es)) n.__es = n.nodeValue; }); // original en español
+    if (GLANG === 'es') { nodos.forEach(n => { if (n.nodeValue !== n.__es) n.nodeValue = n.__es; n.__tr = null; }); return; }
+    const L0 = GLANG, C = glCacheGet_(GLANG), falta = [...new Set(nodos.map(n => n.__es.trim()).filter(k => C[k] == null))];
+    if (falta.length) document.body.classList.add('gl-cargando');
+    const lotes = []; for (let i = 0; i < falta.length; i += 25) lotes.push(falta.slice(i, i + 25)); // lotes chicos en paralelo: más rápido
+    const pinta = () => nodos.forEach(n => { const k = n.__es.trim(), t = C[k]; if (t == null) return; const v = n.__es.replace(k, t); n.__tr = v; if (n.nodeValue !== v) n.nodeValue = v; });
+    let li = 0; await Promise.all(Array.from({ length: Math.min(5, lotes.length) }, async () => { while (li < lotes.length) { const lote = lotes[li++];
+      try { const j = await fetchWithTimeout_(BACKEND + '/guia/traducir', 45000, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lang: GLANG, texts: lote }) }).then(r => r.json());
+        if (j && j.ok) { lote.forEach((k, ix) => { C[k] = j.texts[ix]; }); if (GLANG === L0) pinta(); } } catch (_) {} } }));
+    document.body.classList.remove('gl-cargando');
+    try { localStorage.setItem('guia_tr_' + GLANG, JSON.stringify(C)); } catch (_) {}
+    if (GLANG === L0) pinta();
+  } finally { glBusy = false; if (glAgain) { glAgain = false; glAplicar_(); } }
+}
+// Textos que aparecen después (estado del aseo, avisos): se traducen solos.
+const glObs = new MutationObserver(() => { if (GLANG === 'es') return; clearTimeout(glT); glT = setTimeout(glAplicar_, 250); });
+function glIniciar_() { glPintaSel_(); ['root', 'checkin-fab', 'welcome-tour'].map(id => $(id)).filter(Boolean).forEach(rt => glObs.observe(rt, { childList: true, subtree: true, characterData: true })); if (GLANG !== 'es') glAplicar_(); }
+
 // ────────────────────────── render ──────────────────────────
 function buildGuide(a) {
   const g = (...ks) => V(a, ...ks);
@@ -459,7 +590,8 @@ function buildGuide(a) {
     $('hero-title').textContent = mainTitle;
     const sub = $('hero-subtitle');
     if (sub) {
-      if (subTitle) { sub.textContent = subTitle; sub.style.display = 'block'; }
+      const subCorto = subTitle.replace(/\s*\(.*$/, '').replace(/\s+-\s+/g, ' · ').trim(); // diseño Piedra: solo «Doble · 2 pisos»
+      if (subCorto) { sub.textContent = subCorto; sub.style.display = 'block'; }
       else { sub.style.display = 'none'; sub.textContent = ''; }
     }
   }
@@ -551,7 +683,7 @@ function buildGuide(a) {
                   + callout(_regAviso, '⚠️', 'danger');
   const entrada = g('hora_llegada','hr_llegada'), salida = g('hora_salida','hr_salida');
   const sec5Inner = `<div style="display:flex;gap:12px;margin-top:6px"><div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #a5f3fc;background:linear-gradient(135deg,#ecfeff,#f0fdfa)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Entrada</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(entrada||'—')}</div></div><div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #fde68a;background:linear-gradient(135deg,#fff7ed,#fef9c3)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Salida</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(salida||'—')}</div></div></div>`;
-  const deptoNote = dpt ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:#0f172a;text-align:center">Tu departamento es el <b style="font-weight:800;font-size:16px;color:#1d4ed8">#${esc(dpt)}</b></div>` : '';
+  const deptoNote = dpt ? `<div style="border-left:3px solid var(--pd-y);padding:4px 0 4px 12px;margin:2px 0 14px;font-size:13px;color:var(--pd-ink)">Tu departamento es el <b style="font-weight:700;font-size:17px">#${esc(dpt)}</b></div>` : '';
   const metodoList = listOf(g('metodo_llegada')).map(s => /¡?bienvenido[!¡]?/i.test(s) && !/🙂/.test(s) ? s.replace(/(¡?[Bb]ienvenido[!¡]?)/, '$1 🙂') : s);
   const sec6Inner = deptoNote + (steps(metodoList) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>');
   const sec7Inner = wifi(g('wifi_red','wifi_name_1'), g('wifi_contrasena'), g('wifi_aviso'));
@@ -589,9 +721,22 @@ function buildGuide(a) {
     secCostosInner,
     sec12Inner,
   ];
-  $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i <= 4)).join('');
+  const _n = (l, s, p) => l ? `${l} ${l === 1 ? s : p}` : '';
+  const SUBS = {
+    'gu-loc': g('direccion'), 'gu-time': [entrada && `Entrada ${entrada}`, salida && `Salida ${salida}`].filter(Boolean).join(' · '),
+    'gu-arr': dpt ? `Tu departamento es el #${dpt}` : 'Cómo entrar', 'gu-rules': _n(_regAll.length, 'regla', 'reglas'),
+    'gu-wifi': g('wifi_red','wifi_name_1') ? 'Red y contraseña' : '', 'gu-house': [g('tipo'), capacidad].filter(Boolean).join(' · '),
+    'gu-park': g('estacionamiento_tipo'), 'gu-wash': g('lavanderia_ubicacion'), 'gu-supply': _n(insList.length, 'insumo disponible', 'insumos disponibles'),
+    'gu-amen': _n(listOf(g('amenidades'), {comma:true}).length, 'amenidad', 'amenidades'), 'gu-grill': 'Instrucciones de uso',
+    'gu-out': salida ? `Antes de las ${salida}` : '', 'gu-reco': _n(recoUrls.length, 'lugar recomendado', 'lugares recomendados'),
+    'gu-costos': 'Blancos y piezas dañadas', 'gu-emerg': [g('contacto_emergencia_1_nombre'), g('contacto_emergencia_2_nombre')].filter(Boolean).join(' · ')
+  };
+  $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], false, SUBS[id])).join('');
+  { const tm = $('pd-times'); if (tm) tm.innerHTML = `${entrada ? `<span>IN <b>${esc(entrada)}</b></span>` : ''}${salida ? `<span>OUT <b>${esc(salida)}</b></span>` : ''}`;
+    const ad = $('pd-addr'); if (ad) ad.textContent = g('direccion') || ''; }
+  if (photos.length) { $('hero-bg').style.backgroundImage = `url("${String(photos[0].url).replace(/"/g, '%22')}")`; $('og-image').setAttribute('content', photos[0].url); }
   // Insertar tarjeta clickable "Información de vehículos" después de Estacionamiento
-  const vehCard = `<div id="gu-veh" onclick="openVehiculos()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVehiculos()}" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10);cursor:pointer;transition:transform .12s,box-shadow .12s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 16px -6px rgba(15,23,42,.18)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px -4px rgba(15,23,42,.10)'"><div style="display:flex;align-items:center;gap:14px;padding:16px"><div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff">🚗</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#0f172a">Información de vehículos</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">Coordinación de estacionamiento con otros huéspedes</div></div><div style="color:#94a3b8;font-size:16px">›</div></div></div>`;
+  const vehCard = `<div id="gu-veh" class="pd-veh" onclick="openVehiculos()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVehiculos()}"><div class="sec-ico">${pdIco('gu-veh')}</div><div class="sec-title" style="flex:1;min-width:0">Información de vehículos<small>Coordinación de estacionamiento con otros huéspedes</small></div><div class="chev" style="color:#9A9CA0">${PD_CHEV}</div></div>`;
   const parkEl = document.getElementById('gu-park');
   if (parkEl) parkEl.insertAdjacentHTML('afterend', vehCard);
   // Hidratar cards de "Recomendaciones" con título + imagen via Microlink.
@@ -619,7 +764,7 @@ function buildGuide(a) {
       .catch(() => {});
   });
   // Hero bg via microlink
-  if (photoUrl) {
+  if (photoUrl && !photos.length) {
     fetch(`https://api.microlink.io/?url=${encodeURIComponent(photoUrl)}&screenshot=false`, {cache:'no-store'})
       .then(r => r.json())
       .then(j => {
@@ -654,11 +799,11 @@ function writeCache_(rows){
 
 /** Fetch con timeout (default 15s). AbortController garantiza que en cellular
  *  lento no quedemos colgados esperando indefinidamente. */
-async function fetchWithTimeout_(url, ms){
+async function fetchWithTimeout_(url, ms, opts){
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms || 15000);
   try {
-    const r = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+    const r = await fetch(url, Object.assign({ cache: 'no-store', signal: ctrl.signal }, opts || {}));
     return r;
   } finally { clearTimeout(t); }
 }
@@ -1263,6 +1408,7 @@ function aseoBadgePaint_() {
       return;
     }
     buildGuide(target);
+    try { glIniciar_(); } catch (_) {}
     $('loader').style.display = 'none';
     $('root').style.display = 'block';
     try { aseoBadgeStart_(id); } catch (_) {}
