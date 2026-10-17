@@ -795,7 +795,7 @@ window.rsvShare_ = async function(btn) {
         g += `<div class="${cls.join(' ')}" ${off ? '' : `onclick="rsvDpDia_('${v}')"`} data-d="${v}"><i>${d}</i></div>`; }
       h += `<div class="rsv-dp-m"><div class="rsv-dp-mt">${MES[m.getMonth()]} <small>${m.getFullYear()}</small></div><div class="rsv-dp-g">${g}</div></div>`; }
     const sc = ov.querySelector('.rsv-dp-sc'), top = sc.scrollTop; sc.innerHTML = h; sc.scrollTop = top;
-    if (scroll && S.a) { const el = sc.querySelector(`[data-d="${S.a}"]`); if (el) sc.scrollTop = el.closest('.rsv-dp-m').offsetTop - 8; }
+    if (scroll && S.a) { const el = sc.querySelector(`[data-d="${S.a}"]`); if (el) sc.scrollTop = el.closest('.rsv-dp-m').offsetTop - sc.offsetTop; }
     ov.querySelector('.rsv-dp-f span').innerHTML = noches ? `<b>${noches} noche${noches === 1 ? '' : 's'}</b> · ${txt(S.a)} → ${txt(S.d)}` : S.a ? 'Ahora elige la fecha de salida' : 'Elige la fecha de llegada';
     ov.querySelector('.rsv-dp-ok').disabled = !(S.a && S.d);
   }
