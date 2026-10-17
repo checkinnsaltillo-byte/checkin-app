@@ -1271,7 +1271,7 @@ function aseoBadgePaint_() {
     // callout arriba. Sólo la primera vez por navegador (localStorage flag).
     // Delay para que los botones ya estén posicionados al calcular el spot.
     setTimeout(() => { try { window.showWelcomeTour_(); } catch(_){} }, 700);
-    if (fromCache) showOfflineBanner_(stale);
+    if (fromCache && navigator.onLine === false) showOfflineBanner_(stale); // con internet no se avisa: se sirvió la copia rápida y se actualiza en segundo plano
   } catch (err) {
     stopTimer();
     $('loader').style.display = 'none';
@@ -1315,6 +1315,8 @@ window.showWelcomeTour_ = function (force) {
   callout.style.transform = 'translate(-50%, 0)';
   tour.style.display = 'block';
   requestAnimationFrame(() => {
+    const cw = callout.getBoundingClientRect().width, cx = (left + right) / 2; // que el aviso no se salga de la pantalla en celular
+    callout.style.left = Math.min(Math.max(cx, cw / 2 + 10), window.innerWidth - cw / 2 - 10) + 'px';
     const ch = callout.getBoundingClientRect().height;
     const gap = 14;
     if (top - gap >= ch + 20) callout.style.top = (top - ch - gap) + 'px';
