@@ -143,6 +143,8 @@ body{padding-bottom:96px}
 .pd-head{max-width:640px;margin:0 auto;padding:20px 22px 6px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .pd-head h1{font-size:25px;font-weight:600;letter-spacing:-.8px;line-height:1.1;margin:0}
 .pd-sub{font-size:11.5px;color:var(--pd-mut);margin-top:4px;line-height:1.4}
+.pd-stats{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 4px;font-size:11.5px;color:var(--pd-ink);font-weight:500}.pd-stats:empty{display:none}
+.pd-stats span{display:inline-flex;align-items:center;gap:5px}.pd-stats svg{width:16px;height:16px;color:var(--pd-mut);flex:none}
 .pd-times{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:10.5px;color:var(--pd-mut);white-space:nowrap}
 .pd-times b{color:var(--pd-ink);font-weight:700}
 .pd-bar{max-width:640px;margin:8px auto 0;padding:0 22px;display:flex;gap:4px}.pd-bar span{height:3px;border-radius:2px}
@@ -197,7 +199,7 @@ details.section[open]>summary .sec-ico{color:var(--pd-r)}
 .checkin-fab .cin-row{max-width:640px;gap:8px;align-items:center}
 .checkin-fab #checkin-btn,.checkin-fab #checkout-btn,.checkin-fab #book-btn-inline,.checkin-fab #fact-btn-inline{background:#fff!important;color:var(--pd-ink);box-shadow:none!important;text-shadow:none;border-radius:12px;font-size:11px;font-weight:600;padding:12px 4px;animation:none;font-family:'Sora',system-ui,sans-serif;letter-spacing:-.1px;line-height:1.2}
 .checkin-fab #checkin-btn,.checkin-fab #checkout-btn{font-size:12px;white-space:nowrap}
-.checkin-fab #checkin-btn{background:var(--pd-ink)!important;color:#fff}
+.checkin-fab #checkin-btn{color:#15803d}
 .checkin-fab #checkout-btn{color:var(--pd-rd)}
 .wa-fab a{width:48px;height:48px;border-radius:50%;box-shadow:none;border:0}
 .wa-fab a svg{width:24px;height:24px}
@@ -216,7 +218,7 @@ details.section[open]>summary .sec-ico{color:var(--pd-r)}
     <a id="hero-photos" href="#" target="_blank" rel="noopener" class="pd-photos" style="display:none;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>Ver fotos</a>
   </header>
   <div class="pd-head">
-    <div style="min-width:0"><h1 id="hero-title">—</h1><div id="hero-subtitle" class="pd-sub" style="display:none"></div><div id="pd-addr" class="pd-sub"></div><p id="hero-desc" style="display:none"></p></div>
+    <div style="min-width:0"><h1 id="hero-title">—</h1><div id="hero-subtitle" class="pd-sub" style="display:none"></div><div id="pd-stats" class="pd-stats"></div><div id="pd-addr" class="pd-sub"></div><p id="hero-desc" style="display:none"></p></div>
     <div class="pd-times" id="pd-times"></div>
   </div>
   <div class="pd-bar"><span style="width:40px;background:var(--pd-y)"></span><span style="width:10px;background:var(--pd-r)"></span></div>
@@ -732,9 +734,13 @@ function buildGuide(a) {
     'gu-out': salida ? `Antes de las ${salida}` : '', 'gu-reco': _n(recoUrls.length, 'lugar recomendado', 'lugares recomendados'),
     'gu-costos': 'Blancos y piezas dañadas', 'gu-emerg': [g('contacto_emergencia_1_nombre'), g('contacto_emergencia_2_nombre')].filter(Boolean).join(' · ')
   };
-  $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], false, SUBS[id])).join('');
-  { const tm = $('pd-times'); if (tm) tm.innerHTML = `${entrada ? `<span>IN <b>${esc(entrada)}</b></span>` : ''}${salida ? `<span>OUT <b>${esc(salida)}</b></span>` : ''}`;
-    const ad = $('pd-addr'); if (ad) ad.textContent = g('direccion') || ''; }
+  $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i <= 4, SUBS[id])).join('');
+  { const tm = $('pd-times'); if (tm) tm.innerHTML = `${entrada ? `<span>Entrada <b>${esc(entrada)}</b></span>` : ''}${salida ? `<span>Salida <b>${esc(salida)}</b></span>` : ''}`;
+    const ad = $('pd-addr'); if (ad) ad.textContent = g('direccion') || '';
+    const st = $('pd-stats'), SI = { rec: 'M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 15h18M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M12 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M3 18v2M21 18v2', cama: 'M2 18V7M2 14h20v4M22 18v-4a3 3 0 0 0-3-3h-8v3M6.5 11.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', bano: 'M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM6 12V5a2 2 0 0 1 3.5-1.3M7 19l-1 2M17 19l1 2', pers: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 14.5a6.5 6.5 0 0 1 3 5.5' };
+    const num = v => String(v || '').replace(/[^\d.,]/g, '').replace(',', '.'), pl = (v, s1, sN) => { const n = num(v); return n ? `${n} ${Number(n) === 1 ? s1 : sN}` : ''; };
+    const items = [[SI.rec, pl(g('recamaras'), 'recámara', 'recámaras')], [SI.cama, pl(g('camas'), 'cama', 'camas')], [SI.bano, pl(g('banos','Banos'), 'baño', 'baños')], [SI.pers, pl(g('capacidad'), 'persona', 'personas')]].filter(x => x[1]);
+    if (st) st.innerHTML = items.map(([d, t]) => `<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>${esc(t)}</span>`).join(''); }
   if (photos.length) { $('hero-bg').style.backgroundImage = `url("${String(photos[0].url).replace(/"/g, '%22')}")`; $('og-image').setAttribute('content', photos[0].url); }
   // Insertar tarjeta clickable "Información de vehículos" después de Estacionamiento
   const vehCard = `<div id="gu-veh" class="pd-veh" onclick="openVehiculos()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVehiculos()}"><div class="sec-ico">${pdIco('gu-veh')}</div><div class="sec-title" style="flex:1;min-width:0">Información de vehículos<small>Coordinación de estacionamiento con otros huéspedes</small></div><div class="chev" style="color:#9A9CA0">${PD_CHEV}</div></div>`;
