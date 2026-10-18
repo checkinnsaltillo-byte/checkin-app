@@ -133,12 +133,20 @@ body{padding-bottom:96px}
 .logo-bar,.quicknav{display:none!important}
 .pd-hero{position:relative;height:250px;max-width:640px;margin:0 auto}
 .pd-hero .pd-img{position:absolute;inset:0;background:#cfcac2 center 35%/cover no-repeat;border-radius:0 0 0 64px}
-.pd-top{position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:3}
+.pd-top{position:absolute;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:6}
 .pd-logo{height:36px;width:auto;display:block;filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 5px rgba(255,255,255,.95)) drop-shadow(0 0 12px rgba(255,255,255,.75))}
 .pd-brand{padding:7px 12px;border-radius:18px;background:#fff;font-size:13px;font-weight:700;color:var(--pd-ink)}
-.pd-lang{display:flex;align-items:center;gap:2px;padding:4px;border-radius:18px;background:#fff;box-shadow:0 4px 14px -6px rgba(0,0,0,.25)}
-.pd-lang button{all:unset;cursor:pointer;padding:5px 8px;border-radius:14px;font-size:11.5px;font-weight:600;color:var(--pd-ink);min-width:18px;text-align:center}
-.pd-lang button.on{background:var(--pd-ink);color:#fff}
+.pd-lang{position:relative}
+.pd-lang-btn{all:unset;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:7px 10px;border-radius:18px;background:rgba(255,255,255,.92);box-shadow:0 4px 14px -6px rgba(0,0,0,.25);color:var(--pd-ink)}
+.pd-lang-btn svg{display:block}
+.pd-lang-menu{position:absolute;top:calc(100% + 6px);right:-4px;z-index:60;width:168px;background:#fff;border-radius:14px;padding:6px;box-shadow:0 18px 40px rgba(28,31,35,.16);display:none}
+.pd-lang.abierto .pd-lang-menu{display:block}
+.pd-lang-op{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600;color:var(--pd-ink)}
+.pd-lang-op .dot{width:6px;height:6px;border-radius:50%;background:transparent;flex-shrink:0}
+.pd-lang-op .nm{flex-grow:1}
+.pd-lang-op .cd{font-size:10.5px;color:#8A8E95;letter-spacing:.6px}
+.pd-lang-op.on{font-weight:800;background:#F7F5F1}
+.pd-lang-op.on .dot{background:#F2B705}
 .pd-photos{position:absolute;right:16px;bottom:14px;z-index:3;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:18px;background:rgba(255,255,255,.92);font-size:12px;font-weight:600;color:var(--pd-ink);text-decoration:none}
 .pd-head{max-width:640px;margin:0 auto;padding:20px 22px 6px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .pd-head h1{font-size:25px;font-weight:600;letter-spacing:-.8px;line-height:1.1;margin:0}
@@ -536,7 +544,9 @@ window.jumpTo = function (id) {
 // ═══ Idiomas (ES · EN · 中文 · हिन्दी · FR): traduce los textos visibles de la guía con el servidor; guarda las traducciones en el navegador ═══
 const GL_LANGS = [['es','ES','Español'],['en','EN','English'],['zh','中','中文'],['hi','हि','हिन्दी'],['fr','FR','Français']];
 let GLANG = (() => { try { const s = localStorage.getItem('guia_lang'); if (s && GL_LANGS.some(l => l[0] === s)) return s; } catch (_) {} const n = String(navigator.language || 'es').slice(0, 2).toLowerCase(); return GL_LANGS.some(l => l[0] === n) ? n : 'es'; })();
-function glPintaSel_() { const el = $('pd-lang'); if (!el) return; el.innerHTML = GL_LANGS.map(([c, t, n]) => `<button type="button" class="${c === GLANG ? 'on' : ''}" title="${n}" aria-label="${n}" onclick="glSet_('${c}')">${t}</button>`).join(''); }
+function glPintaSel_() { const el = $('pd-lang'); if (!el) return; const glb = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>'; const chv = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'; el.classList.remove('abierto'); el.innerHTML = `<button type="button" class="pd-lang-btn" aria-label="Cambiar idioma" aria-haspopup="true" onclick="event.stopPropagation();glMenu_()">${glb}${GLANG.toUpperCase()}${chv}</button><div class="pd-lang-menu" role="menu">` + GL_LANGS.map(([c, t, n]) => `<button type="button" role="menuitem" class="pd-lang-op${c === GLANG ? ' on' : ''}" onclick="event.stopPropagation();glSet_('${c}')"><span class="dot"></span><span class="nm">${n}</span><span class="cd">${c.toUpperCase()}</span></button>`).join('') + '</div>'; }
+window.glMenu_ = function () { const el = $('pd-lang'); if (el) el.classList.toggle('abierto'); };
+document.addEventListener('click', () => { const el = $('pd-lang'); if (el) el.classList.remove('abierto'); });
 window.glSet_ = function (c) { GLANG = c; try { localStorage.setItem('guia_lang', c); } catch (_) {} glPintaSel_(); glAplicar_(); };
 function glNodos_() { const out = [];
   ['root', 'checkin-fab', 'welcome-tour', 'notfound'].map(id => $(id)).filter(Boolean).forEach(rt => {
