@@ -227,6 +227,10 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
             onclick="switchModule('bot-chats');closeNavMenu()">
           🤖 Chats bot
         </li>
+        <li class="nav-item" id="nav-item-bot-control"
+            onclick="switchModule('bot-control');closeNavMenu()">
+          🎛️ Control del bot
+        </li>
         <li class="nav-item" id="nav-item-guias"
             onclick="switchModule('guias');closeNavMenu()">
           📖 Guías de Bienvenida
@@ -355,6 +359,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
               <button type="button" class="hm-tile home-card-inquilinos" onclick="switchModule('inquilinos')"><span class="hm-ico">📑</span><span class="hm-tx"><b>Contratos de Larga estancia</b><small>Inquilinos, contratos y rentas mensuales</small></span></button>
               <button type="button" class="hm-tile home-card-mensajes" onclick="switchModule('mensajes')"><span class="hm-ico">💬</span><span class="hm-tx"><b>Mensajes Airbnb</b><small>Conversaciones con huéspedes (Lodgify)</small></span></button>
               <button type="button" class="hm-tile home-card-bot-chats" onclick="switchModule('bot-chats')"><span class="hm-ico">🤖</span><span class="hm-tx"><b>Chats bot</b><small>Conversaciones WhatsApp del bot IA</small></span></button>
+              <button type="button" class="hm-tile home-card-bot-control" onclick="switchModule('bot-control')"><span class="hm-ico">🎛️</span><span class="hm-tx"><b>Control del bot</b><small>Procesos, horarios, urgencia y escalamiento</small></span></button>
               <button type="button" class="hm-tile home-card-guias" onclick="switchModule('guias')"><span class="hm-ico">📖</span><span class="hm-tx"><b>Guías de bienvenida</b><small>Guía digital por alojamiento</small></span></button>
             </div>
           </section>
@@ -2774,6 +2779,9 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
       </div>
     </div><!-- /module-bot-chats -->
 
+    <!-- ═══════════════ MÓDULO CONTROL DEL BOT ═══════════════ -->
+    <div id="module-bot-control" class="hidden"></div>
+
     <!-- ═══════════════ MÓDULO LLAVES ═══════════════ -->
     <div id="module-llaves" class="hidden" style="padding:20px 24px 60px">
       <div style="max-width:1600px;margin:0 auto">
@@ -2938,7 +2946,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=2016"></script>
+  <script src="app.js?v=2017"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
