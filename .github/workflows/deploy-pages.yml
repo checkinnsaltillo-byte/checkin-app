@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 permissions:
