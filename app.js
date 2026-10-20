@@ -51063,7 +51063,7 @@ function _botcAbnCargar_(forzar) {
 function _botcAbnConvs_() {
   return (BOTC_STATE.abn || []).map(h => ({ phone: 'abn' + h.bid, canal: 'airbnb', abn: h, name: h.huesped || '', control: h.control || 'human', pending_draft_body: h.draft || '',
     last_msg_at: (h.ult && h.ult.fecha) || '', last_msg_preview: h.ult ? (h.ult.de === 'nosotros' ? 'Tú: ' : '') + h.ult.texto : 'Sin mensajes',
-    last_msg_role: h.noLeido ? 'user' : (h.ult && h.ult.de === 'huesped' ? 'user_visto' : 'assistant') }));
+    last_msg_role: h.noLeido ? 'user' : (h.ult && h.ult.de === 'huesped' ? 'user_visto' : 'assistant'), unread: h.nl || (h.noLeido ? 1 : 0) }));
 }
 function _botcAbnBk_(ph) { // reserva de una conversación de Airbnb (la de Gestión de reservas si ya está cargada)
   const bid = String(ph).replace(/^abn/, ''), h = (BOTC_STATE.abn || []).find(x => String(x.bid) === bid) || {};
@@ -51111,7 +51111,7 @@ function _botcRowHtml_(c, bk, selected) {
     <div class="wa-body">
       <div class="wa-l1"><b>${_botcEsc(name)}</b>${risk ? `<span title="${risk} nota(s) de riesgo" onclick="event.stopPropagation();hgNoteQuickRisk_('${_botcEsc(phone)}')">🚩</span>` : ''}<span class="wa-time ${pend ? 'on' : ''}">${_botcWaHora_(c.last_msg_at)}</span><button type="button" class="wa-modo sm" style="--c:${md.c}" onclick="event.stopPropagation();botcOpenModeDropdown_(event,'${_botcEsc(phone)}')" title="${md.t} — cambiar modo">${md.i}</button></div>
       ${String(c.razon_social || '').trim() ? `<div class="wa-rs" title="Razón social">🧾 ${_botcEsc(String(c.razon_social).trim())}</div>` : ''}
-      <div class="wa-l2"><span class="pv">${espera ? '<b class="wa-wait">⏳</b> ' : ''}${_botcEsc(c.last_msg_preview || '')}</span>${pend ? '<span class="wa-unread">1</span>' : ''}</div>
+      <div class="wa-l2"><span class="pv">${espera ? '<b class="wa-wait">⏳</b> ' : ''}${_botcEsc(c.last_msg_preview || '')}</span>${(Number(c.unread) || 0) > 0 ? `<span class="wa-unread">${Number(c.unread) > 99 ? '99+' : Number(c.unread)}</span>` : pend ? '<span class="wa-unread">1</span>' : ''}</div>
       <div class="wa-l3">${chips.join('')}</div>
     </div></div>`;
 }
@@ -51502,7 +51502,7 @@ function _botcRenderSidebar() {
   const items = filtered.map(c => {
     const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
     const bk = _botcGetBookingForPhoneSync(c.phone);
-    return { html: _botcRowHtml_(c, bk, selected), cat: _botcClassifyConv_(c, bk), pending: _botcIsPending_(c) };
+    return { html: _botcRowHtml_(c, bk, selected), cat: _botcClassifyConv_(c, bk), pending: _botcIsPending_(c), unread: (Number(c.unread) || 0) > 0 ? Number(c.unread) : (_botcIsPending_(c) ? 1 : 0) };
   });
   let listHtml = '';
   if (BOTC_STATE.viewMode === 'clasificado') {
@@ -51519,7 +51519,7 @@ function _botcRenderSidebar() {
     const pendingByCat  = { entrantes:0,  cotizacion:0,  salida_hoy:0,  entrada_hoy:0,  activa:0,  proxima:0,  concluida:0 };
     items.forEach(it => {
       (buckets[it.cat] || buckets.entrantes).push(it.html);
-      if (it.pending) pendingByCat[it.cat] = (pendingByCat[it.cat]||0)+1;
+      if (it.unread) pendingByCat[it.cat] = (pendingByCat[it.cat]||0)+it.unread; // suma de mensajes no leídos de la categoría
     });
     BOTC_STATE.collapsedCats = BOTC_STATE.collapsedCats || new Set();
     listHtml = CATS.map(cat => {
@@ -53264,7 +53264,7 @@ window._botcAbrirAbn_ = async function (ph, opts) {
     if (opts.silent && BOTC_STATE.abnN === firma) return; BOTC_STATE.abnN = firma;
     pintar(j);
     const u = (j.mensajes || [])[n - 1], h = (BOTC_STATE.abn || []).find(x => String(x.bid) === bid);
-    if (u && h && h.noLeido) { h.noLeido = false; _botcRenderSidebar(); fetch(`${BACKEND}/airbnb/visto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bid, fecha: u.fecha }) }).catch(() => {}); }
+    if (u && h && h.noLeido) { h.noLeido = false; h.nl = 0; _botcRenderSidebar(); fetch(`${BACKEND}/airbnb/visto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bid, fecha: u.fecha }) }).catch(() => {}); }
   } catch (e) { if (!opts.silent) { const box = document.getElementById('botc-msgs'); if (box) box.innerHTML = `<div class="wa-bit-load">⚠️ ${_botcEsc(e.message || e)}</div>`; } }
 };
 // ═══ 📅 Mensajes programados de la reserva activa (botón junto al asistente IA) ═══
@@ -74791,3 +74791,10 @@ window.tdCrearTareaLv_ = function (i) {
     lv: { id: x.r.ID, hid: String(x.hid), item: x.it.id, key: x.key, campo: campoFull } });
   atFormPintar_();
 };
+
+// ═══ No leídos (conteo como WhatsApp): al abrir un chat de WhatsApp se marca visto y el contador vuelve a 0 ═══
+{ const _o = window.botcOpenChat; if (typeof _o === 'function') window.botcOpenChat = function (phone, opts) {
+  try { const c = (BOTC_STATE.conversations || []).find(x => String(x.phone) === String(phone));
+    if (c && !String(phone).startsWith('abn') && (Number(c.unread) || 0) > 0 && !(opts && opts.silent)) { c.unread = 0; _botcRenderSidebar();
+      fetch(`${BACKEND}/as`, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'wa_chat_visto', phone: String(phone) }) }).catch(() => {}); } } catch (_) {}
+  return _o.apply(this, arguments); }; }
