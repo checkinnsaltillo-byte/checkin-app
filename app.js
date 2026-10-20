@@ -51360,6 +51360,7 @@ function _botcWaCss_() {
   .wa-comp{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--wa-bar);border-top:1px solid var(--wa-ln)}
   .wa-comp input{flex:1;border:0;border-radius:8px;padding:10px 14px;font-size:15px;background:#fff;color:var(--wa-tx);outline:none}
   .wa-comp input:disabled{background:#e9edef;color:var(--wa-mu)}
+  .wa-comp textarea{flex:1;box-sizing:border-box;min-height:0!important;height:58px!important;max-height:58px!important;line-height:19px;padding:10px 12px;overflow-y:auto;resize:none} /* dos líneas (el global textarea{min-height:80px} la hacía muy alta) */
   .wa-send,.wa-ia{all:unset;cursor:pointer;width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex:none}
   .wa-send{background:var(--wa-g);color:#fff}.wa-send[disabled]{background:#c4cbd0;cursor:not-allowed}
   .wa-ia{color:#7c3aed;background:#fff}
