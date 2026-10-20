@@ -379,7 +379,7 @@ const SYS_MODULE_LIST = [
   ['inventarios',      '📦 Inventarios'],
   ['tuya',             '🛰️ Dispositivos'],
   ['guias',            '📖 Guías de Bienvenida'],
-  ['llaves',           '🔑 Llaves'],
+  ['llaves',           '🔑 Llavero'],
   ['config-admin',     '⚙️ Configuración Admin'],
   ['bot-chats',        '🤖 Chats bot'],
   ['bot-control',      '🎛️ Control del bot'],
@@ -69391,6 +69391,7 @@ function npResumen_(pf) {
   const a = npAuto_(pf.auto);
   if (pf.rol === 'admin') { if (a.resumen) b.push('<span class="np-tag s">📋 Resumen 2 pm</span>'); if (a.alertas) b.push('<span class="np-tag s">🚨 Alertas</span>'); if (a.cambios) b.push('<span class="np-tag s">🔄 Cambios</span>'); }
   if (pf.recordatorio && pf.rol) b.push('<span class="np-tag r">🔔 Recordatorio</span>');
+  if (pf.cierre === false) b.push('<span class="np-tag" style="background:#f3f4f6;color:#6b7280">🕕 Sin cierre</span>');
   if (pf.pruebaComo) b.push(`<span class="np-tag r">🧪 Probando como ${pcEsc(aseoNombreCorto_(pf.pruebaComo))}</span>`);
   if (b.length) { const C = NP_CANAL[pf.canal] || NP_CANAL.whatsapp; b.push(`<span class="np-tag ${C.cls}">${C.t}</span>`); }
   return b.join('') || '<span class="np-tag n">Sin funciones asignadas</span>';
@@ -69411,6 +69412,8 @@ function npFila_(n) {
       ${pf.rol === 'admin' ? `${ck(npAuto_(pf.auto).resumen, '📋 Resumen del día · 2 pm', 'Toda la actividad del día: limpiezas, tareas, tareas programadas e incidencias', `npSet_(this.closest('.np-p').dataset.n,'resumen')`)}
       ${ck(npAuto_(pf.auto).alertas, '🚨 Alertas', 'Incidencias nuevas o con cambios y huéspedes que no han desalojado', `npSet_(this.closest('.np-p').dataset.n,'alertas')`)}
       ${ck(npAuto_(pf.auto).cambios, '🔄 Cada cambio en las tareas', 'Opcional: un aviso cada vez que alguien actualiza una tarea de hoy', `npSet_(this.closest('.np-p').dataset.n,'cambios')`)}` : '<div class="np-hint">El resumen de las 2 pm y las alertas solo les llegan a los administradores.</div>'}` : ''}
+      <div class="np-lab">Al registrar su salida</div>
+      ${ck(pf.cierre !== false, '🕕 Cierre de jornada', 'Al escribir «salir» le pregunta cómo quedaron sus tareas pendientes antes de registrar la salida. Apagado: solo registra la salida. Aplica aunque esté Desactivado (la asistencia funciona igual).', `npSet_(this.closest('.np-p').dataset.n,'cierre')`)}
     </div>` : ''}
   </div>`;
 }
@@ -69483,6 +69486,7 @@ window.npRol_ = function (n, rol) {
 window.npSet_ = function (n, k) {
   const pf = ASEO._np.perfiles[n] = Object.assign(npPerfilDe_(n), {});
   if (k === 'resumen' || k === 'alertas' || k === 'cambios') { const a = npAuto_(pf.auto); a[k] = !a[k]; pf.auto = a; }
+  else if (k === 'cierre') pf.cierre = pf.cierre === false;
   else pf[k] = !pf[k];
   npRefila_(n); npGuardar_();
 };
