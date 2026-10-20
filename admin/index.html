@@ -1040,14 +1040,14 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
               <div style="font-size:15px;font-weight:800;color:#0f172a">📥 Carga de datos bancarios</div>
               <div style="font-size:12px;color:#64748b;margin-top:2px">Sube uno o varios estados de cuenta. El sistema deduplica vs BANCOS, calcula el Monto firmado según el tipo de cuenta y mapea Subcuenta/Cuenta bancaria desde <code>cuentas_bancarias</code>.</div>
             </div>
-            <label for="bn-upload-input"
-                   style="padding:10px 16px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 6px rgba(124,58,237,.18)">
+            <label for="bn-upload-input" id="bn-upload-label-sel"
+                   style="display:none!important;padding:10px 16px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 6px rgba(124,58,237,.18)">
               <span style="font-size:16px">📂</span> Seleccionar archivos
             </label>
             <input id="bn-upload-input" type="file" multiple accept=".xlsx,.xls,.csv,.txt,.pdf"
                    onchange="bnUploadHandleFiles(this.files)" style="display:none">
-            <button type="button" onclick="bnDrivePickerOpen()" title="Lee todos los archivos xlsx/csv de la carpeta de Drive configurada"
-                    style="padding:10px 14px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(13,148,136,.18)">
+            <button type="button" id="bn-upload-btn-drive" onclick="bnDrivePickerOpen()" title="Lee todos los archivos xlsx/csv de la carpeta de Drive configurada"
+                    style="display:none!important;padding:10px 14px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(13,148,136,.18)">
               <span style="font-size:15px">📁</span> Leer archivos de Drive
             </button>
           </div>
@@ -2948,7 +2948,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=2088"></script>
+  <script src="app.js?v=2089"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
