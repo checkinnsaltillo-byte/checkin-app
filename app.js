@@ -66998,7 +66998,7 @@ function aseoEnsureCss_() {
   .rb-cprog{font-size:10.5px;font-weight:700;color:#3730a3;background:#eef2ff;border-radius:999px;padding:1px 6px;margin-left:4px;white-space:nowrap}.rb-cret{font-size:10.5px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:999px;padding:1px 6px;margin-left:4px;white-space:nowrap}.ad-sol{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}.ad-sol.pd{background:#fff7ed;color:#c2410c;border:1px dashed #fdba74}.ad-sol.acc{cursor:pointer;background:#16a34a;color:#fff}.ad-sol.acc:hover{background:#15803d}.ad-sol.ok{cursor:pointer;background:#dcfce7;color:#15803d;border:1px solid #86efac}
   .ad-card .r2 b{color:var(--ad-tx);font-weight:600}
   .ad-card .r2 .sep{width:1px;height:10px;background:var(--ad-line);margin:0 8px}
-  .ad-card .ok{color:#16a34a}.ad-card .pd{color:#b45309}.ad-card .vi{color:#6d28d9}
+  .ad-card .ok{color:#16a34a}.ad-card .pd{color:#b45309}.ad-card .vi{color:#6d28d9}.ad-card .chat{color:#9d174d;background:#fce7f3;border:1px solid #fbcfe8;border-radius:999px;padding:1px 7px;font-weight:800}
   .ad-card .r3{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:7px;border-top:1px solid var(--ad-line2)}
   .ad-card .r3 .sp{flex:1}
   .ad-av{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:600;border:2px solid #fff;flex:none}
@@ -67875,6 +67875,7 @@ function adCard_(I) {
   const nsChip = I.xs && I.esHoyC && !I.esCopia ? aseoNoSaleChip_(I.xs.b.Id, I.hid) : ''; // va en el renglón de acciones (r3)
   if (I.prioritaria) meta.splice(1, 0, '<span class="pr">Prioritaria</span>');
   if (I.esCopia) meta.push('<span class="vi">Reprogramado para este día</span>');
+  { const ch = axEx_(I.asigId).chat; if (ch) meta.splice(1, 0, `<span class="chat" title="No había card prevista para hoy: la generó ${pcEsc(ch.by || 'el personal')} por WhatsApp ${ch.at ? '· ' + pcEsc(new Date(ch.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : ''}">💬 Desde el chat</span>`); }
   if (I.selE === 'inspeccionado') meta.push('<span class="ok">✓ Listo para recibir</span>');
   // Medio de reserva y clasificación del huésped (el que entra; si no entra nadie, el que sale), en todas las cards.
   const xR = I.xe || I.xs;
@@ -67889,7 +67890,7 @@ function adCard_(I) {
     return `<div class="ad-card tipo est-tint ad-simp ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}'${I._dia ? `,'${I._dia}'` : ''})"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || String(I.aloj || '—').replace(/^Calle\s+/i, ''))}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<span class="mv">${mov}</span></div>
-    <div class="r2">${catP}${adCamasHtml_(I.hid)}</div>
+    <div class="r2">${catP}${adCamasHtml_(I.hid)}${axEx_(I.asigId).chat ? '<span class="chat" title="Card generada desde el chat de WhatsApp (no había limpieza prevista)">💬 Desde el chat</span>' : ''}</div>
     ${solB ? `<div class="r2 ad-solr">${solB}</div>` : ''}
     ${adExtraInsumos_(I)}
     <div class="r3">${nsChip}${equipo}<span class="sp"></span><button type="button" class="ad-arch" title="${I.arch ? 'Regresar esta card al tablero' : 'Archivar esta card (sale del tablero)'}" onclick="event.stopPropagation();adArchivar_('${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',${!I.arch})">${I.arch ? '↩' : '🗑'}</button>${I.depto === 'limpieza' && I.hid ? rbCardRetBtn_('A' + I.hid, I._dia || aseoDia_()) : ''}${axIncMini_(I.asigId, I.hid, aseoDia_())}</div>
@@ -69309,6 +69310,7 @@ window.npCanal_ = function (n, k) { const pf = ASEO._np.perfiles[n] = Object.ass
 const NP_REGLAS = [
   ['👥', 'Roles y permisos', 'El rol de cada persona define TODO lo que puede hacer con el bot.', [
     '<b>Administrador:</b> todo — levantar incidencias, tareas de mantenimiento/insumos/inspección y tareas correctivas; crear tareas; aceptar entradas tempranas y salidas tardías; reprogramar y cambiar fechas; validar estados; cambiar prioridad; asignar responsables; consultar resúmenes, incidencias, historial y datos del huésped.',
+    '<b>Limpieza terminada por chat:</b> cualquier persona del personal puede escribir «cu2 listo», «cumbres #2 limpio», «cu2 terminado/acabado/concluido»; el bot confirma una sola vez (alojamiento + estado) y marca Terminado la limpieza check-out de hoy, asignada a quien escribe. Si no existía card para ese alojamiento, la crea con el indicador «💬 Desde el chat».',
     '<b>Empleado:</b> solo consulta lo básico de <i>sus</i> tareas, cambia su estado (queda «sin validar»), puede avisar que un huésped no ha desalojado y, desde el sistema, reportar incidencias de <b>huésped</b> en sus cards (formulario simplificado: alojamiento, fecha, motivo, estado, descripción y fotos).',
     '<b>Desactivado:</b> sin avisos automáticos. Si está en Personal con celular, igual puede registrar entrada/salida y consultar sus tareas como empleado.',
     'Los administradores del sistema (Puesto «Administración») siempre tienen todos los permisos desde su número. Con «@» al inicio el bot ejecuta directo.']],
