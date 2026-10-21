@@ -965,11 +965,20 @@ async function factLookupByCel_(){
       FACT_STATE.perfil = (pRes && pRes.ok) ? pRes.perfil : null;
       FACT_STATE.phone = digits;
       const reservas = (rRes && rRes.ok && Array.isArray(rRes.reservas)) ? rRes.reservas : [];
+      await factCompletarTotales_(reservas);
       factRenderCards_(reservas, 'fact-cards-cel');
     } catch(e) {
       document.getElementById('fact-cards-cel').innerHTML = '<div style="padding:12px;color:#dc2626;font-size:13px">Error al buscar. Intenta de nuevo.</div>';
     }
   }, 500);
+}
+// Reservas de Airbnb sin «$ MONTO TOTAL Airbnb» en la hoja: el total se toma de la copia de Lodgify (si no, se vería $0.00).
+async function factCompletarTotales_(list){
+  await Promise.all((list || []).map(async r => {
+    const src = String(r.Source || r['Medio de reservación'] || ''), id = String(r.Id || r['Lodgify Id'] || '').replace(/\D/g, '');
+    if (!/airbnb/i.test(src) || Number(r.TotalAmount || 0) > 0 || !id) return;
+    try { const j = await fetchWithTimeout_(`${BACKEND}/reservas/total/${id}`, 8000).then(x => x.json()); if (j && j.ok && Number(j.TotalAmount) > 0) { r.TotalAmount = Number(j.TotalAmount); r._totalLodgify = true; } } catch(_) {}
+  }));
 }
 // Lookup por código
 let _factCodeTimer = null;
@@ -1001,6 +1010,7 @@ async function factLookupByCode_(){
           FolioFacturapi: r['Folio facturapi']||'',
           TicketUrl: r['Ticket facturapi url']||''
         };
+        await factCompletarTotales_([summary]);
         factRenderCards_([summary], 'fact-cards-code');
       } else {
         document.getElementById('fact-cards-code').innerHTML = '<div style="padding:12px;color:#64748b;font-size:13px">No se encontró reserva con ese código.</div>';
