@@ -22446,7 +22446,7 @@ function bnUploadMesUpdateLabel() {
 window.bnUploadSetSelectAll = function (mode) {
   const rows = BN_UPLOAD_STATE.parsedRows || [];
   rows.forEach((r, i) => {
-    if (r._status !== 'new') return;
+    if (r._status !== 'new' && r._status !== 'update') return;
     if (!_bnUploadMesPasses(r)) return;
     const k = _bnUploadRowKey(r, i);
     if (mode === 'all')   BN_UPLOAD_STATE.unchecked.delete(k);
@@ -22463,7 +22463,7 @@ window.bnUploadToggleRow = function (key, checked) {
 function bnUploadUpdateConfirmCount() {
   const rows = BN_UPLOAD_STATE.parsedRows || [];
   const sel = rows.filter((r, i) => {
-    if (r._status !== 'new') return false;
+    if (r._status !== 'new' && r._status !== 'update') return false;
     if (!_bnUploadMesPasses(r)) return false;
     return !BN_UPLOAD_STATE.unchecked.has(_bnUploadRowKey(r, i));
   }).length;
@@ -22524,6 +22524,7 @@ function bnUploadSortValue(r, col) {
 /** Carga mapeos de cuentas_bancarias e índice de dedupe vs BANCOS.
  *  Se llama al entrar a la pestaña UPLOAD (cacheado en memoria). */
 async function bnUploadInit() {
+  try { bnUploadResumen_(); } catch (_) {}
   const status = document.getElementById('bn-upload-status');
   // Si no hay mapeos cacheados, los traemos
   if (!BN_UPLOAD_STATE.cuentasMap) {
@@ -22555,6 +22556,7 @@ async function bnUploadInit() {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || 'No se pudo indexar BANCOS');
       BN_UPLOAD_STATE.dedupeKeys = new Set(j.keys || []);
+      BN_UPLOAD_STATE.transitoKeys = new Set(j.transito || []); // filas cuyo Saldo dice "En tránsito"
     } catch (e) {
       if (status) status.textContent = `⚠ Error indexando BANCOS: ${e.message}`;
       return;
@@ -22633,7 +22635,34 @@ async function bnUploadHandleFiles(files) {
   // Auto-clasificar las filas NUEVAS basándose en historial de BANCOS
   bnUploadClassifyRows(allRows);
   BN_UPLOAD_STATE.parsedRows = allRows;
+  bnUploadAvisoCuenta_(allRows);
   bnUploadRenderPreview();
+}
+
+/** Aviso cuando el archivo no corresponde a la cuenta desde donde se subió: el número o la terminación de
+ *  tarjeta que trae el archivo se compara con el catálogo (cuentas_bancarias). También avisa si el archivo
+ *  no trae ningún número reconocible (no se puede verificar). Los movimientos se registran SIEMPRE en la
+ *  cuenta que dice el archivo; el aviso evita subir el estado de cuenta equivocado. */
+function bnUploadAvisoCuenta_(rows) {
+  const pref = String(BN_UPLOAD_STATE.cuentaPref || '').trim();
+  const N = s => bnUploadNormStr(s);
+  const porArchivo = {};
+  (rows || []).forEach(r => { if (r._error) return; const a = r._archivo || '(archivo)'; const g = porArchivo[a] = porArchivo[a] || { cuentas: {}, sinNum: 0, n: 0 }; g.n++;
+    if (r._cuentaDetectada) g.cuentas[r._cuentaDetectada] = g.cuentas[r._cuentaDetectada] || r._numDetectado; else g.sinNum++; });
+  const avisos = [];
+  Object.entries(porArchivo).forEach(([arch, g]) => {
+    const otras = Object.entries(g.cuentas).filter(([c]) => !pref || N(c) !== N(pref));
+    if (pref && otras.length) avisos.push({ tipo: 'otra', html: `⚠ <b>«${esc(arch)}»</b> corresponde a <b>${otras.map(([c, num]) => esc(c) + (num ? ` (${esc(num)})` : '')).join(', ')}</b>, no a <b>${esc(pref)}</b> (la cuenta desde donde lo subiste). Sus ${g.n} movimientos se registrarían en ${otras.map(([c]) => esc(c)).join(', ')}.` });
+    else if (!Object.keys(g.cuentas).length) avisos.push({ tipo: 'sinNum', html: pref
+      ? `ℹ En <b>«${esc(arch)}»</b> no se encontró ningún número de cuenta o terminación de tarjeta del catálogo: no se pudo verificar. Sus ${g.n} movimientos se asignarán a <b>${esc(pref)}</b> por la cuenta desde donde lo subiste.`
+      : `⚠ En <b>«${esc(arch)}»</b> no se reconoció la cuenta bancaria (sin número ni terminación del catálogo). Súbelo desde la tarjeta de la cuenta correspondiente.` });
+  });
+  BN_UPLOAD_STATE.avisoCuenta = avisos;
+  let box = document.getElementById('bn-upload-aviso');
+  const st = document.getElementById('bn-upload-status');
+  if (!box && st) { box = document.createElement('div'); box.id = 'bn-upload-aviso'; st.parentElement.insertBefore(box, st); }
+  if (!box) return;
+  box.innerHTML = avisos.map(a => `<div style="margin:0 0 8px;padding:9px 12px;border-radius:10px;font-size:12.5px;line-height:1.45;${a.tipo === 'otra' ? 'background:#fef2f2;border:1.5px solid #fca5a5;color:#991b1b' : 'background:#fffbeb;border:1.5px solid #fde68a;color:#92400e'}">${a.html}</div>`).join('');
 }
 
 /** Parsea un xlsx según el formato BBVA: marcadores de subcuenta + filas.
@@ -22823,12 +22852,15 @@ async function _bnUploadParseWorkbook(wb, fileName) {
       out.push({
         _archivo: fileName,
         _tagOrig: curTagOrig,
+        'Línea': out.length + 1, // posición dentro del archivo del banco (orden original del estado de cuenta)
+        _cuentaDetectada: curMap ? curMap.cuenta_nombre : '', // cuenta reconocida por el número/terminación dentro del archivo
+        _numDetectado: curMap ? (curMap.cuenta_tag_original || curMap.cuenta_numero || '') : '',
         'Año': anio,
         'Mes': mes,
         'Día': dia,
-        'Cuenta bancaria':    curMap ? curMap.cuenta_nombre  : '(sin mapeo)',
-        '# Cuenta':           curMap ? curMap.cuenta_numero  : '',
-        'Subcuenta_bancaria': curMap ? curMap.cuenta_tag     : '(sin mapeo)',
+        'Cuenta bancaria':    (curMap || bnUploadMapPref_()) ? (curMap || bnUploadMapPref_()).cuenta_nombre  : '(sin mapeo)',
+        '# Cuenta':           (curMap || bnUploadMapPref_()) ? (curMap || bnUploadMapPref_()).cuenta_numero  : '',
+        'Subcuenta_bancaria': (curMap || bnUploadMapPref_()) ? (curMap || bnUploadMapPref_()).cuenta_tag     : '(sin mapeo)',
         'Reportado por':      (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '',
         'DESCRIPCION': desc,
         'CARGO': cargo !== null ? cargo : '',
@@ -23023,32 +23055,37 @@ function bnUploadAssignCountersAndDedupe(rows) {
     if (r._error) continue;
     const dia = bnUploadDiaToIso(r['Día']);
     const cta = bnUploadNormStr(r['Cuenta bancaria']);
-    const sub = bnUploadNormStr(r['Subcuenta_bancaria']);
+    const sub = ''; // la subcuenta NO identifica duplicados: al subir el estado de cuenta aún no hay clasificación
     const desc = bnUploadNormStr(r['DESCRIPCION']);
     const car = bnUploadNumStr(r['CARGO']);
     const abo = bnUploadNumStr(r['ABONO']);
     const sal = bnUploadNumStr(r['SALDO']);
-    // ─── Paso 1: within-upload dedupe por SALDO (huella canónica) ───
-    if (sal) {
-      const fingerprint = [dia, cta, sub, desc, car, abo, sal].join('|');
-      if (seenInUpload[fingerprint]) {
-        r._status = 'duplicate';
-        r._withinUploadDup = true;
-        r._dedupeKey = fingerprint + '|withinUpload';
-        continue;
-      }
-      seenInUpload[fingerprint] = true;
-    }
-    // ─── Paso 2: contador #N + check vs BANCOS ───
     const baseFull  = [dia, cta, sub, desc, car, abo].join('|');
+    // ─── Paso 1: dentro del mismo archivo (regla 2026-10-20): misma llave y saldos iguales
+    //     (o uno de los dos vacío) = la misma transacción listada dos veces → se ignora la
+    //     segunda (y si la primera venía sin saldo, toma el saldo de la segunda). Dos saldos
+    //     distintos y no vacíos sí son dos movimientos (el saldo corriente cambió entre ellos).
+    const prev = seenInUpload[baseFull] || (seenInUpload[baseFull] = []);
+    const igual = prev.find(p => p.sal === sal || !p.sal || !sal);
+    if (igual) {
+      if (!igual.sal && sal) { igual.r['SALDO'] = r['SALDO']; igual.sal = sal; }
+      r._status = 'duplicate';
+      r._withinUploadDup = true;
+      r._dedupeKey = baseFull + '|withinUpload';
+      continue;
+    }
+    prev.push({ sal, r });
+    // ─── Paso 2: contador #N + check vs BANCOS ───
     const baseLoose = [dia, cta, '',  desc, car, abo].join('|');
     countersFull[baseFull]   = (countersFull[baseFull]   || 0) + 1;
     countersLoose[baseLoose] = (countersLoose[baseLoose] || 0) + 1;
     const keyFull  = baseFull  + '|#' + countersFull[baseFull];
     const keyLoose = baseLoose + '|#' + countersLoose[baseLoose];
     r._dedupeKey = keyFull;
+    const tr = BN_UPLOAD_STATE.transitoKeys;
     if (set && set.has(keyFull)) {
-      r._status = 'duplicate';
+      // Ya existe; si en BANCOS su saldo dice "En tránsito" y el banco ya lo confirmó, se actualiza el saldo.
+      r._status = (tr && tr.has(keyFull) && sal && !/tr[aá]nsito/i.test(String(r['SALDO']))) ? 'update' : 'duplicate';
     } else if (set && set.has(keyLoose)) {
       r._status = 'duplicate';
       r._matchedLoose = true;
@@ -23066,7 +23103,7 @@ function bnUploadRenderPreview() {
   const counts = document.getElementById('bn-upload-counts');
   if (!wrap || !body) return;
   const allRows = BN_UPLOAD_STATE.parsedRows || [];
-  const newCount = allRows.filter(r => r._status === 'new').length;
+  const newCount = allRows.filter(r => r._status === 'new' || r._status === 'update').length;
   const dupCount = allRows.filter(r => r._status === 'duplicate').length;
   const errCount = allRows.filter(r => r._error).length;
   const anomCount = allRows.filter(r => r.COMENTARIOS).length;
@@ -23121,8 +23158,8 @@ function bnUploadRenderPreview() {
   const html = rows.map(r => {
     if (r._error) return `<tr style="background:#fef2f2"><td colspan="${BN_UPLOAD_COLS.length + 1}" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
     const _key = _bnUploadRowKey(r, r._origIdx);
-    const _checked = r._status === 'new' && !BN_UPLOAD_STATE.unchecked.has(_key);
-    const _chkCell = r._status === 'new'
+    const _checked = (r._status === 'new' || r._status === 'update') && !BN_UPLOAD_STATE.unchecked.has(_key);
+    const _chkCell = (r._status === 'new' || r._status === 'update')
       ? `<td style="padding:6px 4px;text-align:center"><input type="checkbox" class="bn-up-chk" ${_checked?'checked':''} onchange="bnUploadToggleRow('${esc(_key)}',this.checked)"></td>`
       : `<td style="padding:6px 4px"></td>`;
     const badge = r._status === 'duplicate'
@@ -23131,7 +23168,9 @@ function bnUploadRenderPreview() {
           : r._matchedLoose
             ? '<span title="BANCOS tiene una fila igual pero sin Subcuenta — se considera duplicada" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada<span style="font-size:9px;opacity:.7"> ·sin sub</span></span>'
             : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>')
-      : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;border:1px solid #86efac">+ Nueva</span>';
+      : r._status === 'update'
+        ? '<span title="BANCOS tiene este movimiento con Saldo «En tránsito»; al insertar se actualiza su saldo (no se duplica)" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:10px;border:1px solid #bfdbfe">↻ Actualiza saldo</span>'
+        : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;border:1px solid #86efac">+ Nueva</span>';
     const bg = r._status === 'duplicate' ? 'background:#fffbeb' : (r.COMENTARIOS ? 'background:#faf5ff' : '');
     const montoFmt = (r.Monto === '' || r.Monto === null || r.Monto === undefined) ? '<span style="color:#94a3b8;font-style:italic">vacío</span>' : fmt$(r.Monto);
     const montoColor = (r.Monto !== '' && Number(r.Monto) < 0) ? '#b91c1c' : '#15803d';
@@ -23176,6 +23215,8 @@ function bnUploadClearPreview() {
   BN_UPLOAD_STATE.parsedRows = [];
   BN_UPLOAD_STATE.unchecked = new Set();
   BN_UPLOAD_STATE.monthFilter = new Set();
+  BN_UPLOAD_STATE.avisoCuenta = [];
+  const aviso = document.getElementById('bn-upload-aviso'); if (aviso) aviso.innerHTML = '';
   document.getElementById('bn-upload-preview-wrap').style.display = 'none';
   const status = document.getElementById('bn-upload-status');
   if (status) status.textContent = '';
@@ -23192,6 +23233,8 @@ async function bnUploadConfirmInsert() {
     console.warn('[BN] insert ya en curso — ignorando doble-click');
     return;
   }
+  const _otra = (BN_UPLOAD_STATE.avisoCuenta || []).filter(a => a.tipo === 'otra');
+  if (_otra.length && !confirm(`${_otra.map(a => a.html.replace(/<[^>]+>/g, '')).join('\n\n')}\n\n¿Insertar de todas formas?`)) return;
   window.__bnUploadInserting = true;
   const btnConfirm = document.getElementById('bn-upload-confirm');
   const _origBtnText = btnConfirm ? btnConfirm.textContent : '';
@@ -23214,9 +23257,16 @@ async function bnUploadConfirmInsert() {
     }
   }
 }
+// Datos del lote de importación (versión): cuenta, archivos de origen y usuario. El servidor asigna el ID L-AAAAMMDD-HHMM-CUENTA.
+function _bnUploadLoteMeta_(rows) {
+  const cnt = {}; rows.forEach(r => { const c = String(r['Cuenta bancaria'] || '').trim(); if (c) cnt[c] = (cnt[c] || 0) + 1; });
+  const cuenta = BN_UPLOAD_STATE.cuentaPref || (Object.entries(cnt).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+  const arch = {}; rows.forEach(r => { const n = r._archivo || r._driveFileName || ''; if (n && !arch[n]) arch[n] = { nombre: n, drive_id: r._driveFileId || '' }; });
+  return { cuenta, archivos: Object.values(arch), usuario: (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '' };
+}
 async function _bnUploadConfirmInsertInner() {
   const rows = (BN_UPLOAD_STATE.parsedRows || []).filter((r, i) => {
-    if (r._error || r._status !== 'new') return false;
+    if (r._error || (r._status !== 'new' && r._status !== 'update')) return false;
     if (!_bnUploadMesPasses(r)) return false;
     return !BN_UPLOAD_STATE.unchecked.has(_bnUploadRowKey(r, i));
   });
@@ -23236,12 +23286,13 @@ async function _bnUploadConfirmInsertInner() {
     const res = await fetch(BN_TV_APPSSCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'bn_bancos_insert_bulk', rows: clean }),
+      body: JSON.stringify({ action: 'bn_bancos_insert_bulk', rows: clean, lote: _bnUploadLoteMeta_(rows) }),
       redirect: 'follow',
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'Insert falló');
-    if (status) status.textContent = `✓ ${j.inserted} filas insertadas en BANCOS. Refrescando índice…`;
+    const _extra = (j.actualizados ? ` · ${j.actualizados} saldo(s) actualizado(s)` : '') + (j.omitidos ? ` · ${j.omitidos} duplicada(s) omitida(s) por la base` : '');
+    if (status) status.textContent = `✓ ${j.inserted} filas insertadas en BANCOS${_extra}${j.lote ? ` · lote ${j.lote}` : ''}. Refrescando índice…`;
     // La inserción va directo a Apps Script: avisa al servidor que su copia cambió.
     fetch(`${BACKEND}/bn/invalidate`, { method: 'POST' }).catch(() => {});
     // Si el origen fue Drive, marca cada file_id como importado para que
@@ -23287,7 +23338,9 @@ async function _bnUploadConfirmInsertInner() {
     }
     await bnUploadRefreshDedupe();
     bnUploadClearPreview();
-    if (status) status.textContent = `✓ Listo. ${j.inserted} filas insertadas correctamente.`;
+    if (status) status.textContent = `✓ Listo. ${j.inserted} filas insertadas correctamente${j.lote ? ` (lote ${j.lote})` : ''}.`;
+    // Las tablas bajo cada cuenta bancaria se repintan con la base ya actualizada (fresh=1 espera la versión nueva).
+    try { const d = await fetch(`${BACKEND}/get-bancos?fresh=1`, { cache: 'no-store' }).then(r => r.json()); if (d && d.ok && Array.isArray(d.records)) { BN_RAW = d.records.map((r, i) => r.rowNum ? { ...r } : { ...r, rowNum: i + 2 }); bnUploadResumen_(); } } catch (_) {}
     return j;
   } catch (e) {
     if (status) status.textContent = `⚠ Error al insertar: ${e.message}`;
@@ -23327,13 +23380,15 @@ window.bnDrivePickerOpen = async function() {
     ]);
     if (!filesRes.ok) throw new Error(filesRes.error || 'No se pudo listar Drive');
     const importedIds = new Set((importedRes.files || []).map(f => f.file_id));
-    BN_DRIVE_STATE.files = (filesRes.files || []).map(f => ({ ...f, _imported: importedIds.has(f.id) }));
+    let L = (filesRes.files || []).map(f => ({ ...f, _imported: importedIds.has(f.id) }));
+    const fc = BN_DRIVE_STATE.filtroCuenta; if (fc) { const N = bnUploadNormStr(fc), M = L.filter(f => bnUploadNormStr(String(f.path || f.name || '')).includes(N)); if (M.length) L = M; } // solo la carpeta de la cuenta elegida (si no hay coincidencias, se muestran todos)
+    BN_DRIVE_STATE.files = L;
     BN_DRIVE_STATE.importedIds = importedIds;
     bnDriveRenderPicker();
     if (panel) panel.style.display = '';
     if (status) {
       const newCount = BN_DRIVE_STATE.files.filter(f => !f._imported).length;
-      status.textContent = `✓ ${BN_DRIVE_STATE.files.length} archivos en Drive · ${importedIds.size} ya importados · ${newCount} nuevos`;
+      status.textContent = `✓ ${BN_DRIVE_STATE.files.length} archivos en Drive${BN_DRIVE_STATE.filtroCuenta ? ` (carpeta ${BN_DRIVE_STATE.filtroCuenta})` : ''} · ${BN_DRIVE_STATE.files.filter(f => f._imported).length} ya importados · ${newCount} nuevos`;
     }
   } catch (e) {
     if (status) status.textContent = `⚠ Error al listar Drive: ${e.message}`;
@@ -23504,9 +23559,10 @@ window.bnDriveProcessSelected = async function() {
   bnUploadAssignCountersAndDedupe(allRows);
   bnUploadClassifyRows(allRows);
   BN_UPLOAD_STATE.parsedRows = allRows;
+  bnUploadAvisoCuenta_(allRows);
   bnUploadRenderPreview();
   bnDriveClosePanel();
-  const newCount = allRows.filter(r => r._status === 'new').length;
+  const newCount = allRows.filter(r => r._status === 'new' || r._status === 'update').length;
   const dupCount = allRows.filter(r => r._status === 'duplicate').length;
   const errCount = allRows.filter(r => r._error).length;
   console.info(`[BN drive] total filas=${allRows.length} · nuevas=${newCount} · duplicadas=${dupCount} · errores=${errCount}`);
@@ -74798,3 +74854,267 @@ window.tdCrearTareaLv_ = function (i) {
     if (c && !String(phone).startsWith('abn') && (Number(c.unread) || 0) > 0 && !(opts && opts.silent)) { c.unread = 0; _botcRenderSidebar();
       fetch(`${BACKEND}/as`, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'wa_chat_visto', phone: String(phone) }) }).catch(() => {}); } } catch (_) {}
   return _o.apply(this, arguments); }; }
+
+// ═══ Subir archivos bancarios › resumen por cuenta: último registro de cada cuenta para saber desde cuándo falta subir archivos ═══
+function bnResFecha_(r) { const m = String(r['Día'] || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  const M = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 }[String(r.Mes || '').toLowerCase()]; return r['Año'] && M ? `${r['Año']}-${String(M).padStart(2, '0')}-01` : ''; }
+// Cuenta elegida con «Subir archivos» de una tabla: se usa cuando el archivo no trae un encabezado reconocible.
+function bnUploadMapPref_() { const n = BN_UPLOAD_STATE.cuentaPref; if (!n) return null; const N = bnUploadNormStr(n); return (BN_UPLOAD_STATE.cuentasMap || []).find(m => bnUploadNormStr(m.cuenta_nombre) === N) || null; }
+async function bnUploadResumen_() {
+  const host = document.getElementById('bn-upload-resumen'); if (!host) return;
+  // La tarjeta «Carga de datos bancarios» puede estar dentro de una cuenta: se saca antes de repintar y se vuelve a colocar después.
+  const card = document.getElementById('bn-upload-card'); if (card && host.contains(card)) host.parentElement.insertBefore(card, host.nextSibling);
+  let R = Array.isArray(BN_RAW) && BN_RAW.length ? BN_RAW : null;
+  if (!R) { host.innerHTML = '<div style="font-size:12px;color:#64748b;margin:0 0 12px">⏳ Cargando registros…</div>';
+    try { const j = await fetch(`${BACKEND}/get-bancos`, { cache: 'no-store' }).then(r => r.json()); R = (j && j.records) || []; } catch (_) { R = []; } }
+  const G = {}; R.forEach(r => { const raw = String(r['Cuenta bancaria'] || '').trim(); if (!raw || /^efectivo$/i.test(raw)) return; const k = raw.toLowerCase().replace(/\s+/g, ' ');
+    const g = G[k] = G[k] || { k, nombres: {}, rows: [] }; g.nombres[raw] = (g.nombres[raw] || 0) + 1; const f = bnResFecha_(r); if (f) g.rows.push({ f, r }); });
+  const hoy = new Date(); hoy.setHours(12, 0, 0, 0); const hoyIso = hoy.toISOString().slice(0, 10), dias = f => Math.round((Date.parse(hoyIso) - Date.parse(f)) / 86400e3);
+  const fmt = f => { const d = new Date(f + 'T12:00:00'); return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: '2-digit' }); };
+  const money = v => { const n = Number(v); return isNaN(n) || v === '' || v == null ? '' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }); };
+  const td = 'padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;vertical-align:middle', th = 'padding:6px 10px;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;text-align:left;background:#f8fafc;border-bottom:1px solid #e5e7eb';
+  const secs = Object.values(G).map(g => { const nombre = Object.entries(g.nombres).sort((a, b) => b[1] - a[1])[0][0]; g.rows.sort((a, b) => b.f.localeCompare(a.f) || (Number(b.r.rowNum) || 0) - (Number(a.r.rowNum) || 0));
+    const ult = g.rows[0], d = ult ? dias(ult.f) : null, c = d == null ? ['#6b7280', '#f3f4f6', 'Sin fechas'] : d <= 7 ? ['#15803d', '#dcfce7', `Hace ${d} día${d === 1 ? '' : 's'}`] : d <= 30 ? ['#b45309', '#fef3c7', `Hace ${d} días`] : ['#b91c1c', '#fee2e2', `Hace ${d} días · faltan archivos`];
+    const mes = g.rows.filter(x => dias(x.f) <= 30).length, id = 'bnres-' + g.k.replace(/[^a-z0-9]+/g, '-'), lim = (BN_UPLOAD_STATE.resLim || {})[id] || 6;
+    return { d: d == null ? 9e9 : d, html: `<div class="bn-res-sec" id="${id}" style="background:#fff;border:1.5px solid #e2e8f0;border-left:4px solid ${c[0]};border-radius:12px;margin-bottom:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;flex-wrap:wrap">
+        <div style="min-width:0"><div style="font-size:13.5px;font-weight:800;color:#0f172a">🏦 ${esc(nombre)}</div><div style="font-size:11.5px;color:#64748b">Último registro: <b style="color:#0f172a">${ult ? fmt(ult.f) : '—'}</b> · ${g.rows.length} registros · ${mes} en los últimos 30 días</div></div>
+        <span style="font-size:11px;font-weight:700;color:${c[0]};background:${c[1]};padding:3px 9px;border-radius:999px">${c[2]}</span>
+        <label style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Subir archivos<input type="file" multiple accept=".xlsx,.xls,.csv" hidden onchange="bnUploadDeCuenta_('${esc(id)}', ${JSON.stringify(nombre).replace(/"/g, '&quot;')}, this)"></label>
+        <button type="button" onclick="bnDriveDeCuenta_('${esc(id)}', ${JSON.stringify(nombre).replace(/"/g, '&quot;')})" title="Lista los archivos de la carpeta de esta cuenta en Drive" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:9px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap">📁 Leer archivos de Drive</button></div>
+      <div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="${th}">Fecha</th><th style="${th}">Cuenta</th><th style="${th}">Subcuenta</th><th style="${th}">Categoría</th><th style="${th}">Descripción</th><th style="${th};text-align:right">Monto</th></tr></thead><tbody>
+        ${g.rows.slice(0, lim).map(x => `<tr><td style="${td};white-space:nowrap;color:#64748b">${fmt(x.f)}</td><td style="${td};white-space:nowrap">${esc(String(x.r.CUENTA || ''))}</td><td style="${td};white-space:nowrap;color:#475569">${esc(String(x.r.SUBCUENTA || ''))}</td><td style="${td};white-space:nowrap;color:#64748b">${esc(String(x.r.CATEGORIA || ''))}</td><td style="${td};max-width:380px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(String(x.r.DESCRIPCION || x.r.Concepto || x.r.CONCEPTO || ''))}">${esc(String(x.r.DESCRIPCION || x.r.Concepto || x.r.CONCEPTO || '—'))}</td><td style="${td};text-align:right;white-space:nowrap;font-weight:700;color:${Number(x.r.Monto) < 0 ? '#b91c1c' : '#15803d'}">${money(x.r.Monto)}</td></tr>`).join('') || `<tr><td colspan="6" style="${td};color:#94a3b8">Sin registros</td></tr>`}</tbody></table></div>
+      ${g.rows.length > lim ? `<div style="padding:8px 14px;border-top:1px solid #f1f5f9;display:flex;justify-content:center;gap:10px;font-size:12px"><button type="button" onclick="bnResVerMas_('${esc(id)}', 100)" style="all:unset;cursor:pointer;color:#5b21b6;font-weight:700">▾ Ver 100 registros más</button><span style="color:#94a3b8">(${lim} de ${g.rows.length})</span></div>` : lim > 6 ? `<div style="padding:8px 14px;border-top:1px solid #f1f5f9;display:flex;justify-content:center;gap:10px;font-size:12px"><button type="button" onclick="bnResVerMas_('${esc(id)}', 0)" style="all:unset;cursor:pointer;color:#5b21b6;font-weight:700">▴ Mostrar menos</button><span style="color:#94a3b8">(${g.rows.length} de ${g.rows.length})</span></div>` : ''}
+      <div class="bn-res-host"></div></div>` }; }).sort((a, b) => b.d - a.d);
+  host.innerHTML = secs.length ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:13px;font-weight:800;color:#0f172a">🗓️ Último registro por cuenta</div><span style="font-size:11.5px;color:#64748b">De la que lleva más tiempo sin registros a la más reciente · verde ≤ 7 días, ámbar ≤ 30, rojo más de 30. Usa «Subir archivos» en la cuenta que corresponda.</span><button type="button" onclick="bnUploadResumen_()" style="margin-left:auto;all:unset;cursor:pointer;font-size:12px;color:#5b21b6;font-weight:700">↻ Actualizar</button></div>${secs.map(x => x.html).join('')}` : '';
+  if (card && BN_UPLOAD_STATE.cuentaSec) { const sec = document.getElementById(BN_UPLOAD_STATE.cuentaSec), h = sec && sec.querySelector('.bn-res-host'); if (h) h.appendChild(card); }
+}
+window.bnResVerMas_ = function (id, n) { const L = BN_UPLOAD_STATE.resLim = BN_UPLOAD_STATE.resLim || {}; L[id] = n ? (L[id] || 6) + n : 6; const y = window.scrollY; bnUploadResumen_().then(() => { if (!n) { const el = document.getElementById(id); if (el) el.scrollIntoView({ block: 'start' }); } else window.scrollTo(0, y); }); };
+// «Subir archivos» de una cuenta: la tarjeta «Carga de datos bancarios» (con todo su flujo) se coloca debajo de esa tabla y procesa los archivos.
+function bnUploadColocarCard_(secId, cuenta) {
+  BN_UPLOAD_STATE.cuentaPref = cuenta; BN_UPLOAD_STATE.cuentaSec = secId;
+  const card = document.getElementById('bn-upload-card'), sec = document.getElementById(secId), h = sec && sec.querySelector('.bn-res-host');
+  if (card && h) { h.appendChild(card); card.style.margin = '0 10px 12px'; card.style.borderColor = '#c4b5fd'; let tag = card.querySelector('.bn-res-tag'); if (!tag) { tag = document.createElement('div'); tag.className = 'bn-res-tag'; tag.style.cssText = 'font-size:11.5px;color:#5b21b6;font-weight:700;margin-bottom:6px'; card.prepend(tag); } tag.textContent = `⬆ Cuenta: ${cuenta}`; }
+  setTimeout(() => { if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
+  return card;
+}
+window.bnUploadDeCuenta_ = function (secId, cuenta, input) {
+  const files = input && input.files ? Array.from(input.files) : []; if (!files.length) return; // copia: al limpiar el input, la lista original queda vacía
+  bnUploadColocarCard_(secId, cuenta);
+  bnUploadHandleFiles(files); try { input.value = ''; } catch (_) {}
+};
+// «Leer archivos de Drive» de una cuenta: abre el selector de Drive debajo de la tabla, mostrando solo los archivos de la carpeta de esa cuenta.
+window.bnDriveDeCuenta_ = function (secId, cuenta) { bnUploadColocarCard_(secId, cuenta); BN_DRIVE_STATE.filtroCuenta = cuenta; bnDrivePickerOpen(); };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧾 Datos crudos de BANCOS (v2094): vista tipo Google Sheets de la base en Cloud Storage (bancos/bancos.json).
+// Solo lectura por omisión; «Edición» permite cambiar celdas y guardar (POST /bn/update-rows → rowNum + campos).
+// Ordenar por encabezado, búsqueda libre en toda la hoja, filtro por columna (valores), filas virtualizadas.
+// ═══════════════════════════════════════════════════════════════════════════
+const BN_CRUDOS = { headers: [], rows: [], vista: [], sort: null, q: '', filtros: {}, edicion: false, cambios: {}, sel: null, anchos: {}, RH: 26, top: 0 };
+const _bcrS = v => v == null ? '' : String(v);
+const _bcrNum = v => { if (typeof v === 'number') return v; const s = _bcrS(v).trim(); if (!s) return null; const n = Number(s.replace(/[$,\s]/g, '')); return isFinite(n) ? n : null; };
+function _bcrCss_() {
+  if (document.getElementById('bcr-css')) return;
+  const st = document.createElement('style'); st.id = 'bcr-css'; st.textContent = `
+  #bcr-ov{position:relative;width:100%;background:#fff;display:flex;flex-direction:column;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+  .bcr-filt{display:flex;flex-wrap:wrap;gap:8px 10px;padding:8px 12px;border-bottom:1px solid #dadce0;background:#fff}
+  .bcr-fi{min-width:120px;flex:1 1 120px;max-width:200px}.bcr-fi label{display:block;font-weight:700;color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bcr-fi button{width:100%;padding:6px 9px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .bcr-fi button span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bcr-fi button.on{border-color:#1a73e8;background:#e8f0fe;color:#1967d2;font-weight:700}
+  .bcr-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #dadce0;background:#f8f9fa;flex-wrap:wrap}
+  .bcr-bar input[type=text]{padding:6px 10px;border:1px solid #dadce0;border-radius:6px;font-size:13px;min-width:240px}
+  .bcr-btn{padding:6px 12px;border:1px solid #dadce0;border-radius:6px;background:#fff;font-size:12.5px;font-weight:700;color:#3c4043;cursor:pointer}
+  .bcr-btn:hover{background:#f1f3f4}.bcr-btn.on{background:#e8f0fe;color:#1967d2;border-color:#aecbfa}.bcr-btn.pri{background:#1a73e8;color:#fff;border-color:#1a73e8}
+  .bcr-btn:disabled{opacity:.45;cursor:not-allowed}
+  #bcr-wrap{flex:1;overflow:auto;position:relative;background:#fff}
+  #bcr-tbl{border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:12.5px;color:#202124}
+  #bcr-tbl th,#bcr-tbl td{border-right:1px solid #e2e3e3;border-bottom:1px solid #e2e3e3;padding:0 6px;height:26px;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+  #bcr-tbl th{position:sticky;top:0;z-index:3;background:#f8f9fa;font-weight:700;text-align:center;color:#3c4043;cursor:pointer;user-select:none;border-bottom:1px solid #c0c0c0}
+  #bcr-tbl th .bcr-ico{font-size:10px;color:#5f6368;margin-left:4px}#bcr-tbl th.filt{background:#e8f0fe;color:#1967d2}
+  #bcr-tbl .bcr-rn{position:sticky;left:0;z-index:2;background:#f8f9fa;color:#5f6368;text-align:center;font-size:11.5px;width:76px}
+  .bcr-lotes{position:fixed;z-index:9100;right:12px;width:min(560px,96vw);max-height:70vh;overflow:auto;background:#fff;border:1px solid #dadce0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-size:12.5px}
+  .bcr-lotes table{width:100%;border-collapse:collapse}.bcr-lotes th,.bcr-lotes td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}.bcr-lotes th{background:#f8f9fa;font-size:11px;color:#5f6368;position:sticky;top:0}
+  #bcr-tbl th.bcr-rn{z-index:4}
+  #bcr-tbl td.num{text-align:right}#bcr-tbl td.chg{background:#fff8e1}#bcr-tbl td.sel{outline:2px solid #1a73e8;outline-offset:-2px}
+  #bcr-tbl tr:hover td{background:#f8fbff}#bcr-tbl tr:hover td.chg{background:#fff3cd}
+  #bcr-tbl td[contenteditable=true]{background:#fff;outline:2px solid #1a73e8;outline-offset:-2px;white-space:normal;overflow:visible;line-height:1.3;padding-top:4px}
+  .bcr-pop{position:fixed;z-index:9100;background:#fff;border:1px solid #dadce0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);width:280px;max-height:380px;display:flex;flex-direction:column;font-size:12.5px}
+  .bcr-pop .h{padding:8px 10px;border-bottom:1px solid #eee;display:flex;gap:6px;align-items:center}.bcr-pop .h input{flex:1;padding:5px 8px;border:1px solid #dadce0;border-radius:6px;font-size:12px}
+  .bcr-pop .l{overflow:auto;flex:1;padding:4px 0}.bcr-pop .l label{display:flex;gap:8px;align-items:center;padding:4px 10px;cursor:pointer}.bcr-pop .l label:hover{background:#f1f3f4}
+  .bcr-ck{width:16px;height:16px;border:1.5px solid #5f6368;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#fff;flex:none}.bcr-ck.on{background:#1a73e8;border-color:#1a73e8}
+  .bcr-pop .f{padding:8px 10px;border-top:1px solid #eee;display:flex;gap:6px;justify-content:flex-end}
+  .bcr-info{font-size:12px;color:#5f6368;margin-left:auto}`;
+  document.head.appendChild(st);
+}
+window.bnCrudosOpen = async function () {
+  _bcrCss_();
+  let ov = document.getElementById('bcr-ov');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'bcr-ov';
+    ov.innerHTML = `<div class="bcr-bar">
+      <div style="font-size:15px;font-weight:800;color:#0f172a">🧾 Datos crudos · BANCOS</div>
+      <input type="text" id="bcr-q" placeholder="🔍 Buscar en toda la hoja…" oninput="bnCrudosBuscar_(this.value)">
+      <button class="bcr-btn" id="bcr-limpiar" onclick="bnCrudosLimpiar_()">✕ Quitar filtros</button>
+      <span class="bcr-info" id="bcr-info"></span>
+      <button class="bcr-btn" id="bcr-lotes-btn" onclick="bnCrudosLotes_(event)">📦 Lotes</button>
+      <button class="bcr-btn" id="bcr-edit" onclick="bnCrudosEdicion_()">✏️ Edición</button>
+      <button class="bcr-btn pri" id="bcr-save" onclick="bnCrudosGuardar_()" disabled>💾 Guardar</button>
+      <button class="bcr-btn" onclick="bnCrudosCerrar_()">Cerrar ✕</button></div>
+      <div class="bcr-filt" id="bcr-filt"></div>
+      <div id="bcr-wrap" onscroll="bnCrudosScroll_()"><div id="bcr-msg" style="padding:30px;color:#5f6368;font-size:13px">⏳ Cargando la base…</div></div>`;
+    const mod = document.getElementById('module-registros'); if (mod && mod.parentElement) mod.parentElement.insertBefore(ov, mod.nextSibling); else document.body.appendChild(ov);
+    document.addEventListener('keydown', _bcrKey_);
+    window.addEventListener('resize', _bcrTop_);
+  }
+  // Sección independiente: se oculta la ventana de entrada del módulo y la hoja ocupa todo lo que queda bajo el encabezado (sin scroll de página).
+  document.getElementById('module-registros')?.classList.add('hidden');
+  ov.style.display = 'flex'; document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; _bcrTop_();
+  try {
+    const j = await fetch(`${BACKEND}/bn/crudos`, { cache: 'no-store' }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'No se pudo leer la base');
+    BN_CRUDOS.headers = j.headers; BN_CRUDOS.rows = j.rows; BN_CRUDOS.cambios = {}; BN_CRUDOS.edicion = false; BN_CRUDOS.sel = null;
+    document.getElementById('bcr-edit').classList.remove('on'); document.getElementById('bcr-save').disabled = true;
+    BN_CRUDOS.anchos = {}; j.headers.forEach(h => { let w = Math.max(90, h.length * 8 + 24); const sample = j.rows.slice(-300); let m = 0; sample.forEach(r => { m = Math.max(m, _bcrS(r[h]).length); }); w = Math.max(w, Math.min(360, m * 7 + 16)); BN_CRUDOS.anchos[h] = w; });
+    bnCrudosAplicar_();
+  } catch (e) { const m = document.getElementById('bcr-msg'); if (m) m.textContent = '⚠ ' + e.message; }
+};
+window.bnCrudosCerrar_ = function () {
+  if (Object.keys(BN_CRUDOS.cambios).length && !confirm('Hay cambios sin guardar. ¿Cerrar y descartarlos?')) return;
+  const ov = document.getElementById('bcr-ov'); if (ov) ov.style.display = 'none'; document.documentElement.style.overflow = ''; document.body.style.overflow = ''; _bcrPopCerrar_();
+  document.getElementById('module-registros')?.classList.remove('hidden');
+};
+// El encabezado del sistema (Check Inn · Saltillo) siempre queda visible: la vista empieza justo debajo.
+function _bcrTop_() { const ov = document.getElementById('bcr-ov'); if (!ov || ov.style.display === 'none') return; window.scrollTo(0, 0); const r = ov.getBoundingClientRect(); ov.style.height = Math.max(240, Math.floor(window.innerHeight - r.top)) + 'px'; }
+// Filtros rápidos (mismos que Registros contables) sobre las columnas crudas.
+const _BCR_FILTROS = [['Año', '📅 Año'], ['Mes', '📅 Mes'], ['CUENTA', 'Cuenta'], ['SUBCUENTA', 'Subcuenta'], ['CATEGORIA', 'Categoría'], ['CONCEPTO', 'Concepto'], ['Cuenta bancaria', 'Cuenta bancaria'], ['Día', '📅 Día (fecha)'], ['PROPIEDAD', 'Propiedad'], ['DEPARTAMENTO', '# Departamento'], ['DEDUCIBLE', 'Deducible'], ['DUDA', 'Duda'], ['VALIDADO', 'Validado'], ['Factura', 'Factura'], ['METODO_PAGO', 'Método de pago'], ['REEMBOLSO', 'Reembolso'], ['ENCARGADO', 'Encargado de operación'], ['Ticket_relacionado', '🔗 Relacionados con tickets'], ['Lote', '📦 Lote de importación']];
+function bnCrudosFiltBar_() {
+  const bar = document.getElementById('bcr-filt'); if (!bar) return;
+  const H = new Set(BN_CRUDOS.headers);
+  bar.innerHTML = _BCR_FILTROS.filter(([h]) => H.has(h)).map(([h, lbl]) => { const F = BN_CRUDOS.filtros[h]; const txt = !F ? 'Todos' : F.size === 1 ? ([...F][0] || '(vacío)') : `${F.size} seleccionados`;
+    return `<div class="bcr-fi"><label title="${esc(lbl)}">${esc(lbl)}</label><button type="button" class="${F ? 'on' : ''}" onclick="bnCrudosFiltro_(${JSON.stringify(h).replace(/"/g, '&quot;')},event)"><span>${esc(txt)}</span><span style="font-size:10px;color:#6b7280">▼</span></button></div>`; }).join('');
+}
+function _bcrKey_(e) { const ov = document.getElementById('bcr-ov'); if (!ov || ov.style.display === 'none') return; if (e.key === 'Escape') { if (document.querySelector('.bcr-pop')) _bcrPopCerrar_(); else if (!document.activeElement?.isContentEditable) bnCrudosCerrar_(); } }
+window.bnCrudosBuscar_ = function (v) { BN_CRUDOS.q = v; clearTimeout(BN_CRUDOS._t); BN_CRUDOS._t = setTimeout(bnCrudosAplicar_, 180); };
+window.bnCrudosLimpiar_ = function () { BN_CRUDOS.q = ''; BN_CRUDOS.filtros = {}; BN_CRUDOS.sort = null; const q = document.getElementById('bcr-q'); if (q) q.value = ''; bnCrudosAplicar_(); };
+// Aplica búsqueda + filtros por columna + orden → BN_CRUDOS.vista (índices de filas).
+function bnCrudosAplicar_() {
+  const H = BN_CRUDOS.headers, R = BN_CRUDOS.rows, q = bnUploadNormStr(BN_CRUDOS.q), F = BN_CRUDOS.filtros, fk = Object.keys(F);
+  let idx = [];
+  for (let i = 0; i < R.length; i++) {
+    const r = R[i]; let ok = true;
+    for (const h of fk) { if (!F[h].has(_bcrS(r[h]))) { ok = false; break; } }
+    if (ok && q) { ok = false; for (const h of H) { if (bnUploadNormStr(r[h]).includes(q)) { ok = true; break; } } if (!ok && String(r.rowNum).includes(q)) ok = true; }
+    if (ok) idx.push(i);
+  }
+  const s = BN_CRUDOS.sort;
+  if (s) { const d = s.dir === 'asc' ? 1 : -1; idx.sort((a, b) => { const va = R[a][s.h], vb = R[b][s.h]; const na = _bcrNum(va), nb = _bcrNum(vb); if (na != null && nb != null) return (na - nb) * d; if (va === '' && vb !== '') return 1; if (vb === '' && va !== '') return -1; return _bcrS(va).localeCompare(_bcrS(vb), 'es', { numeric: true, sensitivity: 'base' }) * d; }); }
+  BN_CRUDOS.vista = idx;
+  const info = document.getElementById('bcr-info'); if (info) info.textContent = `${idx.length.toLocaleString('es-MX')} de ${R.length.toLocaleString('es-MX')} filas · ${H.length} columnas` + (fk.length || q ? ' (filtrado)' : '');
+  const w = document.getElementById('bcr-wrap'); if (w) w.scrollTop = 0;
+  bnCrudosFiltBar_();
+  bnCrudosPintar_(true);
+}
+function bnCrudosPintar_(reset) {
+  const wrap = document.getElementById('bcr-wrap'); if (!wrap) return;
+  const H = BN_CRUDOS.headers, R = BN_CRUDOS.rows, V = BN_CRUDOS.vista, RH = BN_CRUDOS.RH;
+  const vh = wrap.clientHeight || 600, first = Math.max(0, Math.floor(wrap.scrollTop / RH) - 5), n = Math.ceil(vh / RH) + 10, last = Math.min(V.length, first + n);
+  if (!reset && BN_CRUDOS._f === first && BN_CRUDOS._l === last) return; BN_CRUDOS._f = first; BN_CRUDOS._l = last;
+  const th = H.map(h => { const s = BN_CRUDOS.sort && BN_CRUDOS.sort.h === h ? (BN_CRUDOS.sort.dir === 'asc' ? '▲' : '▼') : ''; const f = BN_CRUDOS.filtros[h] ? ' filt' : '';
+    return `<th class="${f.trim()}" style="width:${BN_CRUDOS.anchos[h]}px;min-width:${BN_CRUDOS.anchos[h]}px" onclick="bnCrudosOrdenar_(${JSON.stringify(h).replace(/"/g, '&quot;')})" title="Clic: ordenar · ▾: filtrar">${esc(h)}<span class="bcr-ico">${s}</span><span class="bcr-ico" onclick="event.stopPropagation();bnCrudosFiltro_(${JSON.stringify(h).replace(/"/g, '&quot;')},event)" style="padding:0 3px;font-size:12px">▾</span></th>`; }).join('');
+  const C = BN_CRUDOS.cambios, S = BN_CRUDOS.sel;
+  let body = '';
+  for (let k = first; k < last; k++) {
+    const i = V[k], r = R[i], ch = C[r.rowNum] || {};
+    body += `<tr data-i="${i}"><td class="bcr-rn" title="Folio general (número de registro fijo)">BN-${r.rowNum}</td>` + H.map(h => { const v = h in ch ? ch[h] : r[h]; const nu = typeof v === 'number'; const cl = (nu ? 'num' : '') + (h in ch ? ' chg' : '') + (S && S.i === i && S.h === h ? ' sel' : '');
+      return `<td class="${cl.trim()}" data-h="${esc(h)}" title="${esc(_bcrS(v))}" onclick="bnCrudosCelda_(${i},this)" ondblclick="bnCrudosEditar_(${i},this)">${esc(_bcrS(v))}</td>`; }).join('') + '</tr>';
+  }
+  const totalH = V.length * RH, padTop = first * RH, padBot = Math.max(0, totalH - last * RH);
+  wrap.innerHTML = `<table id="bcr-tbl"><thead><tr><th class="bcr-rn" onclick="bnCrudosOrdenar_('rowNum')">#${BN_CRUDOS.sort && BN_CRUDOS.sort.h === 'rowNum' ? (BN_CRUDOS.sort.dir === 'asc' ? '▲' : '▼') : ''}</th>${th}</tr></thead>
+    <tbody><tr style="height:${padTop}px"><td colspan="${H.length + 1}" style="border:0;padding:0;height:${padTop}px"></td></tr>${body}<tr style="height:${padBot}px"><td colspan="${H.length + 1}" style="border:0;padding:0;height:${padBot}px"></td></tr></tbody></table>` + (V.length ? '' : '<div style="padding:30px;color:#5f6368;font-size:13px">Sin filas que coincidan.</div>');
+}
+window.bnCrudosScroll_ = function () { bnCrudosPintar_(false); };
+// Lotes de importación: cada inserción desde «Carga de datos» queda registrada (fecha, usuario, cuenta, archivos, filas) y se puede deshacer.
+window.bnCrudosLotes_ = async function (ev) {
+  _bcrPopCerrar_();
+  const pop = document.createElement('div'); pop.className = 'bcr-pop bcr-lotes'; const bt = ev && ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : null; pop.style.top = (bt ? bt.bottom + 6 : 60) + 'px';
+  pop.innerHTML = '<div style="padding:14px;color:#5f6368">⏳ Cargando lotes…</div>'; document.body.appendChild(pop);
+  setTimeout(() => document.addEventListener('mousedown', function fx(e) { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', fx); } }), 0);
+  try {
+    const j = await fetch(`${BACKEND}/bn/lotes`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'No se pudieron leer los lotes');
+    if (!j.lotes.length) { pop.innerHTML = '<div style="padding:14px;color:#5f6368">Aún no hay lotes: se registran a partir de la próxima inserción desde «Carga de datos».</div>'; return; }
+    pop.innerHTML = `<table><thead><tr><th>Lote</th><th>Fecha · usuario</th><th>Cuenta · archivos</th><th style="text-align:right">Filas</th><th></th></tr></thead><tbody>${j.lotes.map(l => `<tr style="${l.deshecho ? 'opacity:.55' : ''}">
+      <td><code style="font-size:11px">${esc(l.id)}</code>${l.deshecho ? `<div style="color:#b91c1c;font-size:11px">Deshecho ${esc(l.deshecho)}</div>` : ''}</td>
+      <td>${esc(l.fecha)}<div style="color:#5f6368">${esc(l.usuario || '—')}</div></td>
+      <td>${esc(l.cuenta || '—')}<div style="color:#5f6368;font-size:11px">${(l.archivos || []).map(a => esc(a.nombre || a)).join('<br>') || '—'}</div></td>
+      <td style="text-align:right;white-space:nowrap"><b style="color:#15803d">+${l.inserted}</b>${l.n_actualizados ? `<div style="color:#1d4ed8">↻ ${l.n_actualizados}</div>` : ''}${l.n_omitidos ? `<div style="color:#92400e">⊝ ${l.n_omitidos}</div>` : ''}</td>
+      <td style="white-space:nowrap"><button class="bcr-btn" style="padding:4px 8px;font-size:11px" onclick="BN_CRUDOS.filtros={Lote:new Set([${JSON.stringify(l.id).replace(/"/g, '&quot;')}])};bnCrudosAplicar_();this.closest('.bcr-pop').remove()">Ver filas</button>
+        ${l.deshecho ? '' : `<button class="bcr-btn" style="padding:4px 8px;font-size:11px;color:#b91c1c;border-color:#fca5a5;margin-top:4px" onclick="bnCrudosDeshacerLote_(${JSON.stringify(l.id).replace(/"/g, '&quot;')},${l.inserted},this)">Deshacer</button>`}</td></tr>`).join('')}</tbody></table>`;
+  } catch (e) { pop.innerHTML = `<div style="padding:14px;color:#b91c1c">⚠ ${esc(e.message)}</div>`; }
+};
+window.bnCrudosDeshacerLote_ = async function (id, n, btn) {
+  if (!confirm(`Se eliminarán las ${n} filas insertadas por el lote ${id} (quedan en la papelera del archivo) y se revertirán los saldos que actualizó. ¿Deshacer el lote?`)) return;
+  btn.disabled = true; btn.textContent = '⏳…';
+  try {
+    const j = await fetch(`${BACKEND}/bn/lotes/deshacer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lote: id, usuario: (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '' }) }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'No se pudo deshacer');
+    alert(`✓ Lote deshecho: ${j.borradas} fila(s) eliminadas, ${j.revertidos} saldo(s) revertidos.`); _bcrPopCerrar_(); bnCrudosOpen();
+  } catch (e) { alert('⚠ ' + e.message); btn.disabled = false; btn.textContent = 'Deshacer'; }
+};
+window.bnCrudosOrdenar_ = function (h) { const s = BN_CRUDOS.sort; BN_CRUDOS.sort = s && s.h === h ? (s.dir === 'asc' ? { h, dir: 'desc' } : null) : { h, dir: 'asc' }; bnCrudosAplicar_(); };
+function _bcrPopCerrar_() { document.querySelectorAll('.bcr-pop').forEach(p => p.remove()); }
+// Filtro por columna: lista de valores (de las filas que pasan los demás filtros) con buscador y casillas.
+window.bnCrudosFiltro_ = function (h, ev) {
+  _bcrPopCerrar_();
+  const R = BN_CRUDOS.rows, F = BN_CRUDOS.filtros, otros = Object.keys(F).filter(k => k !== h);
+  const cnt = new Map();
+  for (const r of R) { let ok = true; for (const k of otros) if (!F[k].has(_bcrS(r[k]))) { ok = false; break; } if (!ok) continue; const v = _bcrS(r[h]); cnt.set(v, (cnt.get(v) || 0) + 1); }
+  const vals = [...cnt.keys()].sort((a, b) => { const na = _bcrNum(a), nb = _bcrNum(b); if (na != null && nb != null) return na - nb; return a.localeCompare(b, 'es', { numeric: true }); });
+  const sel = new Set(F[h] ? [...F[h]] : vals);
+  const pop = document.createElement('div'); pop.className = 'bcr-pop';
+  const bt = ev && ev.currentTarget && ev.currentTarget.getBoundingClientRect ? ev.currentTarget.getBoundingClientRect() : null;
+  const x = Math.min(window.innerWidth - 290, bt ? bt.left : ev.clientX - 20), y = Math.min(window.innerHeight - 390, bt ? bt.bottom + 4 : ev.clientY + 12); pop.style.left = Math.max(4, x) + 'px'; pop.style.top = Math.max(4, y) + 'px';
+  const pintar = q => { const Q = bnUploadNormStr(q); const vis = vals.filter(v => !Q || bnUploadNormStr(v).includes(Q)); pop.querySelector('.l').innerHTML = vis.slice(0, 600).map(v => `<label><span class="bcr-ck ${sel.has(v) ? 'on' : ''}" data-v="${esc(v)}">${sel.has(v) ? '✓' : ''}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis">${v === '' ? '<i style="color:#9aa0a6">(vacío)</i>' : esc(v)}</span><span style="color:#9aa0a6;font-size:11px">${cnt.get(v)}</span></label>`).join('') + (vis.length > 600 ? `<div style="padding:6px 10px;color:#9aa0a6">… ${vis.length - 600} más (usa el buscador)</div>` : ''); pop._vis = vis; };
+  pop.innerHTML = `<div class="h"><b style="font-size:12px">${esc(h)}</b><input type="text" placeholder="Buscar valor…"></div><div style="padding:4px 10px;display:flex;gap:10px;font-size:11.5px"><a href="#" data-a="all">Seleccionar todo</a><a href="#" data-a="none">Borrar</a></div><div class="l"></div><div class="f"><button class="bcr-btn" data-a="cancel">Cancelar</button><button class="bcr-btn pri" data-a="ok">Aceptar</button></div>`;
+  document.body.appendChild(pop); pintar('');
+  pop.querySelector('input').oninput = e => pintar(e.target.value);
+  pop.onclick = e => { const ck = e.target.closest('.bcr-ck'); if (ck) { const v = ck.dataset.v; if (sel.has(v)) sel.delete(v); else sel.add(v); ck.classList.toggle('on', sel.has(v)); ck.textContent = sel.has(v) ? '✓' : ''; return; }
+    const a = e.target.dataset.a; if (!a) return; e.preventDefault();
+    if (a === 'all') { pop._vis.forEach(v => sel.add(v)); pintar(pop.querySelector('input').value); }
+    else if (a === 'none') { pop._vis.forEach(v => sel.delete(v)); pintar(pop.querySelector('input').value); }
+    else if (a === 'cancel') _bcrPopCerrar_();
+    else if (a === 'ok') { if (sel.size === vals.length) delete F[h]; else F[h] = sel; _bcrPopCerrar_(); bnCrudosAplicar_(); } };
+  setTimeout(() => document.addEventListener('mousedown', function fx(e) { if (!pop.contains(e.target)) { _bcrPopCerrar_(); document.removeEventListener('mousedown', fx); } }), 0);
+};
+window.bnCrudosEdicion_ = function () {
+  BN_CRUDOS.edicion = !BN_CRUDOS.edicion; const b = document.getElementById('bcr-edit'); b.classList.toggle('on', BN_CRUDOS.edicion); b.textContent = BN_CRUDOS.edicion ? '✏️ Edición activa (doble clic en una celda)' : '✏️ Edición';
+  if (!BN_CRUDOS.edicion && Object.keys(BN_CRUDOS.cambios).length && confirm('Saliste de Edición con cambios sin guardar. ¿Descartarlos?')) { BN_CRUDOS.cambios = {}; document.getElementById('bcr-save').disabled = true; bnCrudosPintar_(true); }
+};
+window.bnCrudosCelda_ = function (i, td) { BN_CRUDOS.sel = { i, h: td.dataset.h }; document.querySelectorAll('#bcr-tbl td.sel').forEach(x => x.classList.remove('sel')); td.classList.add('sel'); };
+window.bnCrudosEditar_ = function (i, td) {
+  if (!BN_CRUDOS.edicion) { const b = document.getElementById('bcr-edit'); b.style.boxShadow = '0 0 0 3px #fbbf24'; setTimeout(() => { b.style.boxShadow = ''; }, 900); return; }
+  const h = td.dataset.h, r = BN_CRUDOS.rows[i]; if (h === 'rowNum') return;
+  const orig = h in (BN_CRUDOS.cambios[r.rowNum] || {}) ? BN_CRUDOS.cambios[r.rowNum][h] : r[h];
+  td.textContent = _bcrS(orig); td.contentEditable = 'true'; td.focus(); document.execCommand && document.execCommand('selectAll', false, null);
+  const fin = guardar => { td.contentEditable = 'false'; td.onblur = null; td.onkeydown = null;
+    if (guardar) { let v = td.textContent; const was = r[h]; if (typeof was === 'number' && _bcrNum(v) != null && String(_bcrNum(v)) === v.trim().replace(/[$,\s]/g, '')) v = _bcrNum(v);
+      const ch = BN_CRUDOS.cambios[r.rowNum] = BN_CRUDOS.cambios[r.rowNum] || {};
+      if (_bcrS(v) === _bcrS(was)) delete ch[h]; else ch[h] = v; if (!Object.keys(ch).length) delete BN_CRUDOS.cambios[r.rowNum]; }
+    document.getElementById('bcr-save').disabled = !Object.keys(BN_CRUDOS.cambios).length; bnCrudosPintar_(true); };
+  td.onblur = () => fin(true);
+  td.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); td.blur(); } else if (e.key === 'Escape') { e.preventDefault(); fin(false); } else if (e.key === 'Tab') { e.preventDefault(); const nx = e.shiftKey ? td.previousElementSibling : td.nextElementSibling; td.blur(); if (nx && nx.dataset.h) setTimeout(() => { const t = document.querySelector(`#bcr-tbl tr[data-i="${i}"] td[data-h="${CSS.escape(nx.dataset.h)}"]`); if (t) bnCrudosEditar_(i, t); }, 30); } };
+};
+window.bnCrudosGuardar_ = async function () {
+  const C = BN_CRUDOS.cambios, rns = Object.keys(C); if (!rns.length) return;
+  const n = rns.reduce((a, k) => a + Object.keys(C[k]).length, 0);
+  if (!confirm(`Se guardarán ${n} celda(s) en ${rns.length} registro(s) de la base BANCOS. ¿Continuar?`)) return;
+  const b = document.getElementById('bcr-save'); b.disabled = true; b.textContent = '⏳ Guardando…';
+  try {
+    const j = await fetch(`${BACKEND}/bn/update-rows`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: rns.map(k => ({ rowNum: Number(k), fields: C[k] })) }) }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'No se guardó');
+    rns.forEach(k => { const r = BN_CRUDOS.rows.find(x => x.rowNum === Number(k)); if (r) Object.assign(r, C[k]); });
+    BN_CRUDOS.cambios = {}; bnCrudosAplicar_();
+    if (typeof BN_RAW !== 'undefined') try { fetch(`${BACKEND}/get-bancos?fresh=1`, { cache: 'no-store' }).then(r => r.json()).then(d => { if (d && d.ok) BN_RAW = d.records.map((r, i) => r.rowNum ? { ...r } : { ...r, rowNum: i + 2 }); }); } catch (_) {}
+    b.textContent = `✓ ${j.written} registro(s) guardados`; setTimeout(() => { b.textContent = '💾 Guardar'; }, 2500);
+  } catch (e) { alert('⚠ ' + e.message); b.disabled = false; b.textContent = '💾 Guardar'; }
+};
