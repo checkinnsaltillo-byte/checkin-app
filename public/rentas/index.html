@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Check-inn Saltillo · Rentas de larga estancia</title>
+<link rel="icon" type="image/png" href="/gb-pin.png">
+<meta name="theme-color" content="#fec503">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Check-inn Saltillo">
+<meta property="og:title" content="Check-inn Saltillo · Rentas de larga estancia">
+<meta property="og:description" content="Casas, departamentos y locales en renta o venta en Saltillo.">
+<meta property="og:image" content="https://www.check-inn.mx/public/brand/og-pin.jpg?v=2">
+<meta name="description" content="Casas, departamentos y locales en renta o venta en Saltillo.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--rk:#0f172a;--rm:#64748b;--rl:#e2e8f0;--ra:#fec503;--ro:#ff9500;--rp:#e3141b}
+  *{box-sizing:border-box}body{margin:0;background:#f8fafc;color:var(--rk);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased}
+  .top{background:rgba(255,255,255,.78);backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid rgba(17,24,39,.06);padding:10px clamp(16px,4vw,40px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .top img{height:38px;display:block}.top a.lnk{font-size:13px;font-weight:700;color:#111827;text-decoration:none;padding:9px 16px;border-radius:999px;background:#fff;border:1px solid rgba(17,24,39,.12)}
+  .hero{position:relative;overflow:hidden;padding:44px 24px 30px;text-align:center;isolation:isolate}
+  .hero::before{content:'';position:absolute;inset:-40%;z-index:-1;background:radial-gradient(60% 50% at 30% 20%,rgba(254,197,3,.35),transparent 60%),radial-gradient(50% 45% at 80% 30%,rgba(255,149,0,.28),transparent 60%),linear-gradient(180deg,#fff7df,#f8fafc 70%)}
+  .eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:#fff;border:1px solid #f1e3b0;color:#7a5800;padding:5px 12px;border-radius:999px}
+  h1{font-size:clamp(28px,5vw,50px);font-weight:800;letter-spacing:-.035em;line-height:1.05;margin:14px auto 8px;max-width:820px;color:#111}h1 em{font-style:normal;background:linear-gradient(120deg,#ff9500,#fec503 45%,#e3141b);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:14px;color:var(--rm);margin:0 0 20px;font-weight:500}
+  .bar{max-width:1080px;margin:0 auto;background:#fff;border-radius:18px;box-shadow:0 18px 40px -16px rgba(15,23,42,.25),0 2px 6px rgba(15,23,42,.06);padding:8px;display:grid;grid-template-columns:repeat(6,1fr) auto;gap:4px;text-align:left}
+  .f{display:flex;flex-direction:column;padding:8px 12px;border-radius:12px;border:1px solid transparent;min-width:0}.f:hover{background:#f8fafc}.f:focus-within{background:#fffbea;border-color:var(--ra)}
+  .f label{font-size:10px;font-weight:800;color:var(--rm);letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}.f input,.f select{border:0;outline:0;background:transparent;font-size:13.5px;font-weight:700;color:var(--rk);padding:2px 0;font-family:inherit;width:100%;min-width:0}.rng{display:flex;gap:4px;align-items:center}.rng input{width:50%}
+  .go{background:linear-gradient(135deg,#fec503,#ff9500);color:#111;border:0;border-radius:14px;padding:0 20px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 10px 20px -8px rgba(255,149,0,.6);white-space:nowrap;font-family:inherit}
+  .pills{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:14px;font-size:12px;color:#475569;font-weight:600}.pills span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ra);margin-right:6px}
+  .head{max-width:1080px;margin:18px auto 0;padding:0 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.count{font-size:14px;font-weight:800}.count small{color:var(--rm);font-weight:600;margin-left:6px}.sel{padding:6px 10px;border:1px solid var(--rl);border-radius:8px;font-size:12px;font-weight:700;background:#fff;font-family:inherit}
+  .grid{max-width:1080px;margin:16px auto 40px;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+  .card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.06);border:1px solid rgba(17,24,39,.06);cursor:pointer;transition:transform .22s,box-shadow .22s;display:flex;flex-direction:column}.card:hover{transform:translateY(-4px);box-shadow:0 20px 40px -10px rgba(15,23,42,.15)}
+  .img{aspect-ratio:16/10;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);position:relative;overflow:hidden}.img img{width:100%;height:100%;object-fit:cover;transition:transform .5s}.card:hover .img img{transform:scale(1.05)}
+  .type{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.95);color:#7a5800;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase}.op{position:absolute;top:12px;right:12px;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#0f766e}.op.venta{background:#7c3aed}.nf{position:absolute;bottom:10px;right:12px;background:rgba(15,23,42,.65);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px}
+  .body{padding:14px 16px 16px;flex:1;display:flex;flex-direction:column}.ct{font-size:15px;font-weight:800;line-height:1.3;margin:0 0 4px;letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.loc{font-size:12px;color:var(--rm);margin:0 0 10px}
+  .cap{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#475569;font-weight:600;margin-bottom:10px}.amen{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}.amen span{font-size:10px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:99px;font-weight:600}
+  .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:1px dashed var(--rl)}.price{font-size:20px;font-weight:900;color:#111;letter-spacing:-.02em}.price small{font-size:11px;color:var(--rm);font-weight:600;display:block}
+  .btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.mapbtn{background:#fff;color:var(--rk);border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit}.cta{background:linear-gradient(135deg,#111827,#374151);color:#fff;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800}
+  .float{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9400;display:flex;gap:8px}.float button{border-radius:999px;padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer;border:0;font-family:inherit}.fmap{background:var(--rk);color:#fff;box-shadow:0 6px 18px -4px rgba(15,23,42,.4)}.fshare{background:#fff;color:var(--rk);border:1px solid #e5e7eb!important;box-shadow:0 6px 18px -4px rgba(15,23,42,.2)}.fshare.ok{background:#10b981;color:#fff}
+  .modal{position:fixed;inset:0;z-index:9500;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:14px}.box{background:#fff;border-radius:18px;width:min(900px,100%);max-height:94vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+  .bh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--rl);position:sticky;top:0;background:#fff;z-index:2}.bh h3{margin:0;font-size:17px;flex:1}.x{all:unset;cursor:pointer;font-size:20px;color:var(--rm)}.btn{padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:800;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:var(--rk);font-family:inherit;text-decoration:none}.btn.wa{background:#25d366;color:#fff;border-color:#25d366}
+  .det{padding:0 18px 18px}.big{width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#e2e8f0;margin-bottom:10px}.big img{width:100%;height:100%;object-fit:cover}.thumbs{display:flex;gap:6px;overflow:auto;padding-bottom:6px;margin-bottom:12px}.thumbs img{width:84px;height:62px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;flex:none}.thumbs img.on{border-color:var(--ro)}
+  .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0}.kv div{background:#f8fafc;border:1px solid var(--rl);border-radius:10px;padding:8px 10px;font-size:12.5px}.kv b{display:block;font-size:10px;color:var(--rm);text-transform:uppercase;letter-spacing:.04em}
+  #map{height:70vh;border-radius:14px}
+  .ck-foot{max-width:1080px;margin:40px auto 90px;padding:24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid rgba(17,24,39,.06);font-size:12px;color:#6b7280}.ck-foot-info{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#374151}.ck-foot-info a{color:#2563eb}
+  @media(max-width:900px){.bar{grid-template-columns:1fr 1fr}.go{grid-column:1/-1;padding:12px}.top img{height:32px}}
+</style>
+</head>
+<body>
+<header class="top"><a href="/" aria-label="Check-inn Saltillo"><img src="/public/brand/checkinn-logo.png" alt="Check-inn"></a><a class="lnk" href="/">🛎️ Reservar estancia corta</a></header>
+<section class="hero">
+  <span class="eyebrow">🏘️ Rentas y ventas de larga estancia · Saltillo</span>
+  <h1>Encuentra tu <em>próxima propiedad</em></h1>
+  <p class="sub">Casas, departamentos y locales en renta o venta.</p>
+  <form class="bar" id="bar" onsubmit="event.preventDefault();buscar()">
+    <div class="f"><label>Tipo</label><select name="tipo"><option value="">Todos</option><option value="departamento">Departamento</option><option value="casa">Casa</option><option value="local">Local comercial</option><option value="oficina">Oficina</option><option value="terreno">Terreno</option><option value="bodega">Bodega / nave</option><option value="cuarto">Cuarto</option><option value="otro">Otro</option></select></div>
+    <div class="f"><label>Operación</label><select name="operacion"><option value="">Renta o venta</option><option value="renta">Renta</option><option value="venta">Venta</option></select></div>
+    <div class="f"><label>Lugar</label><input name="lugar" placeholder="Saltillo, Coahuila…"></div>
+    <div class="f"><label>Recámaras</label><select name="rec"><option value="">Cualquiera</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    <div class="f"><label>Baños</label><select name="banos"><option value="">Cualquiera</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="f"><label>Precio</label><div class="rng"><input name="min" type="number" placeholder="Mín"><span style="color:#94a3b8">–</span><input name="max" type="number" placeholder="Máx"></div></div>
+    <button class="go" type="submit">🔍 Buscar</button>
+  </form>
+  <div class="pills"><span>Trato directo</span><span>Fotos y ubicación</span><span>Atención por WhatsApp</span></div>
+</section>
+<div class="head"><div class="count" id="count">⏳ Cargando…</div><span style="font-size:12px;color:#64748b">Ordenar:</span><select class="sel" id="orden" onchange="render()"><option value="reciente">Más reciente</option><option value="precio_asc">Precio: menor a mayor</option><option value="precio_desc">Precio: mayor a menor</option><option value="m2">Más m²</option></select></div>
+<div class="grid" id="grid"></div>
+<footer class="ck-foot"><div class="ck-foot-info"><span>📞 Tel/WhatsApp: <a href="tel:+528444443922">+52 844 444 3922</a></span><span>📍 Ubicación: Matamoros #2300, República Ote., Saltillo</span></div><span style="text-align:right">© Check-inn Saltillo<br><a href="/admin/" style="color:#9ca3af;font-size:11px">Portal admin</a></span></footer>
+<div class="float"><button class="fmap" onclick="mapa()">🗺️ Ver mapa</button><button class="fshare" onclick="compartir(this)">🔗 Compartir</button></div>
+<script>
+const API = 'https://api.check-inn.mx', WA = '528444443922';
+const TIPOS = { departamento: 'Departamento', casa: 'Casa', local: 'Local comercial', oficina: 'Oficina', terreno: 'Terreno', bodega: 'Bodega / nave', cuarto: 'Cuarto', otro: 'Otro' };
+let ITEMS = [], Q = {};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const $$ = (n, m) => n == null || n === '' ? '—' : (m === 'USD' ? 'US$' : '$') + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+const N = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+function leerQ() { const fd = new FormData(document.getElementById('bar')); Q = {}; ['tipo', 'operacion', 'lugar', 'rec', 'banos', 'min', 'max'].forEach(k => { Q[k] = String(fd.get(k) || '').trim(); }); }
+function filtrar() {
+  let L = ITEMS.slice();
+  if (Q.tipo) L = L.filter(p => p.tipo === Q.tipo); if (Q.operacion) L = L.filter(p => p.operacion === Q.operacion);
+  if (Q.lugar) { const t = N(Q.lugar); L = L.filter(p => N([p.ciudad, p.estado, p.colonia, p.direccion, p.titulo].join(' ')).includes(t)); }
+  if (Q.rec) L = L.filter(p => Number(p.recamaras || 0) >= Number(Q.rec)); if (Q.banos) L = L.filter(p => Number(p.banos || 0) >= Number(Q.banos));
+  if (Q.min) L = L.filter(p => Number(p.precio || 0) >= Number(Q.min)); if (Q.max) L = L.filter(p => p.precio != null && Number(p.precio) <= Number(Q.max));
+  const o = document.getElementById('orden').value; L.sort((a, b) => o === 'precio_asc' ? (a.precio || 0) - (b.precio || 0) : o === 'precio_desc' ? (b.precio || 0) - (a.precio || 0) : o === 'm2' ? (b.m2_construccion || 0) - (a.m2_construccion || 0) : String(b.actualizado || '').localeCompare(String(a.actualizado || '')));
+  return L;
+}
+function card(p) {
+  const f = (p.fotos || [])[0], cap = [];
+  if (p.recamaras) cap.push(`<span>🛏 ${p.recamaras}</span>`); if (p.banos) cap.push(`<span>🚿 ${p.banos}${p.medios_banos ? '½' : ''}</span>`); if (p.m2_construccion) cap.push(`<span>📐 ${p.m2_construccion} m²</span>`); if (p.estacionamientos) cap.push(`<span>🚗 ${p.estacionamientos}</span>`); if (p.amueblado) cap.push('<span>🛋 Amueblado</span>');
+  return `<div class="card" onclick="ficha('${esc(p.id)}')"><div class="img"><div class="type">${esc(TIPOS[p.tipo] || p.tipo || '')}</div><div class="op ${p.operacion}">${p.operacion === 'venta' ? 'Venta' : 'Renta'}</div>${f ? `<img src="${esc(f.url)}" alt="" loading="lazy">` : ''}${(p.fotos || []).length > 1 ? `<div class="nf">📷 ${p.fotos.length}</div>` : ''}</div>
+    <div class="body"><h3 class="ct">${esc(p.titulo)}</h3><p class="loc">📍 ${esc([p.colonia, p.ciudad, p.estado].filter(Boolean).join(', ') || 'Saltillo')}</p>${cap.length ? `<div class="cap">${cap.join('')}</div>` : ''}${(p.amenidades || []).length ? `<div class="amen">${p.amenidades.slice(0, 4).map(a => `<span>${esc(a)}</span>`).join('')}${p.amenidades.length > 4 ? `<span>+${p.amenidades.length - 4}</span>` : ''}</div>` : ''}
+      <div class="foot"><div class="price">${$$(p.precio, p.moneda)}<small>${p.operacion === 'venta' ? 'precio de venta' : (p.periodo || 'mensual')}</small></div><div class="btns"><button class="mapbtn" onclick="event.stopPropagation();mapa('${esc(p.id)}')">🗺️ Ver en mapa</button><span class="cta">Ver más →</span></div></div></div></div>`;
+}
+function render() { const L = filtrar(); document.getElementById('count').innerHTML = `${L.length} propiedad${L.length === 1 ? '' : 'es'}<small>${[Q.operacion, Q.tipo && TIPOS[Q.tipo], Q.lugar].filter(Boolean).join(' · ') || 'todas'}</small>`; document.getElementById('grid').innerHTML = L.map(card).join('') || '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;color:#94a3b8">Por ahora no hay propiedades con esos filtros.</div>'; }
+function buscar() { leerQ(); render(); }
+function waMsg(p) { return `Hola, me interesa: ${p.titulo} (${p.operacion === 'venta' ? 'venta' : 'renta'} · ${$$(p.precio, p.moneda)})\n${location.origin}/public/rentas/#${p.id}`; }
+function ficha(id) {
+  const p = ITEMS.find(x => x.id === id); if (!p) return; document.querySelectorAll('.modal').forEach(x => x.remove());
+  const F = p.fotos || [], kv = [['Operación', p.operacion === 'venta' ? 'Venta' : 'Renta'], ['Tipo', TIPOS[p.tipo] || p.tipo], ['Precio', $$(p.precio, p.moneda) + (p.operacion === 'renta' ? ' / ' + (p.periodo || 'mes') : '')], ['Recámaras', p.recamaras], ['Baños', p.banos ? p.banos + (p.medios_banos ? ' + ' + p.medios_banos + ' medio' : '') : ''], ['Estacionamientos', p.estacionamientos], ['Construcción', p.m2_construccion ? p.m2_construccion + ' m²' : ''], ['Terreno', p.m2_terreno ? p.m2_terreno + ' m²' : ''], ['Amueblado', p.amueblado ? 'Sí' : ''], ['Ubicación', [p.colonia, p.ciudad, p.estado].filter(Boolean).join(', ')]].filter(x => x[1]);
+  const m = document.createElement('div'); m.className = 'modal'; m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="box"><div class="bh"><h3>${esc(p.titulo)}</h3><a class="btn wa" href="https://wa.me/${WA}?text=${encodeURIComponent(waMsg(p))}" target="_blank" rel="noopener">💬 Me interesa</a><button class="btn" onclick="mapa('${esc(p.id)}')">🗺️ Mapa</button><button class="x" onclick="this.closest('.modal').remove()">✕</button></div>
+    <div class="det">${F.length ? `<div class="big"><img id="big" src="${esc(F[0].url)}" alt=""></div><div class="thumbs">${F.map((f, i) => `<img src="${esc(f.url)}" class="${i ? '' : 'on'}" onclick="document.getElementById('big').src=this.src;this.parentElement.querySelectorAll('img').forEach(x=>x.classList.remove('on'));this.classList.add('on')">`).join('')}</div>` : ''}
+      <div class="kv">${kv.map(([k, v]) => `<div><b>${esc(k)}</b>${esc(String(v))}</div>`).join('')}</div>${(p.amenidades || []).length ? `<div class="amen" style="margin-bottom:12px">${p.amenidades.map(a => `<span>${esc(a)}</span>`).join('')}</div>` : ''}
+      ${p.descripcion ? `<div style="font-size:13.5px;line-height:1.55;color:#334155;white-space:pre-wrap">${esc(p.descripcion)}</div>` : ''}</div></div>`;
+  document.body.appendChild(m); try { history.replaceState(null, '', '#' + p.id); } catch (_) {}
+}
+async function compartir(btn) { const L = filtrar().slice(0, 15); const txt = `🏘️ Propiedades Check-inn (${L.length})\n` + L.map(p => `• ${p.titulo} — ${p.operacion === 'venta' ? 'Venta' : 'Renta'} ${$$(p.precio, p.moneda)}`).join('\n') + `\n${location.origin}/public/rentas/`; try { await navigator.clipboard.writeText(txt); } catch (_) {} if (navigator.share) { try { await navigator.share({ title: 'Rentas Check-inn', text: txt }); } catch (_) {} } const t = btn.textContent; btn.classList.add('ok'); btn.textContent = '✓ Copiado'; setTimeout(() => { btn.classList.remove('ok'); btn.textContent = t; }, 1800); }
+function leaflet(cb) { if (window.L) return cb(); const c = document.createElement('link'); c.rel = 'stylesheet'; c.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(c); const s = document.createElement('script'); s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload = cb; document.head.appendChild(s); }
+function mapa(id) {
+  const L0 = id ? ITEMS.filter(p => p.id === id) : filtrar(), G = L0.filter(p => p.lat && p.lng);
+  if (id && !G.length) { const p = L0[0]; if (p) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.direccion, p.colonia, p.ciudad, p.estado].filter(Boolean).join(', '))}`, '_blank', 'noopener'); return; }
+  const m = document.createElement('div'); m.className = 'modal'; m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="box" style="width:min(1000px,100%)"><div class="bh"><h3>🗺️ Mapa · ${G.length} con ubicación</h3><button class="x" onclick="this.closest('.modal').remove()">✕</button></div><div style="padding:12px 18px 18px"><div id="map"></div></div></div>`;
+  document.body.appendChild(m);
+  leaflet(() => { const map = window.L.map('map').setView(G.length ? [G[0].lat, G[0].lng] : [25.4232, -101.0053], G.length === 1 ? 15 : 12); window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map); const g = []; G.forEach(p => { g.push(window.L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${esc(p.titulo)}</b><br>${$$(p.precio, p.moneda)}<br><a href="#" onclick="ficha('${esc(p.id)}');return false">Ver más</a>`)); }); if (g.length > 1) map.fitBounds(window.L.featureGroup(g).getBounds().pad(0.2)); if (g.length === 1) g[0].openPopup(); });
+}
+(async () => { try { const j = await fetch(`${API}/rentas/publicas`, { cache: 'no-store' }).then(r => r.json()); ITEMS = j.ok ? j.items : []; } catch (_) { ITEMS = []; } leerQ(); render(); const h = (location.hash || '').slice(1); if (h && ITEMS.some(p => p.id === h)) ficha(h); })();
+</script>
+</body>
+</html>
