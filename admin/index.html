@@ -546,6 +546,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
         <span id="guias-summary" style="font-size:12px;color:#64748b">—</span>
         <button id="guias-sync-btn" type="button" onclick="guiasSyncNow()" title="Regenera los JSON públicos que ven los huéspedes (usar tras editar reglamento u otros datos en la hoja alojamientos)"
                 style="margin-left:auto;padding:8px 14px;background:linear-gradient(180deg,#0ea5e9 0%,#0369a1 100%);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 4px rgba(3,105,161,.3)">🔄 Actualizar guías</button>
+        <button class="btn-limpiar" style="background:#4c1d95;color:#fff;border-color:#4c1d95" onclick="guiasComunesMenu_(this)" title="Editar los datos que comparten todos los alojamientos (generales) o los de una propiedad">⚙️ Datos comunes</button>
         <button class="btn-limpiar" onclick="guiasLoad(true)">↻ Recargar lista</button>
       </div>
       <div style="display:flex;align-items:flex-start">
@@ -2949,7 +2950,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=2099"></script>
+  <script src="app.js?v=2100"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
