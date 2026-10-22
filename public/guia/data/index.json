@@ -1,7 +1,7 @@
 {
   "ok": true,
-  "generatedAt": "2026-10-22T22:46:59.336Z",
-  "count": 64,
+  "generatedAt": "2026-10-22T22:50:41.161Z",
+  "count": 63,
   "items": [
     {
       "id": "605555",
@@ -317,11 +317,6 @@
       "id": "610158",
       "name": "",
       "photos": 20
-    },
-    {
-      "id": "909154916",
-      "name": "Calle Cumbres #ZZ-PRUEBA",
-      "photos": 1
     }
   ]
 }
