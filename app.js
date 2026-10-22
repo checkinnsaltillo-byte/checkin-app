@@ -74187,7 +74187,7 @@ async function bkLibGuardar_() {
 // ── 📚 Casos de entrenamiento ──
 async function bkCasosCargar_() { BK._casosCargando = true;
   try { const r = await fetch(`${BACKEND}/bot/control/casos`, { cache: 'no-store' }).then(r => r.json()); BK.casos = r.ok ? r.items : []; } catch (_) { BK.casos = []; }
-  BK._casosCargando = false; if (BK.tab === 'pruebas') bkRender_(); }
+  BK._casosCargando = false; if (BK.tab === 'pruebas' || BK.tab === 'entrenamiento') bkRender_(); }
 const BK_ROL = { huesped: ['👤 Huésped', '#fff'], bot: ['🤖 Bot', '#dcf7c5'], admin: ['👨‍💼 Admin', '#fef3c7'], plantilla: ['📩 Plantilla', '#e0f2fe'], anfitrion: ['🏠 Anfitrión', '#d9fdd3'] };
 function bkCasoMsgs_(M) { return `<div style="background:#efeae2;border-radius:12px;padding:8px 10px;max-height:320px;overflow:auto">${M.map(m => `<div style="display:flex;justify-content:${m.rol === 'huesped' ? 'flex-start' : 'flex-end'};margin:4px 0"><div style="max-width:80%;background:${(BK_ROL[m.rol] || BK_ROL.bot)[1]};border-radius:9px;padding:6px 9px;font-size:12.5px;white-space:pre-wrap;box-shadow:0 1px .5px rgba(0,0,0,.13)"><div style="font-size:10.5px;font-weight:700;color:#0e7490">${(BK_ROL[m.rol] || BK_ROL.bot)[0]}</div>${esc(m.texto)}<div style="font-size:10px;color:#667781;text-align:right">${m.ts ? new Date(m.ts).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''}</div></div></div>`).join('')}</div>`; }
 function bkCasoResumen_(c) { const b = c.booking || {}, f = d => String(d || '').slice(0, 10), tk = (c.allBookings || []).filter(x => x.FolioFacturapi || x.TicketUrl).length;
@@ -74196,11 +74196,12 @@ function bkCasoResumen_(c) { const b = c.booking || {}, f = d => String(d || '')
     <span class="bk-chip" style="background:#f3f4f6">🕐 ${esc(new Date(c.ahora).toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }))}</span>${tk ? `<span class="bk-chip" style="background:#f3f4f6">🧾 ${tk} ticket(s)</span>` : ''}${c.perfil ? '<span class="bk-chip" style="background:#f3f4f6">📇 perfil</span>' : ''}</div>
     ${c.notas ? `<div class="bk-why" style="margin-bottom:6px">📝 ${esc(c.notas)}</div>` : ''}${bkCasoMsgs_(c.mensajes || [])}`; }
 function bkCasosHtml_() {
+  if (BK.casos == null && !BK._casosCargando) bkCasosCargar_();
   if (BK.casos == null) return '<div class="bk-card bk-mut">⏳ Cargando casos…</div>';
   if (!BK.casos.length) return `<div class="bk-card"><h3>📚 Casos de entrenamiento</h3><div class="bk-sub" style="margin-top:6px">Aún no hay casos. En Chats bot, pasa el cursor sobre cualquier mensaje, toca la flecha ⌄ y elige «Enviar a biblioteca».</div></div>`;
   return `<div class="bk-card" style="padding:12px 16px"><h3>📚 Casos de entrenamiento</h3><div class="bk-sub">Extractos de conversaciones reales guardados con su reserva, alojamiento, guía, tickets, perfil y fecha y hora. Se agregan desde Chats bot (⌄ › Enviar a biblioteca).</div></div>`
     + BK.casos.map(c => `<details class="bk-grp" ${BK.abiertos['caso_' + c.id] ? 'open' : ''} ontoggle="BK.abiertos['caso_${esc(c.id)}']=this.open"><summary>${esc(c.titulo)} <span class="bk-sub">${(c.mensajes || []).length} mensajes · guardado ${new Date(c.creado).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}${c.por ? ' por ' + esc(c.por) : ''}</span><span style="flex:1"></span>
-      <button class="bk-btn sm pri" onclick="event.preventDefault();BK.prSub='sim';BK.simCaso='${esc(c.id)}';BK.sim=null;bkRender_();bkCasoSimular_('${esc(c.id)}')">▶ Simular</button>
+      <button class="bk-btn sm pri" onclick="event.preventDefault();BK.tab='pruebas';BK.prSub='sim';BK.simCaso='${esc(c.id)}';BK.sim=null;bkRender_();bkCasoSimular_('${esc(c.id)}')">▶ Simular</button>
       <button class="bk-btn sm red" onclick="event.preventDefault();bkCasoBorrar_('${esc(c.id)}')">🗑</button></summary><div style="padding:0 16px 14px">${bkCasoResumen_(c)}</div></details>`).join('');
 }
 async function bkCasoBorrar_(id) { if (!confirm('¿Eliminar este caso de la biblioteca?')) return;
@@ -74263,9 +74264,9 @@ function bkEntr_() {
       <button class="bk-btn sm ${D.generado ? '' : 'pri'}" ${corre ? 'disabled style="opacity:.5"' : ''} onclick="bkEntrIniciar_()">${D.generado ? '🔄 Volver a analizar' : '▶ Analizar conversaciones'}</button></div>
     ${corre ? `<div style="margin-top:10px"><div class="bk-sub" style="margin-bottom:4px">⏳ ${esc(E.msg || 'Analizando…')}</div><div style="height:8px;background:#f3f4f6;border-radius:6px;overflow:hidden"><div style="height:100%;width:${E.pct || 3}%;background:#7c3aed;transition:width .4s"></div></div></div>` : E.fase === 'error' ? `<div class="bk-obs err" style="margin-top:10px">⚠️ ${esc(E.msg)}</div>` : ''}
     ${D.generado ? `<div class="bk-sub" style="margin-top:8px">Último análisis: ${new Date(D.generado).toLocaleString('es-MX')} · ${D.clasificadas} situaciones clasificadas por IA (muestra de ${D.muestra}) · ${D.segundos}s</div>` : ''}</div>`;
-  if (!D.generado) return head + bkEntrSup_();
+  if (!D.generado) return head + bkEntrSup_() + bkCasosHtml_();
   const kp = `<div class="bk-kpis">${kpi(S.conversaciones, 'Conversaciones')}${kpi(S.mensajesHuesped, 'Mensajes de huéspedes')}${kpi(S.escritosAMano, `Respuestas escritas a mano (${Math.round(100 * S.escritosAMano / Math.max(1, S.mensajesAnfitrion))}%)`)}${kpi(S.plantillasEnviadas, 'Envíos de plantillas (separados)')}${kpi(S.respuestaMedianaMin, 'Minutos para responder (mediana)')}</div>`;
-  return head + kp + bkEntrSup_() + bkEntrEstilo_(D) + bkEntrCats_(D) + bkEntrPlantillas_(S);
+  return head + kp + bkEntrSup_() + bkCasosHtml_() + bkEntrEstilo_(D) + bkEntrCats_(D) + bkEntrPlantillas_(S);
 }
 async function bkEntrIniciar_() {
   if (!confirm('¿Analizar las conversaciones históricas?\n\nTarda unos minutos y usa la IA (≈30 consultas). Las categorías que ya revisaste (aprobadas o descartadas) se conservan.')) return;
@@ -74587,12 +74588,14 @@ function bkEntrSup_() {
         <span class="bk-chip" style="background:${x.editado ? '#fef3c7;color:#b45309' : '#f3f4f6;color:#6b7280'}">${x.editado ? '✏️ Editada a mano' : 'Sin cambios'}</span></div>
         <span class="bk-mut" style="font-size:11px;white-space:nowrap">${new Date(x.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${x.por ? ' · ' + esc(x.por) : ''}</span></div>
       <div class="bk-sub" style="margin-top:6px">${esc([x.huesped, x.aloj].filter(Boolean).join(' · '))}${x.resumen ? ` — ${esc(x.resumen)}` : ''}</div>
-      <div style="margin-top:8px;display:grid;gap:6px">${(x.mensajes || []).map(m => `<div style="justify-self:start;max-width:85%;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;font-size:12.5px;white-space:pre-wrap">👤 ${esc(m.texto)}</div>`).join('')}
+      <div style="margin-top:8px;display:grid;gap:6px">${(() => { const H = (x.hilo && x.hilo.length) ? x.hilo : (x.mensajes || []), K = new Set((x.mensajes || []).map(m => m.texto));
+        return H.map(m => m.de === 'nosotros' ? `<div style="justify-self:end;max-width:85%;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:6px 10px;font-size:12px;color:#475569;white-space:pre-wrap">🏠 ${esc(m.texto)}</div>`
+          : `<div style="justify-self:start;max-width:85%;background:#fff;border:1px solid ${K.has(m.texto) ? '#a78bfa' : '#e5e7eb'};border-radius:10px;padding:6px 10px;font-size:12.5px;white-space:pre-wrap;${K.has(m.texto) ? 'box-shadow:0 0 0 2px #ede9fe' : 'color:#475569'}">👤 ${esc(m.texto)}</div>`).join(''); })()}
         <div style="justify-self:end;max-width:85%;background:#dcfce7;border:1px solid #bbf7d0;border-radius:10px;padding:6px 10px;font-size:12.5px;white-space:pre-wrap">✅ ${esc(x.final)}</div></div>
       ${x.editado ? `<details style="margin-top:6px"><summary class="bk-mut" style="cursor:pointer;font-size:11.5px">Sugerencia original del bot</summary><div class="bk-ex" style="margin-top:4px">${esc(x.borrador)}</div></details>` : ''}
       <div class="bk-row" style="justify-content:space-between;margin-top:8px;gap:8px">${bkSw_(x.usar !== false, x.usar !== false ? 'El bot lo usa como referencia' : 'Solo registro (el bot no lo usa)', `bkSupUsar_('${esc(x.id)}')`)}<button class="bk-btn sm red" onclick="bkSupBorrar_('${esc(x.id)}')">🗑 Quitar</button></div></div>`;
   return `<div class="bk-card"><div class="bk-row" style="justify-content:space-between"><div><h3>✍️ Respuestas supervisadas <span class="bk-chip" style="background:#ede9fe;color:#5b21b6">${L.length}</span></h3>
-      <div class="bk-sub">Borradores del bot que el equipo aprobó (tal cual o corregidos) y guardó desde Chats bot con «💾 Guardar como ejemplo». La IA eligió los mensajes del huésped que originaron cada respuesta y la clasificó. Ante situaciones parecidas, el bot recibe hasta 4 de estos ejemplos (del mismo proceso, priorizando los editados a mano) y los usa como referencia desde el siguiente mensaje.</div></div>
+      <div class="bk-sub">Borradores del bot que el equipo aprobó (tal cual o corregidos) y guardó desde Chats bot con «💾 Guardar como ejemplo». Cada ejemplo guarda el hilo del tema (los mensajes previos relacionados, de ambos lados; los del huésped que originaron la respuesta van resaltados) y la IA lo clasificó. Ante situaciones parecidas, el bot recibe hasta 4 de estos ejemplos (del mismo proceso, priorizando los editados a mano) y los usa como referencia desde el siguiente mensaje.</div></div>
       <div class="bk-row" style="gap:6px"><select class="bk-sel" style="width:auto" onchange="BK.supF=this.value;bkRender_()"><option value="">Todas las categorías</option>${cats.map(c => `<option ${c === f ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select><button class="bk-btn sm" onclick="bkSupCargar_()">↻</button></div></div>
     <div style="margin-top:10px">${!BK.sup ? '<div class="bk-mut">⏳ Cargando…</div>' : V.length ? V.slice(0, 60).map(card).join('') + (V.length > 60 ? `<div class="bk-mut" style="font-size:12px">Mostrando 60 de ${V.length}.</div>` : '') : '<div class="bk-mut" style="font-size:12.5px">Aún no hay respuestas guardadas. En Chats bot, al enviar una sugerencia del bot marca «💾 Guardar como ejemplo de entrenamiento» (se marca sola si editas el texto).</div>'}</div></div>`;
 }
