@@ -1,12 +1,12 @@
 {
   "ok": true,
-  "generatedAt": "2026-10-22T22:18:19.285Z",
-  "count": 63,
+  "generatedAt": "2026-10-22T22:46:59.336Z",
+  "count": 64,
   "items": [
     {
       "id": "605555",
       "name": "Cumbres #1 (Loft, 1 recámara, 1 baño, en 1a planta)",
-      "photos": 0
+      "photos": 9
     },
     {
       "id": "602130",
@@ -317,6 +317,11 @@
       "id": "610158",
       "name": "",
       "photos": 20
+    },
+    {
+      "id": "909154916",
+      "name": "Calle Cumbres #ZZ-PRUEBA",
+      "photos": 1
     }
   ]
 }
