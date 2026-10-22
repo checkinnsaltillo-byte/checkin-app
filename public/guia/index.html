@@ -839,6 +839,10 @@ async function loadAlojamientos_(id){
   // mexicanos porque no depende de IPs Google Cloud (que Telcel filtra).
   const urlStatic = id ? `/public/guia/data/${encodeURIComponent(id)}.json` : null;
   // Estrategia cache-first: si tenemos algo cacheado, devolver YA.
+  // ?live=1 (vista dentro del sistema): siempre datos frescos del backend, sin cache ni JSON estático.
+  if (new URLSearchParams(location.search).get('live') === '1') {
+    try { const r = await fetchWithTimeout_(`${url}${url.includes('?') ? '&' : '?'}live=${Date.now()}`, 15000); const j = await r.json(); if (j.rows && j.rows.length) return { rows: j.rows, fromCache: false }; } catch (_) {}
+  }
   const cache = readCache_();
   const cachedRow = cache && Array.isArray(cache.rows)
     ? cache.rows.find(r => String(r.HouseId || r.HouseID || r.id_lodgify || r.ID || '').trim().toLowerCase() === String(id||'').toLowerCase())
