@@ -7366,7 +7366,9 @@ function applyFieldRequirednessMarks() {
       let txt = String(label.textContent || '').trim();
       // Quita marcadores existentes para reagregar limpio
       [...REQUIRED, ...OPTIONAL].forEach(m => { txt = txt.replace(m, '').trim(); });
-      label.textContent = txt + ' ' + suffix;
+      // 2026-10-23: «* (obligatorio)» en rojo; «(opcional)» en gris. Solo en etiquetas de texto plano (sin hijos).
+      if (!label.children.length) { const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); label.innerHTML = esc(txt) + ' <span class="req-mark" style="color:' + (isReq ? '#dc2626' : '#64748b') + ';font-weight:700">' + esc(suffix) + '</span>'; }
+      else label.textContent = txt + ' ' + suffix;
     }
     if (isReq) el.setAttribute('required', '');
   };
