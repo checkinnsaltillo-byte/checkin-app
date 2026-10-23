@@ -9187,8 +9187,8 @@ function clNavHtml_(act) {
   const MPn = typeof clModoPersonal_ === 'function' && clModoPersonal_();
   const enTareas = act === 'checkinn' || act === 'mant';
   const items = (clPuede_('aseo') || clPuede_('breezeway') ? b('checkinn', '✅ Tareas', 'aseo', enTareas) : '')
-    + (!MPn && clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '') + (!MPn && clPuede_('objetos') ? b('objetos', '🧳 Objetos olvidados', 'objetos') : '')
-    + (!MPn && clPuede_('tareas') ? b('tareas', '📝 Levantamientos', 'tareas') : '');
+    + (clPuede_('incidencias') ? b('incidencias', '🚨 Incidencias', 'incidencias') : '') + (clPuede_('objetos') ? b('objetos', '🧳 Objetos olvidados', 'objetos') : '')
+    + (clPuede_('tareas') ? b('tareas', '📝 Levantamientos', 'tareas') : ''); // v2127: en modo personal se respeta lo marcado en «Editar empleado» (antes se ocultaban siempre)
   const pl = !MPn && clPuede_('aseo') ? `<div class="cl-g cl-der">${b('plantillas', '📋 Plantillas', 'plantillas')}${b('reglasbot', '🧹 Programación', 'reglasbot')}</div>` : '';
   const sub = enTareas && window.ASEO ? `<div class="cl-sub">${CL_SUBS.map(([k, ico, t]) => { const D = AT_DEPTO[k] || {}; return `<button type="button" class="cl-sb ${(ASEO.sub || 'todos') === k ? 'on' : ''}" style="--c:${D.c || '#0f1729'}" onclick="clSub_('${k}')">${ico || D.ico} ${t || D.t}</button>`; }).join('')}</div>` : '';
   return items.trim() || pl ? `<div class="cl-nav">${items.trim() ? `<div class="cl-g">${items}</div>` : ''}${pl}</div>${sub}` : '';
@@ -59098,7 +59098,7 @@ function tdRender_() {
       <button type="button" class="aseo-btn ck-ib" onclick="tarOpenClasifManager()" title="Clasificaciones">⚙️</button>
       ${TAR_STATE.sub === 'rec' ? `<button type="button" class="aseo-btn ck-pri" onclick="tarOpenPanel(null,'','Recordatorio')">＋ Recordatorio</button>`
         : `<button type="button" class="aseo-btn ck-pri" onclick="tarOpenPanel(null,'','IG')" title="Levantamiento de varios alojamientos con una plantilla">＋ Levantamiento</button>`}</div>`;
-  const nRec = TAR_STATE.list.filter(tarEsRec_).length, nIG = TAR_STATE.list.filter(tdEsIG_).length;
+  const mio = r => typeof clSoloMio_ !== 'function' || clSoloMio_(tarPersonalList_(r)); const nRec = TAR_STATE.list.filter(r => tarEsRec_(r) && mio(r)).length, nIG = TAR_STATE.list.filter(r => tdEsIG_(r) && mio(r)).length;
   const nav = `<div class="cl-nav-slot" data-act="tareas">${typeof clNavHtml_ === 'function' ? clNavHtml_('tareas') : ''}</div>
     <div class="cl-sub">${[['ig', '📝 Levantamientos', nIG, AT_DEPTO.inspeccion.c], ['rec', '📌 Recordatorios', nRec, '#d97706']].map(([k, t, n, c]) => `<button type="button" class="cl-sb ${(TAR_STATE.sub || 'ig') === k ? 'on' : ''}" style="--c:${c}" onclick="TAR_STATE.sub='${k}';tdRender_()">${t} · ${n}</button>`).join('')}</div>`;
   const head = `<div class="cl-title">🛠️ Operaciones</div>`;
@@ -59152,6 +59152,7 @@ function tdOcMes_(ym, filtrar) {
   return out;
 }
 function tdKpisOc_(O, ym) {
+  if (typeof clSoloMio_ === 'function') O = O.filter(x => clSoloMio_(tarPersonalList_(x.r))); // modo personal: solo lo asignado a la persona
   const est = x => tdEst_(x.r, x.iso), vivos = O.filter(x => est(x) !== 'Cancelado'), n = k => O.filter(x => est(x) === k).length;
   const res = n('Resuelto'), pct = vivos.length ? Math.round(res / vivos.length * 100) : 0, abierta = x => !['Resuelto', 'Cancelado'].includes(est(x));
   const recs = O.filter(x => tarEsRec_(x.r) && abierta(x)).length, urg = O.filter(x => ['Crítico', 'Alto'].includes(tdPrioEf_(x.r, x.iso)) && abierta(x)).length;
@@ -59581,6 +59582,7 @@ TAR_STATE.fx = TAR_STATE.fx || { tipo: '', clas: new Set(), sub: new Set(), prio
 const TAR_SIN = '(Sin clasificación)', TAR_SIN_PERS = '(Sin asignar)';
 function tarPasaFiltro_(r) {
   const fx = TAR_STATE.fx;
+  if (typeof clSoloMio_ === 'function' && !clSoloMio_(tarPersonalList_(r))) return false; // modo personal: solo lo asignado a la persona
   if (TAR_STATE.sub === 'rec' ? !tarEsRec_(r) : !tdEsIG_(r)) return false; // subsección: 📝 Levantamientos | 📌 Recordatorios
   if (TAR_STATE.q) { const pl = r.Plantilla && typeof ASEO !== 'undefined' && ASEO.pl.lista ? ASEO.pl.lista[r.Plantilla] : null;
     if (!ckBusca_(TAR_STATE.q, [r.Nombre, r.Clasificacion, r.Subclasificacion, r.Personal, r.Comentarios, r.Mensaje, r.Programacion_texto, pl && pl.titulo, tdEsIG_(r) ? tdIGAlojs_(r).map(ckAlojTxt_) : '', r.Prioridad, r.Tipo])) return false; }
@@ -61740,6 +61742,11 @@ function pcMovAlojGrupos_(cols, dia) {
   // canceladas se conservan únicamente para mostrar su aviso de cancelación.
   const okB = x => /^booked$/i.test(String(x.b.Status || '').trim()) || (x.cambio && x.cambio.k === 'cancelada');
   cols = cols.map(c => Object.assign({}, c, { list: c.list.filter(okB) }));
+  // v2130-2132: si la reserva se extendió o cambió de fechas y ya NO sale este día, la card de este día se marca `ext` (sombreada, sin
+  // contar en avances) y la limpieza real aparece en el nuevo día de salida. No se marca si alguien fijó la fecha de aseo en este día o ya la empezó.
+  { const d0 = dia || aseoHoyIso_(), RP0 = (window.ASEO && ASEO.reprog) || {};
+    const seFue = x => { const id = String(x.b.Id), e = typeof aseoEstDe_ === 'function' ? aseoEstDe_(id) : null; return x.cambio && (x.cambio.k === 'extendida' || x.cambio.k === 'reprogramada') && _pagosDateIso(x.b.DateDeparture) !== d0 && !(RP0[id] && RP0[id].fecha === d0) && !(e && e.estado && e.estado !== 'pendiente'); };
+    cols[0].list.forEach(x => { if (seFue(x)) x.ext = true; }); } // v2132: se queda en el día original como card sombreada con el aviso de extensión
   cols[0].list.forEach(x => { const k = key(x); if (!m.has(k)) m.set(k, { k, aloj: x.aloj, hid: String(x.b.HouseId || ''), sal: [], ent: [] }); m.get(k).sal.push(x); });
   // Si en el alojamiento sale una reserva confirmada y otra cancelada, la card (y su estado/asignación) es la confirmada.
   const esCanc = x => !!(x.cambio && x.cambio.k === 'cancelada');
@@ -67653,6 +67660,10 @@ function clEsAdminReal_() {
   return false;
 }
 function clModoPersonal_() { return !clEsAdmin_(); }
+// v2129: «Sandra Sánchez» y «Sandra Sánchez Rojas» son la misma persona → un solo renglón (se queda el nombre más completo).
+function adCanonMap_(nombres) { const M = new Map(), C = []; [...new Set(nombres.filter(Boolean))].sort((a, b) => b.length - a.length).forEach(n => { const c = C.find(x => clMisma_(x, n)); M.set(n, c || n); if (!c) C.push(n); }); return M; }
+// v2128: en modo personal, Levantamientos / Incidencias / Objetos muestran SOLO lo asignado o reportado por la persona.
+function clSoloMio_(nombres) { return !(typeof clModoPersonal_ === 'function' && clModoPersonal_()) || clEsMio_(nombres); }
 function clEsMio_(nombres) { const yo = clVerComo_() || (typeof currentUser !== 'undefined' && currentUser) || ''; return (nombres || []).some(n => clMisma_(n, yo)); }
 function ckVerComoHtml_() {
   if (!clEsAdminReal_()) return '';
@@ -67689,6 +67700,10 @@ function aseoRender_() {
     const l = ckCalW_0_('aseo'), f = tarParseIso_(l); f.setDate(f.getDate() + 6);
     const fil = aseoCalFiltrar_(aseoCalTareas_(l, tarIso_(f)));
     cal.classList.add('ckm-on'); cal.innerHTML = ckSemGridHtml_(l, aseoCalMesItems_(fil.tareas), 'aseoIrDia_', aseoDia_());
+  } else if (cal && sig !== ASEO.calSig && ckCalV_0_('aseo') === 'tl') { // «Timeline»: renglones = personal · columnas = horas
+    ASEO.calSig = sig;
+    const dia = aseoDia_(), fil = aseoCalFiltrar_(aseoCalTareas_(dia, dia));
+    cal.classList.add('ckm-on'); cal.innerHTML = aseoTimelineHtml_(dia, fil.tareas);
   } else if (cal && sig !== ASEO.calSig && ckCalV_0_('aseo') === 'mes') { // «Por mes»: celdas por día
     ASEO.calSig = sig;
     const ym = ckCalM_0_('aseo'), dim = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
@@ -67767,13 +67782,16 @@ function adInfo_(g, hoy, o) {
   const esCopia = !!(g.reprogDe && !g.fantasma);
   const diasSal = esCopia ? Math.round((Date.parse(hoy) - Date.parse(g.reprogDe)) / 864e5) : 0;
   const h = adHoraMx_();
-  const fantasma = !!g.fantasma || (esHoyC && !esCopia && g.sal.length && !vivosEnt && selE === 'pendiente' && h >= 15);
-  const noSale = !!(xs && esHoyC && aseoNoSaleOn_(xs.b.Id));
+  const ext = !!(xs && xs.ext && xs.cambio); // v2132: la reserva extendió / cambió de fechas y ya no sale este día
+  const fantasma = ext || !!g.fantasma || (esHoyC && !esCopia && g.sal.length && !vivosEnt && selE === 'pendiente' && h >= 15);
+  const noSale = !ext && !!(xs && esHoyC && aseoNoSaleOn_(xs.b.Id));
   let aviso = null;
-  if (noSale) aviso = { c: 'red', t: 'No ha desalojado' };
+  if (ext) aviso = { c: 'ext', t: `${xs.cambio.t} · ${xs.cambio.d}`, cb: xs.cambio };
+  else if (noSale) aviso = { c: 'red', t: 'No ha desalojado' };
   else if (fantasma) aviso = { c: 'violet', t: 'Pasó al día siguiente · cerrar fecha en calendario' };
   else if (esHoyC && g.sal.length && vivosEnt && selE === 'pendiente' && h >= 14) aviso = { c: 'red', t: 'Urge · entra hoy y sigue pendiente' };
   else if (esHoyC && !g.sal.length && vivosEnt && pubE !== 'terminado' && pubE !== 'inspeccionado') aviso = { c: 'orange', t: 'Requiere inspección antes de la entrada' };
+  else if (xs && xs.cambio && (xs.cambio.k === 'extendida' || xs.cambio.k === 'reprogramada') && selE === 'pendiente') aviso = { c: 'orange', t: `Reprogramada · ${xs.cambio.k === 'extendida' ? 'el huésped extendió' : 'cambio de fechas'} · ${xs.cambio.d}` }; // v2131
   // Prioridad del aseo: crítica si urge o no ha desalojado con entrada; alta si entra huésped; media si solo sale.
   const prio = (ASEO.prio || {})[asigId] || (aviso && aviso.c === 'red' && vivosEnt ? 'critica' : (vivosEnt || (temp && temp.aceptada)) ? 'alta' : g.sal.length && !fantasma ? 'media' : 'baja');
   const mant = g.hid ? rtAvisoImpacto_(g.hid) : null;
@@ -68051,6 +68069,7 @@ function adCard_(I) {
     return `<div class="ad-card tipo est-tint ad-simp ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}'${I._dia ? `,'${I._dia}'` : ''})"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || String(I.aloj || '—').replace(/^Calle\s+/i, ''))}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<span class="mv">${mov}</span></div>
+    ${I.aviso && I.aviso.cb ? `<div class="mv-alert" style="--ac:${I.aviso.cb.c};animation:none"><b>${I.aviso.cb.ico} ${pcEsc(I.aviso.cb.t)}</b><span>${pcEsc(I.aviso.cb.d)}</span></div>` : I.aviso && /^Reprogramada/.test(I.aviso.t) ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     <div class="r2">${catP}${adCamasHtml_(I.hid)}${axEx_(I.asigId).chat ? '<span class="chat" title="Card generada desde el chat de WhatsApp (no había limpieza prevista)">💬 Desde el chat</span>' : ''}</div>
     ${solB ? `<div class="r2 ad-solr">${solB}</div>` : ''}
     ${adExtraInsumos_(I)}
@@ -68061,7 +68080,7 @@ function adCard_(I) {
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}'${I._dia ? `,'${I._dia}'` : ''})"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
     <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<span class="mv">${mov}</span></div>
-    ${I.aviso && !(I.noSale && /desaloj/i.test(I.aviso.t)) ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
+    ${I.aviso && I.aviso.cb ? `<div class="mv-alert" style="--ac:${I.aviso.cb.c};animation:none"><b>${I.aviso.cb.ico} ${pcEsc(I.aviso.cb.t)}</b><span>${pcEsc(I.aviso.cb.d)}</span></div>` : I.aviso && !(I.noSale && /desaloj/i.test(I.aviso.t)) ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${adExtraInsumos_(I)}
     ${meta.length ? `<div class="r2">${meta.join('<span class="sep"></span>')}</div>` : ''}
@@ -68262,7 +68281,8 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
     const quien = I => [...new Set([...(I.pA || []), ...(I.pI || [])])];
     // Todas las cards cuentan, también las tareas ligadas a una incidencia (van en el renglón de su asignado).
     const tops = ASEO.simple ? ver : sinHijos(ver), nombres = new Map();
-    ver.forEach(I => quien(I).forEach(n => { const k = String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
+    const limpio = n => String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim(), CM = adCanonMap_(ver.flatMap(I => quien(I).map(limpio)));
+    ver.forEach(I => quien(I).forEach(n => { const k = CM.get(limpio(n)) || limpio(n); if (!nombres.has(k)) nombres.set(k, []); if (!nombres.get(k).includes(I)) nombres.get(k).push(I); }));
     const sinA = tops.filter(I => !quien(I).length);
     const ord = (a, b) => a[0].localeCompare(b[0], 'es'); // siempre alfabético
     const pN = I => (PRIO4[I.tarea ? prio4Key_(I.t.prioridad) : I.prio] || { n: 0 }).n;
@@ -69844,7 +69864,7 @@ function aseoDiaLabel_(iso) {
 }
 // Periodo de la vista «Por semana» / «Por mes» (null = «Por alojamiento»: un solo día).
 function aseoRango_() {
-  const v = ckCalV_0_('aseo'); if (v === 'aloj') return null;
+  const v = ckCalV_0_('aseo'); if (v === 'aloj' || v === 'tl') return null;
   if (v === 'sem') { const l = ckCalW_0_('aseo'); return Array.from({ length: 7 }, (_, i) => { const d = tarParseIso_(l); d.setDate(d.getDate() + i); return tarIso_(d); }); }
   const ym = ckCalM_0_('aseo'), n = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate(); return Array.from({ length: n }, (_, i) => `${ym}-${String(i + 1).padStart(2, '0')}`);
 }
@@ -69853,7 +69873,7 @@ window.aseoPerHoy_ = function () { CKCAL.m.aseo = aseoHoyIso_().slice(0, 7); (CK
 function aseoDnavPaint_() {
   const el = document.getElementById('aseo-dnav'); if (!el) return;
   const vw = ckCalV_0_('aseo');
-  if (vw !== 'aloj') { // semana o mes: el controlador de la barra mueve el periodo (calendario y cards)
+  if (vw !== 'aloj' && vw !== 'tl') { // semana o mes: el controlador de la barra mueve el periodo (calendario y cards)
     let lbl; if (vw === 'sem') { const l = tarParseIso_(ckCalW_0_('aseo')), f = new Date(l); f.setDate(f.getDate() + 6); lbl = `${l.getDate()} ${TAR_MESES[l.getMonth()]} – ${f.getDate()} ${TAR_MESES[f.getMonth()]}`; } else { const ym = ckCalM_0_('aseo'); lbl = `${TAR_MESES_L[+ym.slice(5, 7) - 1]} ${ym.slice(0, 4)}`; }
     const fn = vw === 'sem' ? 'ckCalW_' : 'ckCalM_';
     el.innerHTML = `<button type="button" onclick="${fn}('aseo',-1)" title="Anterior">‹</button><button type="button" class="lb" onclick="aseoPerHoy_()" title="Volver al periodo actual">${lbl}</button><button type="button" onclick="${fn}('aseo',1)" title="Siguiente">›</button>`;
@@ -69872,7 +69892,7 @@ window.aseoSetDia_ = function (delta) {
   if (!delta) ASEO.dia = null;
   else { const d = new Date(aseoDia_() + 'T12:00:00'); d.setDate(d.getDate() + delta); const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; ASEO.dia = iso === aseoHoyIso_() ? null : iso; }
   ASEO.sel = null;
-  if (ASEO.cal && ckCalV_0_('aseo') !== 'aloj') { CKCAL.m.aseo = aseoDia_().slice(0, 7); (CKCAL.w = CKCAL.w || {}).aseo = ckLunes_(aseoDia_()); aseoDnavPaint_(); aseoRender_(); return; } // el calendario por mes/semana sigue al día elegido
+  if (ASEO.cal && !['aloj', 'tl'].includes(ckCalV_0_('aseo'))) { CKCAL.m.aseo = aseoDia_().slice(0, 7); (CKCAL.w = CKCAL.w || {}).aseo = ckLunes_(aseoDia_()); aseoDnavPaint_(); aseoRender_(); return; } // el calendario por mes/semana sigue al día elegido
   aseoDnavPaint_(); aseoRenderSide_();
 };
 // Divisor arrastrable entre calendario y cards (ancho del calendario en %).
@@ -69903,7 +69923,7 @@ window.aseoHoy_ = function () {
   // Regresa el selector de día a HOY y, si el calendario está abierto, lo centra en hoy.
   aseoSetDia_(0);
   const cal = document.getElementById('aseo-cal');
-  if (ASEO.cal && cal && ckCalV_0_('aseo') !== 'aloj') { CKCAL.m.aseo = aseoHoyIso_().slice(0, 7); (CKCAL.w = CKCAL.w || {}).aseo = ckLunes_(aseoHoyIso_()); ASEO.calSig = ''; aseoRender_(); return; }
+  if (ASEO.cal && cal && !['aloj', 'tl'].includes(ckCalV_0_('aseo'))) { CKCAL.m.aseo = aseoHoyIso_().slice(0, 7); (CKCAL.w = CKCAL.w || {}).aseo = ckLunes_(aseoHoyIso_()); ASEO.calSig = ''; aseoRender_(); return; }
   if (ASEO.cal && cal) ocupCentrarHoy_(cal, true);
 };
 window.aseoRecargar_ = async function () { const b = document.getElementById('aseo-upd-btn'); if (b) b.classList.add('girando'); try { await aseoRefresh_(true); } finally { if (b) b.classList.remove('girando'); } ASEO.calSig = ''; aseoRender_(); if (document.getElementById('pc-sec-movs')) pcRenderMovs_(); };
@@ -70057,7 +70077,7 @@ function icRow_(row) {
     cls: /hu[eé]sped/i.test(String(row.Clase || '')) ? 'huesped' : row.Clase ? 'operativa' : (mot.some(m => /^(daños|faltantes|reglamento)$/i.test(m)) ? 'huesped' : 'operativa'),
     arch: /^s[ií]/i.test(String(row.Archivada || '')), desc: String(row.Descripcion || ''), acc: String(row.Acciones || ''), seg: String(row.Seguimiento || ''), fotos: icSplit_(row.Fotos_URLs), upd: String(row.UpdatedAt || '') };
 }
-function icTodas_() { return (typeof INC_STATE !== 'undefined' ? INC_STATE.list || [] : []).filter(r => r && r.ID).map(icRow_).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
+function icTodas_() { return (typeof INC_STATE !== 'undefined' ? INC_STATE.list || [] : []).filter(r => r && r.ID).map(icRow_).filter(x => clSoloMio_([...x.pers, x.rep])).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
 function icHaceDias_(n) { const d = new Date(aseoHoyIso_() + 'T12:00:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function icPasa_(x, sinPer) {
   const fx = IC.fx;
@@ -70219,7 +70239,7 @@ function ckOcupCal_(id, items) {
 window.ckBarNada_ = function () {};
 // ── Calendario: vista «Por alojamiento» (renglones = alojamientos) o «Por mes» (celdas = días, como en Levantamientos) ──
 window.CKCAL = window.CKCAL || { v: {}, m: {}, w: {} }; // vista del calendario: al abrirlo vuelve a la predeterminada (Por alojamiento)
-function ckCalV_0_(s) { return CKCAL.v[s] === 'mes' || CKCAL.v[s] === 'sem' ? CKCAL.v[s] : 'aloj'; }
+function ckCalV_0_(s) { return CKCAL.v[s] === 'mes' || CKCAL.v[s] === 'sem' || (s === 'aseo' && CKCAL.v[s] === 'tl') ? CKCAL.v[s] : 'aloj'; }
 function ckLunes_(iso) { const d = tarParseIso_(iso); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return tarIso_(d); }
 function ckCalW_0_(s) { CKCAL.w = CKCAL.w || {}; return CKCAL.w[s] || ckLunes_(aseoHoyIso_()); }
 window.ckCalW_ = function (s, d) { const x = tarParseIso_(ckCalW_0_(s)); x.setDate(x.getDate() + 7 * d); CKCAL.w[s] = tarIso_(x); const st = ckCalSt_(s); if (st) st.mes = CKCAL.w[s].slice(0, 7); ckCalRe_(s); };
@@ -70229,11 +70249,12 @@ function ckCalSt_(s) { return s === 'ic' && typeof IC !== 'undefined' ? IC : s =
 function ckCalRe_(s) { if (s === 'aseo') { ASEO.calSig = ''; aseoRender_(); } else if (s === 'ic') icRender_(); else if (s === 'ob') obRender_(); }
 window.ckCalV_ = function (s, v) {
   CKCAL.v[s] = v; const st = ckCalSt_(s);
+  if (s === 'aseo' && v === 'tl' && !ASEO.cal) { aseoToggleCal_(); aseoSplitSet_(60); return; } // Timeline vive en el calendario: lo abre si estaba oculto (ancho para ver las horas)
   if (st) { const ym = st.mes || ckMesHoy_(); if (v === 'aloj') (CKCAL.d = CKCAL.d || {})[s] = ym === ckMesHoy_() ? aseoHoyIso_() : ym + '-01'; if (v === 'mes') CKCAL.m[s] = ym; if (v === 'sem') (CKCAL.w = CKCAL.w || {})[s] = ckLunes_(ym === ckMesHoy_() ? aseoHoyIso_() : ym + '-01'); }
   ckCalRe_(s);
 };
 window.ckCalM_ = function (s, d) { CKCAL.m[s] = ckMesMover_(ckCalM_0_(s), d); const st = ckCalSt_(s); if (st) st.mes = CKCAL.m[s]; ckCalRe_(s); };
-function ckCalSegHtml_(s) { const v = ckCalV_0_(s); return `<div class="ad-seg ckcal-seg"><button type="button" class="${v === 'aloj' ? 'on' : ''}" onclick="ckCalV_('${s}','aloj')">📅 Por día</button><button type="button" class="${v === 'sem' ? 'on' : ''}" onclick="ckCalV_('${s}','sem')">📆 Por semana</button><button type="button" class="${v === 'mes' ? 'on' : ''}" onclick="ckCalV_('${s}','mes')">🗓️ Por mes</button></div>`; }
+function ckCalSegHtml_(s) { const v = ckCalV_0_(s); return `<div class="ad-seg ckcal-seg"><button type="button" class="${v === 'aloj' ? 'on' : ''}" onclick="ckCalV_('${s}','aloj')">📅 Por día</button><button type="button" class="${v === 'sem' ? 'on' : ''}" onclick="ckCalV_('${s}','sem')">📆 Por semana</button><button type="button" class="${v === 'mes' ? 'on' : ''}" onclick="ckCalV_('${s}','mes')">🗓️ Por mes</button>${s === 'aseo' ? `<button type="button" class="${v === 'tl' ? 'on' : ''}" onclick="ckCalV_('${s}','tl')" title="Avance de cada persona a lo largo del día">⏱️ Timeline</button>` : ''}</div>`; }
 function ckCalHdHtml_(s, sinSeg) {
   const v = ckCalV_0_(s), ym = ckCalM_0_(s), lbl = TAR_MESES_L[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
   if (sinSeg && v === 'sem') { const l = tarParseIso_(ckCalW_0_(s)), f = new Date(l); f.setDate(f.getDate() + 6);
@@ -70277,6 +70298,42 @@ function ckSemGridHtml_(lunes, items, onDia, sel) {
   const by = new Map(); items.forEach(t => { if (!dias.includes(t.dia)) return; if (!by.has(t.dia)) by.set(t.dia, []); by.get(t.dia).push(t); });
   return `<div class="ckm ckw"><div class="ckm-g">${dias.map((iso, i) => { const L = (by.get(iso) || []).sort((a, b) => String(a.cod).localeCompare(String(b.cod), 'es', { numeric: true }));
     return `<div class="ckm-d ${iso === hoy ? 'hoy' : ''} ${iso === sel ? 'sel' : ''} ${onDia ? 'lk' : ''}" ${onDia ? `onclick="${onDia}('${iso}')"` : ''}><span class="n">${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][i]} ${+iso.slice(8)}</span>${L.map(t => `<div class="ckm-c" style="--sc:${t.c || '#94a3b8'}" onclick="event.stopPropagation();${t.onclick || ''}" title="${pcEsc((t.cod ? t.cod + ' · ' : '') + (t.titulo || ''))}"><b>${pcEsc(t.cod || '—')}</b><span>${pcEsc(t.titulo || '')}</span></div>`).join('')}</div>`; }).join('')}</div></div>`;
+}
+// «Timeline» (v2125): renglones = personal, columnas = horas del día; cada card Terminada/Inspeccionada se coloca en la hora
+// en que se marcó Terminado (aseo/estados.json → hist.terminado.at). Muestra el avance de cada persona a lo largo del día.
+function aseoTimelineHtml_(dia, m) {
+  ckMesCss_();
+  if (!document.getElementById('tl-css')) { const st = document.createElement('style'); st.id = 'tl-css'; st.textContent = `
+    .tl{padding:8px;font-family:Inter,system-ui,sans-serif;min-width:max-content}.tl-g{display:grid;gap:4px}
+    .tl-hd{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;text-align:center;padding:4px 0;position:sticky;top:0;background:#fff;z-index:2}
+    .tl-p{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:6px 8px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;position:sticky;left:0;z-index:1}
+    .tl-p b{font-size:12px;font-weight:800;color:#0f1729;white-space:nowrap}.tl-p small{font-size:10.5px;color:#64748b;font-weight:600}.tl-p .ad-av{width:24px;height:24px;font-size:10px}
+    .tl-c{min-height:64px;min-width:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;padding:4px;display:flex;flex-direction:column;gap:4px}.tl-c.hoy{background:#faf5ff;border-color:#ddd6fe}
+    .tl-card.oc-task{position:static;width:auto;height:auto;cursor:pointer}.tl-card .t0{display:flex;align-items:center;gap:6px;margin-bottom:3px}.tl-card .t0 b{font:700 10.5px ui-monospace,Menlo,monospace;color:#0f1729}.tl-card .t0 span{font-size:10.5px;font-weight:700;color:#4338ca;background:#eef2ff;border-radius:5px;padding:0 5px;margin-left:auto}.tl-card .t0 small{font-size:10px;color:#94a3b8}
+    .tl-void{padding:40px;text-align:center;color:#94a3b8;font-size:13px}`; document.head.appendChild(st); }
+  const porP = new Map(), hs = [];
+  const hhmm = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  m.forEach((L, hid) => {
+    const a = typeof atAloj_ === 'function' ? atAloj_(hid) : { corto: '' }, cod = String(a.corto || '').toUpperCase() || String(a.nombre || hid);
+    L.forEach(t => {
+      if (t.ghost || t.dia !== dia || (t.tarea && t.tarea.rt)) return;
+      const key = t.tarea ? `T${t.tarea.id}-${dia}` : t.id, reg = aseoEstDe_(key); if (!reg || !['terminado', 'inspeccionado'].includes(reg.estado)) return;
+      const H = reg.hist || {}, fin = (H.terminado && H.terminado.at) || reg.at, ini = H.en_proceso && H.en_proceso.at; if (!fin) return;
+      const d = new Date(fin); if (isNaN(d) || tarIso_(d) !== dia) return;
+      const pers = t.tarea ? (t.tarea.asignados || []) : aseoAsigDe_(t.id, 'aseo'), lista = pers.length ? pers.map(n => String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim()) : ['Sin asignar'];
+      const it = { t, cod, h: d.getHours(), min: d.getMinutes(), fin: hhmm(fin), ini: ini ? hhmm(ini) : '' }; hs.push(it.h);
+      lista.forEach(n => { if (!porP.has(n)) porP.set(n, []); porP.get(n).push(it); });
+    });
+  });
+  { const CM = adCanonMap_([...porP.keys()].filter(n => n !== 'Sin asignar')); [...porP.keys()].forEach(n => { const c = CM.get(n); if (c && c !== n) { porP.set(c, (porP.get(c) || []).concat(porP.get(n))); porP.delete(n); } }); }
+  if (!porP.size) return `<div class="tl"><div class="tl-void">Sin limpiezas terminadas el ${aseoDiaTxt_(dia)}.<br><small>Las cards aparecen en la hora en que se marcan como Terminadas.</small></div></div>`;
+  const h0 = Math.min(7, ...hs), h1 = Math.max(19, ...hs), horas = Array.from({ length: h1 - h0 + 1 }, (_, i) => h0 + i), ahora = new Date(), esHoy = dia === aseoHoyIso_();
+  const filas = [...porP.keys()].sort((a, b) => a === 'Sin asignar' ? 1 : b === 'Sin asignar' ? -1 : a.localeCompare(b, 'es'));
+  const card = it => `<div class="oc-task ty-limpieza tl-card" onclick="${it.t.onclick || ''}" title="${pcEsc(it.cod)} · Terminado ${it.fin}${it.ini ? ' (inició ' + it.ini + ')' : ''}"><div class="t0"><b>${pcEsc(it.cod)}</b>${it.ini ? `<small>${it.ini} →</small>` : ''}<span>${it.fin}</span></div>${aseoCalTareaHtml_(it.t)}</div>`;
+  return `<div class="tl"><div class="tl-g" style="grid-template-columns:150px repeat(${horas.length},minmax(130px,1fr))">
+    <div class="tl-hd" style="text-align:left">Personal</div>${horas.map(h => `<div class="tl-hd">${String(h).padStart(2, '0')}:00</div>`).join('')}
+    ${filas.map(n => { const L = porP.get(n); return `<div class="tl-p">${n === 'Sin asignar' ? '<b>Sin asignar</b>' : `<span class="ad-avs">${adAv_(n)}</span><b>${pcEsc(n)}</b>`}<small>${L.length} terminada${L.length === 1 ? '' : 's'}</small></div>${horas.map(h => `<div class="tl-c ${esHoy && h === ahora.getHours() ? 'hoy' : ''}">${L.filter(x => x.h === h).sort((a, b) => a.min - b.min).map(card).join('')}</div>`).join('')}`; }).join('')}
+  </div></div>`;
 }
 // Tarjetas del calendario de Aseo/Mantenimiento convertidas a chips del calendario por mes.
 function aseoCalMesItems_(m) {
@@ -70746,7 +70803,7 @@ function obRow_(row) {
     lug, lugTxt: lug === 'Otro' && row.Lugar_otro ? String(row.Lugar_otro) : lug, rep: String(row.Reportante || ''), desc: String(row.Descripcion || ''), com: String(row.Comentarios || ''),
     fotos: icSplit_(row.Fotos_URLs), upd: String(row.UpdatedAt || row.Updated_at || ''), arch: /^s[ií]/i.test(String(row.Archivada || '')) };
 }
-function obTodos_() { return (OBJ_STATE.list || []).filter(r => r && r.ID).map(obRow_).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
+function obTodos_() { return (OBJ_STATE.list || []).filter(r => r && r.ID).map(obRow_).filter(x => clSoloMio_([x.rep, x.entA])).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
 function obTitulo_(x) { return x.desc ? x.desc.split('\n')[0].slice(0, 70) : x.catTxt; }
 function obPasa_(x, sinPer) {
   const fx = OB.fx;
