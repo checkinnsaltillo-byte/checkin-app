@@ -350,7 +350,7 @@ const SYS_MODULE_PERMS = {
   // 'personas' e 'inquilinos' son pestañas del módulo compuesto
   // "Huéspedes/Inquilinos" → cualquier usuario con permiso a alguno de los
   // dos debe ver la entrada. Se listan en ambos grupos.
-  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos','proveedores','dir-inquilinos','mensajes'],
+  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos','proveedores','dir-inquilinos','mensajes','rentas-lp'],
   IV:   ['breezeway','aseo'],
   V:    ['incidencias'],
   VI:   ['objetos'],
@@ -379,6 +379,8 @@ const SYS_MODULE_LIST = [
   ['inventarios',      '📦 Inventarios'],
   ['tuya',             '🛰️ Dispositivos'],
   ['guias',            '📖 Guías de Bienvenida'],
+  ['rentas-lp',        '🏘️ Rentas de largo plazo'],
+  ['marketing',        '📣 Marketing en redes'],
   ['llaves',           '🔑 Llavero'],
   ['config-admin',     '⚙️ Configuración Admin'],
   ['bot-chats',        '🤖 Chats bot'],
@@ -392,7 +394,8 @@ const SYS_MODULE_EXTRAS = {
   aseo:      ['breezeway'],
   'reportes-tecnicos': ['aseo'], // quien tenía Reportes técnicos ve Aseo (ahí vive Mantenimiento)
   breezeway: ['aseo'], // empleados que ya tenían Breezeway ven el módulo Aseo completo
-  lodgify:   ['reservas-detalles', 'mensajes'],
+  lodgify:   ['reservas-detalles', 'mensajes', 'rentas-lp', 'marketing'], // quien gestiona reservas ve Rentas de largo plazo y Marketing
+  inquilinos: ['rentas-lp', 'marketing'], 'dir-inquilinos': ['rentas-lp'], 'reservas-nueva': ['rentas-lp', 'marketing'], 'rentas-lp': ['marketing'],
   ocupacion: ['dashboard', 'calendario'],
   'bot-chats': ['bot-control'], // quien atiende Chats bot ve también su centro de mando
 };
@@ -411,7 +414,7 @@ function sysApplyPermissions(user) {
     });
   } else {
     // Usuario legado de sys_users (grupos por número romano).
-    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'bot-control', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control', 'procesos', 'senaletica']);
+    allowed = new Set(['home', 'tuya', 'guias', 'rentas-lp', 'marketing', 'config-admin', 'llaves', 'bot-chats', 'bot-control', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control', 'procesos', 'senaletica']);
     if (user && user.modulos) {
       for (const k in SYS_MODULE_PERMS) {
         if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -7880,6 +7883,12 @@ function bn_goToCardPage(p) {
     if (mod === 'guias') {
       if (typeof guiasInit === 'function') guiasInit();
     }
+    if (mod === 'rentas-lp') {
+      if (typeof rlpInit === 'function') rlpInit();
+    }
+    if (mod === 'marketing') {
+      if (typeof mkInit === 'function') mkInit();
+    }
   };
 })();
 
@@ -9149,7 +9158,7 @@ function esc(v) {
 const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','aseo','incidencias','objetos','reportes-tecnicos','ocupacion',
-  'dashboard','calendario','rh','inquilinos','proveedores','dir-inquilinos','inventarios','tuya','guias',
+  'dashboard','calendario','rh','inquilinos','proveedores','dir-inquilinos','inventarios','tuya','guias','rentas-lp','marketing',
   'config-admin','llaves','bot-chats','bot-control','reservas-nueva','pagos','tareas','panel-control','procesos','senaletica','plantillas','reglasbot','mantenimiento','mensajes',
 ]);
 function _bootModuleFromHash_() {
@@ -9299,7 +9308,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "aseo", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "bot-control", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica", "plantillas", "reglasbot", "mensajes"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "aseo", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "proveedores", "dir-inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "bot-control", "reservas-nueva", "pagos", "tareas", "panel-control", "procesos", "senaletica", "plantillas", "reglasbot", "mensajes", "rentas-lp", "marketing"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -34025,6 +34034,137 @@ const GUIAS_STATE = {
   editMode: false,
   filters: { propiedad: new Set(), departamento: new Set() },
   dirty: {},
+  esquema: null,   // /alojamientos/esquema: alcance de cada campo (global / propiedad / unidad)
+  comunes: null,   // {tipo:'global'} | {tipo:'propiedad', prop} → editor de datos comunes
+};
+// Editor completo de la base «alojamientos» (Cloud Storage): mismas secciones que la guía de bienvenida.
+const GUIAS_EDIT_SECCIONES = [
+  ['📝', 'Identidad del alojamiento', [['Propiedad', 'Propiedad'], ['# Departamento', '# Departamento'], ['Nombre corto', 'Propiedad_short'], ['Título de la guía', 'titulo_txt'], ['Nombre en Lodgify', 'HouseName'], ['Status', 'Status'], ['Clasificación', 'clasificacion'], ['URL Lodgify', 'url_lodgify'], ['URL fotos Lodgify', 'url_lodgify_pics'], ['URL Airbnb', 'url_airbnb'], ['URL de la guía', 'url_guia'], ['Dispositivo (cerradura)', 'device_name']]],
+  ['📍', 'Ubicación y cómo llegar', [['Ubicación', 'ubicacion'], ['Detalles de ubicación', 'ubicacion_txt', 'textarea'], ['Dirección', 'direccion', 'textarea'], ['Referencia', 'referencia', 'textarea'], ['Aviso para Google Maps', 'referencia_googlemaps', 'textarea'], ['URL Google Maps', 'url_google_maps']]],
+  ['🏠', 'Características', [['Tipo', 'tipo'], ['Capacidad', 'capacidad'], ['Recámaras', 'recamaras'], ['Camas', 'camas'], ['Tipo de cama', 'cama_tipo'], ['Baños', 'banos'], ['Planta', 'planta'], ['Otros espacios', 'otros_espacios', 'textarea'], ['Superficie', 'superficie']]],
+  ['✨', 'Amenidades', [['Amenidades (separadas por coma)', 'amenidades', 'textarea']]],
+  ['📋', 'Reglamento de la casa', [['Reglamento (un renglón por regla)', 'reglamento', 'textarea']]],
+  ['🕐', 'Horas de entrada y salida', [['Hora de llegada', 'hora_llegada'], ['Hora de salida', 'hora_salida']]],
+  ['🚪', 'Método de llegada y acceso', [['Método de check-in', 'check_in_method'], ['Pasos de llegada (un renglón por paso)', 'metodo_llegada', 'textarea'], ['Método de llegada (alterno)', 'metodo_llegada_1', 'textarea'], ['Clave de acceso', 'clave_acceso'], ['Instrucciones de check-in', 'checkin_txt', 'textarea']]],
+  ['📶', 'WiFi', [['Red', 'wifi_red'], ['Contraseña', 'wifi_contrasena'], ['Si falla el WiFi', 'wifi_falla', 'textarea'], ['Red 1 (SSID)', 'wifi_name_1'], ['Red 2 (SSID)', 'wifi_name_2'], ['Instrucciones WiFi', 'wifi_txt', 'textarea']]],
+  ['🅿️', 'Estacionamiento', [['Tipo', 'estacionamiento_tipo'], ['Instrucciones', 'estacionamiento_instrucciones', 'textarea'], ['En la calle', 'estacionamiento_calle', 'textarea'], ['Aviso', 'estacioamiento_aviso', 'textarea'], ['Texto de estacionamiento', 'parking_txt', 'textarea']]],
+  ['🧺', 'Lavandería', [['Ubicación', 'lavanderia_ubicacion'], ['Acceso', 'lavanderia_acceso', 'textarea'], ['Reglamento', 'lavanderia_reglamento', 'textarea'], ['Aviso', 'lavanderia_aviso', 'textarea']]],
+  ['🧴', 'Insumos', [['Ubicación', 'insumos_ubicacion'], ['Insumos (separados por coma)', 'insumos', 'textarea'], ['Aviso', 'insumos_aviso', 'textarea']]],
+  ['👋', 'Instrucciones de salida', [['Instrucciones (un renglón por paso)', 'salida_instrucciones', 'textarea'], ['Aviso', 'instrucciones_aviso', 'textarea']]],
+  ['🚨', 'Contactos', [['Emergencia 1 · nombre', 'contacto_emergencia_1_nombre'], ['Emergencia 1 · número', 'contacto_emergencia_1_numero'], ['Emergencia 2 · nombre', 'contacto_emergencia_2_nombre'], ['Emergencia 2 · número', 'contacto_emergencia_2_numero'], ['WhatsApp de contacto', 'contacto_whatsapp'], ['Mensaje de WhatsApp', 'whatsapp_mensaje', 'textarea'], ['Contactos (texto)', 'contactos_txt', 'textarea']]],
+  ['🔥', 'Parrilla y mantenimiento', [['Parrilla (pasos)', 'parrilla', 'textarea'], ['Mantenimiento / limpieza / residuos', 'mantenimiento_txt', 'textarea']]],
+  ['🍽️', 'Recomendaciones', [['Restaurantes y lugares cerca', 'restaurantes', 'textarea']]],
+];
+const GUIAS_SCOPE_UI = { global: ['🌐', 'General', '#1d4ed8', '#dbeafe'], propiedad: ['🏢', 'Propiedad', '#7c3aed', '#ede9fe'], unidad: ['🚪', 'Este alojamiento', '#475569', '#f1f5f9'] };
+function guiasScopeDe_(col) { const S = (GUIAS_STATE.esquema || {}).scopes || {}; return (S.global || []).includes(col) ? 'global' : (S.propiedad || []).includes(col) ? 'propiedad' : 'unidad'; }
+async function guiasEsquemaCargar_() { try { const j = await fetch(`${BACKEND}/alojamientos/esquema`, { cache: 'no-store' }).then(r => r.json()); if (j.ok) GUIAS_STATE.esquema = j; } catch (_) {} }
+function guiasPropN_(prop) { return (ALOJ_STATE.rows || []).filter(r => String(r['Propiedad'] || '').trim() === prop).length; }
+// Chip de alcance junto a cada campo en modo edición.
+function guiasScopeChip_(col, alojs) {
+  const sc = guiasScopeDe_(col), [ico, txt, fg, bg] = GUIAS_SCOPE_UI[sc];
+  const prop = alojs && alojs.length ? String(alojs[0]['Propiedad'] || '').trim() : '';
+  const det = sc === 'global' ? 'se aplica a todos los alojamientos' : sc === 'propiedad' ? `se aplica a los ${guiasPropN_(prop)} alojamientos de ${prop}` : 'solo este alojamiento';
+  return `<span title="${esc(det)}" style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:800;color:${fg};background:${bg}">${ico} ${esc(txt)}${sc === 'propiedad' && prop ? ` · ${guiasPropN_(prop)}` : ''}</span>`;
+}
+// Editor por secciones (todas las columnas de la base). En «Datos comunes» solo los campos del alcance elegido.
+function guiasBuildEditor_(alojs) {
+  const C = GUIAS_STATE.comunes, filtro = col => !C || guiasScopeDe_(col) === C.tipo;
+  const aviso = C ? `<div style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:${C.tipo === 'global' ? '#dbeafe' : '#ede9fe'};color:${C.tipo === 'global' ? '#1e3a8a' : '#4c1d95'};font-size:12.5px;line-height:1.45">${C.tipo === 'global' ? '🌐 <b>Datos generales</b>: lo que escribas aquí se aplica a <b>todos los alojamientos</b>.' : `🏢 <b>Datos comunes de ${esc(C.prop)}</b>: se aplican a sus <b>${guiasPropN_(C.prop)} alojamientos</b>.`}</div>`
+    : `<div style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px;color:#475569;line-height:1.45">Cada campo indica su alcance: <b>🌐 General</b> (todos), <b>🏢 Propiedad</b> (los alojamientos de la misma propiedad) o <b>🚪 Este alojamiento</b>. Al guardar, los campos generales y de propiedad se copian automáticamente a los demás.</div>`;
+  const secs = GUIAS_EDIT_SECCIONES.map(([ico, tit, campos]) => { const F = campos.filter(([, col]) => filtro(col)); if (!F.length) return '';
+    return guiasCard(tit, ico, F.map(([lbl, col, type]) => guiasField(lbl, col, alojs, { type: type || 'text' })).join('')); }).join('');
+  const fotos = !C && alojs.length === 1 ? guiasFotosHtml_(alojs[0]) : '';
+  const idU = alojs.length === 1 ? String(alojs[0]['HouseId'] || alojs[0]['id_lodgify'] || '').trim() : '';
+  const borrar = !C && idU && /^9\d{8}$/.test(idU) ? `<div style="text-align:right;margin:4px 0 16px"><button type="button" onclick="guiasEliminar_('${esc(idU)}')" style="all:unset;cursor:pointer;color:#b91c1c;font-size:12px;font-weight:700;border:1px solid #fca5a5;padding:6px 12px;border-radius:8px">🗑 Eliminar este alojamiento</button></div>` : '';
+  return aviso + fotos + (secs || '<div style="color:#94a3b8;font-size:13px">Sin campos para este alcance.</div>') + borrar;
+}
+// ── 📷 Fotos subidas a mano (se guardan en la base y las muestra la guía junto a las de Lodgify) ──
+function guiasFotosHtml_(aloj) {
+  const id = String(aloj['HouseId'] || aloj['id_lodgify'] || '').trim(), F = Array.isArray(aloj.fotos) ? aloj.fotos : [];
+  const manual = /^9\d{8}$/.test(id);
+  const inner = `<div style="font-size:12px;color:#64748b;margin-bottom:8px">${manual ? 'Alojamiento creado desde cero: estas fotos son las de su guía.' : 'Además de las fotos que llegan de Lodgify, puedes subir fotos propias; aparecen primero en la galería de la guía.'}</div>
+    <div id="guias-fotos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:10px">${F.map(f => `<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;aspect-ratio:4/3"><img src="${esc(f.url)}" alt="${esc(f.alt || '')}" style="width:100%;height:100%;object-fit:cover;display:block"><button type="button" title="Quitar foto" onclick="guiasFotoQuitar_('${esc(id)}','${esc(f.url)}')" style="position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:999px;border:0;background:rgba(15,23,42,.75);color:#fff;font-size:13px;cursor:pointer">✕</button></div>`).join('')}${F.length ? '' : '<div style="grid-column:1/-1;color:#94a3b8;font-size:12px;font-style:italic">Sin fotos propias todavía.</div>'}</div>
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:#0d9488;color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">📷 Subir fotos<input type="file" accept="image/*" multiple style="display:none" onchange="guiasFotosSubir_('${esc(id)}', this)"></label>
+    <span id="guias-fotos-st" style="margin-left:10px;font-size:12px;color:#64748b"></span>`;
+  return guiasCard('Fotos del alojamiento', '📷', inner);
+}
+window.guiasFotosSubir_ = async function (id, input) {
+  const files = Array.from(input.files || []); if (!files.length) return; const st = document.getElementById('guias-fotos-st');
+  try {
+    if (st) st.textContent = `⏳ Preparando ${files.length} foto(s)…`;
+    const fd = new FormData(); fd.append('id', id);
+    for (const f of files) { let b = f; try { if (typeof imgLigera_ === 'function') b = await imgLigera_(f, 1600, 0.8); } catch (_) {} fd.append('fotos', b, f.name); }
+    if (st) st.textContent = '⏳ Subiendo…';
+    const j = await fetch(`${BACKEND}/alojamientos/fotos`, { method: 'POST', body: fd }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'No se pudieron subir');
+    const a = guiasAlojById(id) || (ALOJ_STATE.rows || []).find(r => String(r.id_lodgify || '') === id); if (a) a.fotos = j.fotos;
+    if (st) st.textContent = `✓ ${j.fotos.length} foto(s) guardadas`;
+    guiasRenderContent();
+  } catch (e) { if (st) st.textContent = '⚠ ' + e.message; alert('⚠ ' + e.message); }
+  try { input.value = ''; } catch (_) {}
+};
+window.guiasEliminar_ = async function (id) {
+  const a = guiasAlojById(id); if (!confirm(`¿Eliminar «${a ? guiasItemLabel(a) : id}» de la base? Queda en la papelera del archivo, pero su guía dejará de existir.`)) return;
+  try { const j = await fetch(`${BACKEND}/alojamientos/eliminar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, usuario: (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '' }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    GUIAS_STATE.editMode = false; GUIAS_STATE.dirty = {}; await _alojFetchAndIndex(); GUIAS_STATE.selectedIds = new Set(); guiasInit(); } catch (e) { alert('⚠ ' + (e.message || e)); }
+};
+window.guiasFotoQuitar_ = async function (id, url) {
+  if (!confirm('¿Quitar esta foto de la guía?')) return;
+  try { const j = await fetch(`${BACKEND}/alojamientos/fotos/quitar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, url }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    const a = guiasAlojById(id) || (ALOJ_STATE.rows || []).find(r => String(r.id_lodgify || '') === id); if (a) a.fotos = j.fotos; guiasRenderContent(); } catch (e) { alert('⚠ ' + (e.message || e)); }
+};
+// ── ➕ Nuevo alojamiento desde cero (sin Lodgify): hereda los datos de su propiedad y abre el editor completo ──
+window.guiasNuevoAbrir_ = function () {
+  document.getElementById('guias-nuevo-modal')?.remove();
+  const props = [...new Set((ALOJ_STATE.rows || []).map(r => String(r['Propiedad'] || '').trim()).filter(p => p && !/^ED\. /.test(p)))].sort();
+  const inp = (id, lbl, ph, extra) => `<label style="display:block;margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">${lbl}</div><input id="${id}" ${extra || ''} placeholder="${ph || ''}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box"></label>`;
+  const m = document.createElement('div'); m.id = 'guias-nuevo-modal'; m.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = `<div style="background:#fff;border-radius:16px;width:min(560px,100%);max-height:92vh;overflow:auto;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><h3 style="margin:0;font-size:16px;flex:1">➕ Nuevo alojamiento</h3><button type="button" onclick="document.getElementById('guias-nuevo-modal').remove()" style="all:unset;cursor:pointer;font-size:18px;color:#64748b">✕</button></div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.45">Se crea en la base del sistema (no necesita existir en Lodgify). Si la propiedad ya existe, hereda sus datos comunes (dirección, WiFi, estacionamiento, lavandería, contactos…) y los generales (reglamento y horarios). Después se abre el editor para completar el resto y subir fotos.</div>
+    ${inp('gn-prop', 'Propiedad *', 'Ej. Calle Cumbres (o una nueva)', 'list="gn-props"')}<datalist id="gn-props">${props.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${inp('gn-dep', '# Departamento *', 'Ej. 7')}${inp('gn-short', 'Nombre corto', 'Ej. CU7')}</div>
+    ${inp('gn-tit', 'Título de la guía', 'Ej. Calle Cumbres #7 - Loft 2 personas')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${inp('gn-lg', 'URL Lodgify', 'https://…')}${inp('gn-lgp', 'URL fotos Lodgify', 'https://…')}${inp('gn-ab', 'URL Airbnb', 'https://airbnb.mx/…')}${inp('gn-gm', 'URL Google Maps', 'https://maps.app.goo.gl/…')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">${inp('gn-cap', 'Capacidad', 'Ej. 2')}${inp('gn-rec', 'Recámaras', 'Ej. 1')}${inp('gn-ban', 'Baños', 'Ej. 1')}</div>
+    <div id="gn-msg" style="font-size:12px;color:#b91c1c;min-height:16px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button type="button" class="btn-limpiar" onclick="document.getElementById('guias-nuevo-modal').remove()">Cancelar</button><button type="button" id="gn-ok" onclick="guiasNuevoCrear_()" style="padding:8px 16px;border:0;border-radius:8px;background:#16a34a;color:#fff;font-weight:800;font-size:13px;cursor:pointer">Crear y editar</button></div></div>`;
+  document.body.appendChild(m); setTimeout(() => document.getElementById('gn-prop')?.focus(), 50);
+};
+window.guiasNuevoCrear_ = async function () {
+  const v = id => (document.getElementById(id) || {}).value || '', msg = document.getElementById('gn-msg'), btn = document.getElementById('gn-ok');
+  if (!v('gn-prop').trim() || !v('gn-dep').trim()) { if (msg) msg.textContent = 'Propiedad y # Departamento son obligatorios.'; return; }
+  btn.disabled = true; btn.textContent = '⏳ Creando…';
+  try {
+    const datos = { Propiedad: v('gn-prop').trim(), '# Departamento': v('gn-dep').trim(), Propiedad_short: v('gn-short').trim(), titulo_txt: v('gn-tit').trim(), url_lodgify: v('gn-lg').trim(), url_lodgify_pics: v('gn-lgp').trim(), url_airbnb: v('gn-ab').trim(), url_google_maps: v('gn-gm').trim(), capacidad: v('gn-cap').trim(), recamaras: v('gn-rec').trim(), banos: v('gn-ban').trim(), __usuario: (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '' };
+    const j = await fetch(`${BACKEND}/alojamientos/nuevo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ datos }) }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'No se pudo crear');
+    document.getElementById('guias-nuevo-modal')?.remove();
+    await _alojFetchAndIndex(); GUIAS_STATE.esquema = null; guiasEsquemaCargar_();
+    GUIAS_STATE.filters.propiedad.clear(); GUIAS_STATE.filters.departamento.clear();
+    GUIAS_STATE.selectedIds = new Set([String(j.id)]); GUIAS_STATE.comunes = null; GUIAS_STATE.dirty = {}; GUIAS_STATE.editMode = true;
+    guiasRenderSidebar(); guiasRenderContent(); try { document.getElementById('guias-content').scrollIntoView({ block: 'start' }); } catch (_) {}
+    if (typeof bkToast_ === 'function') bkToast_(`✓ Alojamiento creado (${j.heredado}). Completa los datos y sube fotos.`);
+  } catch (e) { if (msg) msg.textContent = '⚠ ' + (e.message || e); btn.disabled = false; btn.textContent = 'Crear y editar'; }
+};
+// «⚙️ Datos comunes»: elige Generales o una propiedad y edita solo sus campos compartidos.
+window.guiasComunesMenu_ = function (btn) {
+  document.querySelectorAll('.guias-com-pop').forEach(p => p.remove());
+  const props = ((GUIAS_STATE.esquema || {}).propiedades || []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const pop = document.createElement('div'); pop.className = 'guias-com-pop'; const r = btn.getBoundingClientRect();
+  pop.style.cssText = `position:fixed;top:${r.bottom + 6}px;left:${Math.max(8, Math.min(window.innerWidth - 300, r.left))}px;z-index:9100;width:290px;max-height:70vh;overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:8px;font-size:13px`;
+  const item = (ico, txt, sub, on) => `<div onclick="${on}" style="padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"><span>${ico}</span><span style="flex:1"><b>${esc(txt)}</b>${sub ? `<div style="font-size:11px;color:#64748b">${esc(sub)}</div>` : ''}</span></div>`;
+  pop.innerHTML = item('🌐', 'Datos generales', 'Reglamento y horas: todos los alojamientos', "guiasComunes_('global')") + `<div style="border-top:1px solid #f1f5f9;margin:6px 0"></div>` + props.map(p => item('🏢', p.nombre, `${p.n} alojamiento${p.n === 1 ? '' : 's'} · dirección, WiFi, estacionamiento, lavandería…`, `guiasComunes_('propiedad',${JSON.stringify(p.nombre).replace(/"/g, '&quot;')})`)).join('');
+  document.body.appendChild(pop);
+  setTimeout(() => document.addEventListener('mousedown', function fx(e) { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', fx); } }), 0);
+};
+window.guiasComunes_ = function (tipo, prop) {
+  document.querySelectorAll('.guias-com-pop').forEach(p => p.remove());
+  const rows = (ALOJ_STATE.rows || []).filter(r => tipo === 'global' || String(r['Propiedad'] || '').trim() === prop);
+  if (!rows.length) return;
+  GUIAS_STATE.comunes = tipo === 'global' ? { tipo: 'global' } : { tipo: 'propiedad', prop };
+  GUIAS_STATE.selectedIds = new Set(rows.map(guiasItemId)); GUIAS_STATE.dirty = {}; GUIAS_STATE.editMode = true;
+  guiasRenderSidebar(); guiasRenderContent(); try { document.getElementById('guias-content').scrollIntoView({ block: 'start' }); } catch (_) {}
 };
 
 const GUIAS_TABS = [
@@ -34038,6 +34178,7 @@ const GUIAS_TABS = [
 ];
 
 async function guiasInit() {
+  if (!GUIAS_STATE.esquema) guiasEsquemaCargar_();
   // Asegura la carga aunque estemos entrando directo desde el menú.
   if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) await lgLoadAlojamientos();
   // Si otro flujo ya inició la carga, esperamos a que termine.
@@ -34110,7 +34251,7 @@ window.guiasOnFieldChange = function(fieldKey, value) {
 };
 window.guiasToggleEdit = function() {
   GUIAS_STATE.editMode = !GUIAS_STATE.editMode;
-  if (!GUIAS_STATE.editMode) GUIAS_STATE.dirty = {}; // Cancelar limpia los pending
+  if (!GUIAS_STATE.editMode) { GUIAS_STATE.dirty = {}; if (GUIAS_STATE.comunes) { GUIAS_STATE.comunes = null; GUIAS_STATE.selectedIds = new Set([GUIAS_STATE.selectedIds.values().next().value].filter(Boolean)); guiasRenderSidebar(); } } // Cancelar limpia los pending
   guiasRenderContent();
 };
 window.guiasSaveEdits = async function() {
@@ -34124,12 +34265,13 @@ window.guiasSaveEdits = async function() {
     if (!aloj || !changes) continue;
     for (const k of Object.keys(changes)) aloj[k] = changes[k];
   }
-  // Persistencia al sheet vía Cloud Run → Apps Script save_alojamiento.
-  let ok = 0, err = 0;
-  for (const id of ids) {
+  // Persistencia en Cloud Storage (config/alojamientos.json). El servidor copia los campos generales / de propiedad a los demás alojamientos.
+  // En «Datos comunes» basta UNA llamada: todos los seleccionados comparten el alcance.
+  let ok = 0, err = 0, afect = 0; const prop = {};
+  for (const id of (GUIAS_STATE.comunes ? ids.slice(0, 1) : ids)) {
     const aloj = byId.get(id);
     if (!aloj) { err++; continue; }
-    const houseId = String(aloj.HouseId || aloj.HouseID || aloj.ID || '').trim();
+    const houseId = String(aloj.HouseId || aloj.HouseID || aloj.ID || aloj.id_lodgify || '').trim();
     if (!houseId) { err++; continue; }
     try {
       const res = await fetch(`${BACKEND}/alojamientos/save`, {
@@ -34138,15 +34280,18 @@ window.guiasSaveEdits = async function() {
         body: JSON.stringify({ payload: { HouseId: houseId, changes: GUIAS_STATE.dirty[id] } }),
       });
       const j = await res.json();
-      if (j.ok) ok++; else err++;
+      if (j.ok) { ok++; afect = Math.max(afect, Number(j.alojamientos_afectados) || 0); Object.assign(prop, j.propagados || {}); } else err++;
     } catch { err++; }
   }
+  const P = Object.entries(prop).map(([k, v]) => `${k} → ${v.alcance === 'global' ? 'todos' : v.alojamientos + ' de la propiedad'}`);
   alert(err
     ? `✓ Guardados: ${ok}. ✗ Con error: ${err}.`
-    : `✓ ${ok} alojamiento(s) guardado(s). Los cambios ya son visibles en las URLs públicas.`);
+    : `✓ Guardado${afect ? ` en ${afect} alojamiento(s)` : ''}.${P.length ? '\nCampos compartidos copiados: ' + P.join(' · ') : ''}\nLas guías públicas se regeneran solas en un minuto.`);
   GUIAS_STATE.dirty = {};
   GUIAS_STATE.editMode = false;
-  guiasRenderContent();
+  if (GUIAS_STATE.comunes) { GUIAS_STATE.comunes = null; GUIAS_STATE.selectedIds = new Set([ids[0]]); }
+  try { await _alojFetchAndIndex(); } catch (_) {}
+  guiasRenderSidebar(); guiasRenderContent();
 };
 
 // ── Filtros + selección de la sidebar ──
@@ -34411,7 +34556,9 @@ function guiasRenderContent() {
     host.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">Selecciona uno o más alojamientos a la izquierda.</div>';
     return;
   }
-  const heading = alojs.length === 1
+  const heading = GUIAS_STATE.comunes
+    ? (GUIAS_STATE.comunes.tipo === 'global' ? '🌐 Datos generales (todos los alojamientos)' : `🏢 Datos comunes · ${GUIAS_STATE.comunes.prop} (${alojs.length} alojamientos)`)
+    : alojs.length === 1
     ? `📍 ${guiasItemLabel(alojs[0])}`
     : `📍 ${alojs.length} alojamientos seleccionados (los cambios aplican a todos)`;
   const tabs = GUIAS_TABS.map(t => {
@@ -34439,12 +34586,27 @@ function guiasRenderContent() {
   const photoPageUrl = (alojs.length === 1) ? String(alojs[0]['url_lodgify'] || '').trim() : '';
   // ── HERO tipo "guía de llegada" (solo modo lectura, 1 alojamiento) ──
   const isReadOne = !GUIAS_STATE.editMode && alojs.length === 1;
+  // Un solo renderer (2026-10-22): en lectura de UNA guía se incrusta la guía pública (checkin-app/public/guia) con datos en vivo,
+  // así el módulo y lo que ve el huésped son exactamente lo mismo. La edición sigue en este módulo.
+  if (isReadOne) {
+    const hid = String(alojs[0]['HouseId'] || alojs[0]['id_lodgify'] || '').trim();
+    if (hid) {
+      host.style.position = 'relative'; host.style.padding = '0';
+      host.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+          <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">📍 ${esc(guiasItemLabel(alojs[0]))} <span style="font-weight:500">· vista idéntica a la guía publicada</span></div>
+          <a href="https://www.check-inn.mx/public/guia/index.html?id=${encodeURIComponent(hid)}" target="_blank" rel="noopener" style="font-size:12px;color:#0369a1;font-weight:700;text-decoration:none">↗ Abrir publicada</a>${editBtn}</div>
+        <iframe id="guias-pub-frame" title="Guía de bienvenida" src="https://www.check-inn.mx/public/guia/index.html?id=${encodeURIComponent(hid)}&live=1&_=${Date.now()}" style="width:100%;height:calc(100vh - 150px);min-height:600px;border:0;display:block;background:#fff"></iframe>`;
+      return;
+    }
+  }
+  host.style.padding = '';
   const nombreProp = isReadOne ? guiasItemLabel(alojs[0]) : '';
   const descProp   = isReadOne ? (guiasVal_(alojs[0], 'titulo_txt') || 'Todo lo que necesitas para una estancia perfecta, en un solo lugar.') : '';
   // Descripción: solo mostrar si es distinta al nombre del alojamiento.
   const descPropShown = (descProp && descProp.toLowerCase() !== nombreProp.toLowerCase()) ? descProp : '';
   const heroHtml = isReadOne
-    ? `<div id="guias-logo-bar" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 16px;display:flex;align-items:center;justify-content:center">
+    ? `<div id="guias-logo-bar" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 16px;display:flex;align-items:center;justify-content:center;position:relative">
+         <div style="position:absolute;right:12px;top:50%;transform:translateY(-50%)">${editBtn}</div>
          <div style="display:inline-flex;align-items:center;gap:4px">
            <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn" style="display:block;height:32px">
            <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="" style="display:block;height:36px">
@@ -34554,8 +34716,7 @@ function guiasRenderContent() {
   // En modo EDICIÓN se conserva el layout de tabs (formulario por campo).
   // En modo LECTURA se pinta la guía tipo "guía de llegada" con acordeón.
   const body = GUIAS_STATE.editMode
-    ? `<div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
-       <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>`
+    ? `<div id="guias-tab-content">${guiasBuildEditor_(alojs)}</div>`
     : `${quicknavHtml}<div id="guias-tab-content">${guiasBuildGuide(alojs)}</div>`;
   // Asegura position:relative para que el fab de WhatsApp se ancle aquí.
   host.style.position = 'relative';
@@ -34568,7 +34729,7 @@ function guiasRenderContent() {
   // En modo lectura (guía) el contenido usa TODO el ancho disponible sin
   // límites, así se adapta al ancho de la ventana. En modo edición
   // conservamos el max-width:640 para que el form no sea inmenso.
-  const wrapWidth = GUIAS_STATE.editMode ? 'max-width:640px;margin:0 auto;padding:0 4px' : 'width:100%;padding:0';
+  const wrapWidth = GUIAS_STATE.editMode ? 'max-width:760px;margin:0 auto;padding:0 4px' : 'width:100%;padding:0';
   host.innerHTML = `
     ${heroHtml}
     <div style="${wrapWidth}">
@@ -35451,7 +35612,7 @@ function guiasField(label, fieldKey, alojs, opts) {
       ? `<textarea oninput="guiasOnFieldChange('${esc(fieldKey)}', this.value)" placeholder="${esc(placeholder)}" rows="3" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box">${esc(value)}</textarea>`
       : `<input type="${esc(inputType)}" oninput="guiasOnFieldChange('${esc(fieldKey)}', this.value)" value="${esc(value)}" placeholder="${esc(placeholder)}" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">`;
     return `<div style="padding:6px 0">
-      <div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700">${esc(label)}</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700;display:flex;align-items:center;flex-wrap:wrap">${esc(label)}${guiasScopeChip_(fieldKey, alojs)}</div>
       ${input}
     </div>`;
   }
@@ -75122,4 +75283,353 @@ window.bnCrudosGuardar_ = async function () {
     if (typeof BN_RAW !== 'undefined') try { fetch(`${BACKEND}/get-bancos?fresh=1`, { cache: 'no-store' }).then(r => r.json()).then(d => { if (d && d.ok) BN_RAW = d.records.map((r, i) => r.rowNum ? { ...r } : { ...r, rowNum: i + 2 }); }); } catch (_) {}
     b.textContent = `✓ ${j.written} registro(s) guardados`; setTimeout(() => { b.textContent = '💾 Guardar'; }, 2500);
   } catch (e) { alert('⚠ ' + e.message); b.disabled = false; b.textContent = '💾 Guardar'; }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🏘️ Rentas de largo plazo (v2105): publicaciones de propiedades en renta/venta — propias o importadas de portales —
+// con el diseño de la página pública de reservas (barra de búsqueda, cards, Ver mapa, Compartir).
+// Base: GET /rentas · POST /rentas/guardar · /rentas/eliminar · /rentas/extraer {url} · /rentas/extraer-texto · /rentas/fotos
+// ═══════════════════════════════════════════════════════════════════════════
+const RLP = { items: null, q: { tipo: '', operacion: '', lugar: '', rec: '', banos: '', min: '', max: '', orden: 'reciente' }, form: null, ext: null, map: null };
+const RLP_TIPOS = [['departamento', 'Departamento'], ['casa', 'Casa'], ['local', 'Local comercial'], ['oficina', 'Oficina'], ['terreno', 'Terreno'], ['bodega', 'Bodega / nave'], ['cuarto', 'Cuarto'], ['otro', 'Otro']];
+const rlpTipoTx_ = t => (RLP_TIPOS.find(x => x[0] === t) || ['', t])[1] || '';
+const rlp$ = (n, m) => n == null || n === '' ? '—' : (m === 'USD' ? 'US$' : '$') + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+function rlpCss_() {
+  if (document.getElementById('rlp-css')) return;
+  const st = document.createElement('style'); st.id = 'rlp-css'; st.textContent = `
+  #rlp-root{--rk:#0f172a;--rm:#64748b;--rl:#e2e8f0;--ra:#fec503;--ro:#ff9500;--rp:#e3141b;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;background:#f8fafc;min-height:100%}
+  .rlp-hero{position:relative;overflow:hidden;padding:34px 24px 26px;text-align:center;isolation:isolate}
+  .rlp-hero::before{content:'';position:absolute;inset:-40%;z-index:-1;background:radial-gradient(60% 50% at 30% 20%,rgba(254,197,3,.35),transparent 60%),radial-gradient(50% 45% at 80% 30%,rgba(255,149,0,.28),transparent 60%),linear-gradient(180deg,#fff7df,#fff 70%)}
+  .rlp-eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:#fff;border:1px solid #f1e3b0;color:#7a5800;padding:5px 12px;border-radius:999px}
+  .rlp-title{font-size:clamp(26px,4vw,42px);font-weight:800;letter-spacing:-.03em;line-height:1.08;margin:12px auto 8px;max-width:760px;color:#111}
+  .rlp-title em{font-style:normal;background:linear-gradient(120deg,#ff9500,#fec503 45%,#e3141b);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .rlp-sub{font-size:14px;color:var(--rm);margin:0 0 18px;font-weight:500}
+  .rlp-bar{max-width:1080px;margin:0 auto;background:#fff;border-radius:18px;box-shadow:0 18px 40px -16px rgba(15,23,42,.25),0 2px 6px rgba(15,23,42,.06);padding:8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;text-align:left}
+  .rlp-bar .rlp-go{grid-column:1/-1}@media(min-width:1000px){.rlp-bar{grid-template-columns:repeat(6,minmax(0,1fr)) auto}.rlp-bar .rlp-go{grid-column:auto}}
+  .rlp-f{display:flex;flex-direction:column;padding:8px 12px;border-radius:12px;border:1px solid transparent;min-width:0}.rlp-f:hover{background:#f8fafc}.rlp-f:focus-within{background:#fffbea;border-color:var(--ra)}
+  .rlp-f label{font-size:10px;font-weight:800;color:var(--rm);letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+  .rlp-f input,.rlp-f select{border:0;outline:0;background:transparent;font-size:13.5px;font-weight:700;color:var(--rk);padding:2px 0;font-family:inherit;width:100%;min-width:0;text-overflow:ellipsis}
+  .rlp-f .rng{display:flex;gap:4px;align-items:center}.rlp-f .rng input{width:50%;min-width:0}
+  .rlp-go{background:linear-gradient(135deg,#fec503,#ff9500);color:#111;border:0;border-radius:14px;padding:0 20px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 10px 20px -8px rgba(255,149,0,.6);white-space:nowrap}
+  .rlp-pills{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:14px;font-size:12px;color:#475569;font-weight:600}.rlp-pills span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ra);margin-right:6px}
+  .rlp-head{max-width:1080px;margin:18px auto 0;padding:0 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .rlp-count{font-size:14px;font-weight:800;color:var(--rk)}.rlp-count small{color:var(--rm);font-weight:600;margin-left:6px}
+  .rlp-sel{width:auto!important;padding:6px 10px;border:1px solid var(--rl);border-radius:8px;font-size:12px;font-weight:700;background:#fff;color:var(--rk)}
+  .rlp-head select,.rlp-bar select,.rlp-bar input,.rlp-form input,.rlp-form select{margin:0}
+  .rlp-new{margin-left:auto;width:auto;background:linear-gradient(135deg,#111827,#374151);color:#fff;border:0;border-radius:10px;padding:9px 16px;font-size:13px;font-weight:800;cursor:pointer}
+  .rlp-grid{max-width:1080px;margin:16px auto 90px;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+  .rlp-card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.06);border:1px solid rgba(17,24,39,.06);cursor:pointer;transition:transform .22s,box-shadow .22s;display:flex;flex-direction:column}
+  .rlp-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px -10px rgba(15,23,42,.15)}
+  .rlp-img{aspect-ratio:16/10;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);position:relative;overflow:hidden}.rlp-img img{width:100%;height:100%;object-fit:cover;transition:transform .5s}.rlp-card:hover .rlp-img img{transform:scale(1.05)}
+  .rlp-type{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.95);color:#7a5800;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase}
+  .rlp-op{position:absolute;top:12px;right:12px;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#0f766e}.rlp-op.venta{background:#7c3aed}
+  .rlp-nf{position:absolute;bottom:10px;right:12px;background:rgba(15,23,42,.65);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px}
+  .rlp-body{padding:14px 16px 16px;flex:1;display:flex;flex-direction:column}
+  .rlp-ct{font-size:15px;font-weight:800;color:var(--rk);line-height:1.3;margin:0 0 4px;letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .rlp-loc{font-size:12px;color:var(--rm);margin:0 0 10px}
+  .rlp-cap{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#475569;font-weight:600;margin-bottom:10px}
+  .rlp-amen{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}.rlp-amen span{font-size:10px;background:#f1f5f9;color:#475569;padding:3px 8px;border-radius:99px;font-weight:600}
+  .rlp-foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:1px dashed var(--rl)}
+  .rlp-price{font-size:20px;font-weight:900;color:#111;letter-spacing:-.02em}.rlp-price small{font-size:11px;color:var(--rm);font-weight:600;display:block;letter-spacing:0}
+  .rlp-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .rlp-mapbtn{background:#fff;color:var(--rk);border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}.rlp-mapbtn:hover{border-color:var(--rp);color:var(--rp)}
+  .rlp-cta{background:linear-gradient(135deg,#111827,#374151);color:#fff;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800}
+  .rlp-float{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9400;display:flex;gap:8px}
+  .rlp-float button{border-radius:999px;padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer;border:0}
+  .rlp-fmap{background:var(--rk);color:#fff;box-shadow:0 6px 18px -4px rgba(15,23,42,.4)}.rlp-fshare{background:#fff;color:var(--rk);border:1px solid #e5e7eb!important;box-shadow:0 6px 18px -4px rgba(15,23,42,.2)}.rlp-fshare.ok{background:#10b981;color:#fff}
+  .rlp-modal{position:fixed;inset:0;z-index:9500;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:14px}
+  .rlp-box{background:#fff;border-radius:18px;width:min(900px,100%);max-height:94vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+  .rlp-box h3{margin:0;font-size:17px}.rlp-bh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--rl);position:sticky;top:0;background:#fff;z-index:2}
+  .rlp-x{all:unset;cursor:pointer;font-size:20px;color:var(--rm);margin-left:auto}
+  .rlp-form{padding:16px 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px}.rlp-form .w2{grid-column:span 2}.rlp-form .w3{grid-column:1/-1}
+  .rlp-form label{display:block;font-size:11px;font-weight:700;color:var(--rm);margin-bottom:3px}.rlp-form input,.rlp-form select,.rlp-form textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit}
+  .rlp-form textarea{min-height:90px;resize:vertical}
+  .rlp-ext{margin:0 18px;padding:12px 14px;border-radius:12px;background:#fffbea;border:1px solid #fde68a}
+  .rlp-ext input{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #fcd34d;border-radius:8px;font-size:13px}
+  .rlp-btn{padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:800;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:var(--rk)}.rlp-btn.p{background:#16a34a;color:#fff;border-color:#16a34a}.rlp-btn.d{background:#111827;color:#fff;border-color:#111827}.rlp-btn.r{color:#b91c1c;border-color:#fca5a5}
+  .rlp-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}.rlp-gal div{position:relative;aspect-ratio:4/3;border-radius:10px;overflow:hidden;border:1px solid var(--rl);background:#f8fafc}.rlp-gal img{width:100%;height:100%;object-fit:cover;display:block}.rlp-gal button{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:999px;border:0;background:rgba(15,23,42,.75);color:#fff;font-size:12px;cursor:pointer}
+  .rlp-det{padding:0 18px 18px}.rlp-det .big{width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#e2e8f0;margin-bottom:10px}.rlp-det .big img{width:100%;height:100%;object-fit:cover}
+  .rlp-thumbs{display:flex;gap:6px;overflow:auto;padding-bottom:6px;margin-bottom:12px}.rlp-thumbs img{width:84px;height:62px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;flex:none}.rlp-thumbs img.on{border-color:var(--ro)}
+  .rlp-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0}.rlp-kv div{background:#f8fafc;border:1px solid var(--rl);border-radius:10px;padding:8px 10px;font-size:12.5px}.rlp-kv b{display:block;font-size:10px;color:var(--rm);text-transform:uppercase;letter-spacing:.04em}
+  #rlp-map{height:70vh;border-radius:14px}
+  @media(max-width:640px){.rlp-bar{grid-template-columns:1fr 1fr}.rlp-f{padding:8px 10px}.rlp-go{padding:12px}}@media(max-width:900px){.rlp-form{grid-template-columns:1fr 1fr}.rlp-form .w2,.rlp-form .w3{grid-column:1/-1}}`;
+  document.head.appendChild(st);
+}
+// Marcador «Enviar a Check-inn»: se arrastra a la barra de marcadores; en un anuncio lo captura (datos estructurados, texto y
+// fotos cargadas) y abre el sistema con la publicación prellenada. Sirve para los portales que bloquean al servidor.
+const RLP_MARCADOR = "javascript:(()=>{const PV=window.open('https://api.check-inn.mx/rentas/captura-page','_blank');const q=s=>[...document.querySelectorAll(s)];const W=t=>String(t||'').replace(/\\s+/g,' ').trim();const FB=/facebook\\.com/.test(location.host);const R=/leer (la )?descripci[oó]n completa|ver (descripci[oó]n )?completa|ver m[aá]s$|mostrar m[aá]s|leer m[aá]s$/i;const enLink=e=>{let n=e;while(n&&n!==document.body){if(n.tagName==='A'&&n.getAttribute('href')&&!/^(#|javascript:)/.test(n.getAttribute('href')))return true;n=n.parentElement}return false};let zona=document;if(FB){const d0=W((document.querySelector('meta[property=\"og:description\"]')||{}).content||'').slice(0,40);const c=q('div,span').filter(e=>e.children.length<40&&W(e.innerText).includes(d0)&&e.innerText.length<9000);c.sort((a,b)=>a.innerText.length-b.innerText.length);let z=c[0];for(let k=0;z&&k<4;k++)z=z.parentElement;zona=z||null}if(zona)[...zona.querySelectorAll('button,span,div')].filter(e=>e.children.length<3&&R.test(W(e.innerText))&&W(e.innerText).length<40&&!enLink(e)).slice(0,3).forEach(e=>{try{e.click()}catch(x){}});let mapa=false;if(!FB)q('img[alt=\"Mapa\"],img[src*=\"/ficha/map/\"],img[src*=\"staticmap\"],[class*=\"map\" i] img,[id*=\"map\" i] img').filter(e=>!enLink(e)).slice(0,3).forEach(e=>{try{e.click();mapa=true}catch(x){}});const ok=(a,b)=>a>13&&a<33.5&&b<-85&&b>-119;const geo=()=>{const mk=document.querySelector('gmp-advanced-marker[position]');if(mk){const p=(mk.getAttribute('position')||'').split(',').map(Number);if(ok(p[0],p[1]))return{lat:p[0],lng:p[1]}}const me=document.querySelector('meta[property=\"place:location:latitude\"],meta[name=\"geo.position\"],meta[name=\"ICBM\"]');if(me){const p=(me.content||'').split(/[,;]/).map(Number);if(ok(p[0],p[1]))return{lat:p[0],lng:p[1]}}for(const a of q('a[href*=\"google.\"],iframe[src*=\"google.\"]')){const m=String(a.href||a.src||'').match(/[@?&=/](-?\\d{1,2}\\.\\d{3,}),(-?\\d{2,3}\\.\\d{3,})/);if(m&&ok(+m[1],+m[2]))return{lat:+m[1],lng:+m[2]}}const h=document.documentElement.outerHTML;const re=/(-?\\d{1,2}\\.\\d{4,})\\s*,\\s*(-?\\d{2,3}\\.\\d{4,})/g;let m;while((m=re.exec(h))){if(ok(+m[1],+m[2]))return{lat:+m[1],lng:+m[2]}}return null};setTimeout(()=>{const ld=q('script[type=\"application/ld+json\"]').map(s=>{try{return JSON.parse(s.textContent)}catch(e){return null}}).filter(Boolean);const m=k=>(document.querySelector('meta[property=\"'+k+'\"],meta[name=\"'+k+'\"]')||{}).content||'';const fb=/facebook\\.com/.test(location.host);let imgs;if(fb){const T=W(m('og:title'));const by=new Map();q('img').filter(i=>{const a=W(i.alt);return T&&a.includes(T)||/^foto de /i.test(a)}).forEach(i=>{const u=i.currentSrc||i.src||'';if(!/^https?:/.test(u))return;const k=(u.match(/\\/(\\d+_\\d+_\\d+)_/)||[])[1]||u;const prev=by.get(k);if(!prev||i.naturalWidth>prev.w)by.set(k,{u,w:i.naturalWidth})});imgs=[...by.values()].map(x=>x.u).slice(0,30)}else{imgs=[...new Set(q('img').filter(i=>{const u=i.currentSrc||i.src||'';return /^https?:/.test(u)&&!/logo|icon|avatar|sprite|\\.svg|flag|badge|\\/ficha\\/map\\/|emoji|profile|\\/rsrc\\.php/i.test(u)&&(i.naturalWidth>=300||/naventcdn|cdn|img|photo|foto|media/i.test(u))}).map(i=>i.currentSrc||i.src))].slice(0,40)}let desc='';try{const d0=W(m('og:description')||m('description')).replace(/\\.{3}$/,'').slice(0,40).trim();if(d0.length>15){const c=q('p,div,section,article').filter(e=>e.children.length<40&&W(e.innerText).includes(d0));c.sort((a,b)=>a.innerText.length-b.innerText.length);const el=c.find(e=>W(e.innerText).length>d0.length+40&&e.innerText.length<8000);if(el)desc=el.innerText.trim()}}catch(e){}const d={url:location.href,title:document.title,og:{t:m('og:title'),d:m('og:description')||m('description'),i:m('og:image')},ld,imgs,desc,geo:geo(),text:document.body.innerText.slice(0,15000)};if(PV&&!PV.closed){let n=0,ok=false;const h=e=>{if(e.data==='rlp-ok'){ok=true;window.removeEventListener('message',h)}};window.addEventListener('message',h);const t=setInterval(()=>{if(ok||n++>50){clearInterval(t);return}try{PV.postMessage(d,'https://api.check-inn.mx')}catch(e){}},300)}else{d.text=d.text.slice(0,2500);d.imgs=d.imgs.slice(0,10);location.href='https://www.check-inn.mx/admin/?rlp='+encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(d)))))+'#rentas-lp'}},mapa?3500:900)})();";
+window.rlpMarcador_ = function () {
+  document.querySelectorAll('.rlp-modal').forEach(x => x.remove()); const m = document.createElement('div'); m.className = 'rlp-modal'; m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="rlp-box" style="width:min(640px,100%)"><div class="rlp-bh"><h3>📎 Marcador «Enviar a Check-inn»</h3><button class="rlp-x" onclick="this.closest('.rlp-modal').remove()">✕</button></div>
+    <div style="padding:16px 18px;font-size:13.5px;line-height:1.55;color:#334155">
+      <p style="margin:0 0 10px">Vivanuncios, Inmuebles24 y otros portales bloquean la lectura automática desde el servidor, pero no desde tu navegador. Este marcador captura el anuncio <b>con sus fotos</b> y abre el sistema con la publicación prellenada.</p>
+      <ol style="margin:0 0 14px;padding-left:20px"><li>Arrastra este botón a tu barra de marcadores (Cmd/Ctrl+Shift+B la muestra):</li></ol>
+      <div style="text-align:center;margin:0 0 16px"><a href="${RLP_MARCADOR.replace(/"/g, '&quot;')}" onclick="return false" style="display:inline-block;padding:12px 20px;border-radius:12px;background:linear-gradient(135deg,#fec503,#ff9500);color:#111;font-weight:900;text-decoration:none;cursor:grab;box-shadow:0 10px 20px -8px rgba(255,149,0,.6)">🏘️ Enviar a Check-inn</a></div>
+      <ol start="2" style="margin:0;padding-left:20px"><li>Abre el anuncio en el portal, baja hasta ver las fotos y <b>da un clic en el mapa</b> para que aparezca el pin (así se cargan todas las fotos y las coordenadas). El marcador abre solo «Leer descripción completa».</li><li>Toca el marcador: se abre el sistema con los datos y las fotos listos para revisar y guardar.</li></ol>
+      <details style="margin-top:12px"><summary style="cursor:pointer;color:#64748b;font-size:12px">En celular o si no puedes arrastrarlo</summary><div style="font-size:12px;color:#64748b;margin-top:6px">Crea un marcador cualquiera, edítalo y pega este código como dirección:</div><textarea readonly onclick="this.select()" style="width:100%;box-sizing:border-box;height:90px;font-size:10.5px;margin-top:6px;padding:8px;border:1px solid #cbd5e1;border-radius:8px">${esc(RLP_MARCADOR)}</textarea></details></div></div>`;
+  document.body.appendChild(m);
+};
+// Al abrir el sistema desde el marcador (?rlp=…): se guarda el paquete y se abre la publicación prellenada.
+(function () { try { const u = new URL(location.href), b = u.searchParams.get('rlp'), k = u.searchParams.get('rlpk'); if (b) sessionStorage.setItem('rlp_pend', decodeURIComponent(escape(atob(b)))); if (k) sessionStorage.setItem('rlp_pendk', k); if (b || k) { u.searchParams.delete('rlp'); u.searchParams.delete('rlpk'); history.replaceState(null, '', u.pathname + (u.search || '') + '#rentas-lp'); } } catch (_) {} })();
+async function rlpPendiente_() {
+  let d = null; try { d = JSON.parse(sessionStorage.getItem('rlp_pend') || 'null'); } catch (_) {}
+  const k = sessionStorage.getItem('rlp_pendk'); sessionStorage.removeItem('rlp_pend'); sessionStorage.removeItem('rlp_pendk');
+  if (!d && k) { try { const j = await fetch(`${BACKEND}/rentas/captura/${encodeURIComponent(k)}`, { cache: 'no-store' }).then(r => r.json()); if (j.ok) d = j.datos; else alert('⚠ ' + (j.error || 'No se pudo leer la captura')); } catch (e) { alert('⚠ ' + e.message); } }
+  if (!d) return;
+  rlpNueva_(); const msg = document.getElementById('rlp-ext-msg'); document.getElementById('rlp-url').value = d.url || ''; if (msg) msg.textContent = '⏳ Procesando lo capturado en el portal…';
+  try { const j = await fetch(`${BACKEND}/rentas/extraer-pagina`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ datos: d }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error); const n = rlpAplicarExt_(j.pub); if (msg) msg.innerHTML = `✓ ${n} campos y ${(j.pub.fotos || []).length} fotos capturados de <b>${esc(j.pub.portal)}</b>. ${j.pub.lat ? '📍 Coordenadas detectadas.' : '⚠️ Sin coordenadas: en el anuncio da clic en el mapa (que aparezca el pin) y vuelve a usar el marcador, o captura latitud/longitud a mano.'} Revisa y guarda.`; }
+  catch (e) { if (msg) msg.textContent = '⚠ ' + (e.message || e); }
+}
+window.rlpInit = async function () {
+  rlpCss_(); const root = document.getElementById('rlp-root'); if (!root) return;
+  if (!RLP.items) { root.innerHTML = '<div style="padding:40px;text-align:center;color:#64748b">⏳ Cargando publicaciones…</div>'; await rlpCargar_(); }
+  rlpRender_(); rlpPendiente_();
+};
+async function rlpCargar_() { try { const j = await fetch(`${BACKEND}/rentas`, { cache: 'no-store' }).then(r => r.json()); RLP.items = j.ok ? j.items : []; } catch (_) { RLP.items = RLP.items || []; } }
+function rlpFiltrar_() {
+  const q = RLP.q, N = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  let L = (RLP.items || []).filter(p => p.estatus !== 'cerrada');
+  if (q.tipo) L = L.filter(p => p.tipo === q.tipo); if (q.operacion) L = L.filter(p => p.operacion === q.operacion);
+  if (q.lugar) { const t = N(q.lugar); L = L.filter(p => N([p.ciudad, p.estado, p.colonia, p.direccion, p.titulo].join(' ')).includes(t)); }
+  if (q.rec) L = L.filter(p => Number(p.recamaras || 0) >= Number(q.rec)); if (q.banos) L = L.filter(p => Number(p.banos || 0) >= Number(q.banos));
+  if (q.min) L = L.filter(p => Number(p.precio || 0) >= Number(q.min)); if (q.max) L = L.filter(p => p.precio != null && Number(p.precio) <= Number(q.max));
+  const o = q.orden; L.sort((a, b) => o === 'precio_asc' ? (a.precio || 0) - (b.precio || 0) : o === 'precio_desc' ? (b.precio || 0) - (a.precio || 0) : o === 'm2' ? (b.m2_construccion || 0) - (a.m2_construccion || 0) : String(b.actualizado || '').localeCompare(String(a.actualizado || '')));
+  return L;
+}
+function rlpRender_() {
+  const root = document.getElementById('rlp-root'); if (!root) return; const q = RLP.q, L = rlpFiltrar_();
+  const opt = (arr, cur) => arr.map(([v, t]) => `<option value="${esc(v)}" ${String(cur) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  const T = RLP.items || [], numsDe = k => [...new Set(T.map(p => Number(p[k])).filter(n => n > 0))].sort((a, b) => a - b).map(n => [String(n), n + '+']);
+  const tiposDisp = RLP_TIPOS.filter(([v]) => T.some(p => p.tipo === v)), opsDisp = [['renta', 'Renta'], ['venta', 'Venta']].filter(([v]) => T.some(p => p.operacion === v));
+  const lugares = [...new Set(T.flatMap(p => [p.colonia, p.ciudad].filter(Boolean)))].sort();
+  root.innerHTML = `<section class="rlp-hero">
+      <span class="rlp-eyebrow">🏘️ Arrendamiento de Larga Estancia</span>
+      <h1 class="rlp-title">Encuentra tu <em>próxima propiedad</em></h1>
+      <form class="rlp-bar" onsubmit="event.preventDefault();rlpBuscar_(this)">
+        <div class="rlp-f"><label>Tipo</label><select name="tipo"><option value="">Todos</option>${opt(tiposDisp, q.tipo)}</select></div>
+        <div class="rlp-f"><label>Operación</label><select name="operacion"><option value="">Renta o venta</option>${opt(opsDisp, q.operacion)}</select></div>
+        <div class="rlp-f"><label>Lugar</label><input name="lugar" value="${esc(q.lugar)}" placeholder="Saltillo, Coahuila…" list="rlp-lugares"><datalist id="rlp-lugares">${lugares.map(v => `<option value="${esc(v)}">`).join('')}</datalist></div>
+        <div class="rlp-f"><label>Recámaras</label><select name="rec"><option value="">Cualquiera</option>${opt(numsDe('recamaras'), q.rec)}</select></div>
+        <div class="rlp-f"><label>Baños</label><select name="banos"><option value="">Cualquiera</option>${opt(numsDe('banos'), q.banos)}</select></div>
+        <div class="rlp-f"><label>Precio</label><div class="rng"><input name="min" type="number" value="${esc(q.min)}" placeholder="Mín"><span style="color:#94a3b8">–</span><input name="max" type="number" value="${esc(q.max)}" placeholder="Máx"></div></div>
+        <button class="rlp-go" type="submit">🔍 Buscar</button></form>
+      <div class="rlp-pills"><span>Propias y de portales en una sola base</span><span>Extrae datos desde un link</span><span>Comparte y ve en el mapa</span></div></section>
+    <div class="rlp-head"><div class="rlp-count">${L.length} propiedad${L.length === 1 ? '' : 'es'}<small>${[q.operacion, q.tipo && rlpTipoTx_(q.tipo), q.lugar].filter(Boolean).join(' · ') || 'todas'}</small></div>
+      <span style="font-size:12px;color:#64748b">Ordenar:</span><select class="rlp-sel" onchange="RLP.q.orden=this.value;rlpRender_()">${opt([['reciente', 'Más reciente'], ['precio_asc', 'Precio: menor a mayor'], ['precio_desc', 'Precio: mayor a menor'], ['m2', 'Más m²']], q.orden)}</select>
+      <a class="rlp-btn" style="margin-left:auto;text-decoration:none" href="https://www.check-inn.mx/public/rentas/" target="_blank" rel="noopener">↗ Página pública</a><button class="rlp-btn" onclick="rlpMarcador_()" title="Para capturar anuncios de portales que bloquean la lectura automática">📎 Marcador</button><button class="rlp-new" style="margin-left:0" onclick="rlpNueva_()">➕ Nueva publicación</button></div>
+    <div class="rlp-grid">${L.map(rlpCard_).join('') || '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;color:#94a3b8">Sin propiedades con esos filtros. Crea una con «➕ Nueva publicación» o pega un link de Vivanuncios, Inmuebles24, Century 21, Lamudi…</div>'}</div>
+    <div class="rlp-float"><button class="rlp-fmap" onclick="rlpMapa_()">🗺️ Ver mapa</button><button class="rlp-fshare" onclick="rlpCompartir_(this)">🔗 Compartir</button></div>`;
+}
+function rlpCard_(p) {
+  const f = (p.fotos || [])[0], cap = [];
+  if (p.recamaras) cap.push(`<span>🛏 ${p.recamaras}</span>`); if (p.banos) cap.push(`<span>🚿 ${p.banos}${p.medios_banos ? '½' : ''}</span>`); if (p.m2_construccion) cap.push(`<span>📐 ${p.m2_construccion} m²</span>`); if (p.estacionamientos) cap.push(`<span>🚗 ${p.estacionamientos}</span>`); if (p.amueblado) cap.push('<span>🛋 Amueblado</span>');
+  const loc = [p.colonia, p.ciudad, p.estado].filter(Boolean).join(', ');
+  return `<div class="rlp-card" onclick="rlpFicha_('${esc(p.id)}')">
+    <div class="rlp-img"><div class="rlp-type">${esc(rlpTipoTx_(p.tipo))}</div><div class="rlp-op ${p.operacion}">${p.operacion === 'venta' ? 'Venta' : 'Renta'}</div>${f ? `<img src="${esc(f.url)}" alt="" loading="lazy">` : ''}${p.publicada === false || p.estatus !== 'activa' ? '<div class="rlp-nf" style="left:12px;right:auto;background:#b91c1c">🔒 No publicada</div>' : '<div class="rlp-nf" style="left:12px;right:auto;background:#15803d">🌐 Publicada</div>'}${(p.fotos || []).length > 1 ? `<div class="rlp-nf">📷 ${p.fotos.length}</div>` : ''}</div>
+    <div class="rlp-body"><h3 class="rlp-ct">${esc(p.titulo)}</h3><p class="rlp-loc">📍 ${esc(loc || 'Saltillo')}${p.portal && p.portal !== 'propia' ? ` · <span style="color:#7a5800">${esc(p.portal)}</span>` : ''}</p>
+      ${cap.length ? `<div class="rlp-cap">${cap.join('')}</div>` : ''}${(p.amenidades || []).length ? `<div class="rlp-amen">${p.amenidades.slice(0, 4).map(a => `<span>${esc(a)}</span>`).join('')}${p.amenidades.length > 4 ? `<span>+${p.amenidades.length - 4}</span>` : ''}</div>` : ''}
+      <div class="rlp-foot"><div class="rlp-price">${rlp$(p.precio, p.moneda)}<small>${p.operacion === 'venta' ? 'precio de venta' : (p.periodo || 'mensual')}</small></div>
+        <div class="rlp-btns"><button class="rlp-mapbtn" onclick="event.stopPropagation();rlpMapa_('${esc(p.id)}')">🗺️ Ver en mapa</button><span class="rlp-cta">Ver ficha →</span></div></div></div></div>`;
+}
+window.rlpBuscar_ = function (form) { const fd = new FormData(form); ['tipo', 'operacion', 'lugar', 'rec', 'banos', 'min', 'max'].forEach(k => { RLP.q[k] = String(fd.get(k) || '').trim(); }); rlpRender_(); };
+// ── Compartir: resumen de los resultados filtrados (o de una ficha) listo para WhatsApp ──
+window.rlpCompartir_ = async function (btn, id) {
+  const L = id ? (RLP.items || []).filter(p => p.id === id) : rlpFiltrar_().slice(0, 15);
+  const txt = (id ? '' : `🏘️ Propiedades (${L.length})\n`) + L.map(p => `• ${p.titulo}\n  ${p.operacion === 'venta' ? 'Venta' : 'Renta'} · ${rlp$(p.precio, p.moneda)}${p.operacion === 'renta' ? ' /mes' : ''} · ${[p.recamaras && p.recamaras + ' rec', p.banos && p.banos + ' baños', p.m2_construccion && p.m2_construccion + ' m²'].filter(Boolean).join(' · ')}\n  📍 ${[p.colonia, p.ciudad].filter(Boolean).join(', ')}${p.url_origen ? '\n  ' + p.url_origen : ''}${(p.fotos || [])[0] ? '\n  📷 ' + p.fotos[0].url : ''}`).join('\n\n');
+  try { await navigator.clipboard.writeText(txt); } catch (_) {}
+  if (btn) { const t = btn.textContent; btn.classList.add('ok'); btn.textContent = '✓ Copiado'; setTimeout(() => { btn.classList.remove('ok'); btn.textContent = t; }, 1800); }
+  if (id) window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank', 'noopener');
+};
+// ── Mapa (Leaflet): todas las propiedades con coordenadas; una sola resalta. Sin coordenadas → Google Maps por dirección. ──
+window.rlpMapa_ = function (id) {
+  const L = id ? (RLP.items || []).filter(p => p.id === id) : rlpFiltrar_();
+  const conGeo = L.filter(p => p.lat && p.lng);
+  if (id && !conGeo.length) { const p = L[0]; if (p) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.direccion, p.colonia, p.ciudad, p.estado].filter(Boolean).join(', '))}`, '_blank', 'noopener'); return; }
+  const m = document.createElement('div'); m.className = 'rlp-modal'; m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="rlp-box" style="width:min(1000px,100%)"><div class="rlp-bh"><h3>🗺️ Mapa · ${conGeo.length} con ubicación${L.length - conGeo.length ? ` · ${L.length - conGeo.length} sin coordenadas` : ''}</h3><button class="rlp-x" onclick="this.closest('.rlp-modal').remove()">✕</button></div><div style="padding:12px 18px 18px"><div id="rlp-map"></div></div></div>`;
+  document.body.appendChild(m);
+  _rsvEnsureLeaflet_(() => { const map = window.L.map('rlp-map').setView(conGeo.length ? [conGeo[0].lat, conGeo[0].lng] : [25.4232, -101.0053], conGeo.length === 1 ? 15 : 12);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    const g = []; conGeo.forEach(p => { const f = (p.fotos || [])[0]; const mk = window.L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<div style="display:flex;gap:10px;align-items:flex-start;min-width:260px">${f ? `<img src="${esc(f.url)}" alt="" style="width:96px;height:72px;object-fit:cover;border-radius:8px;flex:none">` : ''}<div style="min-width:0"><b style="display:block;font-size:13px;line-height:1.3;margin-bottom:3px">${esc(p.titulo)}</b><div style="font-size:12px;color:#334155">${rlp$(p.precio, p.moneda)}${p.operacion === 'renta' ? ' /mes' : ''} · ${esc(rlpTipoTx_(p.tipo))}</div><div style="font-size:11px;color:#64748b">${[p.recamaras && p.recamaras + ' rec', p.banos && p.banos + ' baños', p.m2_construccion && p.m2_construccion + ' m²'].filter(Boolean).join(' · ')}</div><a href="#" onclick="rlpFicha_('${esc(p.id)}');return false" style="font-size:12px;font-weight:700;color:#0369a1">Ver ficha →</a></div></div>`, { maxWidth: 340 }); g.push(mk); });
+    if (g.length > 1) map.fitBounds(window.L.featureGroup(g).getBounds().pad(0.2)); if (g.length === 1) g[0].openPopup(); });
+};
+// ── Ficha ──
+window.rlpFicha_ = function (id) {
+  const p = (RLP.items || []).find(x => x.id === id); if (!p) return; document.querySelectorAll('.rlp-modal').forEach(x => x.remove());
+  const F = p.fotos || [], kv = [['Operación', p.operacion === 'venta' ? 'Venta' : 'Renta'], ['Tipo', rlpTipoTx_(p.tipo)], ['Precio', rlp$(p.precio, p.moneda) + (p.operacion === 'renta' ? ' / ' + (p.periodo || 'mes') : '')], ['Recámaras', p.recamaras], ['Baños', p.banos ? p.banos + (p.medios_banos ? ' + ' + p.medios_banos + ' medio' : '') : ''], ['Estacionamientos', p.estacionamientos], ['Construcción', p.m2_construccion ? p.m2_construccion + ' m²' : ''], ['Terreno', p.m2_terreno ? p.m2_terreno + ' m²' : ''], ['Amueblado', p.amueblado ? 'Sí' : 'No'], ['Ubicación', [p.direccion, p.colonia, p.ciudad, p.estado, p.cp].filter(Boolean).join(', ')], ['Contacto', [p.contacto_nombre, p.contacto_tel].filter(Boolean).join(' · ')], ['Origen', p.portal === 'propia' ? 'Publicación propia' : p.portal], ['Publicado', p.fecha_publicacion], ['Estatus', p.estatus]].filter(x => x[1]);
+  const m = document.createElement('div'); m.className = 'rlp-modal'; m.onclick = e => { if (e.target === m) m.remove(); };
+  m.innerHTML = `<div class="rlp-box"><div class="rlp-bh"><h3>${esc(p.titulo)}</h3><button class="rlp-btn" onclick="rlpCompartir_(null,'${esc(p.id)}')">🔗 Compartir</button><button class="rlp-btn" onclick="rlpMapa_('${esc(p.id)}')">🗺️ Mapa</button><button class="rlp-btn d" onclick="rlpEditar_('${esc(p.id)}')">✏️ Editar</button><button class="rlp-btn" style="background:#1877f2;color:#fff;border-color:#1877f2" onclick="mkPublicarDesde_('${esc(p.id)}')">📣 Publicar en redes</button><button class="rlp-x" onclick="this.closest('.rlp-modal').remove()">✕</button></div>
+    <div class="rlp-det">${F.length ? `<div class="big"><img id="rlp-big" src="${esc(F[0].url)}" alt=""></div><div class="rlp-thumbs">${F.map((f, i) => `<img src="${esc(f.url)}" class="${i ? '' : 'on'}" onclick="document.getElementById('rlp-big').src=this.src;this.parentElement.querySelectorAll('img').forEach(x=>x.classList.remove('on'));this.classList.add('on')">`).join('')}</div>` : ''}
+      <div class="rlp-kv">${kv.map(([k, v]) => `<div><b>${esc(k)}</b>${esc(String(v))}</div>`).join('')}</div>
+      ${(p.amenidades || []).length ? `<div class="rlp-amen" style="margin-bottom:12px">${p.amenidades.map(a => `<span>${esc(a)}</span>`).join('')}</div>` : ''}
+      ${p.descripcion ? `<div style="font-size:13.5px;line-height:1.55;color:#334155;white-space:pre-wrap">${esc(p.descripcion)}</div>` : ''}
+      ${p.notas ? `<div style="margin-top:10px;padding:10px 12px;background:#fffbea;border:1px solid #fde68a;border-radius:10px;font-size:12.5px"><b>Notas internas:</b> ${esc(p.notas)}</div>` : ''}
+      ${p.url_origen ? `<div style="margin-top:12px"><a href="${esc(p.url_origen)}" target="_blank" rel="noopener" style="color:#0369a1;font-weight:700;font-size:13px">↗ Ver anuncio original (${esc(p.portal)})</a></div>` : ''}</div></div>`;
+  document.body.appendChild(m);
+};
+// ── Nueva / editar: formulario + extracción desde link (o desde texto pegado si el portal bloquea) ──
+window.rlpNueva_ = function () { rlpForm_({ operacion: 'renta', tipo: 'departamento', moneda: 'MXN', ciudad: 'Saltillo', estado: 'Coahuila', fotos: [], amenidades: [], propia: true }); };
+window.rlpEditar_ = function (id) { const p = (RLP.items || []).find(x => x.id === id); if (p) rlpForm_(JSON.parse(JSON.stringify(p))); };
+function rlpForm_(p) {
+  document.querySelectorAll('.rlp-modal').forEach(x => x.remove()); RLP.form = p;
+  const m = document.createElement('div'); m.className = 'rlp-modal'; m.id = 'rlp-form-modal';
+  m.innerHTML = `<div class="rlp-box"><div class="rlp-bh"><h3>${p.id ? '✏️ Editar publicación' : '➕ Nueva publicación'}</h3>${p.id ? `<button class="rlp-btn r" onclick="rlpEliminar_('${esc(p.id)}')">🗑 Eliminar</button>` : ''}<button class="rlp-x" onclick="rlpFormCerrar_()">✕</button></div>
+    <div class="rlp-ext"><div style="font-size:12px;font-weight:800;color:#7a5800;margin-bottom:6px">🔗 Pegar link de un portal (Vivanuncios, Inmuebles24, Century 21, Lamudi, Propiedades.com… Facebook Marketplace solo con el marcador 📎)</div>
+      <div style="display:flex;gap:8px"><input id="rlp-url" value="${esc(p.url_origen || '')}" placeholder="https://…"><button class="rlp-btn d" onclick="rlpExtraer_()">Extraer datos</button></div>
+      <div id="rlp-ext-msg" style="font-size:12px;color:#64748b;margin-top:6px"></div>
+      <div id="rlp-ext-texto" style="display:none;margin-top:8px"><textarea id="rlp-texto" placeholder="Pega aquí todo el texto del anuncio (abre el link, Ctrl/Cmd+A, copiar, pegar)" style="width:100%;box-sizing:border-box;min-height:120px;padding:9px 11px;border:1px solid #fcd34d;border-radius:8px;font-size:12.5px"></textarea><button class="rlp-btn d" style="margin-top:6px" onclick="rlpExtraerTexto_()">🤖 Estructurar con IA</button></div></div>
+    <div class="rlp-form" id="rlp-form">${rlpFormCampos_(p)}</div>
+    <div style="padding:0 18px 18px"><div style="font-size:12px;font-weight:800;color:#64748b;margin-bottom:6px">📷 Fotos (${(p.fotos || []).length})</div><div class="rlp-gal" id="rlp-gal">${rlpGal_(p)}</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><label class="rlp-btn" style="cursor:pointer">📷 Subir fotos<input type="file" accept="image/*" multiple style="display:none" onchange="rlpFotosSubir_(this)"></label><input id="rlp-foto-url" placeholder="o pega la URL de una imagen" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px"><button class="rlp-btn" onclick="rlpFotoUrl_()">Agregar</button><span id="rlp-foto-st" style="font-size:12px;color:#64748b"></span></div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding:0 18px 18px"><button class="rlp-btn" onclick="rlpFormCerrar_()">Cancelar</button><button class="rlp-btn p" id="rlp-save" onclick="rlpGuardar_()">💾 Guardar publicación</button></div></div>`;
+  document.body.appendChild(m); rlpGeoInit_();
+}
+// ── Mapa para fijar la ubicación (Leaflet + OpenStreetMap; geocodificación vía /rentas/geocodificar) ──
+const RLP_GEO = { map: null, pin: null };
+function rlpGeoInit_() {
+  const el = document.getElementById('rlp-map'); if (!el) return;
+  _rsvEnsureLeaflet_(() => { if (!document.getElementById('rlp-map')) return;
+    const f = RLP.form || {}, lat = Number(f.lat), lng = Number(f.lng), hay = lat && lng;
+    const map = window.L.map('rlp-map').setView(hay ? [lat, lng] : [25.4232, -101.0053], hay ? 16 : 12); RLP_GEO.map = map;
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    RLP_GEO.pin = hay ? window.L.marker([lat, lng], { draggable: true }).addTo(map) : null;
+    if (RLP_GEO.pin) RLP_GEO.pin.on('dragend', () => { const c = RLP_GEO.pin.getLatLng(); rlpGeoSet_(c.lat, c.lng, true); });
+    map.on('click', e => rlpGeoSet_(e.latlng.lat, e.latlng.lng, true));
+    setTimeout(() => map.invalidateSize(), 300); });
+}
+function rlpGeoSet_(lat, lng, reverse) {
+  const f = document.getElementById('rlp-form'); if (!f) return; lat = Math.round(lat * 1e7) / 1e7; lng = Math.round(lng * 1e7) / 1e7;
+  f.querySelector('input[name="lat"]').value = lat; f.querySelector('input[name="lng"]').value = lng;
+  if (RLP_GEO.map) { if (!RLP_GEO.pin) { RLP_GEO.pin = window.L.marker([lat, lng], { draggable: true }).addTo(RLP_GEO.map); RLP_GEO.pin.on('dragend', () => { const c = RLP_GEO.pin.getLatLng(); rlpGeoSet_(c.lat, c.lng, true); }); } else RLP_GEO.pin.setLatLng([lat, lng]); }
+  if (reverse) fetch(`${BACKEND}/rentas/geocodificar?lat=${lat}&lng=${lng}`).then(r => r.json()).then(j => { const r = j.ok && j.resultados[0]; if (!r) return; const v = (k, val) => { const i = f.querySelector(`input[name="${k}"]`); if (i && !i.value.trim() && val) i.value = val; }; v('direccion', r.calle); v('colonia', r.colonia); v('ciudad', r.ciudad); v('estado', r.estado); v('cp', r.cp); }).catch(() => {});
+}
+window.rlpGeoPin_ = function () { const f = document.getElementById('rlp-form'), lat = Number(f.querySelector('input[name="lat"]').value), lng = Number(f.querySelector('input[name="lng"]').value); if (lat && lng && RLP_GEO.map) { rlpGeoSet_(lat, lng, false); RLP_GEO.map.setView([lat, lng], Math.max(RLP_GEO.map.getZoom(), 15)); } };
+window.rlpGeoBuscar_ = async function (texto) {
+  const q = String(texto || document.getElementById('rlp-geo-q').value || '').trim(), box = document.getElementById('rlp-geo-res'); if (!q) return;
+  box.style.display = 'block'; box.innerHTML = '<div style="padding:8px 10px;color:#64748b">⏳ Buscando…</div>';
+  try { const j = await fetch(`${BACKEND}/rentas/geocodificar?q=${encodeURIComponent(q)}`).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    if (!j.resultados.length) { box.innerHTML = '<div style="padding:8px 10px;color:#b45309">Sin resultados. Prueba con menos detalle (colonia y ciudad) o fija el punto en el mapa.</div>'; return; }
+    RLP_GEO.res = j.resultados; box.innerHTML = j.resultados.map((r, i) => `<div onclick="rlpGeoElegir_(${i})" style="padding:7px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">📍 ${esc(r.nombre)}</div>`).join('');
+  } catch (e) { box.innerHTML = `<div style="padding:8px 10px;color:#b91c1c">⚠ ${esc(e.message || e)}</div>`; }
+};
+window.rlpGeoElegir_ = function (i) { const r = (RLP_GEO.res || [])[i]; if (!r) return; rlpGeoSet_(r.lat, r.lng, false); if (RLP_GEO.map) RLP_GEO.map.setView([r.lat, r.lng], 16); document.getElementById('rlp-geo-res').style.display = 'none'; const f = document.getElementById('rlp-form'), v = (k, val) => { const el = f.querySelector(`input[name="${k}"]`); if (el && !el.value.trim() && val) el.value = val; }; v('colonia', r.colonia); v('ciudad', r.ciudad); v('estado', r.estado); v('cp', r.cp); v('direccion', r.calle); };
+window.rlpGeoDeForm_ = function () { const f = rlpLeerForm_(); const q = [f.direccion, f.colonia, f.ciudad || 'Saltillo', f.estado || 'Coahuila'].filter(Boolean).join(', '); document.getElementById('rlp-geo-q').value = q; rlpGeoBuscar_(q); };
+function rlpFormCampos_(p) {
+  const I = (k, lbl, cls, type, ph) => `<div class="${cls || ''}"><label>${lbl}</label><input name="${k}" type="${type || 'text'}" value="${esc(p[k] == null ? '' : p[k])}" placeholder="${esc(ph || '')}"></div>`;
+  const S = (k, lbl, opts, cls) => `<div class="${cls || ''}"><label>${lbl}</label><select name="${k}">${opts.map(([v, t]) => `<option value="${esc(v)}" ${String(p[k]) === String(v) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+  return I('titulo', 'Título *', 'w3', 'text', 'Ej. Departamento amueblado 1 recámara al norte de Saltillo') + S('operacion', 'Operación', [['renta', 'Renta'], ['venta', 'Venta']]) + S('tipo', 'Tipo', RLP_TIPOS) + S('estatus', 'Estatus', [['activa', 'Activa'], ['pausada', 'Pausada'], ['cerrada', 'Cerrada / rentada']])
+    + I('precio', 'Precio', '', 'number') + S('moneda', 'Moneda', [['MXN', 'MXN'], ['USD', 'USD']]) + S('periodo', 'Periodo (renta)', [['mensual', 'Mensual'], ['anual', 'Anual'], ['', '—']])
+    + I('recamaras', 'Recámaras', '', 'number') + I('banos', 'Baños', '', 'number') + I('medios_banos', 'Medios baños', '', 'number') + I('estacionamientos', 'Estacionamientos', '', 'number') + I('m2_construccion', 'm² construcción', '', 'number') + I('m2_terreno', 'm² terreno', '', 'number')
+    + S('amueblado', 'Amueblado', [['false', 'No'], ['true', 'Sí']]) + I('ciudad', 'Ciudad') + I('estado', 'Estado') + I('colonia', 'Colonia') + I('direccion', 'Dirección', 'w2') + I('cp', 'C.P.')
+    + `<div class="w3" id="rlp-geo"><label>Ubicación en el mapa</label>
+      <div style="display:flex;gap:6px;margin-bottom:6px"><input id="rlp-geo-q" placeholder="Busca una dirección, colonia o lugar… (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();rlpGeoBuscar_()}" style="flex:1"><button type="button" class="rlp-btn" onclick="rlpGeoBuscar_()">🔍 Buscar</button><button type="button" class="rlp-btn" onclick="rlpGeoDeForm_()" title="Buscar con la dirección, colonia y ciudad capturadas arriba">📋 Usar dirección</button></div>
+      <div id="rlp-geo-res" style="display:none;border:1px solid #cbd5e1;border-radius:8px;max-height:150px;overflow:auto;margin-bottom:6px;font-size:12px"></div>
+      <div id="rlp-map" style="height:260px;border-radius:10px;border:1px solid #cbd5e1;background:#f1f5f9"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;font-size:11.5px;color:#64748b"><span>Haz clic en el mapa o arrastra el pin para fijar el punto.</span><span style="margin-left:auto">Lat <input name="lat" value="${esc(p.lat == null ? '' : p.lat)}" oninput="rlpGeoPin_()" style="width:90px;padding:3px 6px;font-size:11.5px"> Lng <input name="lng" value="${esc(p.lng == null ? '' : p.lng)}" oninput="rlpGeoPin_()" style="width:90px;padding:3px 6px;font-size:11.5px"></span></div></div>`
+    + `<div class="w3"><label>Amenidades (separadas por coma)</label><input name="amenidades" value="${esc((p.amenidades || []).join(', '))}"></div>`
+    + `<div class="w3"><label>Descripción</label><textarea name="descripcion">${esc(p.descripcion || '')}</textarea></div>`
+    + I('contacto_nombre', 'Contacto · nombre') + I('contacto_tel', 'Contacto · teléfono') + I('fecha_publicacion', 'Fecha de publicación', '', 'date') + S('propia', 'Publicación', [['true', 'Propia (Check-inn)'], ['false', 'De terceros / portal']])
+    + `<div class="w2"><label>Notas internas</label><input name="notas" value="${esc(p.notas || '')}"></div>`
+    + `<div class="w3" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0"><span id="rlp-pub-sw" onclick="rlpPubTog_()" style="width:42px;height:24px;border-radius:999px;background:${p.publicada !== false ? '#16a34a' : '#cbd5e1'};position:relative;cursor:pointer;flex:none;transition:background .15s"><i style="position:absolute;top:3px;left:${p.publicada !== false ? '21px' : '3px'};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s"></i></span><div><b style="font-size:13px">🌐 Publicada en la página pública</b><div style="font-size:11.5px;color:#64748b">www.check-inn.mx/public/rentas/ · solo se muestran las publicadas con estatus Activa</div></div><input type="hidden" name="publicada" value="${p.publicada !== false ? 'true' : 'false'}"></div>`;
+}
+window.rlpPubTog_ = function () { const i = document.querySelector('#rlp-form input[name="publicada"]'), sw = document.getElementById('rlp-pub-sw'); const on = i.value !== 'true'; i.value = on ? 'true' : 'false'; sw.style.background = on ? '#16a34a' : '#cbd5e1'; sw.firstElementChild.style.left = on ? '21px' : '3px'; };
+function rlpGal_(p) { return (p.fotos || []).map((f, i) => `<div><img src="${esc(f.url)}" alt=""><button type="button" onclick="RLP.form.fotos.splice(${i},1);document.getElementById('rlp-gal').innerHTML=rlpGal_(RLP.form)">✕</button></div>`).join('') || '<div style="grid-column:1/-1;color:#94a3b8;font-size:12px;font-style:italic;aspect-ratio:auto;border:0;background:none">Sin fotos. Sube archivos, pega URLs o extrae desde un link.</div>'; }
+function rlpLeerForm_() { const f = document.getElementById('rlp-form'); const o = Object.assign({}, RLP.form); f.querySelectorAll('input,select,textarea').forEach(el => { o[el.name] = el.value; }); o.amenidades = String(o.amenidades || '').split(',').map(x => x.trim()).filter(Boolean); o.amueblado = o.amueblado === 'true'; o.propia = o.propia === 'true'; o.publicada = o.publicada !== 'false'; o.fotos = RLP.form.fotos || []; return o; }
+function rlpAplicarExt_(pub, campos) {
+  const cur = rlpLeerForm_(); const n = {};
+  Object.keys(pub).forEach(k => { const v = pub[k]; if (v == null || v === '' || (Array.isArray(v) && !v.length)) return; if (k === 'fotos') { const have = new Set((cur.fotos || []).map(f => f.url)); cur.fotos = (cur.fotos || []).concat(v.filter(f => !have.has(f.url))); n.fotos = 1; return; } cur[k] = v; n[k] = 1; });
+  RLP.form = cur; document.getElementById('rlp-form').innerHTML = rlpFormCampos_(cur); document.getElementById('rlp-gal').innerHTML = rlpGal_(cur); RLP_GEO.map = null; RLP_GEO.pin = null; rlpGeoInit_();
+  return Object.keys(n).length;
+}
+window.rlpExtraer_ = async function () {
+  const url = (document.getElementById('rlp-url').value || '').trim(), msg = document.getElementById('rlp-ext-msg'); if (!/^https?:\/\//.test(url)) { msg.textContent = 'Pega un link válido.'; return; }
+  msg.textContent = '⏳ Leyendo el anuncio…'; document.getElementById('rlp-ext-texto').style.display = 'none';
+  try { const j = await fetch(`${BACKEND}/rentas/extraer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    if (j.bloqueado) { msg.innerHTML = `⚠️ <b>${esc(j.portal)}</b> bloquea la lectura automática. Opción A (con fotos): usa el marcador <a href="#" onclick="rlpMarcador_();return false" style="color:#0369a1;font-weight:800">📎 Enviar a Check-inn</a> desde el anuncio. Opción B: selecciona todo el texto del anuncio, cópialo y pégalo abajo; la IA lo estructura (sin fotos).`; document.getElementById('rlp-ext-texto').style.display = 'block'; const cur = rlpLeerForm_(); cur.url_origen = url; cur.portal = j.portal; RLP.form = cur; return; }
+    const n = rlpAplicarExt_(j.pub); msg.innerHTML = `✓ ${n} campos tomados de <b>${esc(j.pub.portal)}</b>. Revisa y completa lo que falte.`;
+  } catch (e) { msg.textContent = '⚠ ' + (e.message || e); }
+};
+window.rlpExtraerTexto_ = async function () {
+  const texto = (document.getElementById('rlp-texto').value || '').trim(), url = (document.getElementById('rlp-url').value || '').trim(), msg = document.getElementById('rlp-ext-msg'); if (texto.length < 40) { msg.textContent = 'Pega el texto del anuncio.'; return; }
+  msg.textContent = '🤖 Estructurando con IA…';
+  try { const j = await fetch(`${BACKEND}/rentas/extraer-texto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, url }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    const n = rlpAplicarExt_(j.pub); msg.innerHTML = `✓ ${n} campos estructurados. Las fotos no viajan en el texto: pega sus URLs o súbelas.`; document.getElementById('rlp-ext-texto').style.display = 'none';
+  } catch (e) { msg.textContent = '⚠ ' + (e.message || e); }
+};
+window.rlpFotoUrl_ = function () { const i = document.getElementById('rlp-foto-url'), u = (i.value || '').trim(); if (!/^https?:\/\//.test(u)) return; RLP.form = rlpLeerForm_(); RLP.form.fotos.push({ url: u, alt: '' }); i.value = ''; document.getElementById('rlp-gal').innerHTML = rlpGal_(RLP.form); };
+window.rlpFotosSubir_ = async function (input) {
+  const files = Array.from(input.files || []); if (!files.length) return; const st = document.getElementById('rlp-foto-st'); RLP.form = rlpLeerForm_();
+  try { st.textContent = `⏳ Subiendo ${files.length}…`; const fd = new FormData(); fd.append('id', RLP.form.id || 'nueva'); for (const f of files) { let b = f; try { if (typeof imgLigera_ === 'function') b = await imgLigera_(f, 1600, 0.8); } catch (_) {} fd.append('fotos', b, f.name); }
+    const j = await fetch(`${BACKEND}/rentas/fotos`, { method: 'POST', body: fd }).then(r => r.json()); if (!j.ok) throw new Error(j.error); RLP.form.fotos = (RLP.form.fotos || []).concat(j.fotos); document.getElementById('rlp-gal').innerHTML = rlpGal_(RLP.form); st.textContent = `✓ ${j.fotos.length} subidas`; }
+  catch (e) { st.textContent = '⚠ ' + (e.message || e); } try { input.value = ''; } catch (_) {}
+};
+window.rlpGuardar_ = async function () {
+  const pub = rlpLeerForm_(); pub.usuario = (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : ''; if (!pub.titulo.trim()) { alert('Falta el título.'); return; }
+  const b = document.getElementById('rlp-save'); b.disabled = true; b.textContent = '⏳ Guardando…';
+  try { const j = await fetch(`${BACKEND}/rentas/guardar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pub }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    // Fotos de portales: se copian a nuestro almacenamiento en segundo plano (si el portal lo permite).
+    const ext = (j.pub.fotos || []).filter(f => !/storage\.googleapis\.com/.test(f.url)).map(f => f.url);
+    if (ext.length) fetch(`${BACKEND}/rentas/fotos/importar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: j.pub.id, urls: ext, referer: j.pub.url_origen }) }).then(() => rlpCargar_().then(rlpRender_)).catch(() => {});
+    rlpFormCerrar_(); await rlpCargar_(); rlpRender_(); if (typeof bkToast_ === 'function') bkToast_('✓ Publicación guardada'); }
+  catch (e) { alert('⚠ ' + (e.message || e)); b.disabled = false; b.textContent = '💾 Guardar publicación'; }
+};
+window.rlpEliminar_ = async function (id) { if (!confirm('¿Eliminar esta publicación? (queda en la papelera del archivo)')) return; try { const j = await fetch(`${BACKEND}/rentas/eliminar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, usuario: (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '' }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error); rlpFormCerrar_(); await rlpCargar_(); rlpRender_(); } catch (e) { alert('⚠ ' + (e.message || e)); } };
+window.rlpFormCerrar_ = function () { document.getElementById('rlp-form-modal')?.remove(); RLP.form = null; RLP_GEO.map = null; RLP_GEO.pin = null; };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📣 Marketing en redes (v2123): conexión con Facebook/Instagram (API oficial de Meta), publicar una propiedad con un clic
+// (texto por IA, fotos del anuncio) y ver estadísticas de cada publicación. Backend: /marketing/*
+// ═══════════════════════════════════════════════════════════════════════════
+const MK = { estado: null, pubs: null };
+window.mkInit = async function () {
+  const root = document.getElementById('mk-root'); if (!root) return; if (typeof bkCss_ === 'function') bkCss_(); if (!document.getElementById('mk-css')) { const st = document.createElement('style'); st.id = 'mk-css'; st.textContent = '#module-marketing{--bk-line:#e5e7eb;--bk-tx:#111827;--bk-mut:#6b7280;--bk-bg:#f8fafc;--bk-card:#fff;--bk-ac:#1877f2;color:var(--bk-tx);padding:18px 22px 70px!important}#mk-fotos div.off{opacity:.4}'; document.head.appendChild(st); } root.innerHTML = '<div class="bk-card bk-mut">⏳ Cargando…</div>';
+  const u = new URL(location.href); if (u.searchParams.get('mk')) { const ok = u.searchParams.get('mk') === 'ok'; if (typeof bkToast_ === 'function') bkToast_(ok ? `✓ Facebook conectado (${u.searchParams.get('n')} página(s))` : '⚠ ' + (u.searchParams.get('msg') || 'No se pudo conectar')); else alert(ok ? 'Conectado' : '⚠ ' + u.searchParams.get('msg')); ['mk', 'n', 'msg'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u.pathname + (u.search || '') + '#marketing'); }
+  await mkCargar_(); mkRender_();
+};
+async function mkCargar_() { try { const [e, p] = await Promise.all([fetch(`${BACKEND}/marketing/estado`, { cache: 'no-store' }).then(r => r.json()), fetch(`${BACKEND}/marketing/publicaciones`, { cache: 'no-store' }).then(r => r.json())]); MK.estado = e.ok ? e : { ok: false, error: e.error }; MK.pubs = p.ok ? p.items : []; } catch (e) { MK.estado = { ok: false, error: e.message }; MK.pubs = []; } }
+function mkRender_() {
+  const root = document.getElementById('mk-root'); if (!root) return; const E = MK.estado || {}, P = MK.pubs || [], num = n => Number(n || 0).toLocaleString('es-MX');
+  const pag = (E.paginas || []).find(p => p.id === E.pagina_activa) || (E.paginas || [])[0];
+  const conex = `<div class="bk-card"><div class="bk-row" style="justify-content:space-between;gap:10px;flex-wrap:wrap"><div><h3>🔗 Conexiones</h3><div class="bk-sub">Facebook e Instagram con la API oficial de Meta (app «Check-inn Saltillo»). Google Business Profile: en trámite de acceso.</div></div>
+      <div class="bk-row" style="gap:6px"><a class="bk-btn sm ${pag ? '' : 'pri'}" href="${BACKEND}/marketing/meta/conectar" style="text-decoration:none">${pag ? '🔄 Volver a conectar' : '🔗 Conectar Facebook e Instagram'}</a>${pag ? `<button class="bk-btn sm red" onclick="mkDesconectar_()">Desconectar</button>` : ''}</div></div>
+    ${!E.app ? '<div class="bk-why" style="margin-top:8px">⚠ Falta configurar la app de Meta en el servidor.</div>' : ''}
+    ${pag ? `<div class="bk-row" style="margin-top:12px;gap:14px;flex-wrap:wrap">${(E.paginas || []).map(p => `<div onclick="mkPagina_('${esc(p.id)}')" style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;border:2px solid ${p.id === pag.id ? '#1877f2' : '#e5e7eb'};background:#fff;cursor:pointer;min-width:260px">${p.foto ? `<img src="${esc(p.foto)}" style="width:40px;height:40px;border-radius:50%">` : '<span style="font-size:26px">📘</span>'}<div><div style="font-weight:800">${esc(p.nombre)}</div><div style="font-size:12px;color:#64748b">${p.ig ? `📸 @${esc(p.ig.usuario)}` : '⚠ sin Instagram ligado'}</div></div>${p.id === pag.id ? '<span class="bk-chip" style="background:#dbeafe;color:#1d4ed8;margin-left:auto">Activa</span>' : ''}</div>`).join('')}</div><div class="bk-sub" style="margin-top:8px">Conectado por ${esc((E.usuario || {}).nombre || '')} · el acceso vence ${E.usuario && E.usuario.expira ? new Date(E.usuario.expira).toLocaleDateString('es-MX') : '—'} (vuelve a conectar antes de esa fecha).</div>` : '<div class="bk-sub" style="margin-top:10px">Al conectar, Meta te pedirá autorizar la app para tu Página de Facebook y la cuenta de Instagram ligada. Mientras la app esté en modo desarrollo, solo los administradores de la app pueden conectar.</div>'}</div>`;
+  const tot = P.reduce((a, it) => { const f = (it.stats || {}).fb || {}, g = (it.stats || {}).ig || {}; a.alc += (f.alcance || 0) + (g.alcance || 0); a.imp += (f.impresiones || 0) + (g.impresiones || 0); a.int += (f.interacciones || 0) + (g.me_gusta || 0) + (g.comentarios || 0) + (g.guardados || 0); a.clic += (f.clics || 0); return a; }, { alc: 0, imp: 0, int: 0, clic: 0 });
+  const kpis = `<div class="bk-kpis"><div class="bk-kpi"><b>${num(P.length)}</b><span>Publicaciones</span></div><div class="bk-kpi"><b>${num(tot.alc)}</b><span>Alcance</span></div><div class="bk-kpi"><b>${num(tot.imp)}</b><span>Impresiones</span></div><div class="bk-kpi"><b>${num(tot.int)}</b><span>Interacciones</span></div><div class="bk-kpi"><b>${num(tot.clic)}</b><span>Clics (Facebook)</span></div></div>`;
+  const st = (s, k) => s && s[k] != null ? num(s[k]) : '—';
+  const lista = `<div class="bk-card"><div class="bk-row" style="justify-content:space-between"><h3>📰 Publicaciones</h3><button class="bk-btn sm pri" onclick="switchModule('rentas-lp')">➕ Publicar una propiedad</button></div><div class="bk-sub">Desde Rentas de largo plazo › ficha › «📣 Publicar en redes». Las estadísticas se actualizan cada 10 minutos.</div>
+    ${P.length ? `<div style="overflow:auto;margin-top:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#f8fafc;color:#64748b;font-size:11px;text-transform:uppercase"><th style="padding:8px;text-align:left">Fecha</th><th style="padding:8px;text-align:left">Propiedad</th><th style="padding:8px">Red</th><th style="padding:8px">Alcance</th><th style="padding:8px">Impresiones</th><th style="padding:8px">Me gusta</th><th style="padding:8px">Comentarios</th><th style="padding:8px">Compartidos</th><th style="padding:8px">Clics</th><th style="padding:8px"></th></tr></thead><tbody>
+      ${P.map(it => { const prop = ((RLP.items || []).find(x => x.id === it.pubId) || {}).titulo || it.pubId; const filas = []; if (it.fb) filas.push(['📘 Facebook', it.stats && it.stats.fb, it.fb.url]); if (it.ig) filas.push(['📸 Instagram', it.stats && it.stats.ig, it.ig.url]);
+        return filas.map(([red, s, url], i) => `<tr style="border-bottom:1px solid #f1f5f9">${i === 0 ? `<td rowspan="${filas.length}" style="padding:8px;white-space:nowrap">${esc(new Date(it.at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}<div style="font-size:11px;color:#94a3b8">${esc(it.por || '')}</div></td><td rowspan="${filas.length}" style="padding:8px;max-width:260px">${esc(prop)}${it.errores && it.errores.length ? `<div style="font-size:11px;color:#b91c1c">⚠ ${esc(it.errores.join(' · '))}</div>` : ''}</td>` : ''}<td style="padding:8px;white-space:nowrap">${red}${s && s.error ? ` <span title="${esc(s.error)}" style="color:#b91c1c">⚠</span>` : ''}</td><td style="padding:8px;text-align:center">${st(s, 'alcance')}</td><td style="padding:8px;text-align:center">${st(s, 'impresiones')}</td><td style="padding:8px;text-align:center">${st(s, 'me_gusta')}</td><td style="padding:8px;text-align:center">${st(s, 'comentarios')}</td><td style="padding:8px;text-align:center">${st(s, 'compartidos')}</td><td style="padding:8px;text-align:center">${st(s, 'clics')}</td><td style="padding:8px">${url ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:#0369a1;font-weight:700;font-size:12px">↗ Ver</a>` : ''}</td></tr>`).join(''); }).join('')}</tbody></table></div>` : '<div class="bk-mut" style="margin-top:10px;font-size:12.5px">Aún no hay publicaciones desde el sistema.</div>'}</div>`;
+  root.innerHTML = `<div class="bk-card" style="background:linear-gradient(135deg,#1e3a8a,#1877f2);color:#fff"><h3 style="color:#fff">📣 Marketing en redes</h3><div style="opacity:.9;font-size:13px">Publica tus propiedades en Facebook e Instagram con un clic y mide alcance, interacciones y clics.</div></div>${conex}${kpis}${lista}`;
+}
+window.mkPagina_ = async function (id) { await fetch(`${BACKEND}/marketing/pagina`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); await mkCargar_(); mkRender_(); };
+window.mkDesconectar_ = async function () { if (!confirm('¿Desconectar Facebook e Instagram del sistema?')) return; await fetch(`${BACKEND}/marketing/desconectar`, { method: 'POST' }); await mkCargar_(); mkRender_(); };
+// ── Publicar una propiedad: vista previa por red, fotos a elegir, texto de la IA editable ──
+window.mkPublicarDesde_ = async function (pubId) {
+  if (!MK.estado) await mkCargar_(); const E = MK.estado || {}, pag = (E.paginas || []).find(p => p.id === E.pagina_activa) || (E.paginas || [])[0];
+  if (!pag) { alert('Primero conecta Facebook e Instagram en el módulo 📣 Marketing en redes.'); switchModule('marketing'); return; }
+  const p = (RLP.items || []).find(x => x.id === pubId); if (!p) return; document.querySelectorAll('.rlp-modal').forEach(x => x.remove());
+  const fotos = (p.fotos || []).filter(f => /storage\.googleapis\.com/.test(f.url)); const m = document.createElement('div'); m.className = 'rlp-modal'; m.id = 'mk-modal';
+  m.innerHTML = `<div class="rlp-box"><div class="rlp-bh"><h3>📣 Publicar: ${esc(p.titulo)}</h3><button class="rlp-x" onclick="document.getElementById('mk-modal').remove()">✕</button></div>
+    <div style="padding:14px 18px;display:grid;gap:12px">
+      <div style="font-size:12.5px;color:#475569">Se publicará en <b>${esc(pag.nombre)}</b>${pag.ig ? ` y en <b>@${esc(pag.ig.usuario)}</b>` : ' (sin Instagram ligado)'} con las fotos marcadas. ${fotos.length ? '' : '<b style="color:#b91c1c">Esta propiedad no tiene fotos en nuestro almacenamiento; Instagram las requiere.</b>'}</div>
+      <div><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">📷 Fotos (máx. 10)</div><div class="rlp-gal" id="mk-fotos">${fotos.map((f, i) => `<div class="${i < 10 ? '' : 'off'}" onclick="this.classList.toggle('off');this.querySelector('i').textContent=this.classList.contains('off')?'':'✓'" style="cursor:pointer;position:relative;${i < 10 ? '' : 'opacity:.4'}" onmouseup="this.style.opacity=this.classList.contains('off')?.4:1" data-u="${esc(f.url)}"><img src="${esc(f.url)}"><i style="position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:999px;background:#16a34a;color:#fff;font-style:normal;font-size:13px;display:flex;align-items:center;justify-content:center">${i < 10 ? '✓' : ''}</i></div>`).join('')}</div></div>
+      <div id="mk-txt"><div class="bk-mut">🤖 Redactando los textos…</div></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><button class="rlp-btn" onclick="document.getElementById('mk-modal').remove()">Cancelar</button><button class="rlp-btn p" id="mk-go" onclick="mkPublicar_('${esc(p.id)}')" disabled>📣 Publicar ahora</button></div></div></div>`;
+  document.body.appendChild(m);
+  try { const j = await fetch(`${BACKEND}/marketing/redactar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pubId }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    document.getElementById('mk-txt').innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;margin-bottom:4px">${bkCk18_('on')}<span onclick="mkTog_(this)" data-k="fb" style="cursor:pointer">📘 Facebook (${esc(pag.nombre)})</span></label><textarea id="mk-fb" style="width:100%;box-sizing:border-box;min-height:220px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;font-family:inherit">${esc(j.facebook)}</textarea></div><div><label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;margin-bottom:4px">${bkCk18_(pag.ig ? 'on' : '')}<span onclick="mkTog_(this)" data-k="ig" style="cursor:pointer">📸 Instagram ${pag.ig ? '(@' + esc(pag.ig.usuario) + ')' : '(no ligado)'}</span></label><textarea id="mk-ig" ${pag.ig ? '' : 'disabled'} style="width:100%;box-sizing:border-box;min-height:220px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;font-family:inherit">${esc(j.instagram)}</textarea></div></div><div class="bk-sub">Puedes editar los textos antes de publicar. Enlace de la ficha: ${esc(j.liga)}</div>`;
+    document.getElementById('mk-go').disabled = false; } catch (e) { document.getElementById('mk-txt').innerHTML = `<div style="color:#b91c1c">⚠ ${esc(e.message || e)}</div>`; }
+};
+window.mkTog_ = function (sp) { const ck = sp.previousElementSibling, on = ck.textContent.trim() !== '✓'; ck.outerHTML = bkCk18_(on ? 'on' : ''); };
+function mkOn_(k) { const sp = document.querySelector(`[data-k="${k}"]`); return !!sp && sp.previousElementSibling.textContent.trim() === '✓'; }
+window.mkPublicar_ = async function (pubId) {
+  const fotos = [...document.querySelectorAll('#mk-fotos div:not(.off)')].map(d => d.dataset.u).slice(0, 10), fbOn = mkOn_('fb'), igOn = mkOn_('ig');
+  const fb = document.getElementById('mk-fb').value.trim(), ig = (document.getElementById('mk-ig') || {}).value || '';
+  if (!fbOn && !igOn) { alert('Elige al menos una red.'); return; } if (!confirm(`¿Publicar ahora en ${[fbOn && 'Facebook', igOn && 'Instagram'].filter(Boolean).join(' e ')} con ${fotos.length} foto(s)?`)) return;
+  const b = document.getElementById('mk-go'); b.disabled = true; b.textContent = '⏳ Publicando…';
+  try { const j = await fetch(`${BACKEND}/marketing/publicar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pubId, fotos, facebook: fbOn ? { texto: fb } : null, instagram: igOn ? { texto: ig.trim() } : null, usuario: (typeof currentUser !== 'undefined' && currentUser) ? String(currentUser) : '' }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error);
+    const r = j.publicacion; alert(`✓ Publicado.${r.fb ? '\nFacebook: ' + r.fb.url : ''}${r.ig ? '\nInstagram: ' + (r.ig.url || 'listo') : ''}${r.errores.length ? '\n⚠ ' + r.errores.join('\n⚠ ') : ''}`); document.getElementById('mk-modal').remove(); MK.pubs = null; switchModule('marketing'); }
+  catch (e) { alert('⚠ ' + (e.message || e)); b.disabled = false; b.textContent = '📣 Publicar ahora'; }
 };
