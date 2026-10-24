@@ -67668,7 +67668,9 @@ function clModoPersonal_() { return !clEsAdmin_(); }
 function adCanonMap_(nombres) { const M = new Map(), C = []; [...new Set(nombres.filter(Boolean))].sort((a, b) => b.length - a.length).forEach(n => { const c = C.find(x => clMisma_(x, n)); M.set(n, c || n); if (!c) C.push(n); }); return M; }
 // v2128: en modo personal, Levantamientos / Incidencias / Objetos muestran SOLO lo asignado o reportado por la persona.
 function clSoloMio_(nombres) { return !(typeof clModoPersonal_ === 'function' && clModoPersonal_()) || clEsMio_(nombres); }
-function clEsMio_(nombres) { const yo = clVerComo_() || (typeof currentUser !== 'undefined' && currentUser) || ''; return (nombres || []).some(n => clMisma_(n, yo)); }
+// v2168: Adán ve TODAS las tareas de Operaciones (aunque no tenga asignación); los demás empleados solo las suyas.
+function clVeTodo_(yo) { return clNorm_(yo)[0] === 'adan'; }
+function clEsMio_(nombres) { const yo = clVerComo_() || (typeof currentUser !== 'undefined' && currentUser) || ''; return clVeTodo_(yo) || (nombres || []).some(n => clMisma_(n, yo)); }
 function ckVerComoHtml_() {
   if (!clEsAdminReal_()) return '';
   const on = !!ASEO.pruebaOn, v = clVerComo_();
@@ -67755,10 +67757,15 @@ function adPuesto_(n) { // puesto en Personal (por nombre completo)
   const pr = rows.find(r => _rhPersonalFullName_(r).toLowerCase() === q || String(r.Nombre || '').trim().toLowerCase() === q);
   return pr ? String(pr.Puesto || '').trim() : '';
 }
-function adNom_(n, rol, onclick, pk) { const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim();
+// v2171: hora en que se registró el TÉRMINO de la card/tarea (se muestra dentro del chip del personal).
+function adTermHora_(key) {
+  const r = aseoEstDe_(key); if (!r || !['terminado', 'inspeccionado'].includes(r.estado)) return '';
+  return aseoHora_((r.hist && r.hist.terminado && r.hist.terminado.at) || r.at).replace(/\s*([ap])\.?\s*m\.?/i, (m, x) => x.toLowerCase() + 'm').replace(/^0/, '');
+}
+function adNom_(n, rol, onclick, pk, hora) { const t = String(n || '').replace(/\s*\(WhatsApp\)\s*$/, '').trim();
   if (pk && typeof rbPendDe_ === 'function' && rbPendDe_(pk + '|' + n)) { const k = pcEsc(JSON.stringify(pk + '|' + n)), nn = pcEsc(JSON.stringify(t)); // asignación automática por confirmar
     return `<span class="ad-nm lk pend" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)} · asignación automática: clic para confirmar" onclick="event.stopPropagation();rbConfPend_(${k},${nn})">${pcEsc(t.split(/\s+/)[0] || '?')}?</span>`; }
-  return `<span class="ad-nm ${onclick ? 'lk' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)}${onclick ? ' · clic para cambiar' : ''}"${onclick ? ` onclick="event.stopPropagation();${onclick}"` : ''}>${pcEsc(t.split(/\s+/)[0] || '?')}</span>`; }
+  return `<span class="ad-nm ${onclick ? 'lk' : ''}" style="--pc:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + t)}${hora ? ' · término registrado a las ' + hora : ''}${onclick ? ' · clic para cambiar' : ''}"${onclick ? ` onclick="event.stopPropagation();${onclick}"` : ''}>${pcEsc(t.split(/\s+/)[0] || '?')}${hora ? `<small style="font-weight:600;opacity:.8;margin-left:5px;font-size:10px;white-space:nowrap">${pcEsc(hora)}</small>` : ''}</span>`; }
 function adAv_(n, rol) { return `<span class="ad-av" style="background:${aseoPersonaColor_(n)}" title="${pcEsc((rol ? rol + ': ' : '') + n)}">${pcEsc(adIni_(n))}</span>`; }
 // Todo lo que se necesita de una card (mismas reglas que pcAlojCard_ y que el bot).
 // Salidas (Booked) por alojamiento, calculadas una vez por copia de reservas (antes se recorrían todas por card).
@@ -67883,6 +67890,24 @@ window.adDropUser_ = async function (ev, dest) {
     }
     aseoRenderSide_();
   } catch (e) { alert('No se pudo cambiar la asignación: ' + (e.message || e)); aseoRenderSide_(); }
+};
+// Vista «Semana»: navegar de semana y soltar una tarea en un día (o en «Sin fecha»).
+window.adSemMover_ = function (v) { const hoyL = ckLunes_(aseoHoyIso_()); if (!v) ASEO.semIni = hoyL; else { const d = tarParseIso_(ASEO.semIni || hoyL); d.setDate(d.getDate() + 7 * v); ASEO.semIni = tarIso_(d); } aseoRenderSide_(); };
+window.adSemOver_ = function (ev) { const D = ASEO._dragEst; if (!D || !D.tarea || /^R:/.test(D.id)) return; ev.preventDefault(); document.querySelectorAll('.sm-board .ad-col.drop').forEach(c => { if (c !== ev.currentTarget) c.classList.remove('drop'); }); ev.currentTarget.classList.add('drop'); };
+window.adSemDrop_ = async function (ev, dest) {
+  ev.preventDefault(); document.querySelectorAll('.sm-board .ad-col.drop').forEach(c => c.classList.remove('drop'));
+  const D = ASEO._dragEst; ASEO._dragEst = null; if (!D || !D.tarea || /^R:/.test(D.id)) return;
+  const m = String(D.id).match(/^T([a-z0-9]+)/i), t = m && (ASEO.tareas || {})[m[1]]; if (!t) return;
+  if (t.repite) return alert('Esta tarea es recurrente: su fecha se cambia desde «Detalles» → editar.');
+  if ((t.fecha || '') === dest) return;
+  const prev = t.fecha || '', user = (typeof currentUser !== 'undefined' && currentUser) || '';
+  t.fecha = dest; ASEO.calSig = ''; aseoRenderSide_(); // al instante; si falla se regresa
+  try {
+    const j = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: Object.assign({}, t, { fecha: dest }), user }) }).then(r => r.json());
+    if (!j.ok) throw new Error(j.error || 'Error');
+    ASEO.tareas[m[1]] = Object.assign(j.tarea, { adjuntos: t.adjuntos, refs: t.refs || [] });
+  } catch (e) { t.fecha = prev; alert('No se pudo cambiar la fecha: ' + (e.message || e)); }
+  ASEO.calSig = ''; aseoRenderSide_();
 };
 window.adDragOver_ = function (ev, k) {
   const D = ASEO._dragEst; if (!D || (k === 'inspeccionado' && D.sinInsp)) return; // mantenimiento/inspección no tienen "Inspeccionado"
@@ -68097,7 +68122,7 @@ function adCard_(I) {
   const srcTxt = xR ? [xR.b.Source ? String(xR.b.Source) : '', xR.tier ? xR.tier.label : (xR.stats && xR.stats.visitas <= (HU_REGLAS.primera_max_visitas ?? 1) ? '1ª visita' : '')].filter(Boolean).join(' · ') : '';
   // Asignar directo en la card: «＋ Asignar» o clic en el nombre para cambiarlo (sin abrir los detalles).
   const asg = rol => `aseoAsignar_('${pcEsc(I.asigId)}',this,'${rol}')`;
-  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo', asg('aseo'), I.asigId + '|aseo')).join('')}${I.pI.map(n => adNom_(n, 'Inspección', asg('inspeccion'), I.asigId + '|inspeccion')).join('')}</span>`
+  const equipo = I.pA.length || I.pI.length ? `<span class="ad-avs">${I.pA.map(n => adNom_(n, 'Aseo', asg('aseo'), I.asigId + '|aseo', adTermHora_(I.asigId))).join('')}${I.pI.map(n => adNom_(n, 'Inspección', asg('inspeccion'), I.asigId + '|inspeccion', adTermHora_(I.asigId))).join('')}</span>`
     : `<button type="button" class="ad-asg" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();${asg(I.depto === 'inspeccion' ? 'inspeccion' : 'aseo')}">＋ Asignar</button>`;
   const guia = !I.esHoyC ? '' : `<span class="ad-gd ${I.G && I.G.texto && !I.noPub ? 'on' : ''}" title="${I.noPub ? 'No publicado en la guía' : I.G && I.G.texto ? 'La guía muestra: ' + pcEsc(I.G.texto) : 'La guía no muestra aviso'}">◉ Guía</span>`;
   const sel = ASEO._dr && ASEO._dr.k === I.k;
@@ -68142,7 +68167,7 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   const fPers = ASEO.fPers || [];
   const tInfos = []; { const ya = new Set(); (ASEO._rango || [hoy]).forEach(d => atLista_().filter(t => atToca_(t, d)).forEach(t => { const I = atInfo_(t, d); if (ya.has(I.key)) return; ya.add(I.key); if (ASEO._rango) I._dia = d; tInfos.push(I); })); }
   // Administrativas únicas sin resolver de días pasados: siguen apareciendo hoy (como los antiguos Pendientes).
-  if (hoy === aseoHoyIso_()) { const ya = new Set(tInfos.map(I => I.k)); atLista_().forEach(t => { if (t.rt || t.repite || t.depto !== 'administrativo' || !(t.fecha < hoy) || ya.has('T' + t.id)) return; const I = atInfo_(t, t.fecha); if (['terminado', 'inspeccionado', 'cancelado'].includes(I.selE)) return; I.atrasada = true; tInfos.push(I); }); }
+  if (hoy === aseoHoyIso_()) { const ya = new Set(tInfos.map(I => I.k)); atLista_().forEach(t => { if (t.rt || t.repite || t.depto !== 'administrativo' || !t.fecha || !(t.fecha < hoy) || ya.has('T' + t.id)) return; const I = atInfo_(t, t.fecha); if (['terminado', 'inspeccionado', 'cancelado'].includes(I.selE)) return; I.atrasada = true; tInfos.push(I); }); }
   plReconciliar_();
   // Card reprogramada a este día: sus tareas ligadas por incidencia (de cualquier tipo) que sigan sin resolver la acompañan.
   { const ya = new Set(tInfos.map(I => I.k));
@@ -68244,9 +68269,9 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
       const p = L.find(I => !I.tarea) || L.find(I => !['correctivo', 'preventivo'].includes(axSrv_(kDe(I)))) || L[0], pi = idsDe(p), hs = L.filter(I => I !== p);
       hijosDe.set(p, hs); hs.forEach(h => { padreDe.set(h, p); const hi = idsDe(h); puenteDe.set(h, hi.find(x => pi.includes(x)) || hi[0]); });
     }); }
-  const vista = !MP && ['estado', 'usuario', 'tabla'].includes(ASEO.vista) ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad; empleados solo «por propiedad»
+  const vista = MP ? (ASEO.vista === 'estado' ? 'estado' : 'propiedad') : ['estado', 'usuario', 'tabla', 'semana'].includes(ASEO.vista) ? ASEO.vista : 'propiedad'; // predeterminada: por propiedad; empleados: «por propiedad» o «por estado»
   const propHtml = props.length > 1 ? `<div class="mv-pf ad-prf"><small>🏘️ Propiedad:</small>${props.map(p => `<button type="button" class="mv-pf-c ad-pr ${fP.includes(p) ? 'on' : ''}" data-p="${pcEsc(p)}" onclick="adPropToggle_(this.dataset.p)">${pcEsc(p)}<b>${infos.concat(tInfos).filter(I => propDe(I) === p).length}</b></button>`).join('')}${fP.length ? '<button type="button" class="mv-pf-x" onclick="ASEO.fProp=[];aseoRender_()">Quitar filtro</button>' : ''}</div>` : '';
-  const segV = `${MP ? '' : ckVistasHtml_(vista, 'adVista_')}<div class="ad-seg ad-seg2"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
+  const segV = `${MP ? ckVistasHtml_(vista, 'adVista_', ['estado', 'propiedad']) : ckVistasHtml_(vista, 'adVista_', null, [['semana', '🗓️ Semana']])}<div class="ad-seg ad-seg2"><button type="button" class="${ASEO.simple ? 'on' : ''}" onclick="adSimple_(true)">Simple</button><button type="button" class="${ASEO.simple ? '' : 'on'}" onclick="adSimple_(false)">Detalles</button></div>`;
   ASEO._pubKeys = infos.filter(I => I.esHoyC && I.G).map(I => ({ key: I.pubKey, on: !I.noPub }));
   const vivos = infos.filter(I => !I.fantasma);
   const n = k => vivos.filter(I => I.selE === k).length;
@@ -68392,6 +68417,33 @@ function adTablero_(gs, gsF, hoy, esHoy, filtroHtml) {
   ASEO._hamHtml = `<button type="button" class="ad-ham ${ASEO.filtrosAb ? 'on' : ''}" onclick="adFiltrosToggle_()" title="${ASEO.filtrosAb ? 'Ocultar filtros' : 'Mostrar filtros'}${nFil ? ` (${nFil} activo${nFil === 1 ? '' : 's'})` : ''}">☰${nFil ? `<b>${nFil}</b>` : ''}</button>`;
   ASEO._filtrosHtml = ASEO.filtrosAb ? `<div class="ad-gfil">${filtroHtml}${propHtml}${ASEO.sec === 'aseo' ? '' : tipoHtml}${prioHtml}${archHtml}</div>` : '';
   ASEO._segVHtml = segV;
+  // Vista «Semana» (planeador): col. 1 = tareas sin fecha (fija); col. 2–8 = lunes a domingo de la semana elegida. Arrastrar una card a un día le asigna esa fecha.
+  const semanaHtml = () => {
+    if (!document.getElementById('sm-css')) { const st = document.createElement('style'); st.id = 'sm-css'; st.textContent = `
+      .sm-nav{display:flex;align-items:center;gap:8px;margin:0 0 10px 272px;flex-wrap:wrap}
+      .sm-nav button{border:1px solid #d7dbe2;background:#fff;border-radius:9px;padding:5px 11px;font:600 13px Inter,system-ui,sans-serif;color:#0f1729;cursor:pointer}
+      .sm-nav button:hover{background:#f1f5f9}.sm-nav .lb{min-width:210px}.sm-nav .hoy{color:#4f46e5}
+      .sm-wrap{overflow-x:auto;padding-bottom:6px}
+      .sm-board{display:grid;grid-template-columns:262px repeat(7,minmax(210px,1fr));gap:10px;align-items:stretch;min-width:1760px}
+      .sm-board .ad-col{min-height:300px}
+      .sm-board .ad-col.sin{background:#e7eaf5;border:1px dashed #a5b4fc}
+      .sm-board .ad-col.hoy{background:#e8efff;box-shadow:inset 0 0 0 2px #a5b4fc}
+      .sm-board .ad-colh{position:static;margin:-7px -7px 6px}.sm-board .ad-colh em{font-style:normal;font-weight:500;color:#9aa1ad;margin-left:4px}
+      .sm-board .ad-col>.ad-card{margin-bottom:8px}.sm-vacio{font-size:12px;color:#9aa1ad;text-align:center;padding:18px 6px;font-style:italic}`; document.head.appendChild(st); }
+    const hoyI = aseoHoyIso_(), lun = ASEO.semIni || ckLunes_(hoyI);
+    const dias = Array.from({ length: 7 }, (_, i) => { const d = tarParseIso_(lun); d.setDate(d.getDate() + i); return tarIso_(d); });
+    const dA = tarParseIso_(dias[0]), dB = tarParseIso_(dias[6]), mes = d => d.toLocaleDateString('es-MX', { month: 'long' });
+    const lbl = dA.getMonth() === dB.getMonth() ? `del ${dA.getDate()} al ${dB.getDate()} de ${mes(dB)}` : `del ${dA.getDate()} de ${mes(dA)} al ${dB.getDate()} de ${mes(dB)}`;
+    const okT = t => clSoloMio_(t.asignados || []) && (ASEO.sec !== 'mant' || t.rt || t.depto === 'mantenimiento');
+    const ordena = L => L.slice().sort((x, y) => pN0(y) - pN0(x));
+    const infosDe = (fn, dia) => ordena(atLista_().filter(t => okT(t) && fn(t)).map(t => atInfo_(t, dia)).filter(I => (!fSub || tipoDe(I) === fSub) && (!fT.length || fT.includes(tipoDe(I))) && (!fPr.length || fPr.includes(prioDe(I)))));
+    const sinF = infosDe(t => !t.rt && !t.fecha, hoyI);
+    const col = (cls, h, n, L, dest) => `<div class="ad-col ${cls}" ondragover="adSemOver_(event)" ondragleave="if(!this.contains(event.relatedTarget))this.classList.remove('drop')" ondrop="adSemDrop_(event,'${dest}')"><div class="ad-colh">${h}<span>${n}</span></div>${L.map(I => atCard_(I)).join('') || `<div class="sm-vacio">${dest ? 'Suelta aquí una tarea' : 'No hay tareas sin fecha'}</div>`}</div>`;
+    const dn = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    return `<div class="sm-nav"><button type="button" onclick="adSemMover_(-1)" title="Semana anterior">‹</button><button type="button" class="lb" onclick="adSemMover_(0)" title="Volver a la semana en curso">${lbl}</button><button type="button" onclick="adSemMover_(1)" title="Semana siguiente">›</button>${lun !== ckLunes_(hoyI) ? '<button type="button" class="hoy" onclick="adSemMover_(0)">Esta semana</button>' : ''}</div>
+      <div class="sm-wrap"><div class="sm-board">${col('sin', '📥 Sin fecha', sinF.length, sinF, '')}${dias.map((d, i) => { const L = infosDe(t => atToca_(t, d), d); return col(d === hoyI ? 'hoy' : '', `${dn[i]} ${tarParseIso_(d).getDate()}${d === hoyI ? '<em>hoy</em>' : ''}`, L.length, L, d); }).join('')}</div></div>`;
+  };
+  if (vista === 'semana') { ASEO._kpisHtml = kpis; return semanaHtml(); }
   return `${ver.length ? (vista === 'tabla' ? tablaHtml() : vista === 'usuario' ? `<div class="ad-urows">${cols}</div>` : `<div class="ad-board ${vista === 'estado' ? 'est' : ''}">${cols}</div>`) : `<div class="pc-mv-empty">${vacio}</div>`}`;
 }
 function adTblCss_() {
@@ -68849,9 +68901,9 @@ function atResCtx_(hid, reserva) {
     ns: C.xs && C.esHoyC && !C.esCopia && String(C.xs.b.Id) === id ? aseoNoSaleChip_(C.xs.b.Id, C.hid) : '' };
 }
 // Personal de una tarea (manual «T» o reporte técnico «R») directo desde la card, con el mismo selector que las cards de aseo.
-function atEquipo_(tipo, t) {
+function atEquipo_(tipo, t, key) {
   const fn = `atAsigCard_('${tipo}','${pcEsc(tipo === 'R' ? t.rtId : t.id)}',this)`;
-  return (t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adNom_(n, 'Asignado', fn, tipo === 'T' ? 'T' + t.id : '')).join('')}</span>`
+  return (t.asignados || []).length ? `<span class="ad-avs">${t.asignados.map(n => adNom_(n, 'Asignado', fn, tipo === 'T' ? 'T' + t.id : '', tipo === 'T' && key ? adTermHora_(key) : '')).join('')}</span>`
     : `<button type="button" class="ad-asg" title="Asignar personal sin abrir los detalles" onclick="event.stopPropagation();${fn}">Sin asignar</button>`;
 }
 window.atAsigCard_ = async function (tipo, id, anchor) {
@@ -68883,7 +68935,7 @@ function atCard_(I) {
     ${I.atrasada ? `<div class="flag red"><i></i>Atrasada · era para el ${aseoDiaTxt_(t.fecha)}</div>` : ''}${RC.flags}
     <div class="r2">${axCatHtml_(t.depto, 'T' + t.id, false)}${t.hora ? `<span class="sep"></span><span>${aseoHoraTxt_(t.hora)}</span>` : ''}${RC.meta}${(t.etiquetas || []).length ? `<span class="sep"></span><span>${t.etiquetas.map(x => '#' + pcEsc(x)).join(' ')}</span>` : ''}</div>
     ${axFila_('T' + t.id, false, t.hid, I.dia)}
-    <div class="r3">${RC.ns}${atEquipo_('T', t)}<span class="sp"></span>${t.depto === 'limpieza' ? rbCardRetBtn_('T' + t.id, I._dia || aseoDia_()) : ''}${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
+    <div class="r3">${RC.ns}${atEquipo_('T', t, I.key)}<span class="sp"></span>${t.depto === 'limpieza' ? rbCardRetBtn_('T' + t.id, I._dia || aseoDia_()) : ''}${axIncMini_('T' + t.id, t.hid, I.dia)}${(t.adjuntos || []).length ? `<span class="ad-gd">📎 ${t.adjuntos.length}</span>` : ''}<button type="button" class="ad-det" onclick="event.stopPropagation();atAbrir_('${pcEsc(t.id)}','${I.dia}')">Detalles</button></div>
     ${adEstRapido_(I.key, '', I.selE, true, t.depto !== 'limpieza')}${plBarra_(plDe_(t.depto, axSrv_('T' + t.id, false), t.plantilla), I.key)}
   </div>`;
 }
@@ -68911,7 +68963,7 @@ function atPintar_(nuevo) {
   const sig = pasos[Math.min(pasos.length - 1, pasos.findIndex(e => e.k === adEstBase_(I.selE)) + 1)];
   dr.innerHTML = `<div class="ad-dh"><div class="r"><span class="code">${pcEsc(I.corto || '—')}</span><span class="t">${pcEsc(I.aloj)}</span><button type="button" class="ad-close" onclick="adCerrar_()">✕</button></div>
       <div class="ad-tt">${D.ico} ${pcEsc(t.titulo)}</div>
-      <div class="ad-sub">${aseoDiaTxt_(I.dia)}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(t.prioridad)}</div>
+      <div class="ad-sub">${t.fecha || t.rt ? aseoDiaTxt_(I.dia) : 'Sin fecha'}${t.hora ? ' · ' + aseoHoraTxt_(t.hora) : ''} · <i style="background:${E.c}"></i>${E.t} · ${prio4Html_(t.prioridad)}</div>
       ${t.problema ? '<div class="ad-badge red"><i></i>Creada como problema</div>' : ''}</div>
     <div class="ad-db">
       <div class="lab">Estado</div><div class="ad-steps" style="grid-template-columns:repeat(${pasos.length + (t.depto === 'limpieza' ? 1 : 0)},1fr)">${adEstBtns_(I.key, '', I.selE, true, t.depto !== 'limpieza', true)}</div>
@@ -68959,7 +69011,7 @@ window.atBorrar_ = async function (id) {
 // ── Formulario "Crea una tarea" ──
 window.atForm_ = function (id, hid, dia) {
   const t = id ? (ASEO.tareas || {})[id] : null;
-  ASEO._tf = t ? Object.assign(JSON.parse(JSON.stringify(t)), { srv: axSrv_('T' + t.id, false) }) : { srv: 'general', hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDiaNuevo_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
+  ASEO._tf = t ? Object.assign(JSON.parse(JSON.stringify(t)), { srv: axSrv_('T' + t.id, false), _sf: !t.fecha }) : { srv: 'general', hid: hid || '', depto: '', problema: false, prioridad: 'media', titulo: '', desc: '', fecha: dia || aseoDiaNuevo_(), hora: '', repite: null, asignados: [], etiquetas: [], adjuntos: [], reserva: '' };
   ASEO._dr = { form: true, k: 'form' };
   atFormPintar_();
 };
@@ -68985,8 +69037,9 @@ function atFormPintar_() {
       <input class="at-in" placeholder="Introduce un título" value="${pcEsc(F.titulo)}" oninput="ASEO._tf.titulo=this.value">
       <textarea class="at-in" rows="4" placeholder="Añade una descripción…" oninput="ASEO._tf.desc=this.value">${pcEsc(F.desc)}</textarea>
       <div class="at-sec"><span>📅 Programar</span><label class="at-tg">Recurrente ${sw(!!F.repite, "atRecTog_()")}</label></div>
-      ${F.repite ? atRecHtml_(F) : `<div class="at-row"><span class="at-k">Vence el</span><input type="date" class="at-in" value="${pcEsc(F.fecha)}" ${atResRango_()} onchange="ASEO._tf.fecha=this.value;atFormPintar_()">
-        <select class="at-in" onchange="ASEO._tf.hora=this.value">${horas.map(h => `<option value="${h}" ${h === (F.hora || '') ? 'selected' : ''}>${h ? aseoHoraTxt_(h) : 'Sin hora'}</option>`).join('')}</select></div>`}
+      ${F.repite ? atRecHtml_(F) : `<div class="at-row"><span class="at-k">Vence el</span>${F._sf ? '<span class="at-in" style="display:inline-flex;align-items:center;color:#64748b">Sin fecha (se asigna en la vista Semana)</span>' : `<input type="date" class="at-in" value="${pcEsc(F.fecha)}" ${atResRango_()} onchange="ASEO._tf.fecha=this.value;atFormPintar_()">`}
+        <button type="button" class="ad-bt" style="flex:none" onclick="atSinFecha_()" title="${F._sf ? 'Elegir una fecha' : 'Dejar la tarea sin fecha para asignarla después'}">${F._sf ? '📅 Poner fecha' : '📥 Sin fecha'}</button>
+        ${F._sf ? '' : `<select class="at-in" onchange="ASEO._tf.hora=this.value">${horas.map(h => `<option value="${h}" ${h === (F.hora || '') ? 'selected' : ''}>${h ? aseoHoraTxt_(h) : 'Sin hora'}</option>`).join('')}</select>`}</div>`}
       ${F.repite ? `<div class="at-row"><span class="at-k">Hora</span><select class="at-in" onchange="ASEO._tf.hora=this.value">${horas.map(h => `<option value="${h}" ${h === (F.hora || '') ? 'selected' : ''}>${h ? aseoHoraTxt_(h) : 'Sin hora'}</option>`).join('')}</select></div>
         <div class="at-hint">Nota: las personas asignadas lo estarán en todas las repeticiones.</div>` : ''}
       <div class="at-sec"><span>👤 Asignados</span><button type="button" class="ad-link" onclick="atAsignar_(this)">＋ Añadir asignado</button></div>
@@ -69121,15 +69174,17 @@ window.atSubir_ = async function (inp) {
     atAdjsPintar_();
   }
 };
+window.atSinFecha_ = function () { const F = ASEO._tf; F._sf = !F._sf; F.fecha = F._sf ? '' : aseoDiaNuevo_(); F.hora = F._sf ? '' : F.hora; atFormPintar_(); };
 window.atGuardar_ = async function () {
   const F = ASEO._tf;
   if (!F.depto) return alert('Elige el tipo de tarea: Aseo, Inspección o Mantenimiento.');
   if (!String(F.titulo || '').trim()) return alert('Escribe el título de la tarea.');
-  if (!F.fecha) return alert('Elige la fecha.');
+  if (F.repite) F._sf = false;
+  if (!F.fecha && !F._sf) return alert('Elige la fecha (o marca «Sin fecha»).');
   const R = F.repite;
   if (R && Array.isArray(R.dias_semana) && !(R.tipo === 'semanal' ? R.dias_semana : R.dias_mes || []).length) return alert(R.tipo === 'semanal' ? 'Elige al menos un día de la semana.' : 'Elige al menos un día del mes.');
   if (R && R.fin && R.fin < F.fecha) return alert('«Hasta» debe ser posterior a «Desde».');
-  if (F.reserva) { const b = pcMovBookings_().find(x => String(x.Id) === String(F.reserva)); if (b && !(F.fecha >= _pagosDateIso(b.DateArrival) && F.fecha <= _pagosDateIso(b.DateDeparture))) return alert('La fecha debe quedar dentro de la estancia de la reserva enlazada.'); }
+  if (F.reserva && F.fecha) { const b = pcMovBookings_().find(x => String(x.Id) === String(F.reserva)); if (b && !(F.fecha >= _pagosDateIso(b.DateArrival) && F.fecha <= _pagosDateIso(b.DateDeparture))) return alert('La fecha debe quedar dentro de la estancia de la reserva enlazada.'); }
   const btn = document.getElementById('at-ok'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
     const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: Object.assign({}, F, { _deRt: undefined }), user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
@@ -70196,7 +70251,7 @@ const CK_VISTAS = [['estado', 'Por estado'], ['propiedad', 'Por propiedad'], ['u
 // 📅 Calendario: botón que se activa/desactiva y se muestra a la izquierda, compartido con cualquier vista (como en Aseo).
 function ckCalBtnHtml_(on, fn) { return `<button type="button" class="aseo-btn ck-ib ${on ? 'on' : ''}" onclick="${fn}" title="${on ? 'Ocultar calendario' : 'Mostrar calendario'}">📅</button>`; }
 function ckSplitHtml_(on, calHtml, mainHtml, cls) { return on ? `<div class="ck-split ${cls || ''}"><div class="ck-splitcal">${calHtml}</div><div class="ck-splitmain">${mainHtml}</div></div>` : mainHtml; }
-function ckVistasHtml_(cur, fn) { return `<div class="ad-seg"><span>Vista</span>${CK_VISTAS.map(([k, t]) => `<button type="button" class="${cur === k ? 'on' : ''}" onclick="${fn}('${k}')">${t}</button>`).join('')}</div>`; }
+function ckVistasHtml_(cur, fn, ks, extra) { return `<div class="ad-seg"><span>Vista</span>${CK_VISTAS.filter(v => !ks || ks.includes(v[0])).concat(extra || []).map(([k, t]) => `<button type="button" class="${cur === k ? 'on' : ''}" onclick="${fn}('${k}')">${t}</button>`).join('')}</div>`; }
 function ckMesHoy_() { return aseoHoyIso_().slice(0, 7); }
 function ckMesMover_(ym, v) { if (typeof v === 'string') return v; if (!v) return ckMesHoy_(); const [y, m] = (ym || ckMesHoy_()).split('-').map(Number), d = new Date(y, m - 1 + v, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
 function ckMesNavHtml_(ym, fn) {
@@ -70367,13 +70422,15 @@ function aseoTimelineHtml_(dia, m) {
     .tl-c{min-height:64px;min-width:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;padding:4px;display:flex;flex-direction:column;gap:4px}.tl-c.hoy{background:#faf5ff;border-color:#ddd6fe}
     .tl-card.oc-task{position:static;width:auto;height:auto;cursor:pointer}.tl-card .t0{display:flex;align-items:center;gap:6px;margin-bottom:3px}.tl-card .t0 b{font:700 10.5px ui-monospace,Menlo,monospace;color:#0f1729}.tl-card .t0 span{font-size:10.5px;font-weight:700;color:#4338ca;background:#eef2ff;border-radius:5px;padding:0 5px;margin-left:auto}.tl-card .t0 small{font-size:10px;color:#94a3b8}
     .tl-void{padding:40px;text-align:center;color:#94a3b8;font-size:13px}`; document.head.appendChild(st); }
-  const porP = new Map(), hs = [];
+  const porP = new Map(), hs = [], vistas = new Set();
   const hhmm = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
   m.forEach((L, hid) => {
     const a = typeof atAloj_ === 'function' ? atAloj_(hid) : { corto: '' }, cod = String(a.corto || '').toUpperCase() || String(a.nombre || hid);
     L.forEach(t => {
-      if (t.ghost || t.dia !== dia || (t.tarea && t.tarea.rt)) return;
-      const key = t.tarea ? `T${t.tarea.id}-${dia}` : t.id, reg = aseoEstDe_(key); if (!reg || !['terminado', 'inspeccionado'].includes(reg.estado)) return;
+      // v2172: una limpieza atrasada (card de un día anterior) terminada HOY también cuenta: lo que manda es el día en que se marcó Terminado.
+      if (t.ghost || (t.tarea && (t.tarea.rt || t.dia !== dia))) return;
+      const key = t.tarea ? `T${t.tarea.id}-${dia}` : t.id; if (vistas.has(key)) return; vistas.add(key);
+      const reg = aseoEstDe_(key); if (!reg || !['terminado', 'inspeccionado'].includes(reg.estado)) return;
       const H = reg.hist || {}, fin = (H.terminado && H.terminado.at) || reg.at, ini = H.en_proceso && H.en_proceso.at; if (!fin) return;
       const d = new Date(fin); if (isNaN(d) || tarIso_(d) !== dia) return;
       const pers = t.tarea ? (t.tarea.asignados || []) : aseoAsigDe_(t.id, 'aseo'), lista = pers.length ? pers.map(n => String(n).replace(/\s*\(WhatsApp\)\s*$/, '').trim()) : ['Sin asignar'];
@@ -74996,13 +75053,31 @@ function tdUrgDe_(it, rr) {
 // baja, fuera de rango · Leve: solo nota). Crítico: Grave→Alta, Media→Media, Leve→Baja. Normal: Grave→Media, Media→Baja, Leve→Seguimiento.
 const TD_NIV = { alta: { r: 4, t: 'Alta', c: '#dc2626', e: '🔴' }, media: { r: 3, t: 'Media', c: '#f97316', e: '🟠' }, baja: { r: 2, t: 'Baja', c: '#eab308', e: '🟡' }, seg: { r: 1, t: 'Seguimiento', c: '#94a3b8', e: '⚪' } };
 function tdNivelDe_(crit, u) { const g = u.n >= 3 ? 'grave' : u.n === 2 ? 'media' : 'leve'; const k = crit ? { grave: 'alta', media: 'media', leve: 'baja' }[g] : { grave: 'media', media: 'baja', leve: 'seg' }[g]; return Object.assign({ k }, TD_NIV[k]); }
-function tdSemHtml_(niv) { const on = niv.k; return `<span class="tb-sem" title="Urgencia ${niv.t}">${['alta', 'media', 'baja'].map(k => `<i class="${on === k ? 'on' : ''}" style="--c:${TD_NIV[k].c}"></i>`).join('')}<b style="color:${niv.c}">${niv.t}</b></span>`; }
+function tdSemCss_() { if (document.getElementById('td-sem-css')) return; const st = document.createElement('style'); st.id = 'td-sem-css'; st.textContent = `.tb-sem.ed{cursor:pointer;padding:3px 6px;margin:-3px -6px;border-radius:8px;border:1px dashed transparent}.tb-sem.ed:hover{background:#f1f5f9;border-color:#cbd5e1}.tb-sem em{font-style:normal;font-size:11px;margin-left:3px;color:#6366f1}
+  .td-um{position:fixed;z-index:30000;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 14px 40px rgba(15,23,42,.28);padding:6px;min-width:230px;font-family:Inter,system-ui,sans-serif}.td-um h6{margin:4px 8px 6px;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+  .td-um button{all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;width:calc(100% - 16px);padding:7px 8px;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a}.td-um button:hover{background:#f1f5f9}.td-um button i{width:12px;height:12px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.12)}.td-um button.on{background:#eef2ff}.td-um button .ck{margin-left:auto;color:#4338ca}.td-um hr{border:0;border-top:1px solid #e5e7eb;margin:4px 0}.td-um .au{font-weight:600;color:#475569}`; document.head.appendChild(st); }
+// Semáforo de urgencia. Con `i` (índice en TAR_STATE._urgItems) es editable: clic → menú para cambiarla a mano o volver a la automática.
+function tdSemHtml_(niv, i) { tdSemCss_(); const on = niv.k, ed = i != null; return `<span class="tb-sem ${ed ? 'ed' : ''}" ${ed ? `onclick="event.stopPropagation();tdUrgMenu_(this,${i})"` : ''} title="${ed ? 'Clic para cambiar la urgencia' : 'Urgencia ' + niv.t}${niv.manual ? ' · cambiada manualmente (automática: ' + niv.auto.t + ')' : ''}">${['alta', 'media', 'baja'].map(k => `<i class="${on === k ? 'on' : ''}" style="--c:${TD_NIV[k].c}"></i>`).join('')}<b style="color:${niv.c}">${niv.t}</b>${niv.manual ? '<em title="Cambiada manualmente">✎</em>' : ''}</span>`; }
+window.tdUrgMenu_ = function (el, i) {
+  const x = (TAR_STATE._urgItems || [])[i]; const old = document.getElementById('td-um'); if (old) old.remove(); if (!x) return; tdSemCss_(); const m = document.createElement('div'); m.id = 'td-um'; m.className = 'td-um';
+  m.innerHTML = `<h6>Urgencia de este campo</h6>${['alta', 'media', 'baja', 'seg'].map(k => `<button type="button" class="${x.niv.k === k ? 'on' : ''}" onclick="tdUrgSet_(${i},'${k}')"><i style="background:${TD_NIV[k].c}"></i>${TD_NIV[k].t}${x.niv.k === k ? '<span class="ck">✓</span>' : ''}</button>`).join('')}
+    ${x.niv.manual ? `<hr><button type="button" onclick="tdUrgSet_(${i},null)"><span class="au">↺ Volver a automática (${esc(x.auto.t)})</span></button>` : `<hr><div class="au" style="padding:4px 8px;font-size:11.5px">Automática: <b>${esc(x.auto.t)}</b> (relevancia × respuesta)</div>`}`;
+  document.body.appendChild(m); const r = el.getBoundingClientRect(); m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, r.left)) + 'px'; m.style.top = (r.bottom + m.offsetHeight + 12 > innerHeight ? Math.max(8, r.top - m.offsetHeight - 4) : r.bottom + 4) + 'px';
+  setTimeout(() => { const cerrar = ev => { if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('mousedown', cerrar, true); } }; document.addEventListener('mousedown', cerrar, true); }, 0);
+};
+window.tdUrgSet_ = async function (i, k) {
+  const x = (TAR_STATE._urgItems || [])[i], m = document.getElementById('td-um'); if (m) m.remove(); if (!x) return; const llave = x.key + '|' + x.it.id, man = TAR_STATE._urgMan = TAR_STATE._urgMan || {}, prev = man[llave];
+  if (k) man[llave] = { n: k, by: (typeof currentUser !== 'undefined' && currentUser) || '', at: new Date().toISOString() }; else delete man[llave]; tdRender_(); // se ve al instante
+  try { const j = await fetch(`${BACKEND}/aseo/urgencia`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: x.key, item: x.it.id, nivel: k || '', user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); }
+  catch (e) { if (prev) man[llave] = prev; else delete man[llave]; tdRender_(); alert('No se pudo guardar la urgencia: ' + (e.message || e)); }
+};
 function tdRelChip_(crit) { return crit ? '<span class="pl-crit">🚨 Crítico</span>' : '<span class="tb-rel">No crítico</span>'; }
 function tdRespTxt_(it, rr) { const v = rr.v; if (it.tipo === 'condicion') return v === 'na' ? 'N/A' : (PL_COND.find(x => x[0] === v) || [])[1] || '—'; if (it.tipo === 'sino') return v === 'si' ? 'Sí' : v === 'no' ? 'No' : '—';
   if (it.tipo === 'calif') return v ? `${v} de ${Number(it.escala) || 5}` : '—'; if (it.tipo === 'lista') return (it.sub || []).length ? `${Object.values(v || {}).filter(Boolean).length}/${it.sub.length}` : v === true ? 'Hecho' : '—'; return v == null || v === '' ? '—' : String(v).slice(0, 60); }
 // Hallazgos de todos los levantamientos del periodo: {items, faltan (llaves aún no cargadas), hids (por alojamiento: doc elegido)}.
 function tdUrgDatos_(O) {
   const U = ASEO.pl.urg = ASEO.pl.urg || { docs: {} };
+  if (!TAR_STATE._urgManOk && !TAR_STATE._urgManPed) { TAR_STATE._urgManPed = 1; fetch(`${BACKEND}/aseo/urgencias`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (j.ok) TAR_STATE._urgMan = j.urg || {}; TAR_STATE._urgManOk = 1; TAR_STATE._urgManPed = 0; tdRender_(); }).catch(() => { TAR_STATE._urgManPed = 0; TAR_STATE._urgManOk = 1; }); }
   if (!ASEO.pl.cargado) { plCargar_().then(() => tdRender_()); return null; }
   if (!ASEO.tareas && !U.cargandoT) { U.cargandoT = true; aseoRefresh_().catch(() => {}).then(() => { U.cargandoT = false; tdRender_(); }); } // tareas manuales (para marcar las ya ligadas)
   const items = [], faltan = [], hids = {};
@@ -75022,7 +75097,7 @@ function tdUrgDatos_(O) {
         if (doc && doc.resp && Object.keys(doc.resp).length && (!mejor || String(doc.at || '') > String(mejor.at || ''))) { mejor = doc; mejorKey = key; } }
       if (!mejor) { hids[r.ID + '|' + hid] = null; return; } const key = mejorKey, resp = mejor.resp, per = (key.match(/:(\d{4}-\d{2}-\d{2}(?:-\d+)?)$/) || [])[1] || P;
       hids[r.ID + '|' + hid] = { key, per, at: mejor.at || '', n: Object.keys(resp).length };
-      (p.secciones || []).forEach(s => (s.items || []).forEach(it => { const rr = resp[it.id]; if (!rr) return; const u = tdUrgDe_(it, rr); if (it.caract) return; if (u) { const crit = plEsCrit_(s, it); items.push({ r, hid, P, per, key, p, s, it, rr, u, crit, niv: tdNivelDe_(crit, u), at: mejor.at || '' }); } })); }); });
+      (p.secciones || []).forEach(s => (s.items || []).forEach(it => { const rr = resp[it.id]; if (!rr) return; const u = tdUrgDe_(it, rr); if (it.caract) return; if (u) { const crit = plEsCrit_(s, it), auto = tdNivelDe_(crit, u), man = (TAR_STATE._urgMan || {})[key + '|' + it.id], niv = man && TD_NIV[man.n] ? Object.assign({ k: man.n }, TD_NIV[man.n], { manual: true, auto, by: man.by, at: man.at }) : auto; items.push({ r, hid, P, per, key, p, s, it, rr, u, crit, auto, niv, at: mejor.at || '' }); } })); }); });
   if (faltan.length && !U.pend) { U.pend = fetch(`${BACKEND}/aseo/plantilla-resp/lote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ks: faltan }) }).then(r => r.json())
     .then(j => { (j.items || []).forEach(x => { U.docs[x.k] = x.doc || {}; }); faltan.forEach(k => { if (U.docs[k] === undefined) U.docs[k] = {}; }); U.pend = null; tdRender_(); }).catch(() => { U.pend = null; }); }
   items.sort((a, b) => b.niv.r - a.niv.r || (b.crit - a.crit) || b.u.n - a.u.n || String(b.at).localeCompare(String(a.at))); // urgencia alta arriba; a igual nivel, críticos primero
@@ -75037,7 +75112,7 @@ function tdTablaUrg_(O, vac) {
     return { onclick: x.per && x.per !== tdIGPerDe_(x.r, x.hid, x.P) ? `tdAbrirHijo_('${esc(x.r.ID)}','${esc(x.hid)}','${esc(x.per)}')` : `tdAbrirHijoEn_('${esc(x.r.ID)}','${esc(x.hid)}','${x.P}')`, cells: [
       `<span class="tb-a"><b class="code" style="font-size:11px">${esc(a.corto ? String(a.corto).toUpperCase() : '—')}</b><small style="color:#0f1729;font-weight:600">${esc(String(a.nombre || x.hid).replace(/^Calle\s+/i, ''))}</small></span>`,
       ckTx_(x.at ? aseoDiaTxt_(String(x.at).slice(0, 10)) : '—'),
-      tdSemHtml_(x.niv),
+      tdSemHtml_(x.niv, i),
       `<span class="tb-a">${tdRelChip_(x.crit)}<small style="color:#0f1729;font-weight:600;white-space:normal">${esc(x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t)}</small></span>`,
       `<span class="tb-a"><b style="font-size:12px;color:${x.u.c}">${esc(x.u.t)}</b><small>${esc(tdRespTxt_(x.it, x.rr))}</small></span>`,
       `<span class="tb-mu" style="white-space:normal;font-size:11.5px">${esc(String(x.rr.nota || '').slice(0, 140))}</span>`,
@@ -75121,7 +75196,7 @@ function tdAlDetalle_(r, w, L, abrir) {
   const tareaDe = x => Object.values(ASEO.tareas || {}).find(t => t && t.lv && t.lv.key === x.key && t.lv.item === x.it.id);
   const head = `<div class="rk-dh"><span class="rk-mu" style="flex:0 0 auto">${L.length} hallazgo${L.length === 1 ? '' : 's'}</span>${tdCnt_(w.c, w.hid)}<span style="flex:1"></span><button type="button" class="tb-ed" onclick="event.stopPropagation();${abrir}">📋 Abrir levantamiento</button></div>`;
   const filas = L.map(x => { const i = TAR_STATE._urgItems.indexOf(x), fotos = (x.rr.fotos || []).filter(f => !f.subiendo), T = tareaDe(x);
-    return `<tr><td>${tdSemHtml_(x.niv)}</td>
+    return `<tr><td>${tdSemHtml_(x.niv, i)}</td>
       <td>${tdRelChip_(x.crit)}<small>${esc(x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t)}</small></td>
       <td><b style="color:${x.u.c}">${esc(x.u.t)}</b><small>${esc(tdRespTxt_(x.it, x.rr))}</small></td><td class="nt">${esc(String(x.rr.nota || '').slice(0, 160))}</td>
       <td>${fotos.length ? `<button type="button" class="tb-foto" onclick="event.stopPropagation();tdUrgFotos_(${i})" title="${fotos.length} foto${fotos.length === 1 ? '' : 's'}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>${fotos.length > 1 ? `<i>${fotos.length}</i>` : ''}</button>` : '<span class="rk-mu">—</span>'}</td>
@@ -75777,7 +75852,7 @@ window.mcInit = async function () {
   await mcCargar_(); mcRender_(); if ((MC.job && MC.job.running) || (MC.bus && MC.bus.running)) mcPoll_(); if (!MC.propios) setTimeout(async () => { if (!document.getElementById('mc-res')) return; await mcCargar_(); mcRes_(); }, 30000); // los propios se resuelven en segundo plano la primera vez
 };
 async function mcCargar_() {
-  try { const j = await fetch(`${BACKEND}/mercado/airbnb`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); MC.items = j.items || {}; MC.lista = j.lista || []; MC.job = j.job || null; MC.bus = j.busqueda || null; MC.ultima = j.ultimaBusqueda || null; if (!MC._escTs || Date.now() - MC._escTs > 8000) MC.esc = j.escenarios || MC.esc || null; /* una respuesta vieja del sondeo no pisa fechas recién guardadas */ MC.propios = j.propios || null; MC.ownHosts = new Set(Object.keys((MC.propios && MC.propios.ids) || {}).map(id => (MC.items[id] || {}).hostId).filter(Boolean)); MC.act = j.actualizado || ''; MC.error = ''; }
+  try { const j = await fetch(`${BACKEND}/mercado/airbnb`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); MC.items = j.items || {}; MC.lista = j.lista || []; MC.job = j.job || null; MC.bus = j.busqueda || null; MC.ultima = j.ultimaBusqueda || null; if (!MC._escTs || Date.now() - MC._escTs > 8000) MC.esc = j.escenarios || MC.esc || null; /* una respuesta vieja del sondeo no pisa fechas recién guardadas */ if (!MC._horasTs || Date.now() - MC._horasTs > 8000) MC.horas = j.horas || MC.horas || [11, 19]; MC.propios = j.propios || null; MC.ownHosts = new Set(Object.keys((MC.propios && MC.propios.ids) || {}).map(id => (MC.items[id] || {}).hostId).filter(Boolean)); MC.act = j.actualizado || ''; MC.error = ''; }
   catch (e) { MC.error = String(e.message || e); }
 }
 function mcCss_() {
@@ -75828,6 +75903,13 @@ function mcCss_() {
   .mc-modal{position:fixed;inset:0;z-index:20000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}.mc-mbox{background:#fff;border-radius:16px;width:min(1040px,100%);max-height:94vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.35)}
   .mc-mh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid #eef0f3;font-size:15px}.mc-mh .mc-in{width:auto;flex:0 0 auto}.mc-mh .mc-btn{flex:none}.mc-mh .mc-seg{flex:none}.mc-gw{position:relative;padding:8px 10px 0}.mc-tip{position:absolute;pointer-events:none;background:#0f172a;color:#fff;font-size:12px;line-height:1.45;padding:7px 10px;border-radius:9px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}
   .mc-chip.mc-own{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}.mc-tb tr.own td{background:#fffbeb}.mc-tb tr.own td.sk{background:#fffbeb}.mc-tb tr.own:hover td{background:#fef3c7}
+  .mc-mbox.wide{width:min(1180px,100%)}.mc-btn.sm{padding:4px 10px;font-size:11.5px}.mc-gq{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 14px 4px}.mc-nav{padding:0 10px}
+  .mc-ck{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-size:12.5px;color:#334155}.mc-ck .ck{width:18px;height:18px;border:1.5px solid #94a3b8;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background:#fff;box-sizing:border-box}.mc-ck.on .ck{background:#0f766e;border-color:#0f766e}
+  .mc-sg{padding:6px 16px 22px}.mc-sg h4{margin:22px 0 8px;font-size:15px;color:#0f172a;border-bottom:2px solid #99f6e4;padding-bottom:4px}.mc-sgk{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:8px 0}.mc-sgk div{background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;padding:10px 12px}.mc-sgk b{display:block;font-size:19px;color:#0f172a}.mc-sgk span{font-size:11px;color:#475569;font-weight:600}
+  .mc-sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.mc-sgrid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;margin:8px 0}@media(max-width:560px){.mc-sgrid2{grid-template-columns:1fr}}
+  .mc-fig{border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;background:#fff;min-width:0}.mc-fig>b{display:block;font-size:12.5px;color:#334155;margin-bottom:6px}.mc-ley{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:#475569;margin-top:4px}.mc-ley i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .mc-st{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0}.mc-st th{background:#f8fafc;text-align:left;padding:6px 8px;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #e5e7eb}.mc-st td{padding:6px 8px;border-bottom:1px solid #f1f5f9}.mc-st td.pos{color:#15803d;font-weight:700}.mc-st td.neg{color:#b91c1c;font-weight:700}.mc-st td.sig{font-weight:800;color:#0f766e}
+  .mc-concl{background:#f0fdfa;border:1px solid #99f6e4;border-radius:14px;padding:6px 18px}.mc-concl p{font-size:13px;line-height:1.55;color:#0f172a;margin:10px 0}
   .mc-tb th.srt{cursor:pointer;user-select:none}.mc-tb th.srt:hover{background:#eef2f7}.mc-tb th.srt i{font-style:normal;margin-left:5px;font-size:9px;color:#cbd5e1}.mc-tb th.srt.on{color:#0f766e}.mc-tb th.srt.on i{color:#0f766e;font-size:10px}
   .mc-tb td.mc-tdc{padding:0;max-width:none;overflow:visible;border-left:2px solid #99f6e4;border-right:2px solid #99f6e4}.mc-tb th.mc-thc{padding:0;cursor:default;border-left:2px solid #99f6e4;border-right:2px solid #99f6e4;background:#f8fafc}
   .mc-tb tbody tr:hover td{background:#f0fdfa}.mc-tb tbody tr:hover td.sk{background:#f0fdfa}.mc-tb tbody tr:hover .mc-cr{background-color:#f0fdfa}
@@ -75889,39 +75971,252 @@ function mcAgreg_(modo) {
 window.mcVista_ = function (v) { MC.vista = v; try { localStorage.setItem('mc-vista', v); } catch (_) {} mcRes_(); };
 window.mcCuenta_ = function (c) { MC.cuenta = c; try { localStorage.setItem('mc-cuenta', c); } catch (_) {} if (document.getElementById('mc-gr')) mcGrafPintar_(); mcRes_(); };
 window.mcTipSerie_ = function (el, e, id, d0) { const cum = MC._ser[id]; if (!cum) return; const k = Math.max(0, Math.min(cum.length - 1, Math.floor((e.clientX - el.getBoundingClientRect().left) / 22))), d = new Date(d0 + 'T12:00:00'); d.setDate(d.getDate() + k); el.title = `${mcF(mcIso_(d))}: ${cum[k]} noche${cum[k] === 1 ? '' : 's'} ocupada${cum[k] === 1 ? '' : 's'} acumulada${cum[k] === 1 ? '' : 's'}`; };
-// Gráfica emergente «Ocupación agregada»: suma de las noches ocupadas de todos los alojamientos (acumulada o por día), mes-día en X y noches en Y.
-window.mcGraf_ = function () {
-  document.getElementById('mc-gr') && document.getElementById('mc-gr').remove(); const m = document.createElement('div'); m.id = 'mc-gr'; m.className = 'mc-modal';
-  m.innerHTML = `<div class="mc-mbox"><div class="mc-mh"><b>📊 Ocupación agregada</b><span class="mc-mu" id="mc-gr-sub"></span><span style="flex:1"></span>
-      <div class="mc-seg sm"><button type="button" id="mc-gb-cum" onclick="MC.gm='cum';mcGrafPintar_()">Acumulada</button><button type="button" id="mc-gb-dia" onclick="MC.gm='dia';mcGrafPintar_()">Por noche</button></div>
-      <select class="mc-in" onchange="mcCuenta_(this.value)">${Object.entries(MC_CUENTA_T).map(([k, t]) => `<option value="${k}" ${MC.cuenta === k ? 'selected' : ''}>${t}</option>`).join('')}</select>
-      <button type="button" class="mc-btn" onclick="mcGrafCsv_()">⬇ CSV</button><button type="button" class="mc-x" style="font-size:18px" onclick="document.getElementById('mc-gr').remove()">✕</button></div>
-    <div class="mc-gw" id="mc-gw"></div><div class="mc-mu" style="padding:6px 14px 12px" id="mc-gr-nota"></div></div>`;
+/*MCSTAT_BEGIN*/
+// ── Estadística básica para «Segmentación» (sin librerías) ──
+const mcsMean = a => a.reduce((s, x) => s + x, 0) / a.length;
+const mcsSd = a => { const m = mcsMean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / Math.max(1, a.length - 1)); };
+const mcsQ = (a, p) => { const s = a.slice().sort((x, y) => x - y), k = (s.length - 1) * p, f = Math.floor(k), c = Math.ceil(k); return s[f] + (s[c] - s[f]) * (k - f); };
+function mcsRank(a) { const idx = a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]), r = new Array(a.length); for (let i = 0; i < idx.length;) { let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++; const av = (i + j) / 2 + 1; for (let k = i; k <= j; k++) r[idx[k][1]] = av; i = j + 1; } return r; }
+function mcsCor(x, y) { const mx = mcsMean(x), my = mcsMean(y); let sxy = 0, sxx = 0, syy = 0; for (let i = 0; i < x.length; i++) { const dx = x[i] - mx, dy = y[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; } return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : 0; }
+const mcsSpear = (x, y) => mcsCor(mcsRank(x), mcsRank(y));
+function mcsInv(A) { const n = A.length, M = A.map((r, i) => r.concat(Array.from({ length: n }, (_, j) => i === j ? 1 : 0)));
+  for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r; if (Math.abs(M[p][c]) < 1e-12) return null; [M[c], M[p]] = [M[p], M[c]]; const d = M[c][c]; for (let k = 0; k < 2 * n; k++) M[c][k] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; if (f) for (let k = 0; k < 2 * n; k++) M[r][k] -= f * M[c][k]; } }
+  return M.map(r => r.slice(n)); }
+function mcsLgamma(x) { const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5]; let y = x, t = x + 5.5; t -= (x + 0.5) * Math.log(t); let s = 1.000000000190015; for (let j = 0; j < 6; j++) s += c[j] / ++y; return -t + Math.log(2.5066282746310005 * s / x); }
+function mcsBetaCf(x, a, b) { const MAXIT = 200, EPS = 3e-12, FPMIN = 1e-30; let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap; if (Math.abs(d) < FPMIN) d = FPMIN; d = 1 / d; let h = d;
+  for (let m = 1; m <= MAXIT; m++) { const m2 = 2 * m; let aa = m * (b - m) * x / ((qam + m2) * (a + m2)); d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2)); d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < EPS) break; }
+  return h; }
+function mcsIncBeta(x, a, b) { if (x <= 0) return 0; if (x >= 1) return 1; const bt = Math.exp(mcsLgamma(a + b) - mcsLgamma(a) - mcsLgamma(b) + a * Math.log(x) + b * Math.log(1 - x)); return x < (a + 1) / (a + b + 2) ? bt * mcsBetaCf(x, a, b) / a : 1 - bt * mcsBetaCf(1 - x, b, a) / b; }
+const mcsTp = (t, df) => mcsIncBeta(df / (df + t * t), df / 2, 0.5); // p-valor de dos colas de la t de Student
+function mcsTcrit(df) { let lo = 0, hi = 50; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (mcsTp(m, df) > 0.05) lo = m; else hi = m; } return (lo + hi) / 2; }
+// Regresión lineal por mínimos cuadrados. X: filas con el 1 de la constante en la primera columna.
+function mcsOls(X, y) { const n = X.length, k = X[0].length; const XtX = Array.from({ length: k }, () => new Array(k).fill(0)), Xty = new Array(k).fill(0);
+  for (let i = 0; i < n; i++) for (let a = 0; a < k; a++) { Xty[a] += X[i][a] * y[i]; for (let b = a; b < k; b++) XtX[a][b] += X[i][a] * X[i][b]; }
+  for (let a = 0; a < k; a++) for (let b = 0; b < a; b++) XtX[a][b] = XtX[b][a];
+  const inv = mcsInv(XtX); if (!inv) return null; const beta = inv.map(r => r.reduce((s, v, j) => s + v * Xty[j], 0)); const fit = X.map(r => r.reduce((s, v, j) => s + v * beta[j], 0)), res = y.map((v, i) => v - fit[i]);
+  const rss = res.reduce((s, e) => s + e * e, 0), my = mcsMean(y), tss = y.reduce((s, v) => s + (v - my) * (v - my), 0), df = n - k, s2 = df > 0 ? rss / df : NaN, r2 = tss > 0 ? 1 - rss / tss : 0;
+  const se = inv.map((r, i) => Math.sqrt(Math.max(0, r[i] * s2))), t = beta.map((b, i) => se[i] ? b / se[i] : 0), p = t.map(v => df > 0 ? mcsTp(v, df) : NaN), tc = df > 0 ? mcsTcrit(df) : NaN;
+  return { n, k, df, beta, se, t, p, ci: beta.map((b, i) => [b - tc * se[i], b + tc * se[i]]), r2, adj: df > 0 ? 1 - (1 - r2) * (n - 1) / df : NaN, rmse: Math.sqrt(rss / n), fit, res }; }
+const mcsR2 = (cols, y) => { if (!cols.length) return 0; const X = y.map((_, i) => [1].concat(cols.map(c => c[i]))), m = mcsOls(X, y); return m ? m.r2 : 0; };
+// Descomposición de R² por variable (LMG / Shapley): promedio de lo que aporta cada grupo de variables en todos los órdenes posibles de entrada al modelo.
+function mcsLmg(groups, y) { const p = groups.length, r2 = new Array(1 << p).fill(0), fact = [1]; for (let i = 1; i <= p; i++) fact[i] = fact[i - 1] * i;
+  for (let m = 1; m < (1 << p); m++) { const cols = []; groups.forEach((g, j) => { if (m & (1 << j)) cols.push(...g.cols); }); r2[m] = mcsR2(cols, y); }
+  return groups.map((g, j) => { let s = 0; for (let m = 0; m < (1 << p); m++) { if (m & (1 << j)) continue; let sz = 0; for (let b = 0; b < p; b++) if (m & (1 << b)) sz++; s += fact[sz] * fact[p - sz - 1] / fact[p] * (r2[m | (1 << j)] - r2[m]); } return s; }); }
+// Valores y vectores propios de una matriz simétrica (método de Jacobi), ordenados de mayor a menor.
+function mcsEig(A0) { const n = A0.length, A = A0.map(r => r.slice()), V = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? 1 : 0));
+  for (let sweep = 0; sweep < 100; sweep++) { let off = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) off += A[i][j] * A[i][j]; if (off < 1e-22) break;
+    for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) { if (Math.abs(A[p][q]) < 1e-18) continue; const th = (A[q][q] - A[p][p]) / (2 * A[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), s = t * c;
+      for (let k = 0; k < n; k++) { const akp = A[k][p], akq = A[k][q]; A[k][p] = c * akp - s * akq; A[k][q] = s * akp + c * akq; }
+      for (let k = 0; k < n; k++) { const apk = A[p][k], aqk = A[q][k]; A[p][k] = c * apk - s * aqk; A[q][k] = s * apk + c * aqk; }
+      for (let k = 0; k < n; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; } } }
+  const ord = A.map((_, i) => i).sort((a, b) => A[b][b] - A[a][a]); return { vals: ord.map(i => A[i][i]), vecs: ord.map(i => V.map(r => r[i])) }; }
+// PCA sobre variables estandarizadas. cols: [{n, v:[...]}] → componentes, cargas (correlación variable–componente) y puntajes.
+function mcsPca(cols) { const p = cols.length, n = cols[0].v.length, Z = cols.map(c => { const m = mcsMean(c.v), s = mcsSd(c.v) || 1; return c.v.map(x => (x - m) / s); });
+  const R = Array.from({ length: p }, (_, a) => Array.from({ length: p }, (_, b) => mcsCor(cols[a].v, cols[b].v))), E = mcsEig(R), tot = E.vals.reduce((s, v) => s + Math.max(0, v), 0);
+  return { vals: E.vals, pct: E.vals.map(v => v / tot), load: cols.map((c, a) => E.vals.map((l, k) => E.vecs[k][a] * Math.sqrt(Math.max(0, l)))), scores: Array.from({ length: n }, (_, i) => E.vals.map((l, k) => Z.reduce((s, z, a) => s + z[i] * E.vecs[k][a], 0))), R }; }
+// MCA (análisis de correspondencias múltiples). vars: [{n, cats:[...], v:[índice de categoría por individuo]}]; sup: variable suplementaria (misma forma).
+function mcsMca(vars, sup) { const n = vars[0].v.length, Q = vars.length, cats = []; vars.forEach((va, a) => va.cats.forEach((c, k) => cats.push({ var: a, name: c, cnt: 0, key: va.n + ': ' + c, k })));
+  const off = []; let o = 0; vars.forEach(va => { off.push(o); o += va.cats.length; }); const J = cats.length, idx = i => vars.map((va, a) => off[a] + va.v[i]);
+  const Z = Array.from({ length: n }, (_, i) => { const r = new Array(J).fill(0); idx(i).forEach(j => { r[j] = 1; cats[j].cnt++; }); return r; });
+  const cj = cats.map(c => c.cnt / (n * Q)), ri = 1 / n, S = Z.map(r => r.map((z, j) => (z / (n * Q) - ri * cj[j]) / Math.sqrt(ri * cj[j])));
+  const A = Array.from({ length: J }, () => new Array(J).fill(0)); for (let i = 0; i < n; i++) for (let a = 0; a < J; a++) { const sa = S[i][a]; if (sa) for (let b = a; b < J; b++) A[a][b] += sa * S[i][b]; } for (let a = 0; a < J; a++) for (let b = 0; b < a; b++) A[a][b] = A[b][a];
+  const E = mcsEig(A), K = Math.min(J - Q, 6), vals = E.vals.slice(0, K), sig = vals.map(v => Math.sqrt(Math.max(v, 0)));
+  const col = cats.map((c, j) => vals.map((l, k) => E.vecs[k][j] / Math.sqrt(cj[j]) * sig[k])); // coordenadas principales de categorías
+  const row = Z.map(r => vals.map((l, k) => sig[k] > 1e-12 ? r.reduce((s, z, j) => s + (z ? col[j][k] : 0), 0) / (Q * sig[k]) : 0)); // coordenadas de individuos
+  const ctr = cats.map((c, j) => vals.map((l, k) => l > 0 ? cj[j] * col[j][k] * col[j][k] / l : 0));
+  const inertiaTotal = (J - Q) / Q, adj = vals.map(l => l > 1 / Q ? Math.pow(Q / (Q - 1) * (l - 1 / Q), 2) : 0), adjTot = adj.reduce((s, v) => s + v, 0) || 1;
+  let supCoords = null; if (sup) supCoords = sup.cats.map((c, m) => { const ids = []; sup.v.forEach((v, i) => { if (v === m) ids.push(i); }); return { name: c, n: ids.length, c: vals.map((l, k) => ids.length && sig[k] > 1e-12 ? ids.reduce((s, i) => s + row[i][k], 0) / ids.length / sig[k] : 0) }; });
+  return { cats, vals, pct: vals.map(l => l / inertiaTotal), adjPct: adj.map(v => v / adjTot), col, row, ctr, inertiaTotal, supCoords }; }
+/*MCSTAT_END*/
+// ═══ Ventana «Ocupación agregada»: pestañas [📊 Ocupación agregada | 🧩 Segmentación] ═══
+const MCMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MCQC = ['#38bdf8', '#34d399', '#fbbf24', '#ef4444']; // cuartiles de precio: bajo → alto
+window.mcGraf_ = function (tab) {
+  if (tab) MC.gtab = tab; MC.gtab = MC.gtab || 'ocu'; const old = document.getElementById('mc-gr'); if (old) old.remove(); const m = document.createElement('div'); m.id = 'mc-gr'; m.className = 'mc-modal';
+  m.innerHTML = `<div class="mc-mbox ${MC.gtab === 'seg' ? 'wide' : ''}"><div class="mc-mh"><div class="mc-seg sm" style="flex:none"><button type="button" class="${MC.gtab === 'ocu' ? 'on' : ''}" onclick="mcGraf_('ocu')">📊 Ocupación agregada</button><button type="button" class="${MC.gtab === 'seg' ? 'on' : ''}" onclick="mcGraf_('seg')">🧩 Segmentación</button></div>
+      <span class="mc-mu" id="mc-gr-sub"></span><span style="flex:1"></span><div id="mc-gctl" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div><button type="button" class="mc-x" style="font-size:18px" onclick="document.getElementById('mc-gr').remove()">✕</button></div><div id="mc-gbody"></div></div>`;
   m.addEventListener('click', e => { if (e.target === m) m.remove(); }); document.body.appendChild(m); mcGrafPintar_();
 };
+function mcGrafPintar_() { if (!document.getElementById('mc-gbody')) return; if (MC.gtab === 'seg') mcSegPintar_(); else mcOcuPintar_(); }
 function mcNice_(v) { if (v <= 0) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; }
-function mcGrafPintar_() {
-  const w = document.getElementById('mc-gw'); if (!w) return; const A = mcAgreg_(MC.cuenta), cum = MC.gm === 'cum', MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const b1 = document.getElementById('mc-gb-cum'), b2 = document.getElementById('mc-gb-dia'); if (b1) b1.className = cum ? 'on' : ''; if (b2) b2.className = cum ? '' : 'on';
-  if (!A) { w.innerHTML = '<div class="mc-mu" style="padding:30px;text-align:center">Aún no hay datos extraídos. Pulsa «Extraer / actualizar».</div>'; return; }
-  const V = cum ? A.cum : A.daily, N = V.length, W = 960, H = 380, L = 58, R = 22, T = 18, B = 52, pw = W - L - R, ph = H - T - B, ymax = mcNice_(Math.max(1, ...V) * 1.05), x = k => L + (N <= 1 ? 0 : k * pw / (N - 1)), y = v => T + ph - v / ymax * ph;
-  const hoyIso = mcIso_(new Date()), kh = A.dias.indexOf(hoyIso), step = Math.max(1, Math.ceil(N / 12)); let yt = ''; for (let t = 0; t <= 5; t++) { const v = ymax * t / 5, yy = y(v); yt += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="#e5e7eb"/><text x="${L - 8}" y="${yy + 4}" text-anchor="end" font-size="11" fill="#64748b">${Math.round(v).toLocaleString('es-MX')}</text>`; }
-  let xt = ''; for (let k = 0; k < N; k += step) { const d = new Date(A.dias[k] + 'T12:00:00'), lab = `${MES[d.getMonth()]}-${String(d.getDate()).padStart(2, '0')}`, yr = (k === 0 || d.getMonth() === 0 || (k - step >= 0 && new Date(A.dias[k - step] + 'T12:00:00').getFullYear() !== d.getFullYear())) ? d.getFullYear() : ''; xt += `<line x1="${x(k)}" x2="${x(k)}" y1="${T + ph}" y2="${T + ph + 5}" stroke="#94a3b8"/><text x="${x(k)}" y="${T + ph + 18}" text-anchor="middle" font-size="11" fill="#475569">${lab}</text>${yr ? `<text x="${x(k)}" y="${T + ph + 32}" text-anchor="middle" font-size="10" fill="#94a3b8">${yr}</text>` : ''}`; }
-  const pts = V.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' '), area = `${x(0)},${T + ph} ${pts} ${x(N - 1)},${T + ph}`;
-  const hoyL = kh >= 0 ? `<rect x="${x(kh)}" y="${T}" width="${Math.max(0, x(N - 1) - x(kh))}" height="${ph}" fill="#f0fdfa" opacity=".7"/><line x1="${x(kh)}" x2="${x(kh)}" y1="${T}" y2="${T + ph}" stroke="#0f766e" stroke-dasharray="4 3"/><text x="${x(kh) + 4}" y="${T + 11}" font-size="10.5" fill="#0f766e" font-weight="700">Hoy</text>` : '';
-  w.innerHTML = `<svg id="mc-gsvg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${yt}${hoyL}<polygon points="${area}" fill="#14b8a6" opacity=".18"/><polyline points="${pts}" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round"/>${xt}
-      <line x1="${L}" x2="${L}" y1="${T}" y2="${T + ph}" stroke="#94a3b8"/><line x1="${L}" x2="${W - R}" y1="${T + ph}" y2="${T + ph}" stroke="#94a3b8"/>
-      <text x="14" y="${T + ph / 2}" transform="rotate(-90 14 ${T + ph / 2})" text-anchor="middle" font-size="11.5" fill="#475569">${cum ? 'Noches ocupadas acumuladas (suma de todos los alojamientos)' : 'Alojamientos ocupados cada noche'}</text>
-      <g id="mc-gh" style="display:none"><line id="mc-ghl" y1="${T}" y2="${T + ph}" stroke="#0f766e" stroke-dasharray="3 3"/><circle id="mc-ghc" r="4.5" fill="#0f766e" stroke="#fff" stroke-width="2"/></g><rect id="mc-gov" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent"/></svg><div class="mc-tip" id="mc-gtip" style="display:none"></div>`;
-  const pico = A.daily.reduce((a, v, k) => v > a.v ? { v, k } : a, { v: -1, k: 0 }); document.getElementById('mc-gr-sub').textContent = `· ${A.n} alojamientos con datos · ${MC_CUENTA_T[MC.cuenta]}`;
-  document.getElementById('mc-gr-nota').textContent = `Total de noches ocupadas en el periodo: ${A.cum[N - 1].toLocaleString('es-MX')} · pico de ${pico.v} alojamiento${pico.v === 1 ? '' : 's'} ocupados el ${mcF(A.dias[pico.k])}. Incluye los días ya pasados desde que empezó el seguimiento (${mcF(A.dias[0])}) y se actualiza con cada extracción diaria.`;
+const mcFd_ = iso => { const d = new Date(iso + 'T12:00:00'); return `${d.getDate()} ${MCMES[d.getMonth()]} ${d.getFullYear()}`; };
+// ── Pestaña 1: serie agregada con control de ventana (arrastra las barras del selector superior para acercar) ──
+function mcOcuPintar_() {
+  const ctl = document.getElementById('mc-gctl'), body = document.getElementById('mc-gbody'), cum = MC.gm === 'cum';
+  ctl.innerHTML = `<div class="mc-seg sm"><button type="button" class="${cum ? 'on' : ''}" onclick="MC.gm='cum';mcGrafPintar_()">Acumulada</button><button type="button" class="${cum ? '' : 'on'}" onclick="MC.gm='dia';mcGrafPintar_()">Por noche</button></div>
+    <select class="mc-in" onchange="mcCuenta_(this.value)">${Object.entries(MC_CUENTA_T).map(([k, t]) => `<option value="${k}" ${MC.cuenta === k ? 'selected' : ''}>${t}</option>`).join('')}</select><button type="button" class="mc-btn" onclick="mcGrafCsv_()">⬇ CSV</button>`;
+  const A = mcAgreg_(MC.cuenta); if (!A) { body.innerHTML = '<div class="mc-mu" style="padding:30px;text-align:center">Aún no hay datos extraídos. Pulsa «Extraer / actualizar».</div>'; return; }
+  const N = A.dias.length; if (!MC.gwin || MC.gwin.n !== N) MC.gwin = { i0: 0, i1: N - 1, n: N }; MC._A = A;
+  const kh = A.dias.indexOf(mcIso_(new Date())); document.getElementById('mc-gr-sub').textContent = `${A.n} alojamientos con datos · ${MC_CUENTA_T[MC.cuenta]}`;
+  body.innerHTML = `<div class="mc-gq"><span class="mc-mu">Ventana de tiempo:</span><button type="button" class="mc-btn sm" onclick="mcGwRango_(30)">30 días</button><button type="button" class="mc-btn sm" onclick="mcGwRango_(90)">90 días</button><button type="button" class="mc-btn sm" onclick="mcGwRango_(182)">6 meses</button><button type="button" class="mc-btn sm" onclick="mcGwRango_(365)">1 año</button><button type="button" class="mc-btn sm" onclick="mcGwRango_(0)">Todo</button><span id="mc-gwl" class="mc-mu" style="margin-left:auto"></span></div>
+    <div class="mc-nav"><svg id="mc-nvs" viewBox="0 0 960 84" style="width:100%;height:auto;display:block;touch-action:none;cursor:default"></svg></div><div class="mc-mu" style="padding:0 14px 4px;font-size:11px">Arrastra los extremos del recuadro para cambiar la ventana, o arrastra el recuadro para desplazarla.</div>
+    <div class="mc-gw" id="mc-gw"></div><div class="mc-mu" style="padding:6px 14px 12px" id="mc-gr-nota"></div>`;
+  mcNavPintar_(A, cum, kh); mcMainPintar_();
+}
+window.mcGwRango_ = function (d) { const A = MC._A; if (!A) return; const N = A.dias.length, kh = Math.max(0, A.dias.indexOf(mcIso_(new Date()))); MC.gwin = d ? { i0: kh, i1: Math.min(N - 1, kh + d), n: N } : { i0: 0, i1: N - 1, n: N }; mcNavVentana_(); mcMainPintar_(); };
+function mcNavPintar_(A, cum, kh) {
+  const svg = document.getElementById('mc-nvs'), V = cum ? A.cum : A.daily, N = V.length, W = 960, H = 84, L = 30, R = 12, T = 6, B = 22, pw = W - L - R, ph = H - T - B, ymax = Math.max(1, ...V) * 1.05, x = k => L + (N <= 1 ? 0 : k * pw / (N - 1)), y = v => T + ph - v / ymax * ph;
+  const pts = V.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' '); let tk = ''; const step = Math.max(1, Math.round(N / 8)); for (let k = 0; k < N; k += step) { const d = new Date(A.dias[k] + 'T12:00:00'); tk += `<text x="${x(k)}" y="${H - 6}" font-size="10" fill="#64748b" text-anchor="middle">${MCMES[d.getMonth()]}-${String(d.getDate()).padStart(2, '0')}${d.getMonth() === 0 || k === 0 ? ' ’' + String(d.getFullYear()).slice(2) : ''}</text>`; }
+  svg.innerHTML = `<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="#f8fafc"/><polygon points="${x(0)},${T + ph} ${pts} ${x(N - 1)},${T + ph}" fill="#14b8a6" opacity=".25"/><polyline points="${pts}" fill="none" stroke="#0f766e" stroke-width="1.4"/>${kh >= 0 ? `<line x1="${x(kh)}" x2="${x(kh)}" y1="${T}" y2="${T + ph}" stroke="#0f766e" stroke-dasharray="3 3"/>` : ''}${tk}
+    <rect id="nv-ml" y="${T}" height="${ph}" fill="#0f172a" opacity=".12"/><rect id="nv-mr" y="${T}" height="${ph}" fill="#0f172a" opacity=".12"/><rect id="nv-w" y="${T}" height="${ph}" fill="none" stroke="#0f766e" stroke-width="1.6"/>
+    <rect id="nv-hl" y="${T + ph / 2 - 15}" width="9" height="30" rx="3" fill="#0f766e" style="cursor:ew-resize"/><rect id="nv-hr" y="${T + ph / 2 - 15}" width="9" height="30" rx="3" fill="#0f766e" style="cursor:ew-resize"/>`;
+  svg._g = { N, W, L, pw, T, ph, x }; mcNavVentana_();
+  const xi = ev => { const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width; return Math.round((px - L) / pw * (N - 1)); }; let drag = null;
+  svg.onpointerdown = ev => { const k = xi(ev), w = MC.gwin, tol = Math.max(2, Math.round(12 / pw * (N - 1))); svg.setPointerCapture(ev.pointerId);
+    if (Math.abs(k - w.i0) <= tol) drag = { t: 'l' }; else if (Math.abs(k - w.i1) <= tol) drag = { t: 'r' }; else if (k > w.i0 && k < w.i1) drag = { t: 'm', off: k - w.i0 }; else { const wd = w.i1 - w.i0; MC.gwin.i0 = Math.max(0, Math.min(N - 1 - wd, k - Math.round(wd / 2))); MC.gwin.i1 = MC.gwin.i0 + wd; drag = { t: 'm', off: Math.round(wd / 2) }; mcNavVentana_(); mcMainPintar_(); } };
+  svg.onpointermove = ev => { if (!drag) { const k = xi(ev), w = MC.gwin, tol = Math.max(2, Math.round(12 / pw * (N - 1))); svg.style.cursor = Math.abs(k - w.i0) <= tol || Math.abs(k - w.i1) <= tol ? 'ew-resize' : (k > w.i0 && k < w.i1 ? 'grab' : 'default'); return; }
+    const k = Math.max(0, Math.min(N - 1, xi(ev))), w = MC.gwin; if (drag.t === 'l') w.i0 = Math.min(k, w.i1 - 6); else if (drag.t === 'r') w.i1 = Math.max(k, w.i0 + 6); else { const wd = w.i1 - w.i0; w.i0 = Math.max(0, Math.min(N - 1 - wd, k - drag.off)); w.i1 = w.i0 + wd; }
+    mcNavVentana_(); if (!MC._raf) MC._raf = requestAnimationFrame(() => { MC._raf = 0; mcMainPintar_(); }); };
+  svg.onpointerup = svg.onpointercancel = () => { drag = null; };
+}
+function mcNavVentana_() { const svg = document.getElementById('mc-nvs'); if (!svg || !svg._g) return; const g = svg._g, w = MC.gwin, xa = g.x(w.i0), xb = g.x(w.i1), set = (id, o) => { const e = svg.querySelector('#' + id); if (e) Object.entries(o).forEach(([k, v]) => e.setAttribute(k, v)); };
+  set('nv-ml', { x: g.L, width: Math.max(0, xa - g.L) }); set('nv-mr', { x: xb, width: Math.max(0, g.L + g.pw - xb) }); set('nv-w', { x: xa, width: Math.max(1, xb - xa) }); set('nv-hl', { x: xa - 4.5 }); set('nv-hr', { x: xb - 4.5 }); }
+function mcMainPintar_() {
+  const A = MC._A, w = document.getElementById('mc-gw'); if (!A || !w) return; const cum = MC.gm === 'cum', V = cum ? A.cum : A.daily, { i0, i1 } = MC.gwin, N = i1 - i0 + 1, dias = A.dias.slice(i0, i1 + 1), S = V.slice(i0, i1 + 1);
+  const W = 960, H = 330, L = 58, R = 22, T = 16, B = 50, pw = W - L - R, ph = H - T - B, mx = Math.max(...S), mn = Math.min(...S); let ymin = cum && i0 > 0 ? Math.floor(mn * 0.98) : 0, ymax = mcNice_(Math.max(1, mx - ymin) * 1.05) + ymin; if (cum && i0 > 0 && ymax - ymin < 5) ymax = ymin + 5;
+  const x = k => L + (N <= 1 ? 0 : k * pw / (N - 1)), y = v => T + ph - (v - ymin) / (ymax - ymin) * ph, step = Math.max(1, Math.ceil(N / 11)), kh = dias.indexOf(mcIso_(new Date()));
+  let yt = ''; for (let t = 0; t <= 5; t++) { const v = ymin + (ymax - ymin) * t / 5, yy = y(v); yt += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="#e5e7eb"/><text x="${L - 8}" y="${yy + 4}" text-anchor="end" font-size="11" fill="#64748b">${Math.round(v).toLocaleString('es-MX')}</text>`; }
+  let xt = ''; for (let k = 0; k < N; k += step) { const d = new Date(dias[k] + 'T12:00:00'), yr = (k === 0 || d.getMonth() === 0 && d.getDate() <= step) ? d.getFullYear() : ''; xt += `<line x1="${x(k)}" x2="${x(k)}" y1="${T + ph}" y2="${T + ph + 5}" stroke="#94a3b8"/><text x="${x(k)}" y="${T + ph + 18}" text-anchor="middle" font-size="11" fill="#475569">${MCMES[d.getMonth()]}-${String(d.getDate()).padStart(2, '0')}</text>${yr ? `<text x="${x(k)}" y="${T + ph + 32}" text-anchor="middle" font-size="10" fill="#94a3b8">${yr}</text>` : ''}`; }
+  const pts = S.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' '), hoyL = kh >= 0 ? `<rect x="${x(kh)}" y="${T}" width="${Math.max(0, x(N - 1) - x(kh))}" height="${ph}" fill="#f0fdfa" opacity=".7"/><line x1="${x(kh)}" x2="${x(kh)}" y1="${T}" y2="${T + ph}" stroke="#0f766e" stroke-dasharray="4 3"/><text x="${x(kh) + 4}" y="${T + 11}" font-size="10.5" fill="#0f766e" font-weight="700">Hoy</text>` : '';
+  w.innerHTML = `<svg id="mc-gsvg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${yt}${hoyL}<polygon points="${x(0)},${T + ph} ${pts} ${x(N - 1)},${T + ph}" fill="#14b8a6" opacity=".18"/><polyline points="${pts}" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round"/>${xt}
+    <line x1="${L}" x2="${L}" y1="${T}" y2="${T + ph}" stroke="#94a3b8"/><line x1="${L}" x2="${W - R}" y1="${T + ph}" y2="${T + ph}" stroke="#94a3b8"/><text x="14" y="${T + ph / 2}" transform="rotate(-90 14 ${T + ph / 2})" text-anchor="middle" font-size="11.5" fill="#475569">${cum ? 'Noches ocupadas acumuladas (todos los alojamientos)' : 'Alojamientos ocupados cada noche'}</text>
+    <g id="mc-gh" style="display:none"><line id="mc-ghl" y1="${T}" y2="${T + ph}" stroke="#0f766e" stroke-dasharray="3 3"/><circle id="mc-ghc" r="4.5" fill="#0f766e" stroke="#fff" stroke-width="2"/></g><rect id="mc-gov" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent"/></svg><div class="mc-tip" id="mc-gtip" style="display:none"></div>`;
+  const enVent = cum ? V[i1] - (i0 > 0 ? V[i0 - 1] : 0) : S.reduce((s, v) => s + v, 0), pico = S.reduce((a, v, k) => A.daily[i0 + k] > a.v ? { v: A.daily[i0 + k], k } : a, { v: -1, k: 0 });
+  document.getElementById('mc-gwl').textContent = `${mcFd_(dias[0])} → ${mcFd_(dias[N - 1])} · ${N} día${N === 1 ? '' : 's'}`;
+  document.getElementById('mc-gr-nota').textContent = `En esta ventana: ${enVent.toLocaleString('es-MX')} noches ocupadas · pico de ${pico.v} alojamientos ocupados el ${mcFd_(dias[pico.k])}.${cum && i0 > 0 ? ' La escala vertical se ajusta a la ventana.' : ''} La serie incluye los días ya pasados desde que empezó el seguimiento (${mcF(A.dias[0])}) y se alimenta con cada extracción diaria.`;
   const ov = document.getElementById('mc-gov'), svg = document.getElementById('mc-gsvg'), tip = document.getElementById('mc-gtip'), hv = document.getElementById('mc-gh');
-  ov.onmousemove = e => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width, k = Math.max(0, Math.min(N - 1, Math.round((px - L) / pw * (N - 1)))), d = new Date(A.dias[k] + 'T12:00:00');
-    hv.style.display = ''; document.getElementById('mc-ghl').setAttribute('x1', x(k)); document.getElementById('mc-ghl').setAttribute('x2', x(k)); document.getElementById('mc-ghc').setAttribute('cx', x(k)); document.getElementById('mc-ghc').setAttribute('cy', y(V[k]));
-    tip.style.display = 'block'; tip.innerHTML = `<b>${d.getDate()} ${MES[d.getMonth()]} ${d.getFullYear()}</b><br>${cum ? `<b>${A.cum[k].toLocaleString('es-MX')}</b> noches acumuladas<br>` : ''}${A.daily[k]} de ${A.nobs[k]} alojamientos ocupados`;
-    const wr = w.getBoundingClientRect(); tip.style.left = Math.min(wr.width - 190, Math.max(4, e.clientX - wr.left + 14)) + 'px'; tip.style.top = Math.max(4, e.clientY - wr.top - 54) + 'px'; };
+  ov.onmousemove = e => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width, k = Math.max(0, Math.min(N - 1, Math.round((px - L) / pw * (N - 1)))), d = new Date(dias[k] + 'T12:00:00'), g = i0 + k;
+    hv.style.display = ''; ['x1', 'x2'].forEach(a => document.getElementById('mc-ghl').setAttribute(a, x(k))); document.getElementById('mc-ghc').setAttribute('cx', x(k)); document.getElementById('mc-ghc').setAttribute('cy', y(S[k]));
+    tip.style.display = 'block'; tip.innerHTML = `<b>${d.getDate()} ${MCMES[d.getMonth()]} ${d.getFullYear()}</b><br>${cum ? `<b>${A.cum[g].toLocaleString('es-MX')}</b> noches acumuladas<br>` : ''}${A.daily[g]} de ${A.nobs[g]} alojamientos ocupados`; const wr = w.getBoundingClientRect(); tip.style.left = Math.min(wr.width - 190, Math.max(4, e.clientX - wr.left + 14)) + 'px'; tip.style.top = Math.max(4, e.clientY - wr.top - 54) + 'px'; };
   ov.onmouseleave = () => { hv.style.display = 'none'; tip.style.display = 'none'; };
 }
+// ── Pestaña 2: Segmentación (¿qué características explican el precio por noche?) ──
+const MCFMT = v => '$' + Math.round(v).toLocaleString('es-MX'), MCPC = (v, d) => (v * 100).toFixed(d == null ? 1 : d) + '%', MCN = (v, d) => Number(v).toFixed(d == null ? 2 : d);
+const MCPV = p => p < 0.001 ? '<0.001' : p.toFixed(3);
+function mcSegDatos_(opt) {
+  const todos = [], conPrecio = MC.lista.filter(l => l.precioNoche > 0).length;
+  MC.lista.forEach(l => { const i = MC.items[l.id]; if (!i || !i.extraido || !(l.precioNoche > 0)) return; let h = i.habitaciones; if (h == null && /habitaci[oó]n/i.test(`${l.tipoBusq || ''} ${i.tipo || ''}`)) h = 1; const coc = mcCocina_(i); if (h == null || i.camas == null || i.banos == null || coc === '—') return;
+    todos.push({ id: l.id, titulo: i.titulo || l.id, precio: l.precioNoche, hab: +h, camas: +i.camas, banos: +i.banos, coc: coc === 'Sí' ? 1 : 0, huesp: i.huespedes == null ? null : +i.huespedes, priv: /^habitaci[oó]n/i.test(l.tipoBusq || i.tipo || '') ? 1 : 0 }); });
+  let base = opt.extra ? todos.filter(r => r.huesp != null) : todos, ext = [];
+  if (opt.sinExt && base.length > 20) { const lp = base.map(r => Math.log(r.precio)), q1 = mcsQ(lp, .25), q3 = mcsQ(lp, .75), k = 3 * (q3 - q1), lo = q1 - k, hi = q3 + k; ext = base.filter(r => { const v = Math.log(r.precio); return v < lo || v > hi; }); base = base.filter(r => !ext.includes(r)); }
+  return { rows: base, ext, conPrecio, completos: todos.length };
+}
+function mcSegVars_(opt) { const v = [{ k: 'hab', n: 'Habitaciones', f: r => r.hab, u: 'por habitación adicional' }, { k: 'camas', n: 'Camas', f: r => r.camas, u: 'por cama adicional' }, { k: 'banos', n: 'Baños', f: r => r.banos, u: 'por baño adicional' }, { k: 'coc', n: 'Cocina (sí vs no)', f: r => r.coc, u: 'con cocina vs sin cocina' }];
+  if (opt.extra) v.push({ k: 'huesp', n: 'Huéspedes (capacidad)', f: r => r.huesp, u: 'por huésped adicional' }, { k: 'priv', n: 'Habitación privada', f: r => r.priv, u: 'habitación privada vs alojamiento completo' }); return v; }
+// Agrupa un arreglo de valores en categorías ordenadas y elimina las vacías (MCA no admite categorías sin individuos)
+function mcCat_(vals, defs) { const raw = vals.map(v => defs.findIndex(d => d.f(v))), keep = defs.map((d, k) => raw.filter(r => r === k).length > 0), map = []; let c = 0; defs.forEach((d, k) => { map[k] = keep[k] ? c++ : -1; }); return { cats: defs.filter((d, k) => keep[k]).map(d => d.n), v: raw.map(r => map[r]) }; }
+function mcSegAnalisis_(opt) {
+  const D = mcSegDatos_(opt), R = D.rows; if (R.length < 30) return { D, error: `Solo hay ${R.length} alojamientos con precio y todas las características; se necesitan al menos 30. Extrae más publicaciones.` };
+  const TODAS = mcSegVars_(opt), V = TODAS.filter(v => mcsSd(R.map(v.f)) > 0), descartadas = TODAS.filter(v => !V.includes(v)).map(v => v.n), y = R.map(r => Math.log(r.precio)), P = R.map(r => r.precio), cols = V.map(v => R.map(v.f)), p = V.length;
+  const M = mcsOls(R.map((r, i) => [1].concat(cols.map(c => c[i]))), y); if (!M) return { D, error: 'Las características están perfectamente correlacionadas entre sí; no se puede ajustar el modelo.' };
+  const lmg = mcsLmg(V.map((v, j) => ({ cols: [cols[j]] })), y), sy = mcsSd(y);
+  const efectos = V.map((v, j) => { const others = cols.filter((c, k) => k !== j), r2j = others.length ? mcsR2(others, cols[j]) : 0, sinR2 = others.length ? mcsR2(others, y) : 0, b = M.beta[j + 1], ci = M.ci[j + 1];
+    return { k: v.k, n: v.n, u: v.u, b, p: M.p[j + 1], pct: Math.exp(b) - 1, ci: [Math.exp(ci[0]) - 1, Math.exp(ci[1]) - 1], std: b * mcsSd(cols[j]) / sy, sp: mcsSpear(cols[j], P), vif: 1 / (1 - r2j), lmg: lmg[j], share: lmg[j] / (M.r2 || 1), unico: M.r2 - sinR2, med: mcsQ(cols[j], .5) }; }).sort((a, b) => b.lmg - a.lmg);
+  // Comparativos por grupo (cajas)
+  const bin = (f, defs) => defs.map(d => ({ l: d.l, v: R.filter(r => d.t(f(r))).map(r => r.precio) })).filter(g => g.v.length);
+  const grupos = [{ t: 'Habitaciones', g: bin(r => r.hab, [{ l: '0 (estudio)', t: v => v === 0 }, { l: '1', t: v => v === 1 }, { l: '2', t: v => v === 2 }, { l: '3', t: v => v === 3 }, { l: '4+', t: v => v >= 4 }]) },
+    { t: 'Baños', g: bin(r => r.banos, [{ l: '1', t: v => v <= 1 }, { l: '1.5', t: v => v === 1.5 }, { l: '2', t: v => v === 2 }, { l: '2.5', t: v => v === 2.5 }, { l: '3+', t: v => v >= 3 }]) },
+    { t: 'Camas', g: bin(r => r.camas, [{ l: '1', t: v => v === 1 }, { l: '2', t: v => v === 2 }, { l: '3', t: v => v === 3 }, { l: '4', t: v => v === 4 }, { l: '5+', t: v => v >= 5 }]) },
+    { t: 'Cocina', g: bin(r => r.coc, [{ l: 'Sin cocina', t: v => v === 0 }, { l: 'Con cocina', t: v => v === 1 }]) }];
+  // PCA (variables estandarizadas; el precio entra como variable activa para ver su asociación con las demás)
+  const pcaCols = V.map((v, j) => ({ n: v.n.replace(' (sí vs no)', '').replace(' (capacidad)', ''), v: cols[j] })).concat([{ n: 'Precio (ln)', v: y }]), pca = mcsPca(pcaCols), qb = [mcsQ(P, .25), mcsQ(P, .5), mcsQ(P, .75)], qi = P.map(v => v <= qb[0] ? 0 : v <= qb[1] ? 1 : v <= qb[2] ? 2 : 3);
+  // MCA (categorías de las características; el precio por cuartiles entra como variable suplementaria)
+  const mv = [mcCat_(R.map(r => r.hab), [{ n: '≤1 hab.', f: v => v <= 1 }, { n: '2 hab.', f: v => v === 2 }, { n: '3+ hab.', f: v => v >= 3 }]), mcCat_(R.map(r => r.camas), [{ n: '1 cama', f: v => v <= 1 }, { n: '2 camas', f: v => v === 2 }, { n: '3+ camas', f: v => v >= 3 }]),
+    mcCat_(R.map(r => r.banos), [{ n: '1 baño', f: v => v <= 1 }, { n: '1.5–2 baños', f: v => v > 1 && v <= 2 }, { n: '2.5+ baños', f: v => v > 2 }]), mcCat_(R.map(r => r.coc), [{ n: 'Sin cocina', f: v => v === 0 }, { n: 'Con cocina', f: v => v === 1 }])];
+  if (opt.extra) { mv.push(mcCat_(R.map(r => r.huesp), [{ n: '1–2 huésp.', f: v => v <= 2 }, { n: '3–4 huésp.', f: v => v > 2 && v <= 4 }, { n: '5+ huésp.', f: v => v > 4 }]), mcCat_(R.map(r => r.priv), [{ n: 'Alojam. completo', f: v => v === 0 }, { n: 'Hab. privada', f: v => v === 1 }])); }
+  const mvars = mv.filter(m => m.cats.length > 1).map((m, a) => ({ n: ['Habitaciones', 'Camas', 'Baños', 'Cocina', 'Huéspedes', 'Tipo'][mv.indexOf(m)], cats: m.cats, v: m.v })), mca = mvars.length >= 2 ? mcsMca(mvars, { n: 'Precio', cats: ['Precio Q1 (bajo)', 'Precio Q2', 'Precio Q3', 'Precio Q4 (alto)'], v: qi }) : null;
+  const corPrecioDim = mca ? [0, 1].map(k => mcsCor(mca.row.map(r => r[k]), y)) : null;
+  return { D, R, V, descartadas, M, y, P, efectos, grupos, pca, pcaCols, qi, qb, mca, mvars, corPrecioDim, opt, n: R.length };
+}
+// ── Helpers SVG ──
+function mcTicks_(lo, hi, n) { const st = mcNice_((hi - lo) / n), a = Math.ceil(lo / st) * st, o = []; for (let v = a; v <= hi + 1e-9; v += st) o.push(Math.round(v / st * 1e6) / 1e6 * st); return o; }
+function mcSvgBarras_(rows, o) { o = o || {}; const W = o.w || 520, rh = 28, H = rows.length * rh + 8, L0 = o.l0 || 175, mx = o.max || Math.max(...rows.map(r => r.v), 1e-9), bw = W - L0 - 80;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">${rows.map((r, k) => `<text x="${L0 - 8}" y="${k * rh + 19}" text-anchor="end" font-size="12" fill="#334155">${esc(r.l)}</text><rect x="${L0}" y="${k * rh + 5}" width="${Math.max(1, bw * Math.abs(r.v) / mx)}" height="18" rx="4" fill="${r.c || '#0f766e'}"/><text x="${L0 + Math.max(1, bw * Math.abs(r.v) / mx) + 6}" y="${k * rh + 19}" font-size="12" font-weight="700" fill="#0f172a">${esc(r.t != null ? r.t : r.v)}</text>`).join('')}</svg>`; }
+function mcSvgCajas_(groups, o) { o = o || {}; const W = o.w || 340, H = o.h || 240, L = 46, R = 8, T = 12, B = 44, pw = W - L - R, ph = H - T - B; const all = groups.flatMap(g => g.v), lo = Math.log10(Math.min(...all) * 0.9), hi = Math.log10(Math.max(...all) * 1.1), y = v => T + ph - (Math.log10(v) - lo) / (hi - lo) * ph, bw = Math.min(34, pw / groups.length * 0.6);
+  const tk = [50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 50000].filter(v => Math.log10(v) >= lo && Math.log10(v) <= hi); let s = tk.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#eef0f3"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="#64748b">${MCFMT(v)}</text>`).join('');
+  groups.forEach((g, k) => { const cx = L + pw * (k + 0.5) / groups.length, v = g.v.slice().sort((a, b) => a - b), q1 = mcsQ(v, .25), md = mcsQ(v, .5), q3 = mcsQ(v, .75), iq = q3 - q1, wl = Math.min(...v.filter(a => a >= q1 - 1.5 * iq)), wh = Math.max(...v.filter(a => a <= q3 + 1.5 * iq)), outs = v.filter(a => a < wl || a > wh);
+    s += `<line x1="${cx}" x2="${cx}" y1="${y(wl)}" y2="${y(wh)}" stroke="#64748b"/><rect x="${cx - bw / 2}" y="${y(q3)}" width="${bw}" height="${Math.max(2, y(q1) - y(q3))}" fill="#99f6e4" stroke="#0f766e"/><line x1="${cx - bw / 2}" x2="${cx + bw / 2}" y1="${y(md)}" y2="${y(md)}" stroke="#0f172a" stroke-width="2"/>${outs.map(a => `<circle cx="${cx}" cy="${y(a)}" r="2.3" fill="none" stroke="#dc2626"/>`).join('')}
+      <text x="${cx}" y="${H - 26}" text-anchor="middle" font-size="11" fill="#334155" font-weight="700">${esc(g.l)}</text><text x="${cx}" y="${H - 13}" text-anchor="middle" font-size="9.5" fill="#94a3b8">n=${g.v.length}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block"><line x1="${L}" x2="${L}" y1="${T}" y2="${T + ph}" stroke="#94a3b8"/>${s}</svg>`; }
+// Dispersión general: pts [{x,y,c,r,l,sh}] · o.xt/yt = [{v,l}] marcas · o.diag · o.unit (círculo unidad) · o.arrows [{x,y,l,c}]
+function mcSvgDisp_(pts, o) { const W = o.w || 520, H = o.h || 380, L = 54, R = 14, T = 14, B = 44, pw = W - L - R, ph = H - T - B, xs = pts.map(p => p.x).concat((o.arrows || []).map(a => a.x)), ys = pts.map(p => p.y).concat((o.arrows || []).map(a => a.y));
+  let x0 = o.xr ? o.xr[0] : Math.min(...xs), x1 = o.xr ? o.xr[1] : Math.max(...xs), y0 = o.yr ? o.yr[0] : Math.min(...ys), y1 = o.yr ? o.yr[1] : Math.max(...ys); if (!o.xr) { const m = (x1 - x0) * 0.06 || 1; x0 -= m; x1 += m; } if (!o.yr) { const m = (y1 - y0) * 0.06 || 1; y0 -= m; y1 += m; }
+  const x = v => L + (v - x0) / (x1 - x0) * pw, y = v => T + ph - (v - y0) / (y1 - y0) * ph; let s = '';
+  (o.xt || mcTicks_(x0, x1, 6).map(v => ({ v, l: MCN(v, 1) }))).forEach(t => { s += `<line x1="${x(t.v)}" x2="${x(t.v)}" y1="${T}" y2="${T + ph}" stroke="#eef0f3"/><text x="${x(t.v)}" y="${T + ph + 15}" text-anchor="middle" font-size="10.5" fill="#64748b">${esc(t.l)}</text>`; });
+  (o.yt || mcTicks_(y0, y1, 6).map(v => ({ v, l: MCN(v, 1) }))).forEach(t => { s += `<line x1="${L}" x2="${L + pw}" y1="${y(t.v)}" y2="${y(t.v)}" stroke="#eef0f3"/><text x="${L - 6}" y="${y(t.v) + 4}" text-anchor="end" font-size="10.5" fill="#64748b">${esc(t.l)}</text>`; });
+  if (o.axes0) { if (x0 < 0 && x1 > 0) s += `<line x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${T + ph}" stroke="#cbd5e1"/>`; if (y0 < 0 && y1 > 0) s += `<line x1="${L}" x2="${L + pw}" y1="${y(0)}" y2="${y(0)}" stroke="#cbd5e1"/>`; }
+  if (o.diag) s += `<line x1="${x(Math.max(x0, y0))}" y1="${y(Math.max(x0, y0))}" x2="${x(Math.min(x1, y1))}" y2="${y(Math.min(x1, y1))}" stroke="#0f766e" stroke-dasharray="5 4" stroke-width="1.5"/>`;
+  if (o.unit) s += `<ellipse cx="${x(0)}" cy="${y(0)}" rx="${Math.abs(x(1) - x(0))}" ry="${Math.abs(y(1) - y(0))}" fill="none" stroke="#94a3b8" stroke-dasharray="4 3"/>`;
+  pts.forEach(p => { if (p.sh === 'd') s += `<path d="M${x(p.x)} ${y(p.y) - 7} l7 7 l-7 7 l-7 -7z" fill="${p.c}" stroke="#7f1d1d" stroke-width="1.2"/>`; else s += `<circle cx="${x(p.x)}" cy="${y(p.y)}" r="${p.r || 3}" fill="${p.c || '#0f766e'}" opacity="${p.o == null ? .55 : p.o}"/>`; if (p.l) s += `<text x="${x(p.x) + (p.dx == null ? 9 : p.dx)}" y="${y(p.y) + (p.dy == null ? 4 : p.dy)}" font-size="${p.fs || 11}" font-weight="${p.fw || 700}" fill="${p.tc || '#0f172a'}">${esc(p.l)}</text>`; });
+  const colocadas = []; // etiquetas de flechas: se separan en vertical cuando apuntan casi al mismo lugar
+  (o.arrows || []).slice().sort((p, q) => q.x - p.x).forEach(a => { const izq = a.x > 0.55 || a.x < 0, lx = x(a.x) + (izq ? -7 : 7); let ly = y(a.y) + (a.y >= 0 ? -5 : 13); while (colocadas.some(c => Math.abs(c.ly - ly) < 13 && Math.abs(c.lx - lx) < 110)) ly += 13; colocadas.push({ lx, ly });
+    s += `<line x1="${x(0)}" y1="${y(0)}" x2="${x(a.x)}" y2="${y(a.y)}" stroke="${a.c}" stroke-width="2"/><circle cx="${x(a.x)}" cy="${y(a.y)}" r="3.5" fill="${a.c}"/><text x="${lx}" y="${ly}" text-anchor="${izq ? 'end' : 'start'}" font-size="11.5" font-weight="700" fill="${a.c}" stroke="#fff" stroke-width="3" paint-order="stroke">${esc(a.l)}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block"><rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="#fff" stroke="#cbd5e1"/>${s}<text x="${L + pw / 2}" y="${H - 6}" text-anchor="middle" font-size="11.5" fill="#475569">${esc(o.xl || '')}</text><text x="13" y="${T + ph / 2}" transform="rotate(-90 13 ${T + ph / 2})" text-anchor="middle" font-size="11.5" fill="#475569">${esc(o.yl || '')}</text></svg>`; }
+const mcLeyendaQ_ = () => `<div class="mc-ley">${['Q1 · más barato', 'Q2', 'Q3', 'Q4 · más caro'].map((t, k) => `<span><i style="background:${MCQC[k]}"></i>${t}</span>`).join('')}</div>`;
+// ── Pintado de la pestaña ──
+window.mcSegOpt_ = function (k) { MC[k] = !MC[k]; try { localStorage.setItem('mc-' + k, MC[k] ? '1' : '0'); } catch (_) {} mcSegPintar_(); };
+function mcSegPintar_() {
+  const body = document.getElementById('mc-gbody'), ctl = document.getElementById('mc-gctl'); MC.sgExt = MC.sgExt !== false; const box = (k, t) => `<span class="pl-ck mc-ck ${MC[k] ? 'on' : ''}" onclick="mcSegOpt_('${k}')"><span class="ck">${MC[k] ? '✓' : ''}</span>${t}</span>`;
+  ctl.innerHTML = `${box('sgExt', 'Excluir precios extremos')}${box('sgExtra', 'Incluir huéspedes y tipo')}<button type="button" class="mc-btn" onclick="mcSegCsv_()">⬇ CSV de datos</button>`;
+  body.innerHTML = '<div class="mc-mu" style="padding:30px;text-align:center">⏳ Calculando…</div>'; document.querySelector('#mc-gr .mc-mbox').classList.add('wide');
+  setTimeout(() => { let A; try { A = mcSegAnalisis_({ sinExt: MC.sgExt, extra: !!MC.sgExtra }); } catch (e) { body.innerHTML = `<div class="mc-err" style="padding:20px">⚠ No se pudo calcular el análisis: ${esc(e.message || e)}</div>`; return; } MC._seg = A;
+    document.getElementById('mc-gr-sub').textContent = A.error ? '' : `${A.n} alojamientos · variable de respuesta: precio por noche`; body.innerHTML = A.error ? `<div class="mc-mu" style="padding:26px;text-align:center">${esc(A.error)}</div>` : mcSegHtml_(A); }, 30);
+}
+function mcSegHtml_(A) {
+  const { M, efectos, P, n, D } = A, med = mcsQ(P, .5), fig = (t, h, nota) => `<div class="mc-fig"><b>${t}</b>${h}${nota ? `<div class="mc-mu" style="font-size:11.5px;margin-top:4px">${nota}</div>` : ''}</div>`;
+  const resumen = `<div class="mc-sgk"><div><b>${n}</b><span>alojamientos analizados</span></div><div><b>${MCFMT(med)}</b><span>precio mediano por noche</span></div><div><b>${MCFMT(mcsQ(P, .1))} – ${MCFMT(mcsQ(P, .9))}</b><span>rango típico (P10–P90)</span></div><div><b>${MCPC(M.r2)}</b><span>del precio (en logaritmo) explicado por las características</span></div></div>
+    <div class="mc-mu" style="font-size:12px">De ${MC.lista.length} publicaciones en la lista, ${D.conPrecio} tienen precio de búsqueda y ${D.completos} traen además todas las características. ${A.opt.sinExt ? `Se excluyeron ${D.ext.length} precios extremos (más de 3 rangos intercuartílicos fuera del rango normal${D.ext.length ? ': ' + D.ext.slice(0, 4).map(r => MCFMT(r.precio)).join(', ') + (D.ext.length > 4 ? '…' : '') : ''}).` : 'No se excluyó ningún precio extremo.'} ${A.descartadas.length ? `Sin variación en la muestra y descartadas: ${A.descartadas.join(', ')}.` : ''}</div>`;
+  // Modelo
+  const bars = mcSvgBarras_(efectos.map(e => ({ l: e.n, v: e.lmg, t: MCPC(e.share, 0) + '  (' + MCPC(e.lmg) + ')' })), { w: 540, l0: 190, max: Math.max(...efectos.map(e => e.lmg), 1e-9) * 1.0 });
+  const tabla = `<table class="mc-st"><thead><tr><th>Característica</th><th>Efecto en el precio*</th><th>IC 95%</th><th>p</th><th>Peso (LMG)</th><th>Aporte único</th><th>β estándar</th><th>Spearman</th><th>VIF</th></tr></thead><tbody>${efectos.map(e => `<tr><td><b>${esc(e.n)}</b></td><td class="${e.pct >= 0 ? 'pos' : 'neg'}">${e.pct >= 0 ? '+' : ''}${MCPC(e.pct)}</td><td>${MCPC(e.ci[0], 0)} a ${MCPC(e.ci[1], 0)}</td><td class="${e.p < .05 ? 'sig' : ''}">${MCPV(e.p)}</td><td>${MCPC(e.share, 0)}</td><td>${MCPC(Math.max(0, e.unico))}</td><td>${MCN(e.std)}</td><td>${MCN(e.sp)}</td><td class="${e.vif > 5 ? 'neg' : ''}">${MCN(e.vif, 1)}</td></tr>`).join('')}</tbody></table>
+    <div class="mc-mu" style="font-size:11.5px">*Cambio porcentual del precio por noche, <i>manteniendo las demás características constantes</i> (${efectos.map(e => esc(e.n) + ': ' + e.u).join(' · ')}). Modelo: ln(precio) = a + Σ b·característica; n=${M.n}, R²=${MCN(M.r2, 3)}, R² ajustado=${MCN(M.adj, 3)}, error típico=${MCPC(Math.exp(M.rmse) - 1, 0)}. <b>Peso (LMG)</b>: parte del R² que corresponde a cada característica promediando todos los órdenes posibles de entrada al modelo (reparte de forma justa aunque estén correlacionadas). <b>Aporte único</b>: R² que se perdería al quitarla. <b>VIF</b> &gt; 5 indica que se mueve junto con otras (difícil separar su efecto).</div>`;
+  const cajas = `<div class="mc-sgrid">${A.grupos.map(g => fig('Precio por noche según ' + g.t.toLowerCase(), mcSvgCajas_(g.g), 'Caja = 50% central, raya negra = mediana; escala logarítmica.')).join('')}</div>`;
+  const pr = M.fit.map((v, i) => ({ x: v, y: A.y[i], c: MCQC[A.qi[i]], r: 3 })), lo = Math.min(...M.fit, ...A.y), hi = Math.max(...M.fit, ...A.y), tkv = [100, 200, 500, 1000, 2000, 5000, 10000, 20000].filter(v => Math.log(v) >= lo - .1 && Math.log(v) <= hi + .1).map(v => ({ v: Math.log(v), l: MCFMT(v) }));
+  const ajuste = mcSvgDisp_(pr, { w: 520, h: 380, xr: [lo - .1, hi + .1], yr: [lo - .1, hi + .1], diag: true, xt: tkv, yt: tkv, xl: 'Precio predicho por el modelo (por noche)', yl: 'Precio observado (por noche)' });
+  // PCA
+  const pca = A.pca, k = pca.vals.length, PCs = [0, 1], pcaCirc = mcSvgDisp_([], { w: 420, h: 400, xr: [-1.15, 1.15], yr: [-1.15, 1.15], unit: true, axes0: true, xl: `PC1 (${MCPC(pca.pct[0], 0)})`, yl: `PC2 (${MCPC(pca.pct[1], 0)})`, arrows: A.pcaCols.map((c, j) => ({ x: pca.load[j][0], y: pca.load[j][1], l: c.n, c: c.n === 'Precio (ln)' ? '#dc2626' : '#0f766e' })) });
+  const sc = pca.scores, sx = mcsSd(sc.map(r => r[0])) || 1, sy = mcsSd(sc.map(r => r[1])) || 1;
+  const pcaInd = mcSvgDisp_(sc.map((r, i) => ({ x: r[0], y: r[1], c: MCQC[A.qi[i]], r: 3, o: .6 })), { w: 480, h: 400, axes0: true, xl: `PC1 (${MCPC(pca.pct[0], 0)})`, yl: `PC2 (${MCPC(pca.pct[1], 0)})` });
+  const scree = mcSvgBarras_(pca.vals.map((v, j) => ({ l: 'Componente ' + (j + 1), v: pca.pct[j], t: MCPC(pca.pct[j]) + '  (λ=' + MCN(v) + ')' })), { w: 440, l0: 120, max: Math.max(...pca.pct) });
+  const cargas = `<table class="mc-st"><thead><tr><th>Variable</th>${[0, 1, 2].filter(j => j < k).map(j => `<th>PC${j + 1}</th>`).join('')}</tr></thead><tbody>${A.pcaCols.map((c, j) => `<tr><td><b>${esc(c.n)}</b></td>${[0, 1, 2].filter(q => q < k).map(q => `<td class="${Math.abs(pca.load[j][q]) >= .5 ? 'sig' : ''}">${MCN(pca.load[j][q])}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="mc-mu" style="font-size:11.5px">Cargas = correlación de cada variable con el componente (en negritas las ≥ 0.5 en valor absoluto).</div>`;
+  // MCA
+  let mcaHtml = '<div class="mc-mu">No hay suficientes variables con variación para el análisis de correspondencias.</div>';
+  if (A.mca) { const m = A.mca, cp = ['#0f766e', '#2563eb', '#9333ea', '#ea580c', '#0891b2', '#be185d'], pts = []; m.cats.forEach((c, j) => pts.push({ x: m.col[j][0], y: m.col[j][1], c: cp[c.var % cp.length], r: 5.5, o: .95, l: c.name, fs: 11 }));
+    (m.supCoords || []).forEach((s, q) => { if (s.n) pts.push({ x: s.c[0], y: s.c[1], c: MCQC[q], sh: 'd', l: s.name, tc: '#7f1d1d', fs: 11, dx: 10 }); });
+    const ind = m.row.map((r, i) => ({ x: r[0], y: r[1], c: MCQC[A.qi[i]], r: 2.2, o: .28 })), allp = ind.concat(pts), xr = [Math.min(...allp.map(p => p.x)) - .15, Math.max(...allp.map(p => p.x)) + .35], yr = [Math.min(...allp.map(p => p.y)) - .15, Math.max(...allp.map(p => p.y)) + .15];
+    const mapa = mcSvgDisp_(ind.concat(pts), { w: 640, h: 470, xr, yr, axes0: true, xl: `Dimensión 1 (${MCPC(m.adjPct[0], 0)} de la inercia ajustada)`, yl: `Dimensión 2 (${MCPC(m.adjPct[1], 0)})` });
+    const scr = mcSvgBarras_(m.adjPct.slice(0, 4).map((v, j) => ({ l: 'Dimensión ' + (j + 1), v, t: MCPC(v) + ' ajustada · ' + MCPC(m.pct[j]) + ' bruta' })), { w: 560, l0: 120, max: Math.max(...m.adjPct, 1e-9) });
+    const top = m.cats.map((c, j) => ({ n: c.key, c: m.col[j][0], ctr: m.ctr[j][0], n2: c.cnt })).sort((a, b) => b.ctr - a.ctr).slice(0, 6);
+    mcaHtml = `<div class="mc-sgrid2">${fig('Mapa de correspondencias múltiples', mapa + mcLeyendaQ_(), 'Círculos de color = categorías de las características; rombos rojos = cuartiles de precio (variable suplementaria: no participa en el cálculo, solo se proyecta); puntos tenues = alojamientos coloreados por cuartil de precio.')}
+      <div>${fig('Inercia explicada', scr, 'Inercia ajustada de Benzécri (corrige el porcentaje, que en MCA siempre sale pesimista).')}<div style="height:8px"></div>${fig('Categorías que más definen la dimensión 1', `<table class="mc-st"><thead><tr><th>Categoría</th><th>Coord.</th><th>Contrib.</th><th>n</th></tr></thead><tbody>${top.map(t => `<tr><td>${esc(t.n)}</td><td>${MCN(t.c)}</td><td>${MCPC(t.ctr, 0)}</td><td>${t.n2}</td></tr>`).join('')}</tbody></table>`, '')}</div></div>`; }
+  const concl = mcSegConcl_(A);
+  return `<div class="mc-sg">${resumen}
+    <h4>1 · ¿Qué características pesan más en el precio por noche?</h4><div class="mc-sgrid2">${fig('Peso de cada característica (porcentaje del R² explicado)', bars, 'Entre paréntesis, puntos de R² que aporta; la suma es el R² total del modelo.')}${fig('Precio observado vs. predicho', ajuste + mcLeyendaQ_(), `Cada punto es un alojamiento (color = cuartil de precio). Sobre la línea punteada el modelo acierta; R² = ${MCN(M.r2, 3)}.`)}</div>${tabla}
+    <h4>2 · Cómo se distribuye el precio según cada característica</h4>${cajas}
+    <h4>3 · Reducción de dimensión: PCA (componentes principales)</h4><div class="mc-sgrid2">${fig('Círculo de correlaciones', pcaCirc, 'Flechas que apuntan al mismo lado = variables que suben juntas. Una flecha de «Precio» cercana a las de tamaño indica que el precio crece con ellas.')}${fig('Alojamientos en el plano PC1–PC2', pcaInd + mcLeyendaQ_(), 'Si los colores se ordenan a lo largo de un eje, ese eje resume el gradiente de precio.')}</div>
+    <div class="mc-sgrid2">${fig('Varianza explicada por componente', scree, '')}${fig('Cargas de las variables', cargas, '')}</div>
+    <h4>4 · Reducción de dimensión: MCA (análisis de correspondencias múltiples)</h4>${mcaHtml}
+    <h4>5 · Resultados y conclusiones</h4><div class="mc-concl">${concl}</div></div>`;
+}
+function mcSegConcl_(A) {
+  const { M, efectos, n, D, pca, mca } = A, L = [], e0 = efectos[0], sig = efectos.filter(e => e.p < .05), nosig = efectos.filter(e => e.p >= .05), vmax = efectos.reduce((a, e) => e.vif > a.vif ? e : a, efectos[0]);
+  L.push(`<b>Alcance.</b> Se analizaron <b>${n}</b> alojamientos con precio por noche (el de la búsqueda de Airbnb, antes de impuestos) y todas las características${A.opt.sinExt && D.ext.length ? `; se dejaron fuera ${D.ext.length} precios atípicos` : ''}. Como el precio es muy asimétrico, el modelo trabaja con su logaritmo: los efectos se leen como <i>cambios porcentuales</i>.`);
+  L.push(`<b>Qué tanto explican las características.</b> Juntas explican <b>${MCPC(M.r2, 0)}</b> de la variación del precio (R² ajustado ${MCPC(M.adj, 0)}). ${M.r2 < .3 ? 'Es un porcentaje bajo: el precio depende sobre todo de factores que no están en estas variables (ubicación, calidad y fotos, reseñas, temporada, estrategia del anfitrión).' : M.r2 < .6 ? 'Es un nivel moderado: las características son relevantes, pero una parte importante del precio responde a otros factores (ubicación, calidad, reseñas, estrategia del anfitrión).' : 'Es un nivel alto: las características describen bien el precio.'}`);
+  L.push(`<b>Qué pesa más.</b> ${efectos.slice(0, 3).map((e, j) => `${j ? ['', 'después', 'y luego'][j] + ' ' : 'La característica de mayor peso es '}<b>${esc(e.n)}</b> (${MCPC(e.share, 0)} del R² explicado)`).join('; ')}.${sig.length ? ' ' + sig.map(e => `<b>${esc(e.u.charAt(0).toUpperCase() + e.u.slice(1))}</b>: <b>${e.pct >= 0 ? '+' : ''}${MCPC(e.pct, 0)}</b> en el precio (IC 95% ${MCPC(e.ci[0], 0)} a ${MCPC(e.ci[1], 0)}; p ${e.p < .001 ? '< 0.001' : '= ' + MCPV(e.p)})`).join('. ') + '.' : ''}${nosig.length ? ` Sin efecto distinguible del azar, ya con las demás en cuenta: ${nosig.map(e => `${esc(e.n)} (p = ${MCPV(e.p)})`).join(', ')}.` : ''}`);
+  L.push(`<b>Cuidado con la superposición.</b> ${vmax.vif > 5 ? `Hay características que se mueven juntas (VIF máximo ${MCN(vmax.vif, 1)} en «${esc(vmax.n)}»): al agregar habitaciones suelen agregarse camas y baños, por eso el efecto «separado» de cada una es poco preciso y conviene leer el <i>peso</i> conjunto más que cada coeficiente.` : `La superposición entre características es moderada (VIF máximo ${MCN(vmax.vif, 1)}), así que los efectos individuales son razonablemente separables.`}`);
+  const c1 = pca.load.map((l, j) => ({ n: A.pcaCols[j].n, c1: l[0], c2: l[1] })), pr = c1.find(c => c.n === 'Precio (ln)'), tam = c1.filter(c => c.n !== 'Precio (ln)' && Math.abs(c.c1) >= .5);
+  L.push(`<b>PCA.</b> El primer componente resume <b>${MCPC(pca.pct[0], 0)}</b> de la variabilidad y el segundo ${MCPC(pca.pct[1], 0)} (juntos ${MCPC(pca.pct[0] + pca.pct[1], 0)}). El componente 1 agrupa ${tam.length ? tam.map(c => `«${esc(c.n)}» (${MCN(c.c1)})`).join(', ') : 'las variables sin un patrón claro'} y se correlaciona con el precio en <b>${MCN(pr.c1)}</b>${Math.abs(pr.c1) >= .5 ? ': el precio crece con el «tamaño» del alojamiento.' : ': el vínculo entre tamaño y precio es débil.'} ${Math.abs(pr.c2) >= .5 ? `El componente 2 también se asocia con el precio (${MCN(pr.c2)}), es decir, hay un segundo patrón de precio no explicado por el tamaño.` : ''}`);
+  if (mca) { const sc = mca.supCoords.filter(s => s.n), ord = sc.map(s => ({ n: s.name, x: s.c[0] })), mon = ord.length >= 3 && (ord.every((s, k) => k === 0 || s.x >= ord[k - 1].x) || ord.every((s, k) => k === 0 || s.x <= ord[k - 1].x));
+    L.push(`<b>MCA.</b> Con la inercia ajustada, la dimensión 1 explica <b>${MCPC(mca.adjPct[0], 0)}</b> y la dimensión 2 ${MCPC(mca.adjPct[1], 0)}. ${sc.length ? `Los cuartiles de precio se ubican en la dimensión 1 en ${sc.map(s => `${esc(s.name.replace('Precio ', ''))}: ${MCN(s.c[0])}`).join(' · ')}${mon ? ' — un <b>gradiente ordenado</b>: el precio se asocia de forma coherente con el perfil de características.' : ' — sin un orden claro: el precio no se alinea bien con este perfil.'}` : ''} La correlación del precio con la dimensión 1 es <b>${MCN(A.corPrecioDim[0])}</b> y con la 2 ${MCN(A.corPrecioDim[1])}.`); }
+  L.push(`<b>Lectura práctica.</b> ${e0.share >= .5 ? `El precio se ordena sobre todo por <b>${esc(e0.n.toLowerCase())}</b>.` : 'El peso se reparte entre varias características.'} ${efectos.find(e => e.k === 'coc') ? (efectos.find(e => e.k === 'coc').p < .05 ? 'La cocina sí marca diferencia.' : 'La cocina no marca una diferencia clara una vez controlado el tamaño (casi todos los alojamientos la tienen, por lo que aporta poca variación).') : ''} Para fijar o revisar tarifas conviene comparar contra alojamientos de la misma <i>configuración</i> (habitaciones y baños), no contra el promedio general.`);
+  L.push(`<span class="mc-mu"><b>Limitaciones.</b> Son asociaciones, no causas. El precio es el de la búsqueda (fechas y duración distintas según el escenario en que apareció cada publicación) y no incluye impuestos ni cargos. El análisis es de un solo corte; cuando se acumulen varios días de extracción se podrá repetir para ver cómo cambia con la temporada. Las categorías muy poco frecuentes (por ejemplo, alojamientos sin cocina) generan estimaciones inestables.</span>`);
+  return L.map(t => `<p>${t}</p>`).join('');
+}
+window.mcSegCsv_ = function () { const A = MC._seg; if (!A || !A.R) return; const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; const L = [['ID', 'Título', 'Precio por noche', 'Habitaciones', 'Camas', 'Baños', 'Cocina (1=sí)', 'Huéspedes', 'Hab. privada (1=sí)', 'Cuartil de precio'].map(q).join(',')].concat(A.R.map((r, i) => [r.id, r.titulo, r.precio, r.hab, r.camas, r.banos, r.coc, r.huesp, r.priv, 'Q' + (A.qi[i] + 1)].map(q).join(',')));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + L.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = `segmentacion-precio-${mcIso_(new Date())}.csv`; document.body.appendChild(a); a.click(); a.remove(); };
+
 window.mcGrafCsv_ = function () { const A = mcAgreg_(MC.cuenta); if (!A) return; const L = ['Fecha,Alojamientos ocupados (noche),Noches ocupadas acumuladas,Alojamientos con dato'].concat(A.dias.map((f, k) => `${f},${A.daily[k]},${A.cum[k]},${A.nobs[k]}`));
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + L.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = `ocupacion-agregada-${mcIso_(new Date())}.csv`; document.body.appendChild(a); a.click(); a.remove(); };
 // Precio por noche (de la búsqueda) entre el número de habitaciones; estudio/loft sin recámara = 1
@@ -75975,7 +76270,8 @@ function mcRender_() {
   root.innerHTML = `<div class="mc-hero"><h2>📈 Investigación de mercados</h2><small>Compara tu oferta con la competencia: datos públicos de cada publicación y su calendario de disponibilidad.</small></div>
     <div class="mc-tabs"><span class="mc-tab on">🏠 Airbnb</span></div>
     <div id="mc-top"></div>
-    <div class="mc-card"><h3>2 · Extraer</h3><div class="sub">Lee de cada publicación sus datos y su calendario (hasta 36 meses) y actualiza la base: una noche que ya pasó se conserva como ocupada, y si una reserva futura se cancela vuelve a quedar libre. Todos los días a las 3:00 a.m. se ejecuta solo (si usas el método Automática, primero repite la búsqueda para sumar publicaciones nuevas); también puedes pulsarlo cuando quieras.</div><div id="mc-prog"></div></div>
+    <div class="mc-card"><h3>2 · Extraer</h3><div class="sub">Lee de cada publicación sus datos y su calendario (hasta 36 meses) y actualiza la base: una noche que ya pasó se conserva como ocupada, y si una reserva futura se cancela vuelve a quedar libre. Se ejecuta solo a las horas que elijas abajo (si usas el método Automática, primero repite la búsqueda para sumar publicaciones nuevas); también puedes pulsarlo cuando quieras.</div>
+      <div class="mc-fx" id="mc-hw" style="max-width:340px;margin:0 0 12px"><b style="font-size:12px">Hora del día de la extracción</b>${mcHorasHtml_()}</div><div id="mc-prog"></div></div>
     <div id="mc-res"></div>`;
   mcTop_(); mcProg_(); mcRes_();
 }
@@ -76000,8 +76296,25 @@ function mcTop_() {
 function mcFxHtml_(E) {
   E = E || MC.esc || []; return E.map((e, k) => `<div class="mc-fxr"><button type="button" class="mc-fxb" onclick="mcDpOpen_(${k})" title="Cambiar estas fechas"><span>📅 <b>${k + 1})</b> ${esc(mcF(e.checkin))} → ${esc(mcF(e.checkout))} <span class="mc-mu">· ${e.n} noche${e.n === 1 ? '' : 's'}</span></span><i>✎</i></button>${E.length > 1 ? `<button type="button" class="mc-x" title="Quitar este rango" onclick="mcFxQuitar_(${k})">✕</button>` : ''}</div>`).join('')
     + (E.length < 8 ? '<button type="button" class="mc-fxadd" onclick="mcDpOpen_(-1)">＋ Agregar fechas</button>' : '')
-    + `<small>Se hacen ${E.length} búsqueda${E.length === 1 ? '' : 's'} y se unen sin repetir publicaciones. Las fechas se guardan como «hoy + N días» y se mueven solas cada día (también en la búsqueda de las 3 a.m.).</small>`;
+    + `<small>Se hacen ${E.length} búsqueda${E.length === 1 ? '' : 's'} y se unen sin repetir publicaciones. Las fechas se guardan como «hoy + N días» y se mueven solas cada día (también en la búsqueda automática de cada extracción).</small>`;
 }
+// ── Hora del día de la extracción automática: una fila por hora (varias = varias extracciones al día) ──
+function mcHoraTxt_(h) { return `${h % 12 || 12}:00 ${h < 12 ? 'a.m.' : 'p.m.'}`; }
+function mcHorasHtml_() {
+  const H = MC.horas && MC.horas.length ? MC.horas : [11, 19];
+  return H.map((h, k) => `<div class="mc-fxr"><select class="mc-in" style="flex:1" onchange="mcHoraSet_(${k},this.value)" title="Hora de esta extracción">${Array.from({ length: 24 }, (_, x) => `<option value="${x}" ${x === h ? 'selected' : ''}>🕐 ${mcHoraTxt_(x)}</option>`).join('')}</select>${H.length > 1 ? `<button type="button" class="mc-x" title="Quitar esta hora" onclick="mcHoraQuitar_(${k})">✕</button>` : ''}</div>`).join('')
+    + (H.length < 8 ? '<button type="button" class="mc-fxadd" onclick="mcHoraAgregar_()">＋ Agregar hora</button>' : '')
+    + `<small>${H.length === 1 ? 'Se hace 1 extracción al día' : `Se hacen ${H.length} extracciones al día`}, automáticamente a ${H.length === 1 ? 'esa hora' : 'estas horas'} (hora de Saltillo).</small>`;
+}
+function mcHorasPintar_() { const w = document.getElementById('mc-hw'); if (w) w.innerHTML = `<b style="font-size:12px">Hora del día de la extracción</b>${mcHorasHtml_()}`; }
+async function mcHorasGuardar_(lista) {
+  const L = [...new Set(lista.map(Number))].sort((a, b) => a - b), prev = MC.horas; MC.horas = L; MC._horasTs = Date.now(); mcHorasPintar_();
+  try { const j = await fetch(`${BACKEND}/mercado/airbnb/horas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ horas: L }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); MC.horas = j.horas; mcHorasPintar_(); }
+  catch (e) { MC.horas = prev; mcHorasPintar_(); alert('No se pudieron guardar las horas: ' + (e.message || e)); }
+}
+window.mcHoraSet_ = function (k, v) { const L = (MC.horas || [11, 19]).slice(); L[k] = +v; if (new Set(L).size < L.length) { alert('Esa hora ya está en la lista.'); mcHorasPintar_(); return; } mcHorasGuardar_(L); };
+window.mcHoraQuitar_ = function (k) { const L = (MC.horas || [11, 19]).slice(); if (L.length <= 1) return; L.splice(k, 1); mcHorasGuardar_(L); };
+window.mcHoraAgregar_ = function () { const L = (MC.horas || [11, 19]).slice(), h = [8, 12, 15, 18, 21, 6, 9, 13, 16, 20, 7, 10, 14, 17, 22, 23, 0, 1, 2, 3, 4, 5].find(x => !L.includes(x)); if (h == null) return; L.push(h); mcHorasGuardar_(L); };
 function mcFxPintar_() { const w = document.getElementById('mc-fxw'); if (w) w.innerHTML = mcFxHtml_(); }
 async function mcFxGuardar_(lista) {
   try { const j = await fetch(`${BACKEND}/mercado/airbnb/escenarios`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ escenarios: lista }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); MC.esc = j.escenarios; MC._escTs = Date.now(); mcFxPintar_(); return true; }
