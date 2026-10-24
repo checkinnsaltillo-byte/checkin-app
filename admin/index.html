@@ -243,6 +243,10 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
             onclick="switchModule('marketing');closeNavMenu()">
           📣 Marketing en redes
         </li>
+        <li class="nav-item" id="nav-item-mercado"
+            onclick="switchModule('mercado');closeNavMenu()">
+          📈 Investigación de mercados
+        </li>
         <!-- "Información de huéspedes" oculto temporalmente -->
         <li class="nav-item hidden" id="nav-item-huespedes"
             onclick="switchModule('huespedes');closeNavMenu()">
@@ -371,6 +375,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
               <button type="button" class="hm-tile home-card-guias" onclick="switchModule('guias')"><span class="hm-ico">📖</span><span class="hm-tx"><b>Guías de bienvenida</b><small>Guía digital por alojamiento</small></span></button>
               <button type="button" class="hm-tile home-card-rentas-lp" onclick="switchModule('rentas-lp')"><span class="hm-ico">🏘️</span><span class="hm-tx"><b>Rentas de largo plazo</b><small>Propiedades en renta o venta</small></span></button>
               <button type="button" class="hm-tile home-card-marketing" onclick="switchModule('marketing')"><span class="hm-ico">📣</span><span class="hm-tx"><b>Marketing en redes</b><small>Facebook, Instagram y estadísticas</small></span></button>
+              <button type="button" class="hm-tile home-card-mercado" onclick="switchModule('mercado')"><span class="hm-ico">📈</span><span class="hm-tx"><b>Investigación de mercados</b><small>Airbnb: publicaciones y disponibilidad</small></span></button>
             </div>
           </section>
           <section class="hm-sec" data-g="rep" style="--hc:#6d28d9">
@@ -549,6 +554,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
     <!-- ══ MÓDULO: Guías de Bienvenida ════════════════════════════════════════ -->
     <div id="module-rentas-lp" class="hidden" style="padding:0"><div id="rlp-root"></div></div>
     <div id="module-marketing" class="hidden" style="padding:14px 4px"><div id="mk-root"></div></div>
+    <div id="module-mercado" class="hidden" style="padding:14px 4px"><div id="mc-root"></div></div>
 
     <div id="module-guias" class="hidden" style="padding:0;display:flex;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.005em">
       <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
@@ -2964,7 +2970,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=2141"></script>
+  <script src="app.js?v=2143"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
