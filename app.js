@@ -67916,6 +67916,38 @@ function axCatHtml_(depto, k, autoCO) {
 function axTipoTareaHtml_(cur, fn) {
   return `<div class="lab">Tipo de tarea *</div><div class="ad-steps" style="grid-template-columns:repeat(3,1fr)">${Object.entries(AT_DEPTO).map(([k, X]) => `<button type="button" class="${cur === k ? 'on' : ''}" style="--c:${X.c}${fn || cur === k ? '' : ';opacity:.45;cursor:not-allowed'}" ${fn ? `onclick="${fn}('${k}')"` : `title="Este tipo lo define la reserva: salida = Limpieza · solo entrada = Inspección"`}>${X.ico} ${X.t}</button>`).join('')}</div>`;
 }
+// v2138: «💬 Comentarios» en cada tarea/card (aseo/extra.json[llave].comentarios; llaves: asigId · T<id> · R<rtId>); se guarda al salir del campo
+function axComentHtml_(k, hid) { const c = axEx_(k), id = 'axc-' + String(k).replace(/\W/g, '');
+  return `<div class="lab">💬 Comentarios</div><textarea class="at-in" id="${id}" rows="3" style="width:100%;box-sizing:border-box" placeholder="Escribe un comentario…" onchange="axComentGuardar_('${pcEsc(k)}','${pcEsc(String(hid || ''))}',this)">${pcEsc(c.comentarios || '')}</textarea><div class="at-hint" id="${id}-m" style="margin:2px 0 0">${c.comAt ? `Último cambio: ${pcEsc(c.comBy || '')} · ${new Date(c.comAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div>`; }
+// v2139: indicador 💬 en la card cuando la tarea tiene comentarios (el texto aparece al pasar el cursor)
+function axComChip_(k) { const c = axEx_(k).comentarios; if (c) atGalCss_(); return c ? `<span class="ad-com" title="${pcEsc(String(c).slice(0, 300))}">💬</span>` : ''; }
+window.axComentGuardar_ = function (k, hid, el) {
+  const v = String(el.value || '').trim(), user = (typeof currentUser !== 'undefined' && currentUser) || '', m = document.getElementById(el.id + '-m'); if (m) m.textContent = '⏳ Guardando…';
+  ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k], at = new Date().toISOString();
+  ASEO.extra[k] = Object.assign({}, prev, v ? { comentarios: v, comBy: user, comAt: at } : {}); if (!v) { delete ASEO.extra[k].comentarios; delete ASEO.extra[k].comBy; delete ASEO.extra[k].comAt; }
+  (ASEO._pend = ASEO._pend || {})['x:' + k] = { tipo: 'extra', id: k, rec: ASEO.extra[k], campos: ['comentarios', 'comBy', 'comAt'], t: Date.now() };
+  fetch(`${BACKEND}/aseo/extra`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: k, hid: hid || '', user, comentarios: v }) }).then(r => r.json())
+    .then(j => { if (!j.ok) throw new Error(j.error); if (m) m.textContent = v ? '✓ Guardado' : '✓ Comentario borrado'; })
+    .catch(e => { if (prev) ASEO.extra[k] = prev; else delete ASEO.extra[k]; if (m) m.textContent = '⚠ No se pudo guardar'; alert('No se pudo guardar el comentario: ' + (e.message || e)); });
+};
+// v2137: fotos en cards de limpieza por reserva (aseo/extra.json[asigId].fotos): galería con zoom y subida múltiple
+function axFotosHtml_(k) { const L = axEx_(k).fotos || []; if (!L.length) return '<div class="at-hint" style="margin:0 0 10px">Sin fotos. Puedes agregar varias a la vez.</div>';
+  return `<div class="at-gal">${L.map((f, i) => `<div class="at-ph"><img src="${BACKEND}${f.url}" alt="" onclick="fotoVer_(axEx_('${pcEsc(k)}').fotos.map(x=>BACKEND+x.url),${i})"><b onclick="axFotoQuitar_('${pcEsc(k)}',${i})">✕</b></div>`).join('')}</div>`; }
+window.axFotoQuitar_ = function (k, i) { const L = (axEx_(k).fotos || []).slice(); L.splice(i, 1); axSet_(k, { fotos: L }); };
+window.axFotoSubir_ = async function (inp, k, hid) {
+  const files = [...(inp.files || [])]; inp.value = ''; if (!files.length) return;
+  const lab = inp.parentNode, t0 = lab.firstChild.textContent; lab.firstChild.textContent = '⏳ Subiendo… ';
+  const nuevas = [];
+  for (const f0 of files) {
+    try { const f = await imgLigera_(f0); if (f.size > 15 * 1024 * 1024) { alert(`«${f.name}» pesa más de 15 MB.`); continue; }
+      const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+      const r = await fetch(`${BACKEND}/aseo/adjunto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: f.name, tipo: f.type, data }) }).then(r => r.json());
+      if (!r.ok) throw new Error(r.error || 'Error'); nuevas.push(r.adjunto);
+    } catch (e) { alert(`No se pudo subir «${f0.name}»: ${e.message || e}`); }
+  }
+  lab.firstChild.textContent = t0;
+  if (nuevas.length) axSet_(k, { fotos: (axEx_(k).fotos || []).concat(nuevas) }, hid);
+};
 window.axSet_ = function (k, patch, hid) {
   ASEO.extra = ASEO.extra || {}; const prev = ASEO.extra[k];
   ASEO.extra[k] = Object.assign({}, prev, patch);
@@ -68068,7 +68100,7 @@ function adCard_(I) {
   if (ASEO.simple) // Vista «Simple»: nombre corto · Sale/Entra · tipo y servicio · no ha desalojado · ＋⚠ · prioridad · estados
     return `<div class="ad-card tipo est-tint ad-simp ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}'${I._dia ? `,'${I._dia}'` : ''})"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || String(I.aloj || '—').replace(/^Calle\s+/i, ''))}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<span class="mv">${mov}</span></div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || String(I.aloj || '—').replace(/^Calle\s+/i, ''))}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}${axComChip_(I.asigId)}<span class="mv">${mov}</span></div>
     ${I.aviso && I.aviso.cb ? `<div class="mv-alert" style="--ac:${I.aviso.cb.c};animation:none"><b>${I.aviso.cb.ico} ${pcEsc(I.aviso.cb.t)}</b><span>${pcEsc(I.aviso.cb.d)}</span></div>` : I.aviso && /^Reprogramada/.test(I.aviso.t) ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     <div class="r2">${catP}${adCamasHtml_(I.hid)}${axEx_(I.asigId).chat ? '<span class="chat" title="Card generada desde el chat de WhatsApp (no había limpieza prevista)">💬 Desde el chat</span>' : ''}</div>
     ${solB ? `<div class="r2 ad-solr">${solB}</div>` : ''}
@@ -68079,7 +68111,7 @@ function adCard_(I) {
   </div>`;
   return `<div class="ad-card tipo est-tint ${I.fantasma ? 'ghost' : ''} ${I.noSale ? 'alert' : ''} ${sel ? 'sel' : ''}" style="--tc:${AT_DEPTO[I.depto].c};--sc:${adEstC_(I.selE)}" data-k="${pcEsc(I.k)}" data-dep="${I.depto || ''}" onclick="adAbrir_('${pcEsc(I.k)}'${I._dia ? `,'${I._dia}'` : ''})"
     draggable="true" ondragstart="adDragStart_(event,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}',false)" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}<span class="mv">${mov}</span></div>
+    <div class="r1"><span class="code">${pcEsc(I.corto || '—')}</span>${I.depto === 'limpieza' && I.hid ? rbCardRetHtml_('A' + I.hid, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(I.prio, true, `adPrioCiclo_('${pcEsc(I.asigId)}','${I.prio}')`)}${axComChip_(I.asigId)}<span class="mv">${mov}</span></div>
     ${I.aviso && I.aviso.cb ? `<div class="mv-alert" style="--ac:${I.aviso.cb.c};animation:none"><b>${I.aviso.cb.ico} ${pcEsc(I.aviso.cb.t)}</b><span>${pcEsc(I.aviso.cb.d)}</span></div>` : I.aviso && !(I.noSale && /desaloj/i.test(I.aviso.t)) ? `<div class="flag ${I.aviso.c}"><i></i>${pcEsc(I.aviso.t)}</div>` : ''}
     ${I.mant ? `<div class="flag ${I.mant.c}" title="Mantenimiento abierto en este alojamiento"><i></i>${I.mant.ico} ${pcEsc(I.mant.t)}</div>` : ''}
     ${adExtraInsumos_(I)}
@@ -68696,6 +68728,9 @@ function adPintar_(nuevo) {
         <div class="ad-addrow"><button type="button" class="ad-link" onclick="aseoAsignar_('${id}',this,'aseo')">＋ Asignar aseo</button><button type="button" class="ad-link" onclick="aseoAsignar_('${id}',this,'inspeccion')">＋ Asignar inspección</button></div></div>
       ${I.xs && I.esHoyC && !I.esCopia ? `<div class="lab">Desalojo</div><div class="ad-tgl" onclick="aseoNoSale_('${pcEsc(String(I.xs.b.Id))}','${hid}',${!I.noSale})"><div><b>${I.noSale ? 'El huésped NO ha desalojado' : '¿No ha desalojado?'}</b><small>${I.noSale ? 'Clic cuando ya haya salido' : 'Activa la alerta si el huésped sigue adentro'}</small></div><span class="ad-sw ${I.noSale ? 'red' : 'off'}"></span></div>` : ''}
       <div class="lab">Fecha de aseo</div>${aseoFechaCampo_(I.asigId, I.hid, I.hoy, I.g.reprogDe)}
+      <div class="at-sec" style="margin-top:14px"><span>📷 Fotos</span><label class="ad-link">＋ Agregar fotos<input type="file" accept="image/*" multiple hidden onchange="axFotoSubir_(this,'${pcEsc(I.asigId)}','${pcEsc(String(I.hid || ''))}')"></label></div>
+      ${(atGalCss_(), axFotosHtml_(I.asigId))}
+      ${axComentHtml_(I.asigId, I.hid)}
       ${reservas ? `<details class="ad-res"><summary>Reservas y acciones (${I.ids.length})</summary>${reservas}</details>` : ''}
       ${histSecHtml_([I.asigId].concat(I.ids || []).map(x => 'A:' + x))}
     </div>
@@ -68792,7 +68827,7 @@ function rtCardA_(I) {
   const pasos = [['pendiente', 'Pend.', '#94a3b8'], ['en_proceso', 'Proceso', '#f59e0b'], ['terminado', 'Term.', '#10b981'], ['cancelado', 'Cancel.', '#64748b']];
   return `<div class="ad-card tipo est-tint tarea ${t.bloquea && !cerrado ? 'alert' : ''} ${t.estado === 'cancelado' ? 'ghost' : ''} ${axEsDeInc_('R' + t.rtId) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="R${pcEsc(t.rtId)}" style="--tc:${D.c};--sc:${adEstC_(t.estado)}" onclick="rtAbrirA_('${pcEsc(t.rtId)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'R:${pcEsc(t.rtId)}','',true,true)" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${ckCodEd_(t.hid, I.corto)}</span>${prio4Html_(t.prioridad, true, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}<span class="prop">🔧 ${pcEsc(t.titulo)}</span>${atNuevoChip_(row.Timestamp)}</div>
+    <div class="r1"><span class="code">${ckCodEd_(t.hid, I.corto)}</span>${prio4Html_(t.prioridad, true, `rtPrioCiclo_('${pcEsc(t.rtId)}')`)}${axComChip_('R' + t.rtId)}<span class="prop">🔧 ${pcEsc(t.titulo)}</span>${atNuevoChip_(row.Timestamp)}</div>
     ${flags.join('')}
     <div class="r2">${axCatHtml_('mantenimiento', 'R' + t.rtId, false)}<span class="sep"></span><span>${cat.icon} ${pcEsc(cat.label)}</span><span class="sep"></span><span>${pcEsc(row.Folio || row.ID)}</span>${RC.meta}</div>
     ${axFila_('R' + t.rtId, false, t.hid, I.dia || t.fecha)}
@@ -68838,7 +68873,7 @@ function atCard_(I) {
   const sel = ASEO._dr && ASEO._dr.tarea === t.id;
   return `<div class="ad-card tipo est-tint tarea ${t.problema ? 'alert' : ''} ${axEsDeInc_('T' + t.id) ? 'deinc' : ''} ${sel ? 'sel' : ''}" data-k="T${pcEsc(t.id)}" style="--tc:${D.c};--sc:${adEstC_(I.selE)}" onclick="atAbrir_('${pcEsc(t.id)}','${I.dia}')"
     draggable="true" ondragstart="adDragStart_(event,'${I.key}','',true,${t.depto !== 'limpieza'})" ondragend="adDragEnd_(event)">
-    <div class="r1"><span class="code">${ckCodEd_(t.hid, I.corto)}</span>${t.depto === 'limpieza' ? rbCardRetHtml_('T' + t.id, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(t.prioridad, true, `atPrioCiclo_('${pcEsc(t.id)}')`)}<span class="prop">${D.ico} ${pcEsc(t.titulo)}</span>${atNuevoChip_(t.at)}${t.repite ? atRecChip_() : ''}</div>
+    <div class="r1"><span class="code">${ckCodEd_(t.hid, I.corto)}</span>${t.depto === 'limpieza' ? rbCardRetHtml_('T' + t.id, I._dia || aseoDia_()) : ''}${I._dia ? aseoDiaChip_(I._dia) : ''}${prio4Html_(t.prioridad, true, `atPrioCiclo_('${pcEsc(t.id)}')`)}${axComChip_('T' + t.id)}<span class="prop">${D.ico} ${pcEsc(t.titulo)}</span>${atNuevoChip_(t.at)}${t.repite ? atRecChip_() : ''}</div>
     ${t.problema ? '<div class="flag red"><i></i>Problema</div>' : ''}
     ${I.arrastre ? `<div class="flag orange"><i></i>Sin resolver desde ${aseoDiaTxt_(t.fecha)} · sigue a su card</div>` : ''}
     ${I.atrasada ? `<div class="flag red"><i></i>Atrasada · era para el ${aseoDiaTxt_(t.fecha)}</div>` : ''}${RC.flags}
@@ -68888,7 +68923,10 @@ function atPintar_(nuevo) {
         ${(t.etiquetas || []).length ? `<span>Etiquetas</span><b>${t.etiquetas.map(x => `<em class="ad-tag">${pcEsc(x)}</em>`).join(' ')}</b>` : ''}
         <span>Creada</span><b>${t.at ? new Date(t.at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : ''}${t.by ? ' · ' + pcEsc(t.by) : ''}</b></div>
       <div class="lab">Asignados</div><div class="ad-ppl">${(t.asignados || []).map(n => `<div class="ad-pp">${adAv_(n)}<span>${pcEsc(n)}</span></div>`).join('') || '<div class="ad-un">Sin asignar</div>'}</div>
-      ${(t.adjuntos || []).length ? `<div class="lab">Adjuntos</div><div class="ad-adjs">${t.adjuntos.map(a => `<a class="ad-adj" href="${BACKEND}${a.url}" target="_blank" rel="noopener">${/^image\//.test(a.tipo) ? `<img src="${BACKEND}${a.url}" alt="">` : '<span class="fi">📄</span>'}<span>${pcEsc(a.nombre)}</span></a>`).join('')}</div>` : ''}
+      ${(t.adjuntos || []).some(atEsImg_) ? (atGalCss_(), `<div class="lab">📷 Fotos (${t.adjuntos.filter(atEsImg_).length})</div><div class="at-gal">${t.adjuntos.filter(atEsImg_).map((a, j) => `<div class="at-ph"><img src="${BACKEND}${a.turl || a.url}" alt="" onclick="fotoVer_(atFotoUrls_(ASEO.tareas['${pcEsc(t.id)}'].adjuntos),${j})"></div>`).join('')}</div>`) : ''}
+      ${(t.refs || []).length ? (atGalCss_(), `<div class="lab">🖼️ Fotos de referencia (${t.refs.length})</div><div class="at-gal">${t.refs.map((a, j) => `<div class="at-ph"><img src="${BACKEND}${a.turl || a.url}" alt="" onclick="fotoVer_(atFotoUrls_(ASEO.tareas['${pcEsc(t.id)}'].refs,true),${j})"></div>`).join('')}</div>`) : ''}
+      ${(t.adjuntos || []).some(a => !atEsImg_(a)) ? `<div class="lab">📎 Archivos</div><div class="ad-adjs">${t.adjuntos.filter(a => !atEsImg_(a)).map(a => `<a class="ad-adj" href="${BACKEND}${a.url}" target="_blank" rel="noopener"><span class="fi">📄</span><span>${pcEsc(a.nombre)}</span></a>`).join('')}</div>` : ''}
+      ${axComentHtml_('T' + t.id, t.hid)}
       ${histSecHtml_(['T:' + t.id])}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="atForm_('${pcEsc(t.id)}')">Editar</button><button type="button" class="ad-bt" onclick="atBorrar_('${pcEsc(t.id)}')">Eliminar</button>
@@ -68922,6 +68960,7 @@ window.atForm_ = function (id, hid, dia) {
   atFormPintar_();
 };
 function atFormPintar_() {
+  atGalCss_();
   const F = ASEO._tf, dr = atShell_();
   const alojs = atAlojs_().slice().sort((a, b) => String(a.corto || a.nombre).localeCompare(String(b.corto || b.nombre), 'es', { numeric: true }));
   const horas = ['']; for (let m = 6 * 60; m <= 23 * 60 + 30; m += 30) horas.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
@@ -68948,7 +68987,11 @@ function atFormPintar_() {
         <div class="at-hint">Nota: las personas asignadas lo estarán en todas las repeticiones.</div>` : ''}
       <div class="at-sec"><span>👤 Asignados</span><button type="button" class="ad-link" onclick="atAsignar_(this)">＋ Añadir asignado</button></div>
       <div class="at-chips" id="at-asig">${atAsigChips_()}</div>
-      <div class="at-sec"><span>📎 Adjuntos</span><label class="ad-link">＋ Añadir archivo adjunto<input type="file" multiple hidden onchange="atSubir_(this)"></label></div>
+      <div class="at-sec"><span>📷 Fotos</span><label class="ad-link">＋ Agregar fotos<input type="file" accept="image/*" multiple hidden onchange="atSubir_(this)"></label></div>
+      <div class="at-gal" id="at-fotos">${atFotosHtml_()}</div>
+      <div class="at-sec"><span>🖼️ Fotos de referencia</span><label class="ad-link">＋ Agregar fotos de referencia<input type="file" accept="image/*" multiple hidden data-campo="refs" onchange="atSubir_(this)"></label></div>
+      <div class="at-gal" id="at-refs">${atFotosHtml_('refs')}</div>
+      <div class="at-sec"><span>📎 Otros archivos</span><label class="ad-link">＋ Añadir archivo adjunto<input type="file" multiple hidden onchange="atSubir_(this)"></label></div>
       <div class="ad-adjs" id="at-adjs">${atAdjsHtml_()}</div>
       <div class="at-sec"><span>🏷️ Etiquetas de tareas</span></div>
       <div class="at-chips">${(F.etiquetas || []).map((x, i) => `<span class="at-chip">#${pcEsc(x)}<b onclick="ASEO._tf.etiquetas.splice(${i},1);atFormPintar_()">✕</b></span>`).join('')}
@@ -69049,21 +69092,29 @@ window.atAsigPick_ = function (el) {
   el.classList.toggle('on', on); const ck = el.querySelector('.pz-ck'); ck.classList.toggle('on', on); ck.textContent = on ? '✓' : '';
   const c = document.getElementById('at-asig'); if (c) c.innerHTML = atAsigChips_();
 };
-function atAdjsHtml_() { return (ASEO._tf.adjuntos || []).map((a, i) => `<span class="ad-adj">${/^image\//.test(a.tipo) && a.url ? `<img src="${BACKEND}${a.url}" alt="">` : '<span class="fi">📄</span>'}<span>${pcEsc(a.nombre)}</span><b onclick="ASEO._tf.adjuntos.splice(${i},1);document.getElementById('at-adjs').innerHTML=atAdjsHtml_()">✕</b></span>`).join(''); }
+const atEsImg_ = a => /^image\//.test(String(a.tipo || '')) || /\.(jpe?g|png|webp|gif|heic)$/i.test(String(a.nombre || ''));
+function atAdjsHtml_() { return (ASEO._tf.adjuntos || []).map((a, i) => atEsImg_(a) ? '' : `<span class="ad-adj"><span class="fi">📄</span><span>${pcEsc(a.nombre)}</span><b onclick="ASEO._tf.adjuntos.splice(${i},1);atAdjsPintar_()">✕</b></span>`).join(''); }
+// v2136: galería de fotos de la tarea (vista previa, clic = zoom con flechas, ✕ quitar)
+function atFotosHtml_(campo) { campo = campo || 'adjuntos'; const L = ASEO._tf[campo] || [], imgs = L.map((a, i) => ({ a, i })).filter(x => campo === 'refs' || atEsImg_(x.a)); if (!imgs.length) return '<div class="at-hint" style="margin:0">Sin fotos. Puedes agregar varias a la vez.</div>';
+  return imgs.map((x, j) => `<div class="at-ph"><img src="${BACKEND}${x.a.turl || x.a.url}" alt="" onclick="fotoVer_(atFotoUrls_(ASEO._tf.${campo},${campo === 'refs'}),${j})"><b onclick="ASEO._tf.${campo}.splice(${x.i},1);atAdjsPintar_()">✕</b></div>`).join(''); }
+function atFotoUrls_(L, todas) { return (L || []).filter(a => todas || atEsImg_(a)).map(a => BACKEND + a.url); }
+function atAdjsPintar_() { const g = document.getElementById('at-fotos'); if (g) g.innerHTML = atFotosHtml_(); const r = document.getElementById('at-refs'); if (r) r.innerHTML = atFotosHtml_('refs'); const b = document.getElementById('at-adjs'); if (b) b.innerHTML = atAdjsHtml_(); }
+function atGalCss_() { if (document.getElementById('at-gal-css')) return; const st = document.createElement('style'); st.id = 'at-gal-css'; st.textContent = `.at-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin:4px 0 10px}.at-ph{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;background:#f8fafc}.at-ph img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}.at-ph b{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:999px;background:rgba(15,23,42,.75);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer}.at-ph.sub{opacity:.6}.ad-com{flex:none;font-size:12px;line-height:1;cursor:help}`; document.head.appendChild(st); }
 window.atSubir_ = async function (inp) {
+  const campo = inp.dataset.campo || 'adjuntos'; // 'refs' = fotos de referencia
   const files = [...(inp.files || [])]; inp.value = '';
   const box = document.getElementById('at-adjs');
   for (const f0 of files) {
     const f = await imgLigera_(f0); // fotos ligeras
     if (f.size > 15 * 1024 * 1024) { alert(`«${f.name}» pesa más de 15 MB.`); continue; }
-    const tmp = document.createElement('span'); tmp.className = 'ad-adj'; tmp.textContent = '⏳ ' + f.name; box && box.appendChild(tmp);
+    const tmp = document.createElement('span'); tmp.className = 'ad-adj'; tmp.textContent = '⏳ ' + f.name; { const dst = document.getElementById(campo === 'refs' ? 'at-refs' : /^image\//.test(f.type) ? 'at-fotos' : 'at-adjs') || box; if (dst) dst.appendChild(tmp); }
     try {
       const data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
       const r = await fetch(`${BACKEND}/aseo/adjunto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: f.name, tipo: f.type, data }) }).then(r => r.json());
       if (!r.ok) throw new Error(r.error || 'Error');
-      ASEO._tf.adjuntos.push(r.adjunto);
+      (ASEO._tf[campo] = ASEO._tf[campo] || []).push(r.adjunto);
     } catch (e) { alert(`No se pudo subir «${f.name}»: ${e.message || e}`); }
-    if (box) box.innerHTML = atAdjsHtml_();
+    atAdjsPintar_();
   }
 };
 window.atGuardar_ = async function () {
@@ -69079,7 +69130,7 @@ window.atGuardar_ = async function () {
   try {
     const r = await fetch(`${BACKEND}/aseo/tarea`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tarea: Object.assign({}, F, { _deRt: undefined }), user: (typeof currentUser !== 'undefined' && currentUser) || '' }) }).then(r => r.json());
     if (!r.ok) throw new Error(r.error || 'Error');
-    (ASEO.tareas = ASEO.tareas || {})[r.tarea.id] = Object.assign(r.tarea, { adjuntos: F.adjuntos });
+    (ASEO.tareas = ASEO.tareas || {})[r.tarea.id] = Object.assign(r.tarea, { adjuntos: F.adjuntos, refs: F.refs || [] });
     if ((F.srv || 'general') !== axSrv_('T' + r.tarea.id, false)) axSet_('T' + r.tarea.id, axSrvPatch_(F.srv || 'general'), r.tarea.hid);
     if (F._deRt) { // conversión Mantenimiento → Aseo/Inspección: se retira el reporte técnico original
       await fetch(`${BACKEND}/reportes-tecnicos-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: F._deRt }) }).then(r => r.json()).catch(() => null);
@@ -69236,6 +69287,7 @@ function rtPintarA_(nuevo) {
       ${fotos(rtFotos_(row.Fotos_antes_urls), 'Fotos antes')}${fotos(rtFotos_(row.Fotos_despues_urls), 'Fotos después')}
       ${row.Descripcion_solucion ? `<div class="lab">Solución</div><div class="ad-desc">${pcEsc(row.Descripcion_solucion).replace(/\n/g, '<br>')}</div>` : ''}
       ${row.Notas ? `<div class="lab">Notas</div><div class="ad-desc">${pcEsc(row.Notas).replace(/\n/g, '<br>')}</div>` : ''}
+      ${axComentHtml_('R' + t.rtId, t.hid)}
       ${histSecHtml_(['R:' + t.rtId])}
     </div>
     <div class="ad-ft"><button type="button" class="ad-bt" onclick="rtFormA_('${id}')">Editar</button><button type="button" class="ad-bt" onclick="rtBorrarA_('${id}')">Eliminar</button>
@@ -71411,6 +71463,8 @@ function plCss_() {
   .pl-ck{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-size:12.5px;color:#334155}
   .pl-ck .ck{width:18px;height:18px;border:1.5px solid #94a3b8;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background:#fff;flex:none;box-sizing:border-box}
   .pl-ck.on .ck{background:#4f46e5;border-color:#4f46e5}
+  .pl-crit{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:800;white-space:nowrap}
+  .pl-caract{display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:800}
   .pl-sm{width:70px!important;padding:5px 8px!important}
   .pl-lnk{all:unset;cursor:pointer;color:#0284c7;font-size:12.5px;font-weight:600}.pl-lnk:hover{text-decoration:underline}
   .pl-add{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 0 4px}
@@ -71477,6 +71531,9 @@ async function plCargar_(fuerza) {
   return ASEO.pl._p;
 }
 function plCampos_(p) { return (p.secciones || []).reduce((n, s) => n + (s.items || []).length, 0); }
+// v2134: campo crítico = marcado en el campo o en toda su sección (editor de plantillas); va arriba en «Por urgencia» y «Por tipo».
+function plEsCrit_(s, it) { return !!((it && it.critico) || (s && s.critico)); }
+function plCritChip_(s, it) { return plEsCrit_(s, it) ? '<span class="pl-crit" title="Campo crítico (definido en la plantilla)">🚨 Crítico</span>' : ''; }
 // ── Sección «Plantillas» (lista + editor) ──
 window.plInit_ = async function () {
   plCss_();
@@ -73069,6 +73126,8 @@ function plEdPintar_(arriba) {
         ${i.tipo === 'contar' ? `<span>Mín. <input class="pl-in pl-sm" type="number" value="${i.min ?? ''}" oninput="plEdNum_(${a},'min',this.value)"></span><span>Máx. <input class="pl-in pl-sm" type="number" value="${i.max ?? ''}" oninput="plEdNum_(${a},'max',this.value)"></span>` : ''}
         ${i.tipo === 'calif' ? `<span>Escala <select class="pl-in pl-sm" onchange="ASEO.pl.ed.secciones[${si}].items[${ii}].escala=+this.value">${[3, 5, 10].map(n => `<option ${Number(i.escala || 5) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></span>` : ''}
         <label class="pl-lnk">Subir foto de referencia +<input type="file" accept="image/*" hidden onchange="plEdRef_(this,${a})"></label>
+        ${i.caract ? '' : s.critico ? '<span class="pl-crit">🚨 Crítico (toda la sección)</span>' : ck(!!i.critico, `plEdTg_(${a},'critico')`, '🚨 Crítico')}
+        ${ck(!!i.caract, `plEdTg_(${a},'caract')`, 'ℹ️ Solo característica (no se evalúa)')}
       </div>
       ${(i.ref || []).length ? `<div class="pl-refs">${i.ref.map((f, fi) => `<span><img src="${BACKEND}${f.url}" alt="" onclick="fotoVer_(ASEO.pl.ed.secciones[${si}].items[${ii}].ref.map(x=>BACKEND+x.url),${fi})"><b onclick="ASEO.pl.ed.secciones[${si}].items[${ii}].ref.splice(${fi},1);plEdPintar_()">✕</b></span>`).join('')}</div>` : ''}
     </div><div class="tl"><button type="button" class="pl-x" title="Subir" onclick="plEdMover_(${a},-1)">↑</button><button type="button" class="pl-x" title="Bajar" onclick="plEdMover_(${a},1)">↓</button><button type="button" class="pl-x" title="Quitar" onclick="ASEO.pl.ed.secciones[${si}].items.splice(${ii},1);plEdPintar_()">✕</button></div></div>`;
@@ -73092,6 +73151,7 @@ function plEdPintar_(arriba) {
           <div class="pl-sh"><input value="${pcEsc(s.titulo)}" placeholder="Nombre de la sección" oninput="ASEO.pl.ed.secciones[${si}].titulo=this.value">
             <button type="button" class="pl-x" title="Subir sección" onclick="plEdMoverSec_(${si},-1)">↑</button><button type="button" class="pl-x" title="Bajar sección" onclick="plEdMoverSec_(${si},1)">↓</button>
             <button type="button" class="pl-x" onclick="plEdQuitarSec_(${si})">Quitar sección</button></div>
+          <div style="margin:-4px 0 8px">${ck(!!s.critico, `plEdTgSec_(${si},'critico')`, '🚨 Sección crítica (todos sus campos)')}</div>
           ${s.items.map((i, ii) => it(s, i, si, ii)).join('') || '<div class="pl-hint">Sección sin campos: agrega uno abajo.</div>'}
           <div class="pl-add">${Object.entries(PL_TIPOS).map(([k, T]) => `<button type="button" class="pl-lnk" onclick="plEdItem_(${si},'${k}')">${T.t} +</button>`).join('')}</div>
         </div>`).join('')}
@@ -73103,6 +73163,7 @@ function plEdPintar_(arriba) {
 }
 window.plEdPrio_ = function (k) { ASEO.pl.ed.prioridad = k; plEdPintar_(); };
 window.plEdTg_ = function (si, ii, c) { const i = ASEO.pl.ed.secciones[si].items[ii]; i[c] = !i[c]; plEdPintar_(); };
+window.plEdTgSec_ = function (si, c) { const s = ASEO.pl.ed.secciones[si]; s[c] = !s[c]; plEdPintar_(); };
 window.plEdNum_ = function (si, ii, c, v) { const i = ASEO.pl.ed.secciones[si].items[ii]; if (v === '' || isNaN(+v)) delete i[c]; else i[c] = +v; };
 window.plEdItem_ = function (si, tipo) { ASEO.pl.ed.secciones[si].items.push({ id: plId_('i'), tipo, texto: '', foto: false, ref: [], ...(tipo === 'calif' ? { escala: 5 } : {}), ...(tipo === 'lista' ? { sub: [] } : {}) }); plEdPintar_(); setTimeout(() => { const s = document.getElementById('pl-s' + si); const L = s && s.querySelectorAll('.pl-it .bd > input'); if (L && L.length) L[L.length - 1].focus(); }, 0); };
 window.plEdSec_ = function () { ASEO.pl.ed.secciones.push({ id: plId_('s'), titulo: '', items: [] }); plEdPintar_(); const n = ASEO.pl.ed.secciones.length - 1; setTimeout(() => { const s = document.getElementById('pl-s' + n); if (s) { s.scrollIntoView({ behavior: 'smooth', block: 'start' }); const i = s.querySelector('.pl-sh input'); if (i) i.focus(); } }, 0); };
@@ -73234,7 +73295,7 @@ function plFillItem_(it, r, s) {
   else if (it.tipo === 'sino') ctl = `<div class="plf-seg"><button type="button" class="${r.v === 'si' ? 'on' : ''}" style="--c:#16a34a" onclick="plSet_('${id}','si')">Sí</button><button type="button" class="${r.v === 'no' ? 'on' : ''}" style="--c:#dc2626" onclick="plSet_('${id}','no')">No</button></div>`;
   else if (it.tipo === 'calif') { const E = Number(it.escala) || 5; ctl = `<div class="plf-stars">${Array.from({ length: E }, (_, i) => `<button type="button" class="${Number(r.v) > i ? 'on' : ''}" title="${i + 1} de ${E}" onclick="plSet_('${id}',${i + 1})">★</button>`).join('')}${r.v ? `<span class="plf-ref" style="align-self:center;margin-left:6px">${r.v} de ${E}</span>` : ''}</div>`; }
   const hecho = plHecho_(it, r);
-  return `<div class="plf-it" data-i="${id}"><div class="plf-q"><span class="st ${hecho ? 'on' : ''}">${hecho ? '✓' : ''}</span><span>${pcEsc(q)}</span><em>${it.texto ? T.t : ''}${it.foto && it.tipo !== 'foto' ? `${it.texto ? ' · ' : ''}📷 obligatoria` : ''}</em></div>
+  return `<div class="plf-it" data-i="${id}"><div class="plf-q"><span class="st ${hecho ? 'on' : ''}">${hecho ? '✓' : ''}</span><span>${pcEsc(q)}</span>${it.caract ? '<span class="pl-caract" title="Solo característica del alojamiento, no se evalúa">ℹ️</span>' : typeof plEsCrit_ === 'function' && plEsCrit_(s, it) ? '<span class="pl-crit">🚨</span>' : ''}<em>${it.texto ? T.t : ''}${it.foto && it.tipo !== 'foto' ? `${it.texto ? ' · ' : ''}📷 obligatoria` : ''}</em></div>
     <div class="plf-bd">${(it.ref || []).length ? `<div class="plf-fotos"><span class="plf-ref">Referencia:</span>${it.ref.map((f, i) => `<span><img src="${BACKEND}${f.url}" alt="" onclick="fotoVer_(${pcEsc(JSON.stringify(it.ref.map(x => BACKEND + x.url)))},${i})"></span>`).join('')}</div>` : ''}
     <div class="plf-row"><div class="plf-ctl">${ctl}</div>${iconos}</div>${fotosHtml}${notaHtml}</div></div>`;
 }
@@ -74927,6 +74988,12 @@ function tdUrgDe_(it, rr) {
   if (nota) return { n: 1, t: 'Con nota', c: '#6366f1' };
   return null;
 }
+// v2135: Urgencia = Relevancia (Crítico/Normal, de la plantilla) × gravedad de la respuesta (Grave: Malo/No · Media: Regular, calificación
+// baja, fuera de rango · Leve: solo nota). Crítico: Grave→Alta, Media→Media, Leve→Baja. Normal: Grave→Media, Media→Baja, Leve→Seguimiento.
+const TD_NIV = { alta: { r: 4, t: 'Alta', c: '#dc2626', e: '🔴' }, media: { r: 3, t: 'Media', c: '#f97316', e: '🟠' }, baja: { r: 2, t: 'Baja', c: '#eab308', e: '🟡' }, seg: { r: 1, t: 'Seguimiento', c: '#94a3b8', e: '⚪' } };
+function tdNivelDe_(crit, u) { const g = u.n >= 3 ? 'grave' : u.n === 2 ? 'media' : 'leve'; const k = crit ? { grave: 'alta', media: 'media', leve: 'baja' }[g] : { grave: 'media', media: 'baja', leve: 'seg' }[g]; return Object.assign({ k }, TD_NIV[k]); }
+function tdSemHtml_(niv) { const on = niv.k; return `<span class="tb-sem" title="Urgencia ${niv.t}">${['alta', 'media', 'baja'].map(k => `<i class="${on === k ? 'on' : ''}" style="--c:${TD_NIV[k].c}"></i>`).join('')}<b style="color:${niv.c}">${niv.t}</b></span>`; }
+function tdRelChip_(crit) { return crit ? '<span class="pl-crit">🚨 Crítico</span>' : '<span class="tb-rel">No crítico</span>'; }
 function tdRespTxt_(it, rr) { const v = rr.v; if (it.tipo === 'condicion') return v === 'na' ? 'N/A' : (PL_COND.find(x => x[0] === v) || [])[1] || '—'; if (it.tipo === 'sino') return v === 'si' ? 'Sí' : v === 'no' ? 'No' : '—';
   if (it.tipo === 'calif') return v ? `${v} de ${Number(it.escala) || 5}` : '—'; if (it.tipo === 'lista') return (it.sub || []).length ? `${Object.values(v || {}).filter(Boolean).length}/${it.sub.length}` : v === true ? 'Hecho' : '—'; return v == null || v === '' ? '—' : String(v).slice(0, 60); }
 // Hallazgos de todos los levantamientos del periodo: {items, faltan (llaves aún no cargadas), hids (por alojamiento: doc elegido)}.
@@ -74951,10 +75018,10 @@ function tdUrgDatos_(O) {
         if (doc && doc.resp && Object.keys(doc.resp).length && (!mejor || String(doc.at || '') > String(mejor.at || ''))) { mejor = doc; mejorKey = key; } }
       if (!mejor) { hids[r.ID + '|' + hid] = null; return; } const key = mejorKey, resp = mejor.resp, per = (key.match(/:(\d{4}-\d{2}-\d{2}(?:-\d+)?)$/) || [])[1] || P;
       hids[r.ID + '|' + hid] = { key, per, at: mejor.at || '', n: Object.keys(resp).length };
-      (p.secciones || []).forEach(s => (s.items || []).forEach(it => { const rr = resp[it.id]; if (!rr) return; const u = tdUrgDe_(it, rr); if (u) items.push({ r, hid, P, per, key, p, s, it, rr, u, at: mejor.at || '' }); })); }); });
+      (p.secciones || []).forEach(s => (s.items || []).forEach(it => { const rr = resp[it.id]; if (!rr) return; const u = tdUrgDe_(it, rr); if (it.caract) return; if (u) { const crit = plEsCrit_(s, it); items.push({ r, hid, P, per, key, p, s, it, rr, u, crit, niv: tdNivelDe_(crit, u), at: mejor.at || '' }); } })); }); });
   if (faltan.length && !U.pend) { U.pend = fetch(`${BACKEND}/aseo/plantilla-resp/lote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ks: faltan }) }).then(r => r.json())
     .then(j => { (j.items || []).forEach(x => { U.docs[x.k] = x.doc || {}; }); faltan.forEach(k => { if (U.docs[k] === undefined) U.docs[k] = {}; }); U.pend = null; tdRender_(); }).catch(() => { U.pend = null; }); }
-  items.sort((a, b) => b.u.n - a.u.n || String(b.at).localeCompare(String(a.at)));
+  items.sort((a, b) => b.niv.r - a.niv.r || (b.crit - a.crit) || b.u.n - a.u.n || String(b.at).localeCompare(String(a.at))); // urgencia alta arriba; a igual nivel, críticos primero
   return { items, faltan, hids };
 }
 function tdTablaUrg_(O, vac) {
@@ -74966,9 +75033,9 @@ function tdTablaUrg_(O, vac) {
     return { onclick: x.per && x.per !== tdIGPerDe_(x.r, x.hid, x.P) ? `tdAbrirHijo_('${esc(x.r.ID)}','${esc(x.hid)}','${esc(x.per)}')` : `tdAbrirHijoEn_('${esc(x.r.ID)}','${esc(x.hid)}','${x.P}')`, cells: [
       `<span class="tb-a"><b class="code" style="font-size:11px">${esc(a.corto ? String(a.corto).toUpperCase() : '—')}</b><small style="color:#0f1729;font-weight:600">${esc(String(a.nombre || x.hid).replace(/^Calle\s+/i, ''))}</small></span>`,
       ckTx_(x.at ? aseoDiaTxt_(String(x.at).slice(0, 10)) : '—'),
-      `<span class="tb-ret" style="background:${x.u.c}1a;color:${x.u.c}">${esc(x.u.t)}</span>`,
-      `<span class="tb-a"><b style="font-size:12px">${esc(x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t)}</b><small>${esc(x.it.texto ? (x.s.titulo || '') : PL_TIPOS[x.it.tipo].t)}</small></span>`,
-      ckTx_(tdRespTxt_(x.it, x.rr)),
+      tdSemHtml_(x.niv),
+      `<span class="tb-a">${tdRelChip_(x.crit)}<small style="color:#0f1729;font-weight:600;white-space:normal">${esc(x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t)}</small></span>`,
+      `<span class="tb-a"><b style="font-size:12px;color:${x.u.c}">${esc(x.u.t)}</b><small>${esc(tdRespTxt_(x.it, x.rr))}</small></span>`,
       `<span class="tb-mu" style="white-space:normal;font-size:11.5px">${esc(String(x.rr.nota || '').slice(0, 140))}</span>`,
       fotos ? `<button type="button" class="tb-foto" title="Ver ${fotos === 1 ? 'la foto' : fotos + ' fotos'}" onclick="event.stopPropagation();tdUrgFotos_(${i})"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>${fotos > 1 ? `<i>${fotos}</i>` : ''}</button>` : '<span class="tb-mu">—</span>',
       ckTx_(`📝 ${x.r.Nombre || x.p.titulo}`),
@@ -74978,25 +75045,27 @@ function tdTablaUrg_(O, vac) {
   const fa = fh && typeof atAloj_ === 'function' ? atAloj_(fh) : null, chip = fh ? `<div style="display:inline-flex;align-items:center;gap:8px;margin:0 0 10px 10px;padding:5px 10px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:999px;font-size:12px;font-weight:700;color:#3730a3">🏠 ${esc(fa && fa.corto ? String(fa.corto).toUpperCase() : fh)}${fa && fa.nombre ? ` · ${esc(String(fa.nombre).replace(/^Calle\s+/i, ''))}` : ''}<button type="button" onclick="TAR_STATE.urgHid='';tdRender_()" style="all:unset;cursor:pointer;font-weight:900">✕</button></div>` : '';
   if (!document.getElementById('tdurg-css')) { const st = document.createElement('style'); st.id = 'tdurg-css'; st.textContent = `.tb-ed{all:unset;cursor:pointer;padding:3px 10px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#334155;font-size:11.5px;font-weight:600;white-space:nowrap}.tb-ed:hover{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}.tb-car{font-style:normal;display:inline-block;width:14px;color:#6b7280}
     .ad-tbl .tb-ret{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}.ad-tbl .tb-pg{max-height:calc(100vh - 240px);overflow:auto}
+    .tb-sem{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}.tb-sem i{width:12px;height:12px;border-radius:50%;background:#e5e7eb;border:1px solid #d1d5db;box-sizing:border-box}.tb-sem i.on{background:var(--c);border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 30%,#fff)}.tb-sem b{margin-left:5px;font-size:11.5px;font-weight:800}
+    .tb-rel{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;white-space:nowrap}
     .ad-tbl .tb-lnk{color:#15803d;font-weight:700;font-size:12px;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}.ad-tbl .tb-lnk:hover{color:#166534}
     .ad-tbl .tb-foto{all:unset;position:relative;cursor:pointer;width:30px;height:30px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#4f46e5}.ad-tbl .tb-foto:hover{background:#eef2ff}
     .ad-tbl .tb-foto i{position:absolute;top:-2px;right:-4px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:#4f46e5;color:#fff;font:700 9px/14px Inter,system-ui,sans-serif;font-style:normal;text-align:center}`; document.head.appendChild(st); }
-  return chip + ckTablaHtml_([['Alojamiento', 'minmax(180px,1.2fr)'], ['Levantado', '110px'], ['Urgencia', '100px'], ['Campo', 'minmax(220px,1.5fr)'], ['Respuesta', '110px'], ['Nota', 'minmax(160px,1fr)'], ['Fotos', '60px'], ['Levantamiento', '160px'], ['', '130px']], [{ t: '🚨 Campos que requieren atención', rows }], vacio);
+  return chip + ckTablaHtml_([['Alojamiento', 'minmax(180px,1.2fr)'], ['Levantado', '110px'], ['Urgencia', '150px'], ['Relevancia', 'minmax(220px,1.5fr)'], ['Respuesta', '130px'], ['Nota', 'minmax(160px,1fr)'], ['Fotos', '60px'], ['Levantamiento', '160px'], ['', '130px']], [{ t: '🚨 Campos que requieren atención', rows }], vacio);
 }
 // ═══ Dashboard de riesgos («Por tipo»): levantamiento › edificio › alojamiento con el conteo de alertas (no barras de avance) ═══
 function tdEdifDe_(hid) { const E = typeof alojEdif_ === 'function' ? alojEdif_(hid) : null; if (E) return { k: E.k, nom: E.nom }; const a = typeof atAloj_ === 'function' ? atAloj_(hid) : null, c = String((a && a.corto) || '').toUpperCase(), m = c.match(/^([A-Z]+)\d/); return m ? { k: m[1], nom: m[1] } : { k: 'OTROS', nom: 'Otros' }; }
 function tdRiesgoDe_(c) { return c.crit ? ['Alto', '#dc2626', '#fee2e2'] : c.warn ? ['Medio', '#ea580c', '#ffedd5'] : c.info ? ['Bajo', '#2563eb', '#dbeafe'] : c.doc ? ['Sin alertas', '#15803d', '#dcfce7'] : ['Sin levantar', '#6b7280', '#f3f4f6']; }
 function tdBarra_(c, h) { const t = c.crit + c.warn + c.info; if (!t) return `<span class="rk-bar"><i style="width:100%;background:${c.doc ? '#bbf7d0' : '#e5e7eb'}"></i></span>`;
-  return `<span class="rk-bar">${c.crit ? `<i style="width:${100 * c.crit / t}%;background:#dc2626" title="${c.crit} críticas"></i>` : ''}${c.warn ? `<i style="width:${100 * c.warn / t}%;background:#f97316" title="${c.warn} con atención"></i>` : ''}${c.info ? `<i style="width:${100 * c.info / t}%;background:#60a5fa" title="${c.info} con nota"></i>` : ''}</span>`; }
+  return `<span class="rk-bar">${c.crit ? `<i style="width:${100 * c.crit / t}%;background:#dc2626" title="${c.crit} urgencia alta"></i>` : ''}${c.warn ? `<i style="width:${100 * c.warn / t}%;background:#f97316" title="${c.warn} urgencia media"></i>` : ''}${c.info ? `<i style="width:${100 * c.info / t}%;background:#eab308" title="${c.info} urgencia baja / seguimiento"></i>` : ''}</span>`; }
 function tdCnt_(c, hid) { const b = (n, cls, t) => `<button type="button" class="rk-n ${cls} ${n ? '' : 'z'}" title="${t}" onclick="event.stopPropagation();tdUrgIr_('${esc(hid || '')}')">${n}</button>`;
-  return `<span class="rk-cnts">${b(c.crit, 'c', 'Malo / No (críticas)')}${b(c.warn, 'w', 'Regular / fuera de rango / calificación baja')}${b(c.info, 'i', 'Solo con nota')}</span>`; }
+  return `<span class="rk-cnts">${b(c.crit, 'c', '🔴 Urgencia alta')}${b(c.warn, 'w', '🟠 Urgencia media')}${b(c.info, 'i', '🟡 Urgencia baja / seguimiento')}</span>`; }
 window.tdUrgIr_ = function (hid) { TAR_STATE.urgHid = hid || ''; TAR_STATE.tbModo = 'urg'; tdRender_(); };
 function tdTablaLv_(O, vac) {
   const D = tdUrgDatos_(O); if (!D) return '<div class="pc-mv-empty">⏳ Cargando plantillas…</div>';
   const Cab = TAR_STATE.tbAb = TAR_STATE.tbAb || new Set(), Eab = TAR_STATE.tbEd = TAR_STATE.tbEd || new Set();
   const nuevo = () => ({ crit: 0, warn: 0, info: 0, doc: 0, alojs: 0, conAl: 0 });
   const suma = (a, b) => { a.crit += b.crit; a.warn += b.warn; a.info += b.info; a.doc += b.doc; a.alojs += b.alojs; a.conAl += b.conAl; };
-  const porHid = {}; D.items.forEach(x => { const k = x.r.ID + '|' + x.hid, c = porHid[k] = porHid[k] || nuevo(); if (x.u.n >= 3) c.crit++; else if (x.u.n === 2) c.warn++; else c.info++; });
+  const porHid = {}; D.items.forEach(x => { const k = x.r.ID + '|' + x.hid, c = porHid[k] = porHid[k] || nuevo(); if (x.niv.k === 'alta') c.crit++; else if (x.niv.k === 'media') c.warn++; else c.info++; }); // crit = urgencia Alta · warn = Media · info = Baja/Seguimiento
   TAR_STATE._urgItems = D.items; const Aab = TAR_STATE.tbAl = TAR_STATE.tbAl || new Set();
   const TOT = nuevo(), grupos = O.filter(x => tdEsIG_(x.r)).map(x => {
     const r = x.r, P = tdFinMes_(x.iso), kG = r.ID + '|' + P, G = nuevo(), eds = {};
@@ -75029,7 +75098,7 @@ function tdTablaLv_(O, vac) {
     .rk-mu{font-size:11.5px;color:#6b7280;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rk-al{display:flex;flex-direction:column;min-width:170px}.rk-al b{font-size:12px}.rk-al small{color:#334155;font-weight:600;font-size:11px}
     .rk-bar{display:inline-flex;width:120px;height:8px;border-radius:999px;background:#f1f5f9;overflow:hidden;flex-shrink:0}.rk-bar i{display:block;height:100%}
     .rk-cnts{display:inline-flex;gap:4px;flex-shrink:0}.rk-n{all:unset;cursor:pointer;min-width:26px;height:24px;padding:0 7px;border-radius:8px;font-size:12px;font-weight:800;text-align:center;line-height:24px;box-sizing:border-box}
-    .rk-n.c{background:#fee2e2;color:#b91c1c}.rk-n.w{background:#ffedd5;color:#c2410c}.rk-n.i{background:#dbeafe;color:#1d4ed8}.rk-n.z{background:#f3f4f6;color:#9ca3af;font-weight:600}.rk-n:hover{filter:brightness(.95)}
+    .rk-n.c{background:#fee2e2;color:#b91c1c}.rk-n.w{background:#ffedd5;color:#c2410c}.rk-n.i{background:#fef9c3;color:#a16207}.rk-n.z{background:#f3f4f6;color:#9ca3af;font-weight:600}.rk-n:hover{filter:brightness(.95)}
     .rk-chip{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;min-width:74px;text-align:center}
     .rk-row.ab{background:#eef2ff}.rk-det{padding:10px 16px 14px 52px;background:#fafbff;border-top:1px solid #e0e7ff;border-bottom:1px solid #e0e7ff;cursor:default}
     .rk-dh{display:flex;align-items:center;gap:10px;margin-bottom:8px}.rk-tw{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:auto}
@@ -75039,7 +75108,7 @@ function tdTablaLv_(O, vac) {
     @media (max-width:760px){.rk-bar,.rk-mu{display:none}.rk-row{padding-left:24px}.rk-edh{padding-left:18px}.rk-al{min-width:0;flex:1}.rk-det{padding:10px}
       .rk-h,.rk-edh{gap:8px;padding:10px}.rk-h b,.rk-edh b{flex:1;min-width:0;font-size:13px}.rk-h .tb-ed{font-size:0;padding:4px 8px}.rk-h .tb-ed:before{content:"✎";font-size:13px}.rk-chip{min-width:0;padding:3px 7px;font-size:10.5px}.rk-n{min-width:22px;padding:0 5px}}`; document.head.appendChild(st); }
   const kp = (n, t, c) => `<div class="rk-kpi" style="--c:${c}"><b>${n}</b><span>${t}</span></div>`;
-  const kpis = `<div class="rk-kpis">${kp(TOT.crit, 'Alertas críticas · Malo / No', '#dc2626')}${kp(TOT.warn, 'Requieren atención · Regular', '#f97316')}${kp(TOT.info, 'Solo con nota', '#3b82f6')}${kp(`${TOT.conAl}<small style="font-size:13px;color:#94a3b8"> / ${TOT.alojs}</small>`, 'Alojamientos con alertas', '#0f172a')}${kp(TOT.alojs - TOT.doc, 'Sin levantar', '#9ca3af')}</div>`;
+  const kpis = `<div class="rk-kpis">${kp(TOT.crit, '🔴 Urgencia alta', '#dc2626')}${kp(TOT.warn, '🟠 Urgencia media', '#f97316')}${kp(TOT.info, '🟡 Urgencia baja / seguimiento', '#eab308')}${kp(`${TOT.conAl}<small style="font-size:13px;color:#94a3b8"> / ${TOT.alojs}</small>`, 'Alojamientos con alertas', '#0f172a')}${kp(TOT.alojs - TOT.doc, 'Sin levantar', '#9ca3af')}</div>`;
   return kpis + (D.faltan.length ? '<div class="pc-mv-empty" style="margin-bottom:10px">⏳ Cargando las respuestas de los levantamientos…</div>' : '') + grupos.map(g => g.html).join('');
 }
 window.tdTbAlTg_ = function (k) { const C = TAR_STATE.tbAl = TAR_STATE.tbAl || new Set(); if (C.has(k)) C.delete(k); else C.add(k); tdRender_(); };
@@ -75048,12 +75117,12 @@ function tdAlDetalle_(r, w, L, abrir) {
   const tareaDe = x => Object.values(ASEO.tareas || {}).find(t => t && t.lv && t.lv.key === x.key && t.lv.item === x.it.id);
   const head = `<div class="rk-dh"><span class="rk-mu" style="flex:0 0 auto">${L.length} hallazgo${L.length === 1 ? '' : 's'}</span>${tdCnt_(w.c, w.hid)}<span style="flex:1"></span><button type="button" class="tb-ed" onclick="event.stopPropagation();${abrir}">📋 Abrir levantamiento</button></div>`;
   const filas = L.map(x => { const i = TAR_STATE._urgItems.indexOf(x), fotos = (x.rr.fotos || []).filter(f => !f.subiendo), T = tareaDe(x);
-    return `<tr><td><span class="rk-chip" style="color:${x.u.c};background:${x.u.c}1a">${esc(x.u.t)}</span></td>
-      <td><b>${esc(x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t)}</b><small>${esc(x.it.texto ? (x.s.titulo || '') : PL_TIPOS[x.it.tipo].t)}</small></td>
-      <td>${esc(tdRespTxt_(x.it, x.rr))}</td><td class="nt">${esc(String(x.rr.nota || '').slice(0, 160))}</td>
+    return `<tr><td>${tdSemHtml_(x.niv)}</td>
+      <td>${tdRelChip_(x.crit)}<small>${esc(x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t)}</small></td>
+      <td><b style="color:${x.u.c}">${esc(x.u.t)}</b><small>${esc(tdRespTxt_(x.it, x.rr))}</small></td><td class="nt">${esc(String(x.rr.nota || '').slice(0, 160))}</td>
       <td>${fotos.length ? `<button type="button" class="tb-foto" onclick="event.stopPropagation();tdUrgFotos_(${i})" title="${fotos.length} foto${fotos.length === 1 ? '' : 's'}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>${fotos.length > 1 ? `<i>${fotos.length}</i>` : ''}</button>` : '<span class="rk-mu">—</span>'}</td>
       <td class="ac">${T ? `<a href="#" class="tb-lnk" onclick="event.preventDefault();event.stopPropagation();atAbrir_('${esc(T.id)}','${esc(T.fecha || '')}')">🔗 Ver tarea</a>` : `<button type="button" class="tb-ed" onclick="event.stopPropagation();tdCrearTareaLv_(${i})">＋ Crear tarea</button>`}</td></tr>`; }).join('');
-  return `<div class="rk-det" onclick="event.stopPropagation()">${head}${L.length ? `<div class="rk-tw"><table class="rk-tb"><thead><tr><th>Urgencia</th><th>Campo</th><th>Respuesta</th><th>Nota</th><th>Fotos</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>` : '<div class="rk-mu" style="padding:6px 0">Sin hallazgos en este alojamiento.</div>'}</div>`;
+  return `<div class="rk-det" onclick="event.stopPropagation()">${head}${L.length ? `<div class="rk-tw"><table class="rk-tb"><thead><tr><th>Urgencia</th><th>Relevancia</th><th>Respuesta</th><th>Nota</th><th>Fotos</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>` : '<div class="rk-mu" style="padding:6px 0">Sin hallazgos en este alojamiento.</div>'}</div>`;
 }
 window.tdTbEdTg_ = function (k) { const C = TAR_STATE.tbEd = TAR_STATE.tbEd || new Set(); TAR_STATE.tbEdTocado = true; if (C.has(k)) C.delete(k); else C.add(k); tdRender_(); };
 // Fotos de un hallazgo en el visor (con flechas si hay varias), sin abrir la sub-card.
@@ -75065,9 +75134,11 @@ window.tdCrearTareaLv_ = function (i) {
   const a = typeof atAloj_ === 'function' ? atAloj_(x.hid) : { corto: '', nombre: x.hid };
   const campo = x.it.texto || x.s.titulo || PL_TIPOS[x.it.tipo].t, cod = a.corto ? String(a.corto).toUpperCase() : String(a.nombre || x.hid), campoFull = `${x.s.titulo && x.it.texto ? x.s.titulo + ' › ' : ''}${campo}`;
   atForm_(null, String(x.hid), typeof aseoDiaNuevo_ === 'function' ? aseoDiaNuevo_() : tarIso_(tarToday_()));
-  Object.assign(ASEO._tf, { depto: 'mantenimiento', srv: 'general', prioridad: x.u.n >= 4 ? 'critica' : x.u.n >= 3 ? 'alta' : 'media', titulo: `${campo} · ${cod}`,
+  Object.assign(ASEO._tf, { depto: 'mantenimiento', srv: 'general', prioridad: x.niv.k === 'alta' ? 'critica' : x.niv.k === 'media' ? 'alta' : 'media', titulo: `${campo} · ${cod}`,
     desc: `Detectado en el levantamiento «${x.r.Nombre || x.p.titulo}» · ${cod} ${String(a.nombre || '').replace(/^Calle\s+/i, '')}\n${campoFull}: ${tdRespTxt_(x.it, x.rr)}${x.rr.nota ? `\nNota: ${x.rr.nota}` : ''}`,
-    lv: { id: x.r.ID, hid: String(x.hid), item: x.it.id, key: x.key, campo: campoFull } });
+    lv: { id: x.r.ID, hid: String(x.hid), item: x.it.id, key: x.key, campo: campoFull },
+    // v2140: las fotos del hallazgo pasan a «Fotos de referencia» de la tarea (mismos archivos, sin duplicar)
+    refs: (x.rr.fotos || []).filter(f => f && f.k && !f.subiendo).map(f => ({ k: f.k, nombre: f.nombre || 'foto', tipo: 'image/jpeg', url: f.url, ...(f.tk ? { tk: f.tk, turl: f.turl } : {}) })) });
   atFormPintar_();
 };
 
