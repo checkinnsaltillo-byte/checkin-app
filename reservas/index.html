@@ -74,6 +74,10 @@
   .rsv-card-foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;padding-top:10px;border-top:1px dashed var(--rsv-line)}
   .rsv-card-price{font-size:20px;font-weight:900;color:var(--rsv-primary);letter-spacing:-.02em}
   .rsv-card-price small{font-size:11px;color:var(--rsv-muted);font-weight:600;display:block;letter-spacing:0}
+  .rsv-air{display:flex;flex-direction:column;gap:1px;margin-top:4px;letter-spacing:0}
+  .rsv-air-p{font-size:12px;font-weight:700;color:#dc2626}.rsv-air-p s{text-decoration-thickness:1.5px}
+  .rsv-air-s{font-size:12px;font-weight:800;color:#15803d}
+  .rsv-air-link{font-size:11px;font-weight:700;color:#dc2626;text-decoration:underline;text-underline-offset:2px;margin-top:2px;width:fit-content}.rsv-air-link:hover{color:#b91c1c}
   .rsv-card-cta{background:var(--rsv-primary);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.02em}
   .rsv-card-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
   .rsv-card-mapbtn{background:#fff;color:var(--rsv-ink);border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em;white-space:nowrap;line-height:1}
@@ -397,6 +401,14 @@ window._rsvOpenSplitLeg_ = function(ssi, li) {
   const url = _rsvHostedUrl(lg.alojamiento || {}, lg.arrival, lg.departure, q.adults || 1);
   _rsvOpenBookingOverlay_(url);
 };
+// Precio equivalente en Airbnb: ~16 % más caro que reservando directo aquí (total × 1.16).
+const RSV_AIRBNB_FACTOR = 1.16;
+function _rsvAirbnbHtml_(r) {
+  const t = Number(r.total) || 0; if (!(t > 0)) return '';
+  const air = Math.round(t * RSV_AIRBNB_FACTOR), save = air - Math.round(t);
+  const link = r.airbnbUrl ? `<a class="rsv-air-link" href="${_rsvEsc(r.airbnbUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Reservar en Airbnb ↗</a>` : '';
+  return `<div class="rsv-air"><span class="rsv-air-p" title="Precio estimado reservando por Airbnb (16 % más caro)">En Airbnb: <s>${_rsvFmt$(air, r.currency)}</s></span><span class="rsv-air-s">Te ahorras: ${_rsvFmt$(save, r.currency)}</span>${link}</div>`;
+}
 function _rsvCardHtml_(r, idx) {
   const q = RSV_STATE.query || {};
   const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
@@ -414,7 +426,7 @@ function _rsvCardHtml_(r, idx) {
       <p class="rsv-card-loc">📍 ${_rsvEsc(r.city || r.address || 'Saltillo')}</p>
       ${cap.length ? `<div class="rsv-card-cap">${cap.join('')}</div>` : ''}
       <div class="rsv-card-foot">
-        <div class="rsv-card-price">${_rsvFmt$(r.total, r.currency)}<small>${r.nights} noche${r.nights===1?'':'s'} · total</small></div>
+        <div class="rsv-card-price">${_rsvFmt$(r.total, r.currency)}<small>${r.nights} noche${r.nights===1?'':'s'} · total</small>${_rsvAirbnbHtml_(r)}</div>
         <div class="rsv-card-btns">
           <button class="rsv-card-mapbtn" onclick="event.stopPropagation();rsvOpenMap_(${idx})" title="Ver en el mapa">🗺️ Ver en mapa</button>
           <span class="rsv-card-cta">Reservar →</span>
