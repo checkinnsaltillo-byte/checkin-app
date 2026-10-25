@@ -406,7 +406,9 @@ const RSV_AIRBNB_FACTOR = 1.16;
 function _rsvAirbnbHtml_(r) {
   const t = Number(r.total) || 0; if (!(t > 0)) return '';
   const air = Math.round(t * RSV_AIRBNB_FACTOR), save = air - Math.round(t);
-  const link = r.airbnbUrl ? `<a class="rsv-air-link" href="${_rsvEsc(r.airbnbUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Reservar en Airbnb ↗</a>` : '';
+  const q = RSV_STATE.query || {}; let href = r.airbnbUrl || '';
+  if (href) { try { const u = new URL(href); if (q.arrival) u.searchParams.set('check_in', q.arrival); if (q.departure) u.searchParams.set('check_out', q.departure); if (q.adults) { u.searchParams.set('adults', String(q.adults)); u.searchParams.set('guests', String(q.adults)); } href = u.toString(); } catch (_) {} }
+  const link = href ? `<a class="rsv-air-link" href="${_rsvEsc(href)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Reservar en Airbnb ↗</a>` : '';
   return `<div class="rsv-air">${link}<span class="rsv-air-p" title="Precio estimado reservando por Airbnb (16 % más caro)">En Airbnb: ${_rsvFmt$(air, r.currency)}</span><span class="rsv-air-s">Te ahorras: ${_rsvFmt$(save, r.currency)}</span></div>`;
 }
 function _rsvCardHtml_(r, idx) {
