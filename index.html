@@ -101,9 +101,9 @@
   .rsv-card-price{font-size:20px;font-weight:900;color:var(--rsv-primary);letter-spacing:-.02em}
   .rsv-card-price small{font-size:11px;color:var(--rsv-muted);font-weight:600;display:block;letter-spacing:0}
   .rsv-air{display:flex;flex-direction:column;gap:1px;margin-top:4px;letter-spacing:0}
-  .rsv-air-p{font-size:12px;font-weight:700;color:#dc2626}.rsv-air-p s{text-decoration-thickness:1.5px}
+  .rsv-air-p{font-size:12px;font-weight:700;color:#dc2626}
   .rsv-air-s{font-size:12px;font-weight:800;color:#15803d}
-  .rsv-air-link{font-size:11px;font-weight:700;color:#dc2626;text-decoration:underline;text-underline-offset:2px;margin-top:2px;width:fit-content}.rsv-air-link:hover{color:#b91c1c}
+  .rsv-air-link{font-size:11px;font-weight:700;color:#dc2626;text-decoration:underline;text-underline-offset:2px;margin:0 0 2px;width:fit-content}.rsv-air-link:hover{color:#b91c1c}
   .rsv-card-cta{background:var(--rsv-primary);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.02em}
   .rsv-card-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
   .rsv-card-mapbtn{background:#fff;color:var(--rsv-ink);border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em;white-space:nowrap;line-height:1}
@@ -443,7 +443,7 @@ function _rsvAirbnbHtml_(r) {
   const t = Number(r.total) || 0; if (!(t > 0)) return '';
   const air = Math.round(t * RSV_AIRBNB_FACTOR), save = air - Math.round(t);
   const link = r.airbnbUrl ? `<a class="rsv-air-link" href="${_rsvEsc(r.airbnbUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Reservar en Airbnb ↗</a>` : '';
-  return `<div class="rsv-air"><span class="rsv-air-p" title="Precio estimado reservando por Airbnb (16 % más caro)">En Airbnb: <s>${_rsvFmt$(air, r.currency)}</s></span><span class="rsv-air-s">Te ahorras: ${_rsvFmt$(save, r.currency)}</span>${link}</div>`;
+  return `<div class="rsv-air">${link}<span class="rsv-air-p" title="Precio estimado reservando por Airbnb (16 % más caro)">En Airbnb: ${_rsvFmt$(air, r.currency)}</span><span class="rsv-air-s">Te ahorras: ${_rsvFmt$(save, r.currency)}</span></div>`;
 }
 function _rsvCardHtml_(r, idx) {
   const q = RSV_STATE.query || {};
