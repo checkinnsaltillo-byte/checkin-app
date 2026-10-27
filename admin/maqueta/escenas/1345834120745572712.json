@@ -1,0 +1,44 @@
+{
+  "id": "1345834120745572712",
+  "titulo": "José Cárdenas #6 · Saltillo, Coah.",
+  "fuente": "Análisis del entorno urbano (10 fotos de Street View, 2022-2024) · escena reconstruida por Claude",
+  "calle": { "largo": 76, "ancho": 8.4, "banqueta": 1.55, "pavimento": "asfalto", "guarnicion_amarilla": "der" },
+  "izq": [
+    { "tipo": "casa2p", "w": 10.5, "color": "#f2eee6", "color2": "#8a6a52", "cochera": true, "auto": { "tipo": "sedan", "color": "#b32a30" }, "num": "2349" },
+    { "tipo": "casa1p", "w": 8.5, "color": "#d9703c", "reja": "blanca", "tree": "fresno", "num": "2351" },
+    { "tipo": "barda_ladrillo", "w": 9.5, "color": "#f1ece0", "tree": "fresno", "num": "714" },
+    { "tipo": "casa_rosa", "w": 9, "color": "#e7a493", "reja": "negra", "num": "2355" },
+    { "tipo": "lote_verde", "w": 11, "color": "#4f7a3a" },
+    { "tipo": "casa1p", "w": 8, "color": "#efe3c6", "reja": "blanca", "tejaba": true, "num": "866" },
+    { "tipo": "casa_piedra", "w": 9.5, "color": "#a99a82", "color2": "#c46a4a", "reja": "negra", "tree": "pino", "num": "870" },
+    { "tipo": "casa1p", "w": 8.5, "color": "#e9d9bb", "reja": "blanca", "num": "874" }
+  ],
+  "der": [
+    { "tipo": "casa1p", "w": 9, "color": "#e4a28a", "reja": "blanca", "cochera": true, "num": "2312" },
+    { "tipo": "bloque_gris", "w": 8.5, "color": "#a3a39c", "num": "2371" },
+    { "tipo": "casa2p", "w": 9, "color": "#f0e1c4", "color2": "#7b5a47", "reja": "blanca", "num": "2375" },
+    { "tipo": "dpto2p", "w": 15, "color": "#e9b88a", "color2": "#fff7ec", "sujeto": true, "tree": "fresno", "num": "6" },
+    { "tipo": "casa1p", "w": 8, "color": "#ddd6c4", "reja": "negra", "num": "2386" },
+    { "tipo": "casa_rosa", "w": 9.5, "color": "#cf5d8e", "reja": "blanca", "tree": "fresno", "num": "2390" },
+    { "tipo": "casa1p", "w": 9, "color": "#f4efe6", "reja": "blanca", "num": "2394" }
+  ],
+  "autos": [
+    { "lado": "izq", "x": -30, "tipo": "pickup", "color": "#b8bcc1" },
+    { "lado": "izq", "x": -22, "tipo": "van", "color": "#f1f1ef" },
+    { "lado": "izq", "x": 4, "tipo": "sedan", "color": "#a9232b" },
+    { "lado": "izq", "x": 26, "tipo": "suv", "color": "#5a1f27" },
+    { "lado": "der", "x": -34, "tipo": "sedan", "color": "#c4282f" },
+    { "lado": "der", "x": -10, "tipo": "suv", "color": "#f3f3f1" },
+    { "lado": "der", "x": 14, "tipo": "sedan", "color": "#b32d33" },
+    { "lado": "der", "x": 31, "tipo": "pickup", "color": "#6d1f2b" }
+  ],
+  "postes": { "lado": "der", "xs": [-33, -11, 11, 33], "material": "madera", "transformador": [-11, 33] },
+  "extras": { "lancha_remolque": { "lado": "izq", "x": 33 }, "perro": { "x": -3, "lado": "izq" }, "peaton": { "x": -14, "lado": "der" }, "arboles_calle": [ { "x": 22, "lado": "izq", "tipo": "fresno" }, { "x": -2, "lado": "der", "tipo": "fresno" } ] },
+  "notas": [
+    "Colonia consolidada de uno y dos niveles con azoteas planas y parapetos",
+    "Cableado aéreo denso y desordenado cruzando la calle",
+    "Banquetas angostas, guarnición amarilla en el lado derecho",
+    "Pavimento asfáltico gastado con grietas",
+    "Autos estacionados en ambos lados, calle de un carril por sentido"
+  ]
+}
