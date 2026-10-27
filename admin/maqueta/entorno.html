@@ -105,7 +105,7 @@ const dirtC = cv(256, 256), dgt = dirtC.getContext('2d'); dgt.fillStyle = '#8d80
 const soilC = cv(512, 256), sg = soilC.getContext('2d'); [['#5a4636', 0, 60], ['#9a7a58', 60, 140], ['#8d8a82', 140, 200], ['#4b3a2c', 200, 256]].forEach(([c, a, b]) => { sg.fillStyle = c; sg.fillRect(0, a, 512, b - a); }); noise(sg, 512, 256, 4600, ['rgba(255,255,255,.1)', 'rgba(0,0,0,.12)'], 5); const soilTex = toTex(soilC);
 
 // ───────── materiales ─────────
-const MT = o => new THREE.MeshStandardMaterial(Object.assign({ roughness: .9 }, o));
+const _mtC = new Map(), MT = o => { const prim = Object.values(o).every(v => typeof v !== 'object' || v === null), k = prim ? JSON.stringify(o) : null; if (k && _mtC.has(k)) return _mtC.get(k); const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: .9 }, o)); if (k) _mtC.set(k, m); return m; };
 const M = {
   asphalt: MT({ map: asphaltTex, normalMap: asphaltN, normalScale: new THREE.Vector2(1.1, 1.1), roughness: .96 }), conc: MT({ map: concTex, normalMap: concN, normalScale: new THREE.Vector2(.8, .8) }),
   curb: MT({ color: 0xcfc9ba, map: concTex, roughness: .9 }), curbY: MT({ color: 0xe3b81c, roughness: .8 }), dirt: MT({ map: dirtTex }), soil: MT({ map: soilTex }), earth: MT({ color: 0x4b3a2c, roughness: 1 }),
@@ -117,7 +117,7 @@ const M = {
   hedge: MT({ map: hedgeTex, roughness: 1 }), cable: MT({ color: 0x111214, roughness: .6 }), pole: MT({ color: 0x6b5a46, roughness: .95 }), metalG: MT({ color: 0x8e9498, metalness: .7, roughness: .45 }), metalW: MT({ color: 0xe8e8e4, metalness: .4, roughness: .5 }),
   tire: MT({ color: 0x16171a, roughness: .9 }), chrome: new THREE.MeshStandardMaterial({ color: 0xe8e8e8, metalness: 1, roughness: .18 }), plastic: MT({ color: 0x272a2e, roughness: .6 }),
 };
-const stucco = (c, rep) => { const t = wallTex.clone(); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ color: c, map: wallTex, normalMap: wallN, normalScale: new THREE.Vector2(.55, .55), roughness: .95 }); };
+const _stC = new Map(), stucco = (c, rep) => { const k = new THREE.Color(c).getHexString(); if (!_stC.has(k)) _stC.set(k, new THREE.MeshStandardMaterial({ color: c, map: wallTex, normalMap: wallN, normalScale: new THREE.Vector2(.55, .55), roughness: .95 })); return _stC.get(k); };
 
 // ───────── helpers de geometría ─────────
 let world = null, G = null; const anim = { people: [] };
@@ -125,7 +125,8 @@ const box = (w, h, d, mat, x, y, z, parent, cast = true) => { const m = new THRE
 const plane = (w, h, mat, x, y, z, ry, parent) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.y = ry || 0; m.receiveShadow = true; (parent || G).add(m); return m; };
 const cyl = (r1, r2, h, mat, x, y, z, parent, seg = 14) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), mat); m.position.set(x, y, z); m.castShadow = true; (parent || G).add(m); return m; };
 const texRep = (m, ru, rv) => { if (m.map) { m.map = m.map.clone(); m.map.needsUpdate = true; m.map.repeat.set(ru, rv); } if (m.normalMap) { m.normalMap = m.normalMap.clone(); m.normalMap.needsUpdate = true; m.normalMap.repeat.set(ru, rv); } return m; };
-const brickMat = (w, h) => texRep(M.brick.clone(), w / 2.2, h / 1.1), blockMat = (w, h) => texRep(M.block.clone(), w / 2.4, h / 1.6), stoneMat = (w, h) => texRep(M.stone.clone(), w / 2.2, h / 2.2);
+const _tmC = new Map(), tmat = (n, base, w, h, a, b) => { const k = n + Math.round(w) + '_' + Math.round(h * 2); if (!_tmC.has(k)) _tmC.set(k, texRep(base.clone(), w / a, h / b)); return _tmC.get(k); };
+const brickMat = (w, h) => tmat('b', M.brick, w, h, 2.2, 1.1), blockMat = (w, h) => tmat('k', M.block, w, h, 2.4, 1.6), stoneMat = (w, h) => tmat('s', M.stone, w, h, 2.2, 2.2);
 
 function build(S) {
   if (world) { scene.remove(world); }
@@ -350,6 +351,9 @@ function build(S) {
     nombrada.forEach(r => { if (vistos.has(r.n)) return; const L = r.g.map((p, i) => i ? Math.hypot(p[0] - r.g[i - 1][0], p[1] - r.g[i - 1][1]) : 0), k = L.indexOf(Math.max(...L)) || 1, a = r.g[k - 1], b = r.g[k], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2; if (Math.abs(mx) > RAD - 6 || Math.abs(my) > RAD - 6) return; vistos.add(r.n);
       const txt = r.n.replace(/^(Calle|Boulevard|Privada|Avenida) /, m => m === 'Boulevard ' ? 'Blvd. ' : m === 'Avenida ' ? 'Av. ' : ''), isF = frente && frente.r.n === r.n, c = cv(512, 96), g = c.getContext('2d'); g.fillStyle = isF ? '#0f172a' : 'rgba(255,255,255,.88)'; g.beginPath(); g.roundRect(4, 8, 504, 80, 20); g.fill(); g.fillStyle = isF ? '#fff' : '#334155'; g.font = '700 38px Inter,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt.slice(0, 26), 256, 50); const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: toTex(c), transparent: true, depthWrite: false })); spr.scale.set(isF ? 14 : 11, isF ? 2.6 : 2.1, 1); spr.position.set(mx, 4.2, -my); nombres.add(spr); });
     G.__nombres = nombres;
+    // fusiona todas las mallas estáticas con el mismo material: de miles de llamadas de dibujo a unas cientos
+    { world.updateMatrixWorld(true); const grp = new Map(); world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && !Array.isArray(o.material) && o.geometry && o.geometry.attributes.position && o.geometry.attributes.uv && o.geometry.attributes.normal) (grp.get(o.material) || grp.set(o.material, []).get(o.material)).push(o); });
+      grp.forEach((L, mat) => { if (L.length < 2) return; try { const hasIdx = L.every(o => o.geometry.index), gs = L.map(o => { let g = o.geometry.clone(); if (!hasIdx && g.index) g = g.toNonIndexed(); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k); g.applyMatrix4(o.matrixWorld); return g; }); const m = new THREE.Mesh(mergeGeometries(gs, false), mat); m.castShadow = m.receiveShadow = true; L.forEach(o => o.parent && o.parent.remove(o)); world.add(m); gs.forEach(g => g.dispose()); } catch (e) { console.warn('merge', e.message); } }); }
     S.notas = [`Radio ${RAD} m alrededor de la coordenada · ${roads.length} tramos de calle de OpenStreetMap${frente ? ' · calle de frente: ' + frente.r.n : ''}`, `${builds.length} edificios con huella real (OSM) + ${lots.length} lotes generados a lo largo de las calles (${nDet} con detalle, ${nSim} simplificados)`, `Fachadas, colores y tipo de vivienda leídos de ${(S.obs || []).length} vistas de Street View georreferenciadas (posición + rumbo)`, `Cables aéreos, postes, guarnición y autos tomados de las fotos solo en la zona cercana (≤ ${CER} m)`, `${nAut} autos estacionados · ${trs.length} árboles`];
     S.titulo = (S.tit || '') + ' · radio ' + RAD + ' m';
   }
@@ -361,12 +365,12 @@ function build(S) {
 }
 
 // ───────── post-proceso ─────────
-let composer = null, alta = true, bokP = null;
+let composer = null, alta = false, bokP = null;
 function montar() { composer = new EffectComposer(renderer); composer.setPixelRatio(Math.min(devicePixelRatio, 2)); composer.setSize(innerWidth, innerHeight); composer.addPass(new RenderPass(scene, camera));
   const sao = new SAOPass(scene, camera); sao.params.saoBias = .4; sao.params.saoIntensity = .017; sao.params.saoScale = 12; sao.params.saoKernelRadius = 26; sao.params.saoBlurRadius = 6; sao.params.saoBlurStdDev = 3; composer.addPass(sao);
   bokP = new BokehPass(scene, camera, { focus: 60, aperture: .00005, maxblur: .0028 }); composer.addPass(bokP); composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .1, .6, .97)); composer.addPass(new OutputPass()); composer.addPass(new SMAAPass(innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio())); }
-(async () => { try { let S = null; if (qs.get('src')) { S = await fetch(qs.get('src')).then(r => r.json()); } else if (!qs.has('legacy')) { try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/escena?id=${ID}`, { cache: 'no-store' }).then(r => r.json()); if (j.ok && j.escena && j.escena.roads) S = j.escena; } catch (_) {} } if (!S) S = await fetch(`escenas/${ID}.json`).then(r => r.json()); const t0 = performance.now(); window.__geo = !!S.roads; build(S); window.__tbuild = Math.round(performance.now() - t0); montar(); } catch (e) { $('load').textContent = 'No se pudo cargar la escena: ' + e.message; return; } $('load').style.opacity = 0; setTimeout(() => $('load').remove(), 500); })();
-window.__mq = { camera, controls, scene };
+(async () => { try { let S = null; if (qs.get('src')) { S = await fetch(qs.get('src')).then(r => r.json()); } else if (!qs.has('legacy')) { try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/escena?id=${ID}`, { cache: 'no-store' }).then(r => r.json()); if (j.ok && j.escena && j.escena.roads) S = j.escena; } catch (_) {} } if (!S) S = await fetch(`escenas/${ID}.json`).then(r => r.json()); const t0 = performance.now(); window.__geo = !!S.roads; alta = !S.roads; if (S.roads) { renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); sun.shadow.mapSize.set(2048, 2048); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } renderer.shadowMap.autoUpdate = false; } $('b-q').classList.toggle('on', alta); $('b-q').textContent = alta ? '✨ Calidad alta' : '⚡ Calidad normal'; build(S); window.__tbuild = Math.round(performance.now() - t0); [0, 300, 1200, 3000].forEach(ms => setTimeout(() => { renderer.shadowMap.needsUpdate = true; }, ms)); montar(); } catch (e) { $('load').textContent = 'No se pudo cargar la escena: ' + e.message; return; } $('load').style.opacity = 0; setTimeout(() => $('load').remove(), 500); })();
+window.__mq = { camera, controls, scene, renderer, sun };
 const clock = new THREE.Clock();
 function tick() { const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
   anim.people.forEach(p => { p.g.position.x += p.dir * .9 * dt; if (Math.abs(p.g.position.x - p.x0) > 6) p.dir *= -1; p.g.rotation.y = p.dir > 0 ? Math.PI / 2 : -Math.PI / 2; const sw = Math.sin(t * 6.4 + p.w) * .55; p.legs[0].rotation.x = sw; p.legs[1].rotation.x = -sw; });
