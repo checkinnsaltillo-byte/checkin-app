@@ -211,7 +211,9 @@ function build(S) {
     bx(.05, .15, .7, darkM, fx - .005, hood - .36, 0); bx(.16, .2, W - .1, darkM, fx - .06, .46, 0); bx(.16, .2, W - .1, darkM, -fx + .06, .46, 0); bx(.02, .12, .34, plateM, fx + .01, .56, 0); bx(.02, .12, .34, plateM, -fx - .01, .58, 0);
     // cortes de puertas, manijas y vierteaguas
     for (const sd of [1, -1]) { [cab.fb - .12, xm, cab.rb + .15].forEach(x => bx(.014, belt - .42, .01, darkM, x, (belt + .42) / 2, sd * (hw - .005))); bx(.14, .025, .02, M.chrome, xm - .4, belt - .07, sd * (hw + .005)); bx(.14, .025, .02, M.chrome, xm + .3, belt - .07, sd * (hw + .005)); bx(L * .5, .06, .02, darkM, 0, .38, sd * (hw - .005)); }
-    return g;
+    // fusiona las piezas de la plantilla por material (≈8 mallas por auto en lugar de ≈45) para que decenas de autos animados no frenen el dibujo
+    const by = new Map(); g.children.forEach(o => { o.updateMatrix(); let ge = o.geometry.clone(); if (ge.index) ge = ge.toNonIndexed(); for (const k of Object.keys(ge.attributes)) if (!['position', 'normal', 'uv'].includes(k)) ge.deleteAttribute(k); if (!ge.attributes.uv) ge.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(ge.attributes.position.count * 2), 2)); ge.applyMatrix4(o.matrix); const key = o.userData.body ? 'body' : o.material.uuid; (by.get(key) || by.set(key, { mat: o.material, body: !!o.userData.body, L: [] }).get(key)).L.push(ge); });
+    const out = new THREE.Group(); by.forEach(({ mat, body, L }) => { const m = new THREE.Mesh(mergeGeometries(L, false), mat); if (body) { m.userData.body = 1; m.castShadow = true; } out.add(m); }); return out;
   };
   const mkCar = (tipo, col) => { const t = TPLC[tipo] || (TPLC[tipo] = tplCar(tipo)), g = t.clone(), bm = bodyMat(col); g.traverse(o => { if (o.userData && o.userData.body) o.material = bm; }); g.userData.cat = 'autos'; return g; };
   // ───────── lotes ─────────
@@ -497,7 +499,7 @@ function build(S) {
       cand.sort((a, b) => a.d - b.d); const VEL = { primary: 8, secondary: 7, tertiary: 6, residential: 4.5, unclassified: 4.5 }, TP = ['sedan', 'sedan', 'suv', 'pickup', 'sedan', 'van'], CL = ['#b8bcc1', '#f1f1ef', '#a9232b', '#5a1f27', '#c4282f', '#2c3a52', '#f3f3f1', '#6d1f2b']; let nM = 0;
       for (const q of cand) { if (nM >= 56) break; const li = q.r.li || {}, dirs = q.r.o ? [1] : [1, -1], nc = Math.max(1, Math.min(3, Math.round(q.tot / 80)));
         for (const dr of dirs) for (let k = 0; k < nc && nM < 56; k++) { const nl = q.r.o && li.n ? li.n : 1, lane = Math.floor(R() * nl), lo = -q.r.wd / 2 + (li.pk === 2 ? 2.15 : 0), hi = q.r.wd / 2 - (li.pk ? 2.15 : 0), offN = q.r.o ? (li.n ? lo + (lane + .5) * (hi - lo) / nl : 0) : -dr * q.r.wd / 4;
-          const car = mkCar(TP[Math.floor(R() * TP.length)], new THREE.Color(CL[Math.floor(R() * CL.length)])); car.traverse(o => { if (o.isMesh) o.castShadow = false; }); mv.add(car); anim.movers.push({ car, pl: q.pl, cum: q.cum, tot: q.tot, dr, offN, v: (VEL[q.r.h] || 5) * (.85 + R() * .3), s: (k + R() * .6) / nc * q.tot }); nM++; } }
+          const car = mkCar(TP[Math.floor(R() * TP.length)], new THREE.Color(CL[Math.floor(R() * CL.length)])); car.userData.cat = 'movimiento'; car.traverse(o => { if (o.isMesh) o.castShadow = false; }); mv.add(car); anim.movers.push({ car, pl: q.pl, cum: q.cum, tot: q.tot, dr, offN, v: (VEL[q.r.h] || 5) * (.85 + R() * .3), s: (k + R() * .6) / nc * q.tot }); nM++; } }
       world.add(mv); }
     // marcadores de lugares ancla (hospitales, plazas, centros comerciales, puentes…)
     const marks = new THREE.Group(); world.add(marks); G.__marks = marks;
