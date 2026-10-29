@@ -231,7 +231,7 @@ function build(S) {
     pickup: { L: 5.4, W: 1.96, wx: [1.75, -1.7], R: .39, belt: 1.12, hood: 1.04, rear: .78, roof: 1.78, cab: { fb: .75, ft: .35, rt: -.5, rb: -.7 }, bed: true },
     van: { L: 5.1, W: 1.98, wx: [1.6, -1.55], R: .36, belt: 1.12, hood: 1.0, rear: 1.12, roof: 2.08, cab: { fb: 2.0, ft: 1.62, rt: -2.45, rb: -2.55 } }
   };
-  const CARM = {}, TPLC = {}, glassD = M.glass.clone(), darkM = MT({ color: 0x14171b, roughness: .75 }), lampM = MT({ color: 0xfff4d0, emissive: 0xfff0b0, emissiveIntensity: .45 }), tailM = MT({ color: 0xa31a1a, emissive: 0x4a0a0a }), plateM = MT({ color: 0xf0f0ea, roughness: .6 }); glassD.side = THREE.DoubleSide;
+  const CARM = {}, TPLC = {}, glassD = M.glass.clone(), darkM = MT({ color: 0x14171b, roughness: .75 }), lampM = MT({ color: 0xfff4d0, emissive: 0xfff0b0, emissiveIntensity: .45 }), tailM = MT({ color: 0xa31a1a, emissive: 0x4a0a0a }), plateM = MT({ color: 0xf0f0ea, roughness: .6 }); glassD.side = THREE.DoubleSide; glassD.emissive.set(0x000000); glassD.emissiveIntensity = 0; glassD.userData.noLit = 1;
   const bodyMat = col => { const k = new THREE.Color(col).getHexString(); return CARM[k] || (CARM[k] = new THREE.MeshPhysicalMaterial({ color: col, roughness: .3, metalness: .5, clearcoat: 1, clearcoatRoughness: .12 })); };
   const tplCar = tipo => {
     const p = CARP[tipo] || CARP.sedan, { L, W, R: RR, belt, hood, rear, roof, cab } = p, g = new THREE.Group(), hw = W / 2, xm = (cab.fb + cab.rb) / 2, BM = new THREE.MeshPhysicalMaterial({ color: 0xffffff });
