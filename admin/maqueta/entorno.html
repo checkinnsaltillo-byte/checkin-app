@@ -193,7 +193,7 @@ const M = {
 const _stC = new Map(), stucco = (c, rep) => { const k = new THREE.Color(c).getHexString(); if (!_stC.has(k)) _stC.set(k, new THREE.MeshStandardMaterial({ color: c, map: wallTex, normalMap: wallN, normalScale: new THREE.Vector2(.55, .55), roughness: .95 })); return _stC.get(k); };
 
 // ───────── helpers de geometría ─────────
-let world = null, G = null; const anim = { people: [] };
+let world = null, G = null; const anim = window.__anim = { people: [] };
 const box = (w, h, d, mat, x, y, z, parent, cast = true) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = true; (parent || G).add(m); return m; };
 const plane = (w, h, mat, x, y, z, ry, parent) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.y = ry || 0; m.receiveShadow = true; (parent || G).add(m); return m; };
 const cyl = (r1, r2, h, mat, x, y, z, parent, seg = 14) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg), mat); m.position.set(x, y, z); m.castShadow = true; (parent || G).add(m); return m; };
