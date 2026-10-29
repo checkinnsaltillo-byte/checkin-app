@@ -1138,7 +1138,7 @@ function buildCapas() {
 setInterval(() => { if (document.getElementById('cap')) capasSync(); }, 1000);
 const clock = new THREE.Clock();
 // ───────── Tráfico en la maqueta: tramos consultados a Google Routes sobre las calles del modelo, ventana con heat-map y barras, y autos que responden al tráfico ─────────
-const TF = { flow: new Map(), doc: null, vias: [], sel: new Set(), dia: 1, hora: 8, metric: 'demora', tm: null, G: null, win: null, mov: [], lab: new Map() };
+const TF = window.__TF = { flow: new Map(), doc: null, vias: [], sel: new Set(), dia: 1, hora: 8, metric: 'demora', tm: null, G: null, win: null, mov: [], lab: new Map() };
 const TR_TAB = [[33, 12], [40, 18], [48, 23], [55, 29], [64, 36], [72, 43], [80, 53], [88, 63], [96, 73], [104, 84], [112, 96]]; // tabulador velocidad (km/h) → distancia requerida entre vehículos (m)
 // distancia entre vehículos según la velocidad: interpolación del tabulador; por debajo de 33 km/h baja linealmente a 7 m (vehículo + holgura) y por encima de 112 km/h sigue la última pendiente (supuestos)
 const trDist = v => { if (v <= 33) return 7 + 5 * Math.max(0, v) / 33; if (v >= 112) return 96 + (v - 112) * 1.5; for (let i = 1; i < TR_TAB.length; i++) if (v <= TR_TAB[i][0]) { const a = TR_TAB[i - 1], b = TR_TAB[i]; return a[1] + (b[1] - a[1]) * (v - a[0]) / (b[0] - a[0]); } return 96; };
