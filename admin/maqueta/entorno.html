@@ -39,6 +39,51 @@
   #tf-win{position:fixed;top:64px;right:14px;width:420px;max-height:80vh;z-index:6;background:rgba(255,255,255,.97);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.35),0 0 0 1px rgba(15,23,42,.08);display:none;overflow:hidden;font-size:12px;color:#334155}#tf-h{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;cursor:move;background:linear-gradient(180deg,#fff,#eef1f6);user-select:none;touch-action:none}#tf-h button{all:unset;cursor:pointer;padding:2px 7px;border-radius:99px;font-size:10.5px;color:#475569;margin-left:2px}#tf-h{white-space:nowrap;gap:8px}#tf-h b{overflow:hidden;text-overflow:ellipsis}#tf-h button.on{background:#0f172a;color:#fff}#tf-b{max-height:calc(80vh - 40px);overflow:auto;padding:4px 12px 12px}.tf-c{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-top:8px;background:#fff}.tf-hm{display:grid;gap:2px;align-items:center;margin-top:6px}.tf-hm i{display:block;height:15px;border-radius:2px;cursor:pointer}.tf-bc{cursor:pointer}.tf-hm i:hover,.tf-bc:hover i{filter:brightness(.85)}.tf-hd{font-size:9.5px;color:#64748b}.tf-bars{display:grid;gap:2px;height:46px;align-items:end;margin-top:6px}.tf-bc{display:flex;align-items:flex-end;height:100%}.tf-bc i{display:block;width:100%;background:#dc2626;opacity:.72;border-radius:3px 3px 0 0}.tf-bu{align-self:start;font-size:8.5px;color:#94a3b8;line-height:1}.tf-hx{display:grid;gap:2px;font-size:8.5px;color:#94a3b8;margin-top:2px;text-align:center}#trf .btnrow button{all:unset;cursor:pointer;padding:3px 9px;border-radius:99px;background:#f1f5f9;color:#475569;font-size:11.5px}
   .ck{display:flex;align-items:center;padding:4px 2px;cursor:pointer;font-size:12px;color:#334155;user-select:none}.ck:hover{background:rgba(15,23,42,.05);border-radius:6px}
   .ck .bx{flex:none;display:inline-block;width:18px;height:18px;border:2px solid #94a3b8;border-radius:5px;text-align:center;line-height:15px;font-size:13px;font-weight:900;color:transparent;margin-right:8px;box-sizing:border-box}.ck.on .bx{background:#0f172a;border-color:#0f172a;color:#fff}
+
+  /* ───────── Panel izquierdo (rediseño): riel oscuro con tarjetas de cristal, acordeones animados y controles reactivos ───────── */
+  :root{--ac1:#6366f1;--ac2:#06b6d4;--ink:#0f172a;--mut:#64748b;--ln:#e2e8f0}
+  #dock{width:356px;padding:0 12px 16px;gap:10px;background:linear-gradient(180deg,rgba(8,13,26,.95),rgba(15,23,42,.9) 60%,rgba(10,16,32,.94));backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);border-right:1px solid rgba(148,163,184,.18);box-shadow:10px 0 44px rgba(2,6,23,.38);transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.4) transparent}
+  #dock::-webkit-scrollbar{width:8px}#dock::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:99px}#dock::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.6)}
+  #dock>*{flex:none}
+  #dock.off{transform:translateX(-102%);opacity:0;pointer-events:none!important}
+  #dock.off>*{pointer-events:none}
+  #dock-tg{position:fixed;left:356px;top:18px;z-index:5;width:26px;height:46px;border:0;border-radius:0 12px 12px 0;background:linear-gradient(180deg,#1e293b,#0f172a);color:#cbd5e1;cursor:pointer;font-size:12px;box-shadow:6px 4px 18px rgba(2,6,23,.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s,color .2s}
+  #dock-tg:hover{background:linear-gradient(180deg,#6366f1,#4f46e5);color:#fff}#dock-tg.off{left:0}
+  #tt{position:sticky;top:0;z-index:3;margin:0 -12px;padding:16px 16px 12px;background:linear-gradient(180deg,rgba(8,13,26,.98),rgba(8,13,26,.9));border-bottom:1px solid rgba(148,163,184,.16);color:#f8fafc;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;pointer-events:auto;display:flex;flex-direction:column;gap:3px}
+  #tt::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--ac1),var(--ac2),#22c55e)}
+  #tt small{display:block;color:#94a3b8;font-weight:500;letter-spacing:0;text-transform:none;font-size:12px;line-height:1.35}
+  #tt .tt-tools{position:absolute;right:12px;top:12px;display:flex;gap:4px}
+  #tt .tt-tools button{all:unset;cursor:pointer;width:26px;height:26px;border-radius:8px;text-align:center;line-height:26px;font-size:13px;color:#94a3b8;background:rgba(148,163,184,.12);transition:all .15s;letter-spacing:0}
+  #tt .tt-tools button:hover{background:rgba(99,102,241,.35);color:#fff;transform:translateY(-1px)}
+  #notas{font-size:11.5px;color:#334155}#notas b{color:#0f172a}
+  #dock>#notas,#dock>#cap,#dock>#frm,#dock>#rgp,#dock>#trf,#dock>#tools,#dock>#frp{background:rgba(255,255,255,.97)!important;border-radius:16px!important;padding:0!important;box-shadow:0 10px 28px rgba(2,6,23,.32),0 0 0 1px rgba(255,255,255,.06)!important;overflow:hidden;transition:transform .2s,box-shadow .25s;position:relative}
+  #dock>#notas:hover,#dock>#cap:hover,#dock>#frm:hover,#dock>#rgp:hover,#dock>#trf:hover,#dock>#tools:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(2,6,23,.4),0 0 0 1px rgba(99,102,241,.35)!important}
+  #dock .dh{padding:12px 14px;font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);background:linear-gradient(90deg,#f8fafc,#fff);position:relative;transition:background .2s}
+  #dock .dh::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--ac1),var(--ac2))}
+  #dock .dh:hover{background:linear-gradient(90deg,#eef2ff,#fff)}
+  #dock .ch{width:22px;height:22px;border-radius:50%;background:#eef2ff;color:var(--ac1);display:inline-flex;align-items:center;justify-content:center;font-size:11px;transition:transform .25s,background .2s}
+  #dock .dh:hover .ch{background:var(--ac1);color:#fff}
+  #dock .db{margin-top:0;padding:10px 14px 14px;max-height:54vh;overflow:auto;transition:max-height .32s cubic-bezier(.2,.8,.2,1),opacity .22s,padding .25s;scrollbar-width:thin}
+  #dock .col .db{display:block;max-height:0;opacity:0;padding-top:0;padding-bottom:0;overflow:hidden}
+  #dock .col .dh{border-bottom:0}#dock :not(.col)>.dh{border-bottom:1px solid var(--ln)}
+  #dock .col .ch{transform:rotate(-90deg)}
+  .ck{padding:6px 8px;margin:1px 0;border-radius:9px;transition:background .15s,transform .15s;font-size:12.5px}.ck:hover{background:#f1f5f9;transform:translateX(2px)}
+  .ck .bx{width:20px;height:20px;border:2px solid #cbd5e1;border-radius:7px;line-height:16px;font-size:12px;transition:all .18s cubic-bezier(.3,1.4,.5,1);margin-right:10px}
+  .ck.on .bx{background:linear-gradient(135deg,var(--ac1),#4f46e5);border-color:transparent;color:#fff;box-shadow:0 3px 8px rgba(79,70,229,.45);transform:scale(1.04)}
+  #cap .sub{margin:2px 0 8px 12px;padding-left:10px;border-left:2px solid #e0e7ff;transition:opacity .2s}
+  #dock .btnrow{gap:6px;margin-top:10px}
+  #dock .btnrow>button,#dock .seg button,#trf .btnrow button{padding:6px 11px;border-radius:99px;font-size:11.5px;font-weight:700;background:#f1f5f9;color:#334155;transition:all .16s;box-shadow:inset 0 0 0 1px #e2e8f0}
+  #dock .btnrow>button:hover,#dock .seg button:hover,#trf .btnrow button:hover{background:#e0e7ff;color:#3730a3;transform:translateY(-1px);box-shadow:inset 0 0 0 1px #c7d2fe,0 3px 8px rgba(99,102,241,.2)}
+  #dock .btnrow>button.on,#dock .seg button.on{background:linear-gradient(135deg,var(--ac1),#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(79,70,229,.4)}
+  #dock .btnrow>button:active,#dock .seg button:active{transform:scale(.96)}
+  #dock .seg{gap:5px;margin-top:4px}#dock .seg b{width:26px;height:26px;border-radius:8px;background:#eef2ff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  #dock input[type=range]{accent-color:var(--ac1);height:4px}
+  #dock select{border:0;background:#f1f5f9;border-radius:99px;padding:5px 10px;font-weight:600;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0;cursor:pointer;transition:box-shadow .15s}#dock select:hover{box-shadow:inset 0 0 0 1px #a5b4fc}
+  #rgp{font-size:12px}#rgp b{color:var(--ink)}#rgp a{color:var(--ac1)!important}
+  #trf #trf-i{background:#f8fafc;border:1px solid var(--ln);border-radius:10px;padding:8px 10px;margin-top:8px}
+  #trf #trf-i:empty{display:none}
+  #dock>#cap .db>.ck:first-child,#dock>#cap .db>.ck[data-k=mapa]{font-weight:800;color:var(--ink);background:linear-gradient(90deg,#eef2ff,rgba(238,242,255,0));margin-top:2px}
+  @media (max-width:760px){#dock{width:88vw}#dock-tg{left:88vw}}
 </style>
 </head>
 <body>
@@ -887,6 +932,10 @@ $('b-rec').onclick = async e => { const btn = e.target; if (btn.dataset.rec) ret
   const st = renderer.domElement.captureStream(30), mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)), rec = new MediaRecorder(st, { mimeType: mime, videoBitsPerSecond: 14e6 }), parts = []; rec.ondataavailable = ev => ev.data.size && parts.push(ev.data);
   rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(parts, { type: 'video/webm' })); a.download = 'maqueta-entorno.webm'; a.click(); controls.autoRotate = rot; controls.autoRotateSpeed = sp; delete btn.dataset.rec; btn.textContent = '⏺ Grabar video (10 s)'; };
   rec.start(); let s = 10; const iv = setInterval(() => { btn.textContent = `⏺ Grabando… ${--s} s`; if (s <= 0) { clearInterval(iv); rec.stop(); } }, 1000); btn.textContent = '⏺ Grabando… 10 s'; };
+</script>
+<script>
+(() => { const dk = document.getElementById('dock'); if (!dk) return; const tg = document.createElement('button'); tg.id = 'dock-tg'; tg.title = 'Ocultar o mostrar el panel'; tg.textContent = '‹'; document.body.appendChild(tg); tg.onclick = () => { const off = dk.classList.toggle('off'); tg.classList.toggle('off', off); tg.textContent = off ? '›' : '‹'; };
+  const tt = document.getElementById('tt'); if (tt) { const t = document.createElement('div'); t.className = 'tt-tools'; t.innerHTML = '<button id="dk-c" title="Contraer todo">⤒</button><button id="dk-e" title="Expandir todo">⤓</button>'; tt.appendChild(t); const sec = () => [...dk.children].filter(e => e.querySelector && e.querySelector(':scope > .dh')); document.getElementById('dk-c').onclick = () => sec().forEach(e => { e.dataset.col = '1'; e.classList.add('col'); }); document.getElementById('dk-e').onclick = () => sec().forEach(e => { e.dataset.col = '0'; e.classList.remove('col'); }); } })();
 </script>
 </body>
 </html>
