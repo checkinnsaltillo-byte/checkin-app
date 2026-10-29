@@ -1290,7 +1290,11 @@ function tfFlowTick(dt) { const tn = performance.now() / 1000; TF.flow.forEach(e
       if (!red) continue; if (alto && d < 1.4 && (c.v || 0) < .7) { c.hold = (c.hold || 0) + dt; if (c.hold > 3) { c.done = c.done || {}; c.done[si] = true; c.hold = 0; } va = 0; } else va = Math.min(va, Math.sqrt(2 * 3 * Math.max(0, d - .6))); break; }
     const v = c.v || 0; c.v = v < va ? Math.min(va, v + 2.2 * dt) : Math.max(va, v - 7 * dt); c.s += c.v * dt; if (c.s >= e.L) { c.s -= e.L; c.done = {}; c.hold = 0; } }); });
   for (let i = 0; i < e.act; i++) tfFlowPon(e, e.cars[i]); }); }
+// con vialidades elegidas en Tráfico solo se ven los autos de la carga vehicular: se ocultan los estacionados y los de fondo (y se restauran al quitar la selección)
+function tfOculta(on) { const fija = (o, u) => { if (on) { if (u.__tfv === undefined) u.__tfv = o.visible; o.visible = false; } else if (u.__tfv !== undefined) { o.visible = u.__tfv; delete u.__tfv; } };
+  world.traverse(o => { const u = o.userData; if (u && u.cat === 'autos') fija(o, u); }); (anim.movers || []).forEach(m => fija(m.car, m.car.userData)); }
 function tfAutos() {
+  tfOculta(TF.sel.size > 0);
   // los autos genéricos que pasan por tramos elegidos se ocultan: los reemplazan los de la carga vehicular
   TF.mov.forEach(m => { const xi = TF.vias.indexOf(m.tf.x), xr = TF.vias[xi], di = xr && xr.dup ? xr.dupDe : -1; m.car.visible = !(TF.sel.has(xi) || (di >= 0 && TF.sel.has(di))); });
   TF.flow.forEach(e => { e.act = 0; e.cars.forEach(c => { c.car.visible = false; }); });
