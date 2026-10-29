@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vista real · Google 3D + tráfico</title>
+<link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.124/Build/Cesium/Widgets/widgets.css">
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.124/Build/Cesium/Cesium.js"></script>
+<style>
+html,body,#c{margin:0;height:100%;width:100%;overflow:hidden;background:#05070b;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#dock{position:fixed;left:10px;top:10px;bottom:10px;width:262px;z-index:5;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#dock>div{pointer-events:auto;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border-radius:12px;padding:9px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+#ttl b{font-size:13px;color:#0f172a}#ttl small{display:block;color:#64748b;margin-top:2px}
+#trf{display:flex;flex-direction:column;min-height:0;flex:0 1 auto}#lst{overflow:auto;min-height:0}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+select,button.b{font-size:12px;padding:4px 8px;border-radius:99px;border:0;background:#f1f5f9;color:#334155;cursor:pointer}button.b.on{background:#0f172a;color:#fff}
+.ck{display:flex;align-items:center;padding:4px 2px;cursor:pointer;font-size:12px;color:#334155;user-select:none}.ck:hover{background:rgba(15,23,42,.05);border-radius:6px}
+.ck .bx{flex:none;display:inline-block;width:18px;height:18px;border:2px solid #94a3b8;border-radius:5px;text-align:center;line-height:15px;font-size:13px;font-weight:900;color:transparent;margin-right:8px;box-sizing:border-box}.ck.on .bx{background:#0f172a;border-color:#0f172a;color:#fff}
+#tf-win{position:fixed;top:12px;right:12px;width:420px;max-height:84vh;z-index:6;background:rgba(255,255,255,.97);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.35);display:none;overflow:hidden;font-size:12px;color:#334155}
+#tf-h{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;cursor:move;background:linear-gradient(180deg,#fff,#eef1f6);user-select:none;touch-action:none;white-space:nowrap;gap:8px}#tf-h b{overflow:hidden;text-overflow:ellipsis}
+#tf-h button{all:unset;cursor:pointer;padding:2px 7px;border-radius:99px;font-size:10.5px;color:#475569;margin-left:2px}#tf-h button.on{background:#0f172a;color:#fff}
+#tf-b{max-height:calc(84vh - 40px);overflow:auto;padding:4px 12px 12px}.tf-c{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-top:8px;background:#fff}
+.tf-hm{display:grid;gap:2px;align-items:center;margin-top:6px}.tf-hm i{display:block;height:15px;border-radius:2px;cursor:pointer}.tf-hd{font-size:9.5px;color:#64748b}
+.tf-bars{display:grid;gap:2px;height:46px;align-items:end;margin-top:6px}.tf-bc{display:flex;align-items:flex-end;height:100%;cursor:pointer}.tf-bc i{display:block;width:100%;background:#dc2626;opacity:.72;border-radius:3px 3px 0 0}.tf-bu{align-self:start;font-size:8.5px;color:#94a3b8;line-height:1}
+.tf-hx{display:grid;gap:2px;font-size:8.5px;color:#94a3b8;margin-top:2px;text-align:center}
+#msg{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:7;background:rgba(15,23,42,.85);color:#fff;padding:6px 14px;border-radius:99px;font-size:12px}
+.cesium-viewer-bottom{display:block}
+</style></head>
+<body><div id="c"></div>
+<div id="dock"><div id="ttl"><b>🌎 Vista real</b><small id="sub">Malla 3D fotogramétrica de Google + tráfico</small></div>
+<div id="vw"><div class="row"><button class="b" id="v-top">Vista aérea</button><button class="b" id="v-calle">Vista cercana</button><button class="b" id="v-rot">⟳ Giro</button></div></div>
+<div id="trf" style="display:none"></div></div>
+<div id="tf-win"><div id="tf-h"><b id="tf-t">🚦 Tráfico</b><span><button id="tf-m1">Demora</button><button id="tf-m2">Veloc.</button><button id="tf-m3">Carga</button><button id="tf-m4">Flujo</button><button id="tf-x" title="Cerrar">✕</button></span></div><div id="tf-b"></div></div>
+<div id="msg">Cargando la malla 3D de Google…</div>
+<script>
+const KEY = 'AIzaSyA_-JCgn6M504YbM0xhrKtVYWdpt6q7AoY', qs = new URLSearchParams(location.search), ID = qs.get('id') || '1126728734587648852', $ = id => document.getElementById(id);
+// ── teoría del flujo vehicular (mismo cálculo que la maqueta y la ficha)
+const TR_TAB = [[33, 12], [40, 18], [48, 23], [55, 29], [64, 36], [72, 43], [80, 53], [88, 63], [96, 73], [104, 84], [112, 96]];
+const trDist = v => { if (v <= 33) return 7 + 5 * Math.max(0, v) / 33; if (v >= 112) return 96 + (v - 112) * 1.5; for (let i = 1; i < TR_TAB.length; i++) if (v <= TR_TAB[i][0]) { const a = TR_TAB[i - 1], b = TR_TAB[i]; return a[1] + (b[1] - a[1]) * (v - a[0]) / (b[0] - a[0]); } return 96; };
+const trCarr = v => v.l ? (v.o ? v.l : Math.max(1, Math.ceil(v.l / 2))) : ({ motorway: 2, trunk: 2, primary: 2 }[v.h] || 1);
+const trFlujo = (r, v) => { if (!r || !r[0] || !r[2]) return null; const vel = 3.6 * r[2] / r[0], d = trDist(vel), n = trCarr(v), L = v.len || r[2], carga = L / d * n, q = n * 1000 * vel / d; return { vel, d, n, L, carga, rho: carga / L * 1000, q }; };
+const TF_DIAS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6, 'Sáb'], [0, 'Dom']], TF_ROADW = { motorway: 16, trunk: 14, primary: 13, secondary: 11, tertiary: 9, unclassified: 7.5, residential: 7.2, living_street: 6, service: 4.2 };
+const TF_CL = { motorway: 'Autopista', trunk: 'Troncal', primary: 'Primaria', secondary: 'Secundaria', tertiary: 'Terciaria', motorway_link: 'Enlace', trunk_link: 'Enlace', primary_link: 'Enlace', secondary_link: 'Enlace', tertiary_link: 'Enlace', unclassified: 'Sin clasificar', residential: 'Residencial', living_street: 'Calle compartida', service: 'Servicio' };
+const TF = { doc: null, vias: [], sel: new Set(), dia: 1, hora: 8, metric: 'demora', flow: new Map(), ov: [], play: null, lat0: 0, lng0: 0, kx: 1, ky: 111320, gh: 1545 };
+const tfH12 = h => `${h % 12 || 12} ${h < 12 ? 'A.M.' : 'P.M.'}`, tfEtq = (H, hs) => { const st = H.length > 9 ? 2 : 1; return `<span></span>${H.map((h, i) => `<span style="${h === hs ? 'color:#0f172a;font-weight:800' : ''}">${i % st === 0 || h === hs ? tfH12(h) : ''}</span>`).join('')}`; };
+function tfCel(x, si, dia, hora) { const s = x.v.sentidos[si] || x.v.sentidos[0], hs = x.horas, h = hs.reduce((b, k) => Math.abs(k - hora) < Math.abs(b - hora) ? k : b, hs[0]); let r = (s.cel[dia] || {})[h]; if (!r) { const L = Object.values(s.cel).map(d => d[h]).filter(Boolean); if (L.length) r = L[0].map((_, i) => L.reduce((a, c) => a + c[i], 0) / L.length); } return r || null; }
+const tfDem = r => r && r[0] && r[1] ? Math.max(0, (r[0] / r[1] - 1) * 100) : null, tfVel = r => r && r[0] && r[2] ? 3.6 * r[2] / r[0] : null;
+const loc = p => [(p[1] - TF.lng0) * TF.kx, (p[0] - TF.lat0) * TF.ky], inv = (x, y) => [TF.lng0 + x / TF.kx, TF.lat0 + y / TF.ky];
+const tfColor = d => { const t = Math.min(1, Math.max(0, (d == null ? 0 : d) / 40)); return Cesium.Color.lerp(Cesium.Color.fromCssColorString('#fecaca'), Cesium.Color.fromCssColorString('#991b1b'), t, new Cesium.Color()); };
+let viewer, tileset;
+// modelo glTF mínimo de un auto (carrocería y cabina), generado en código; Y arriba y el frente hacia +Z (convención glTF)
+const CAR_URL = (() => { const V = [], N = [], I = []; const box = (x0, x1, y0, y1, z0, z1) => { const f = [[[0, 0, 1], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [[0, 0, -1], [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [[1, 0, 0], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [[-1, 0, 0], [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [[0, 1, 0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [[0, -1, 0], [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]]]; f.forEach(q => { const b = V.length / 3; for (let i = 1; i <= 4; i++) { V.push(...q[i]); N.push(...q[0]); } I.push(b, b + 1, b + 2, b, b + 2, b + 3); }); };
+  box(-.9, .9, .25, .95, -2.2, 2.2); box(-.8, .8, .95, 1.5, -1.5, .75);
+  const pos = new Float32Array(V), nor = new Float32Array(N), idx = new Uint16Array(I), buf = new Uint8Array(pos.byteLength + nor.byteLength + idx.byteLength); buf.set(new Uint8Array(pos.buffer), 0); buf.set(new Uint8Array(nor.buffer), pos.byteLength); buf.set(new Uint8Array(idx.buffer), pos.byteLength + nor.byteLength);
+  let bin = ''; buf.forEach(b => bin += String.fromCharCode(b)); const mn = [Math.min(...V.filter((_, i) => i % 3 === 0)), Math.min(...V.filter((_, i) => i % 3 === 1)), Math.min(...V.filter((_, i) => i % 3 === 2))], mx = [Math.max(...V.filter((_, i) => i % 3 === 0)), Math.max(...V.filter((_, i) => i % 3 === 1)), Math.max(...V.filter((_, i) => i % 3 === 2))];
+  const g = { asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }], meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, indices: 2, material: 0 }] }], materials: [{ pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: .2, roughnessFactor: .6 }, doubleSided: true }],
+    buffers: [{ byteLength: buf.length, uri: 'data:application/octet-stream;base64,' + btoa(bin) }], bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: pos.byteLength, target: 34962 }, { buffer: 0, byteOffset: pos.byteLength, byteLength: nor.byteLength, target: 34962 }, { buffer: 0, byteOffset: pos.byteLength + nor.byteLength, byteLength: idx.byteLength, target: 34963 }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: V.length / 3, type: 'VEC3', min: mn, max: mx }, { bufferView: 1, componentType: 5126, count: N.length / 3, type: 'VEC3' }, { bufferView: 2, componentType: 5123, count: I.length, type: 'SCALAR' }] };
+  return 'data:model/gltf+json;base64,' + btoa(JSON.stringify(g)); })();
+async function carModel(css) { const m = await Cesium.Model.fromGltfAsync({ url: CAR_URL, scale: 1, minimumPixelSize: 7, show: false }); m.color = Cesium.Color.fromCssColorString(css); m.colorBlendMode = Cesium.ColorBlendMode.REPLACE; viewer.scene.primitives.add(m); return m; }
+(async () => {
+  try {
+    const j = await fetch(`https://api.check-inn.mx/mercado/trafico?id=${ID}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null), D = j && j.ok && j.doc;
+    let lat = D ? D.lat : 25.426, lng = D ? D.lng : -100.995; if (!D) { try { const e = await fetch(`https://api.check-inn.mx/mercado/maqueta/escena?id=${ID}`).then(r => r.json()); if (e.ok && e.escena && e.escena.lat != null) { lat = +e.escena.lat; lng = +e.escena.lng; } } catch (_) {} }
+    TF.lat0 = lat; TF.lng0 = lng; TF.kx = 111320 * Math.cos(lat * Math.PI / 180);
+    viewer = new Cesium.Viewer('c', { globe: false, baseLayerPicker: false, geocoder: false, timeline: false, animation: false, homeButton: false, sceneModePicker: false, navigationHelpButton: false, fullscreenButton: true, infoBox: false, selectionIndicator: false });
+    viewer.scene.skyAtmosphere.show = true; viewer.scene.highDynamicRange = false; viewer.scene.light = new Cesium.SunLight();
+    tileset = await Cesium.createGooglePhotorealistic3DTileset({ key: KEY }); viewer.scene.primitives.add(tileset);
+    const pin = viewer.entities.add({ position: Cesium.Cartesian3.fromDegrees(lng, lat, TF.gh + 18), billboard: { image: '../gb-pin.png', width: 33, height: 52, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+    let hdg = +(qs.get('h') || 20), pit = +(qs.get('p') || -32), rng = +(qs.get('r') || 260);
+    const mira = (h, p, r) => { hdg = h; pit = p; rng = r; viewer.camera.lookAt(Cesium.Cartesian3.fromDegrees(lng, lat, TF.gh), new Cesium.HeadingPitchRange(Cesium.Math.toRadians(h), Cesium.Math.toRadians(p), r)); viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY); };
+    mira(hdg, pit, rng); $('v-top').onclick = () => mira(0, -58, 380); $('v-calle').onclick = () => mira(hdg, -14, 120);
+    let rot = false; $('v-rot').onclick = e => { rot = !rot; e.target.classList.toggle('on', rot); }; viewer.clock.onTick.addEventListener(() => { if (rot) viewer.camera.rotate(Cesium.Cartesian3.fromDegrees(lng, lat, TF.gh), .0035); });
+    // altura real del terreno cuando ya hay mosaicos
+    setTimeout(async () => { try { const [c] = await viewer.scene.sampleHeightMostDetailed([Cesium.Cartographic.fromDegrees(lng, lat)]); if (c && c.height != null) { TF.gh = c.height; pin.position = Cesium.Cartesian3.fromDegrees(lng, lat, TF.gh + 18); } } catch (_) {} $('msg').style.display = 'none'; }, 9000);
+    if (D && D.vias && D.vias.length) tfInit(D); else { $('msg').textContent = 'Sin datos de tráfico para esta propiedad: consúltalos primero en la ficha.'; $('msg').style.display = 'block'; }
+  } catch (e) { $('msg').textContent = 'No se pudo cargar: ' + e.message; console.error(e); }
+})();
+function tfInit(D) {
+  TF.doc = D; D.vias.forEach((v, vi) => { const pl = (v.pl && v.pl.length > 1 ? v.pl : [v.sentidos[0].a, v.sentidos[0].b]), P = pl.map(loc), cum = [0]; for (let k = 1; k < P.length; k++) cum.push(cum[k - 1] + Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1])); TF.vias.push({ vi, v, pl, P, cum, L: cum[cum.length - 1] || 1, w: (TF_ROADW[v.h] || 7) * .95, frac: 1, horas: v.horas || D.horas, dias: v.dias || (D.cfg || {}).dias || [], hts: null }); });
+  const hs = [...new Set(TF.vias.flatMap(x => x.horas))].sort((a, b) => a - b), hoy = new Date().getDay(), hh = new Date().getHours(); TF.horas = hs; TF.dia = hoy; TF.hora = hs.reduce((b, h) => Math.abs(h - hh) < Math.abs(b - hh) ? h : b, hs[0]);
+  const el = $('trf'); el.style.display = 'block';
+  el.innerHTML = `<b style="color:#0f172a">🚦 Tráfico (${TF.vias.length})</b><div class="row" style="margin-top:6px"><select id="trf-d">${TF_DIAS.map(([d, t]) => `<option value="${d}" ${d === TF.dia ? 'selected' : ''}>${t}</option>`).join('')}</select><select id="trf-h">${hs.map(h => `<option value="${h}" ${h === TF.hora ? 'selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('')}</select><button class="b" id="trf-p" title="Recorrer las horas">▶</button><button class="b" id="trf-a">Todas</button><button class="b" id="trf-n">Ninguna</button></div><div id="lst" style="max-height:34vh">${TF.vias.map((x, i) => `<div class="ck" data-i="${i}"><span class="bx">✓</span><span style="min-width:0"><b style="font-size:12px">${x.v.n}</b><br><small style="color:#64748b">${TF_CL[x.v.h] || x.v.h} · ${x.v.o ? 'un sentido' : '2 sentidos'} · ${Math.round(x.L)} m</small></span></div>`).join('')}</div><div id="trf-i" style="font-size:11px;color:#0f172a;margin-top:6px"></div>`;
+  el.querySelectorAll('.ck').forEach(d => d.onclick = () => { const i = +d.dataset.i, vacio = !TF.sel.size; if (TF.sel.has(i)) TF.sel.delete(i); else TF.sel.add(i); tfRefresca(); if (vacio && TF.sel.has(i)) tfVuela(); });
+  $('trf-d').onchange = e => { TF.dia = +e.target.value; tfRefresca(); }; $('trf-h').onchange = e => { TF.hora = +e.target.value; tfRefresca(); }; $('trf-a').onclick = () => { TF.vias.forEach((_, i) => TF.sel.add(i)); tfRefresca(); tfVuela(); }; $('trf-n').onclick = () => { TF.sel.clear(); tfRefresca(); };
+  $('trf-p').onclick = e => { if (TF.play) { clearInterval(TF.play); TF.play = null; e.target.textContent = '▶'; return; } e.target.textContent = '⏸'; TF.play = setInterval(tfPaso, 1600); };
+  viewer.clock.onTick.addEventListener(() => tfTick(viewer.clock.currentTime));
+  $('tf-b').addEventListener('click', e => { const t = e.target.closest('[data-v][data-h]'); if (!t) return; const i = +t.dataset.v; if (!TF.vias[i]) return; TF.sel.add(i); TF.hora = +t.dataset.h; if (t.dataset.d !== undefined) TF.dia = +t.dataset.d; $('trf-h').value = TF.hora; $('trf-d').value = TF.dia; if (TF.play) { clearInterval(TF.play); TF.play = setInterval(tfPaso, 1600); } tfRefresca(); });
+  $('tf-x').onclick = () => { TF.sel.clear(); tfRefresca(); }; $('tf-m1').onclick = () => { TF.metric = 'demora'; tfPop(); }; $('tf-m2').onclick = () => { TF.metric = 'vel'; tfPop(); }; $('tf-m3').onclick = () => { TF.metric = 'carga'; tfPop(); }; $('tf-m4').onclick = () => { TF.metric = 'flujo'; tfPop(); };
+  const hd = $('tf-h'), w = $('tf-win'); hd.addEventListener('pointerdown', ev => { if (ev.target.closest('button')) return; const r0 = w.getBoundingClientRect(), sx = ev.clientX, sy = ev.clientY; hd.setPointerCapture(ev.pointerId); const mv = e2 => { w.style.left = Math.max(0, Math.min(innerWidth - 120, r0.left + e2.clientX - sx)) + 'px'; w.style.top = Math.max(0, Math.min(innerHeight - 40, r0.top + e2.clientY - sy)) + 'px'; w.style.right = 'auto'; }, up = () => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); }; hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); });
+}
+function tfPaso() { const i = TF.horas.indexOf(TF.hora); TF.hora = TF.horas[(i + 1) % TF.horas.length]; $('trf-h').value = TF.hora; tfRefresca(); }
+function tfVuela() { const pts = [...TF.sel].flatMap(i => TF.vias[i].pl.map(p => Cesium.Cartesian3.fromDegrees(p[1], p[0], TF.gh))); if (!pts.length) return; viewer.camera.flyToBoundingSphere(Cesium.BoundingSphere.fromPoints(pts), { duration: 1.6, offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(25), Cesium.Math.toRadians(-38), Math.max(260, Cesium.BoundingSphere.fromPoints(pts).radius * 2.6)) }); }
+// alturas del terreno a lo largo de cada tramo (para que los autos sigan la superficie real de la malla)
+async function tfAlturas(x) { if (x.hts || x.htsP) return; x.htsP = true; const n = Math.max(2, Math.ceil(x.L / 12)), pts = [], cs = []; for (let k = 0; k <= n; k++) { const p = tfAt(x, x.L * k / n); pts.push(p); cs.push(Cesium.Cartographic.fromDegrees(p.lng, p.lat)); } try { const r = await viewer.scene.sampleHeightMostDetailed(cs); x.hts = r.map(c => c.height != null ? c.height : TF.gh); x.htsN = n; } catch (_) { x.hts = null; x.htsP = false; } }
+function tfAt(x, s) { const cum = x.cum, P = x.P; let k = 1; while (k < cum.length - 1 && cum[k] < s) k++; const l = cum[k] - cum[k - 1] || 1, u = Math.max(0, Math.min(1, (s - cum[k - 1]) / l)), a = P[k - 1], b = P[k], tx = (b[0] - a[0]) / l, ty = (b[1] - a[1]) / l; const [lng, lat] = inv(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u); return { lng, lat, tx, ty, x: a[0] + (b[0] - a[0]) * u, y: a[1] + (b[1] - a[1]) * u }; }
+function tfRefresca() {
+  document.querySelectorAll('#trf .ck').forEach(d => d.classList.toggle('on', TF.sel.has(+d.dataset.i)));
+  TF.ov.forEach(e => viewer.entities.remove(e)); TF.ov = [];
+  TF.sel.forEach(i => { const x = TF.vias[i]; tfAlturas(x); const ds = x.v.sentidos.map((_, si) => tfDem(tfCel(x, si, TF.dia, TF.hora))).filter(d => d != null), d = ds.length ? Math.max(...ds) : 0, c = tfColor(d), vs = x.v.sentidos.map((_, si) => tfVel(tfCel(x, si, TF.dia, TF.hora))).filter(v => v != null), mid = tfAt(x, x.L / 2);
+    TF.ov.push(viewer.entities.add({ corridor: { positions: Cesium.Cartesian3.fromDegreesArray(x.pl.flatMap(p => [p[1], p[0]])), width: x.w, material: c.withAlpha(.78), classificationType: Cesium.ClassificationType.CESIUM_3D_TILE, cornerType: Cesium.CornerType.ROUNDED } }));
+    TF.ov.push(viewer.entities.add({ position: Cesium.Cartesian3.fromDegrees(mid.lng, mid.lat, TF.gh + 34), label: { text: `🚦 ${x.v.n}${vs.length ? ' · ' + Math.round(vs.reduce((a, b) => a + b, 0) / vs.length) + ' km/h' : ''}`, font: '600 13px sans-serif', fillColor: Cesium.Color.WHITE, outlineColor: Cesium.Color.fromCssColorString('#0f172a'), outlineWidth: 4, style: Cesium.LabelStyle.FILL_AND_OUTLINE, showBackground: true, backgroundColor: Cesium.Color.fromCssColorString('#0f172acc'), disableDepthTestDistance: Number.POSITIVE_INFINITY, pixelOffset: new Cesium.Cartesian2(0, -8), scale: .9 } })); });
+  tfPop(); tfAutos();
+}
+function tfPop() {
+  const w = $('tf-win'); if (!TF.sel.size) { w.style.display = 'none'; return; } w.style.display = 'block'; $('tf-t').textContent = `🚦 Tráfico · ${(TF_DIAS.find(d => d[0] === TF.dia) || [0, ''])[1]} ${String(TF.hora).padStart(2, '0')}:00`; ['demora', 'vel', 'carga', 'flujo'].forEach((m, k) => $('tf-m' + (k + 1)).classList.toggle('on', TF.metric === m));
+  $('tf-b').innerHTML = [...TF.sel].map(i => TF.vias[i]).map(x => x.v.sentidos.map((s, si) => tfCard(x, si)).join('')).join('');
+}
+function tfCard(x, si) {
+  const s = x.v.sentidos[si], H = x.horas, dias = TF_DIAS.filter(([d]) => x.dias.includes(d)), m = TF.metric, val = r => { if (m === 'carga' || m === 'flujo') { const f = trFlujo(r, x.v); return f ? (m === 'carga' ? f.carga : f.q) : null; } return m === 'vel' ? tfVel(r) : tfDem(r); }, un = { vel: 'km/h', carga: 'veh', flujo: 'veh/h' }[m] || '%', V = dias.map(([d]) => H.map(h => val((s.cel[d] || {})[h]))), flat = V.flat().filter(v => v != null);
+  if (!flat.length) return `<div class="tf-c"><b>${x.v.n} · ${s.dir}</b><div style="font-size:11px;color:#64748b">Sin datos.</div></div>`;
+  const mx = Math.max(...flat), mn = Math.min(...flat), col = v => v == null ? 'background:#f4f6f9' : `background:rgba(220,38,38,${.08 + .92 * (m === 'vel' ? (mx > mn ? 1 - (v - mn) / (mx - mn) : 0) : (m === 'carga' || m === 'flujo') ? (mx > mn ? (v - mn) / (mx - mn) : 0) : Math.min(1, v / Math.max(mx, 10)))})`, hs = H.reduce((b, k) => Math.abs(k - TF.hora) < Math.abs(b - TF.hora) ? k : b, H[0]), gc = `grid-template-columns:30px repeat(${H.length},1fr)`, vi = TF.vias.indexOf(x);
+  const cel = dias.map(([d, t], di) => `<div class="tf-hd">${t}</div>${V[di].map((v, hi) => `<i data-v="${vi}" data-d="${d}" data-h="${H[hi]}" style="${col(v)}${d === TF.dia && H[hi] === hs ? ';outline:2px solid #0f172a;outline-offset:-1px' : ''}" title="${t} ${H[hi]}:00 · ${v == null ? 'sin dato' : (m === 'carga' ? v.toFixed(1) : Math.round(v)) + ' ' + un}"></i>`).join('')}`).join('');
+  const prom = H.map((h, hi) => { const a = V.map(r => r[hi]).filter(v => v != null); return a.length ? a.reduce((p, q) => p + q, 0) / a.length : null; }), pm = Math.max(1, ...prom.filter(v => v != null));
+  const barras = prom.map((v, hi) => `<div class="tf-bc" data-v="${vi}" data-h="${H[hi]}" title="${H[hi]}:00 · ${v == null ? 'sin dato' : (m === 'carga' ? v.toFixed(1) : Math.round(v)) + ' ' + un}">${v == null ? '' : `<i style="height:${Math.max(3, v / pm * 100)}%;${H[hi] === hs ? 'background:#0f172a;opacity:1' : ''}"></i>`}</div>`).join('');
+  return `<div class="tf-c"><b>${x.v.n} · ${s.dir}</b> <small style="color:#64748b">${TF_CL[x.v.h] || x.v.h} · ${{ vel: 'km/h', carga: 'vehículos en el tramo', flujo: 'veh/h por sentido' }[m] || '% demora'} · ${trCarr(x.v)} carril(es)</small><div class="tf-hm" style="${gc}">${cel}</div><div class="tf-hx" style="${gc}">${tfEtq(H, hs)}</div><div class="tf-bars" style="${gc}"><span class="tf-bu">${Math.round(pm)}</span>${barras}</div><div class="tf-hx" style="${gc}">${tfEtq(H, hs)}</div></div>`;
+}
+// ── autos: la carga vehicular de cada tramo elegido, a la velocidad medida, sobre la superficie real de la malla de Google
+const TF_MAXCARS = 140, CAR_COLS = ['#b8bcc1', '#f1f1ef', '#a9232b', '#5a1f27', '#c4282f', '#2c3a52', '#f3f3f1', '#6d1f2b'];
+function tfFlowEntry(i, si) { const key = i + '|' + si; let e = TF.flow.get(key); if (e) return e; const x = TF.vias[i]; e = { x, si, cars: [], vms: 5, act: 0, nl: 1, rev: !!si }; TF.flow.set(key, e); return e; }
+function tfAutos() {
+  TF.flow.forEach(e => { e.act = 0; e.cars.forEach(c => { c.show = false; if (c.m) c.m.show = false; }); });
+  const want = []; TF.sel.forEach(i => { const x = TF.vias[i]; x.v.sentidos.forEach((s, si) => { const f = trFlujo(tfCel(x, si, TF.dia, TF.hora), x.v); if (f) want.push({ i, si, x, s, f, n: Math.max(1, Math.round(f.carga)) }); }); });
+  const tot = want.reduce((a, w) => a + w.n, 0), esc = tot > TF_MAXCARS ? TF_MAXCARS / tot : 1;
+  want.forEach(w => { const e = tfFlowEntry(w.i, w.si), nl = Math.max(1, trCarr(w.x.v)), n = Math.max(nl, Math.round(w.f.carga * esc)); e.nl = nl; e.vms = Math.max(1.2, w.f.vel / 3.6); e.act = n; w.vis = n; const L = w.x.L;
+    while (e.cars.length < n) { const c = { m: null, show: false, s: 0, off: 0 }; e.cars.push(c); carModel(CAR_COLS[Math.floor(Math.random() * CAR_COLS.length)]).then(m => { c.m = m; m.show = c.show; }); }
+    const per = Math.ceil(n / nl), esp = L / per; for (let k = 0; k < n; k++) { const c = e.cars[k], lane = k % nl, slot = Math.floor(k / nl); c.s = (slot * esp + lane * esp * .37) % L; c.off = w.x.v.o ? -w.x.w / 2 + (lane + .5) * w.x.w / nl : -(lane + .5) * (w.x.w / 2) / nl; c.show = true; if (c.m) c.m.show = true; } });
+  const el = $('trf-i'); if (el) el.innerHTML = want.length ? `<div style="margin-bottom:3px">🚗 <b>${want.reduce((a, w) => a + w.vis, 0)}</b> vehículos circulando${esc < 1 ? ` (se muestra el ${Math.round(esc * 100)} %; la carga real suma ${tot})` : ''}</div>` + want.slice(0, 6).map(w => `<div style="color:#475569">${w.x.v.n} ${w.s.dir}: <b>${Math.round(w.f.vel)} km/h</b> · cada ${Math.round(w.f.d)} m · ${w.f.n} carril(es) · carga <b>${w.f.carga.toFixed(1)}</b> veh · flujo <b>${Math.round(w.f.q)}</b> veh/h</div>`).join('') : '';
+}
+let tPrev = null;
+function tfTick(time) {
+  const now = performance.now(), dt = tPrev == null ? 0 : Math.min(.1, (now - tPrev) / 1000); tPrev = now; if (!dt) return;
+  TF.flow.forEach(e => { if (!e.act) return; const x = e.x, L = x.L; for (let i = 0; i < e.act; i++) { const c = e.cars[i]; c.s = (c.s + e.vms * dt) % L; const sa = e.rev ? L - c.s : c.s, p = tfAt(x, sa), dir = e.rev ? -1 : 1, tx = p.tx * dir, ty = p.ty * dir, off = c.off, [lng, lat] = inv(p.x - ty * off, p.y + tx * off);
+      let h = TF.gh; if (x.hts) { const k = Math.max(0, Math.min(x.htsN, sa / L * x.htsN)), k0 = Math.floor(k), k1 = Math.min(x.htsN, k0 + 1); h = x.hts[k0] + (x.hts[k1] - x.hts[k0]) * (k - k0); }
+      if (!c.m) continue; const pos = Cesium.Cartesian3.fromDegrees(lng, lat, h + .05), bearing = Math.atan2(tx, ty); c.m.modelMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(pos, new Cesium.HeadingPitchRoll(bearing - Math.PI / 2, 0, 0)); } });
+}
+</script></body></html>
