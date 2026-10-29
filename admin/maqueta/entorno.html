@@ -1030,7 +1030,7 @@ function frTema() {
 function frSegSync() { document.querySelectorAll('#fr-seg button').forEach(b => b.classList.toggle('on', +b.dataset.m === FR.mode)); }
 
 // ───────── Rutas de acceso: recorridos simultáneos desde cruces de vialidades principales hasta la propiedad, con tiempos relativos de llegada ─────────
-const RT = { on: false, g: new THREE.Group(), routes: [], t: 0, speed: 20, auto: true, play: true, dist: 900, n: 6, saved: null, pulse: null, sel: -1 }; scene.add(RT.g);
+const RT = window.__RT = { on: false, g: new THREE.Group(), routes: [], t: 0, speed: 20, auto: true, play: true, dist: 900, n: 6, saved: null, pulse: null, sel: -1 }; scene.add(RT.g);
 const RT_COL = ['#22e6ff', '#ff4fd8', '#ffb347', '#7dff8a', '#a78bff', '#ff6b6b', '#5aa9ff', '#f5ef6a'], RT_DIR = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 function rtRev(G, dst) { if (!G.radj) { G.radj = Array.from({ length: G.n }, () => []); for (let u = 0; u < G.n; u++) for (const [v, sec, art] of G.adj[u]) G.radj[v].push([u, sec, art]); } const t = new Float64Array(G.n).fill(Infinity), nx = new Int32Array(G.n).fill(-1), h = new FHeap(); t[dst] = 0; h.push(0, dst); while (h.n) { const [d, u] = h.pop(); if (d > t[u]) continue; for (const [x, sec] of G.radj[u]) { const nd = d + sec + G.pen[u]; if (nd < t[x]) { t[x] = nd; nx[x] = u; h.push(nd, x); } } } return { t, nx }; }
 function rtOrigenes(B, dtar, n) { const G = B.G, o = B.org.i, ox = G.X[o], oy = G.Y[o], R = B.rev || (B.rev = rtRev(G, o)), C = []; if (!G.radj) rtRev(G, o);
