@@ -20,8 +20,8 @@
   #dock{position:fixed;left:0;top:0;width:340px;max-width:92vw;max-height:100vh;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:6px;z-index:4;pointer-events:none;box-sizing:border-box;scrollbar-width:thin}
   #dock>*{pointer-events:auto}
   #dock>#rgp,#dock>#frp,#dock>#cap{position:static!important;left:auto!important;right:auto!important;top:auto!important;width:auto!important;max-width:none!important;max-height:none!important;box-sizing:border-box}
-  #dock .dh{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-weight:800;font-size:12px;color:#0f172a;user-select:none}
-  #dock .ch{transition:transform .15s;color:#64748b}#dock .col .db{display:none}#dock .col .ch{transform:rotate(-90deg)}#dock .db{margin-top:6px;max-height:46vh;overflow:auto}
+  #dock .dh,.pwin .dh{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-weight:800;font-size:12px;color:#0f172a;user-select:none}
+  #dock .ch,.pwin .ch{transition:transform .15s;color:#64748b}#dock .col .db,.pwin .col .db{display:none}#dock .col .ch,.pwin .col .ch{transform:rotate(-90deg)}#dock .db,.pwin .db{margin-top:6px;max-height:46vh;overflow:auto}
   .bar .seg{display:inline-flex;align-items:center;gap:2px;background:rgba(15,23,42,.07);border-radius:99px;padding:2px 4px 2px 9px}.bar .seg b{font-size:13px;margin-right:2px}
   #gw{position:fixed;z-index:7;top:0;right:0;bottom:0;left:auto;width:33.333vw;background:#0d1119;box-shadow:-12px 0 40px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.07);flex-direction:column;min-width:260px;max-width:90vw}
   #gw-t{position:absolute;left:-14px;top:50%;width:14px;height:64px;margin-top:-32px;background:#1b2433;border:1px solid rgba(255,255,255,.14);border-right:0;border-radius:8px 0 0 8px;cursor:ew-resize;z-index:4;touch-action:none;display:flex;align-items:center;justify-content:center;color:#7b8798;font-size:10px;letter-spacing:-2px}#gw-t:hover{background:#26324a;color:#cbd5e1}
@@ -30,11 +30,11 @@
   #gw-h{cursor:default;padding:6px 12px;color:#cbd5e1;font-weight:600;font-size:11px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));user-select:none;touch-action:none}
   #gw-h button{all:unset;cursor:pointer;width:22px;height:22px;text-align:center;line-height:22px;border-radius:50%;color:#94a3b8}#gw-h button:hover{background:rgba(255,255,255,.12);color:#fff}
   #gw-b{flex:1;position:relative;min-height:0;overflow:hidden}#gw-l{position:absolute;left:10px;bottom:6px;right:10px;color:#7b8798;font-size:9.5px;pointer-events:none;z-index:1;text-shadow:0 1px 4px #000}
-  #dock .btnrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-  #dock .btnrow>button,#dock .seg button{all:unset;cursor:pointer;padding:5px 10px;border-radius:8px;font-size:11.5px;font-weight:600;color:#334155;background:rgba(15,23,42,.07);white-space:nowrap}
-  #dock .btnrow>button:hover,#dock .seg button:hover{background:rgba(15,23,42,.14)}#dock .btnrow>button.on,#dock .seg button.on{background:#0f172a;color:#fff}
-  #dock .seg{display:flex;gap:3px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:0;background:none;border-radius:0}#dock .seg b{font-size:12px;margin-right:2px}#dock button.rec{color:#b91c1c}
-  #dock #frp{position:static!important;left:auto!important;right:auto!important;top:auto!important;width:auto!important;max-width:none!important;max-height:none!important;background:none!important;box-shadow:none!important;padding:0!important;border-radius:0!important;margin-top:8px;overflow:visible!important;backdrop-filter:none!important}
+  #dock .btnrow,.pwin .btnrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  #dock .btnrow>button,#dock .seg button,.pwin .btnrow>button,.pwin .seg button{all:unset;cursor:pointer;padding:5px 10px;border-radius:8px;font-size:11.5px;font-weight:600;color:#334155;background:rgba(15,23,42,.07);white-space:nowrap}
+  #dock .btnrow>button:hover,#dock .seg button:hover,.pwin .btnrow>button:hover,.pwin .seg button:hover{background:rgba(15,23,42,.14)}#dock .btnrow>button.on,#dock .seg button.on,.pwin .btnrow>button.on,.pwin .seg button.on{background:#0f172a;color:#fff}
+  #dock .seg,.pwin .seg{display:flex;gap:3px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:0;background:none;border-radius:0}#dock .seg b,.pwin .seg b{font-size:12px;margin-right:2px}#dock button.rec,.pwin button.rec{color:#b91c1c}
+  #dock #frp,.pwin #frp{position:static!important;left:auto!important;right:auto!important;top:auto!important;width:auto!important;max-width:none!important;max-height:none!important;background:none!important;box-shadow:none!important;padding:0!important;border-radius:0!important;margin-top:8px;overflow:visible!important;backdrop-filter:none!important}
   #cap .sub{margin:2px 0 6px 9px;padding-left:10px;border-left:2px solid #e2e8f0}
   #tf-win{position:fixed;top:64px;right:14px;width:420px;max-height:80vh;z-index:6;background:rgba(255,255,255,.97);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.35),0 0 0 1px rgba(15,23,42,.08);display:none;overflow:hidden;font-size:12px;color:#334155}#tf-h{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;cursor:move;background:linear-gradient(180deg,#fff,#eef1f6);user-select:none;touch-action:none}#tf-h button{all:unset;cursor:pointer;padding:2px 7px;border-radius:99px;font-size:10.5px;color:#475569;margin-left:2px}#tf-h{white-space:nowrap;gap:8px}#tf-h b{overflow:hidden;text-overflow:ellipsis}#tf-h button.on{background:#0f172a;color:#fff}#tf-b{max-height:calc(80vh - 40px);overflow:auto;padding:4px 12px 12px}.tf-c{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-top:8px;background:#fff}.tf-hm{display:grid;gap:2px;align-items:center;margin-top:6px}.tf-hm i{display:block;height:15px;border-radius:2px;cursor:pointer}.tf-bc{cursor:pointer}.tf-hm i:hover,.tf-bc:hover i{filter:brightness(.85)}.tf-hd{font-size:9.5px;color:#64748b}.tf-bars{display:grid;gap:2px;height:46px;align-items:end;margin-top:6px}.tf-bc{display:flex;align-items:flex-end;height:100%}.tf-bc i{display:block;width:100%;background:#dc2626;opacity:.72;border-radius:3px 3px 0 0}.tf-bu{align-self:start;font-size:8.5px;color:#94a3b8;line-height:1}.tf-hx{display:grid;gap:2px;font-size:8.5px;color:#94a3b8;margin-top:2px;text-align:center}#trf .btnrow button{all:unset;cursor:pointer;padding:3px 9px;border-radius:99px;background:#f1f5f9;color:#475569;font-size:11.5px}
   .ck{display:flex;align-items:center;padding:4px 2px;cursor:pointer;font-size:12px;color:#334155;user-select:none}.ck:hover{background:rgba(15,23,42,.05);border-radius:6px}
@@ -58,32 +58,49 @@
   #notas{font-size:11.5px;color:#334155}#notas b{color:#0f172a}
   #dock>#notas,#dock>#cap,#dock>#frm,#dock>#rgp,#dock>#trf,#dock>#tools,#dock>#frp{background:rgba(255,255,255,.97)!important;border-radius:16px!important;padding:0!important;box-shadow:0 10px 28px rgba(2,6,23,.32),0 0 0 1px rgba(255,255,255,.06)!important;overflow:hidden;transition:transform .2s,box-shadow .25s;position:relative}
   #dock>#notas:hover,#dock>#cap:hover,#dock>#frm:hover,#dock>#rgp:hover,#dock>#trf:hover,#dock>#tools:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(2,6,23,.4),0 0 0 1px rgba(99,102,241,.35)!important}
-  #dock .dh{padding:12px 14px;font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);background:linear-gradient(90deg,#f8fafc,#fff);position:relative;transition:background .2s}
-  #dock .dh::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--ac1),var(--ac2))}
-  #dock .dh:hover{background:linear-gradient(90deg,#eef2ff,#fff)}
-  #dock .ch{width:22px;height:22px;border-radius:50%;background:#eef2ff;color:var(--ac1);display:inline-flex;align-items:center;justify-content:center;font-size:11px;transition:transform .25s,background .2s}
-  #dock .dh:hover .ch{background:var(--ac1);color:#fff}
-  #dock .db{margin-top:0;padding:10px 14px 14px;max-height:54vh;overflow:auto;transition:max-height .32s cubic-bezier(.2,.8,.2,1),opacity .22s,padding .25s;scrollbar-width:thin}
-  #dock .col .db{display:block;max-height:0;opacity:0;padding-top:0;padding-bottom:0;overflow:hidden}
-  #dock .col .dh{border-bottom:0}#dock :not(.col)>.dh{border-bottom:1px solid var(--ln)}
-  #dock .col .ch{transform:rotate(-90deg)}
+  #dock .dh,.pwin .dh{padding:12px 14px;font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);background:linear-gradient(90deg,#f8fafc,#fff);position:relative;transition:background .2s}
+  #dock .dh::before,.pwin .dh::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--ac1),var(--ac2))}
+  #dock .dh:hover,.pwin .dh:hover{background:linear-gradient(90deg,#eef2ff,#fff)}
+  #dock .ch,.pwin .ch{width:22px;height:22px;border-radius:50%;background:#eef2ff;color:var(--ac1);display:inline-flex;align-items:center;justify-content:center;font-size:11px;transition:transform .25s,background .2s}
+  #dock .dh:hover .ch,.pwin .dh:hover .ch{background:var(--ac1);color:#fff}
+  #dock .db,.pwin .db{margin-top:0;padding:10px 14px 14px;max-height:54vh;overflow:auto;transition:max-height .32s cubic-bezier(.2,.8,.2,1),opacity .22s,padding .25s;scrollbar-width:thin}
+  #dock .col .db,.pwin .col .db{display:block;max-height:0;opacity:0;padding-top:0;padding-bottom:0;overflow:hidden}
+  #dock .col .dh,.pwin .col .dh{border-bottom:0}#dock :not(.col)>.dh,.pwin :not(.col)>.dh{border-bottom:1px solid var(--ln)}
+  #dock .col .ch,.pwin .col .ch{transform:rotate(-90deg)}
   .ck{padding:6px 8px;margin:1px 0;border-radius:9px;transition:background .15s,transform .15s;font-size:12.5px}.ck:hover{background:#f1f5f9;transform:translateX(2px)}
   .ck .bx{width:20px;height:20px;border:2px solid #cbd5e1;border-radius:7px;line-height:16px;font-size:12px;transition:all .18s cubic-bezier(.3,1.4,.5,1);margin-right:10px}
   .ck.on .bx{background:linear-gradient(135deg,var(--ac1),#4f46e5);border-color:transparent;color:#fff;box-shadow:0 3px 8px rgba(79,70,229,.45);transform:scale(1.04)}
   #cap .sub{margin:2px 0 8px 12px;padding-left:10px;border-left:2px solid #e0e7ff;transition:opacity .2s}
-  #dock .btnrow{gap:6px;margin-top:10px}
-  #dock .btnrow>button,#dock .seg button,#trf .btnrow button{padding:6px 11px;border-radius:99px;font-size:11.5px;font-weight:700;background:#f1f5f9;color:#334155;transition:all .16s;box-shadow:inset 0 0 0 1px #e2e8f0}
-  #dock .btnrow>button:hover,#dock .seg button:hover,#trf .btnrow button:hover{background:#e0e7ff;color:#3730a3;transform:translateY(-1px);box-shadow:inset 0 0 0 1px #c7d2fe,0 3px 8px rgba(99,102,241,.2)}
-  #dock .btnrow>button.on,#dock .seg button.on{background:linear-gradient(135deg,var(--ac1),#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(79,70,229,.4)}
-  #dock .btnrow>button:active,#dock .seg button:active{transform:scale(.96)}
-  #dock .seg{gap:5px;margin-top:4px}#dock .seg b{width:26px;height:26px;border-radius:8px;background:#eef2ff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
-  #dock input[type=range]{accent-color:var(--ac1);height:4px}
-  #dock select{border:0;background:#f1f5f9;border-radius:99px;padding:5px 10px;font-weight:600;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0;cursor:pointer;transition:box-shadow .15s}#dock select:hover{box-shadow:inset 0 0 0 1px #a5b4fc}
+  #dock .btnrow,.pwin .btnrow{gap:6px;margin-top:10px}
+  #dock .btnrow>button,#dock .seg button,#trf .btnrow button,.pwin .btnrow>button,.pwin .seg button{padding:6px 11px;border-radius:99px;font-size:11.5px;font-weight:700;background:#f1f5f9;color:#334155;transition:all .16s;box-shadow:inset 0 0 0 1px #e2e8f0}
+  #dock .btnrow>button:hover,#dock .seg button:hover,#trf .btnrow button:hover,.pwin .btnrow>button:hover,.pwin .seg button:hover{background:#e0e7ff;color:#3730a3;transform:translateY(-1px);box-shadow:inset 0 0 0 1px #c7d2fe,0 3px 8px rgba(99,102,241,.2)}
+  #dock .btnrow>button.on,#dock .seg button.on,.pwin .btnrow>button.on,.pwin .seg button.on{background:linear-gradient(135deg,var(--ac1),#4f46e5);color:#fff;box-shadow:0 4px 12px rgba(79,70,229,.4)}
+  #dock .btnrow>button:active,#dock .seg button:active,.pwin .btnrow>button:active,.pwin .seg button:active{transform:scale(.96)}
+  #dock .seg,.pwin .seg{gap:5px;margin-top:4px}#dock .seg b,.pwin .seg b{width:26px;height:26px;border-radius:8px;background:#eef2ff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  #dock input[type=range],.pwin input[type=range]{accent-color:var(--ac1);height:4px}
+  #dock select,.pwin select{border:0;background:#f1f5f9;border-radius:99px;padding:5px 10px;font-weight:600;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0;cursor:pointer;transition:box-shadow .15s}#dock select:hover,.pwin select:hover{box-shadow:inset 0 0 0 1px #a5b4fc}
   #rgp{font-size:12px}#rgp b{color:var(--ink)}#rgp a{color:var(--ac1)!important}
   #trf #trf-i{background:#f8fafc;border:1px solid var(--ln);border-radius:10px;padding:8px 10px;margin-top:8px}
   #trf #trf-i:empty{display:none}
   #dock>#cap .db>.ck:first-child,#dock>#cap .db>.ck[data-k=mapa]{font-weight:800;color:var(--ink);background:linear-gradient(90deg,#eef2ff,rgba(238,242,255,0));margin-top:2px}
   @media (max-width:760px){#dock{width:88vw}#dock-tg{left:88vw}}
+
+  /* ventanitas emergentes */
+  #pw-bar{position:fixed;z-index:8550;display:flex;flex-direction:column;gap:6px}
+  .pwc{width:34px;height:34px;border-radius:10px;border:0;cursor:pointer;background:rgba(15,23,42,.88);color:#fff;font-size:16px;line-height:1;box-shadow:0 4px 14px rgba(2,6,23,.3);position:relative;transition:transform .12s,background .15s}
+  .pwc:hover{transform:translateX(2px);background:#1e293b}.pwc.on{background:linear-gradient(135deg,#6366f1,#4f46e5)}
+  .pwc.dot::after{content:"";position:absolute;right:3px;top:3px;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px rgba(15,23,42,.9)}
+  .pwin{position:fixed;z-index:8600;width:390px;max-width:92vw;background:#fff;border-radius:14px;box-shadow:0 14px 40px rgba(2,6,23,.38),0 0 0 1px rgba(15,23,42,.08);display:none;flex-direction:column;overflow:hidden;font-family:system-ui,sans-serif;color:#334155;font-size:12px}
+  .pwin.on{display:flex}
+  .pwh{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 12px;background:linear-gradient(90deg,#0f172a,#1e293b);color:#fff;cursor:grab;user-select:none;font-weight:700;font-size:12.5px;touch-action:none}
+  .pwh:active{cursor:grabbing}.pwt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pwh button{all:unset;cursor:pointer;width:22px;height:22px;border-radius:6px;text-align:center;line-height:22px;color:#cbd5e1;font-size:13px}.pwh button:hover{background:rgba(255,255,255,.18);color:#fff}
+  .pwb{padding:10px 12px 12px;max-height:70vh;overflow:auto;scrollbar-width:thin}
+  .pwin.min .pwb{display:none}
+  .pwin .pwb .dh{display:none!important}
+  .pwin .pwb .col .db{display:block!important;max-height:none!important;opacity:1!important;padding:0!important}
+  .pwin .pwb .db{max-height:none!important;overflow:visible!important;padding:0!important;margin:0!important}
+  .pwin #trf-i{background:#f8fafc;border:1px solid var(--ln);border-radius:10px;padding:8px 10px}.pwin #trf-i:empty{display:none}
 </style>
 </head>
 <body>
@@ -940,7 +957,7 @@ async function setMapa(tipo) {
   if (mapMesh) { world.remove(mapMesh); mapMesh = null; } $('attr').textContent = ''; if (!curS || tipo === 'ninguno' || !curS.roads) return;
   try { const t = await mapaTextura(curS, tipo), m = new THREE.Mesh(new THREE.PlaneGeometry(curS.radio * 2, curS.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; world.add(m); mapMesh = m; $('attr').textContent = MAPAS[tipo].at; renderer.shadowMap.needsUpdate = true; } catch (e) { $('msg').textContent = 'No se pudo cargar el mapa de fondo.'; }
 }
-$('b-rg').onclick = e => { if (!alertG) return; alertG.visible = !alertG.visible; e.target.classList.toggle('on', alertG.visible); }; $('b-rl').onclick = e => { const el = $('rgp'), v = el.style.display === 'none'; el.style.display = v ? 'block' : 'none'; e.target.classList.toggle('on', v); };
+$('b-rg').onclick = e => { if (!alertG) return; alertG.visible = !alertG.visible; e.target.classList.toggle('on', alertG.visible); }; $('b-rl').onclick = e => { pwToggle('rgp'); e.target.classList.toggle('on', $('pw-rgp').classList.contains('on')); };
 { const ray = new THREE.Raycaster(), mv = new THREE.Vector2(); let dn = null; renderer.domElement.addEventListener('pointerdown', ev => { dn = [ev.clientX, ev.clientY]; }); renderer.domElement.addEventListener('pointerup', ev => { if (!dn || Math.hypot(ev.clientX - dn[0], ev.clientY - dn[1]) > 5 || !alertHeads.length || !alertG || !alertG.visible) return; const rc = renderer.domElement.getBoundingClientRect(); mv.set((ev.clientX - rc.left) / rc.width * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(mv, camera); const hit = ray.intersectObjects(alertHeads, false)[0]; if (hit) selAlerta(hit.object.userData.i); });
   renderer.domElement.addEventListener('pointermove', ev => { if (!alertHeads.length && !propHead) return; const rc = renderer.domElement.getBoundingClientRect(); mv.set((ev.clientX - rc.left) / rc.width * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(mv, camera); const hit = ray.intersectObjects((alertG && alertG.visible ? alertHeads : []).concat(propHead ? [propHead] : []), false)[0], tip = $('tip'); if (hit && hit.object.userData.prop) { tip.textContent = '📍 Tu propiedad'; tip.style.left = Math.min(innerWidth - 270, ev.clientX + 14) + 'px'; tip.style.top = (ev.clientY + 14) + 'px'; tip.style.display = 'block'; } else if (hit) { const q = hit.object.userData.riesgo; tip.textContent = `${(RG[q.t] || RG.otro)[0]} ${claveRiesgo(q)}: ${q.n || (RG[q.t] || RG.otro)[1]}`; tip.style.left = Math.min(innerWidth - 270, ev.clientX + 14) + 'px'; tip.style.top = (ev.clientY + 14) + 'px'; tip.style.display = 'block'; } else tip.style.display = 'none'; }); }
 $('b-fr').onclick = e => frCiclo(e.currentTarget);
@@ -1247,6 +1264,29 @@ const trFlujo = (r, v) => { if (!r || !r[0] || !r[2]) return null; const vel = 3
 const TF_DIAS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6, 'Sáb'], [0, 'Dom']], TF_ROADW = { motorway: 16, trunk: 14, primary: 13, secondary: 11, tertiary: 9, unclassified: 7.5, residential: 7.2, living_street: 6, service: 4.2 };
 const TF_CL = { motorway: 'Autopista', trunk: 'Troncal', primary: 'Primaria', secondary: 'Secundaria', tertiary: 'Terciaria', motorway_link: 'Enlace', trunk_link: 'Enlace', primary_link: 'Enlace', secondary_link: 'Enlace', tertiary_link: 'Enlace', unclassified: 'Sin clasificar', residential: 'Residencial', living_street: 'Calle compartida', service: 'Servicio' };
 // ── origen del tráfico frente a la propiedad: estimación por modelo (gravedad + red vial + tiempos de Google), no es una medición
+// ── ventanitas emergentes sobre el mapa: los resultados de cada análisis salen del menú izquierdo y viven aquí (se arrastran, se minimizan y se cierran; un botón al borde del mapa las abre)
+const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { notas: ['ℹ️', 'Resumen de la escena'], rgp: ['🚨', 'Lista de riesgos'], vcp: ['🛣️', 'Auditoría vial'], fr: ['🕸️', 'Fricción y rutas de acceso'], trf: ['🚦', 'Tráfico · resultados'], od: ['🧭', 'Origen del tráfico (estimado)'], cov: ['📡', 'Cobertura · resultados'] };
+function pwLeft() { const d = $('dock'); return d && !d.classList.contains('off') ? Math.round(d.getBoundingClientRect().right) + 6 : 8; }
+function pwLayout() { const b = $('pw-bar'); if (b) b.style.left = pwLeft() + 'px'; }
+function pwMake(id) {
+  if (PW.m.has(id)) return PW.m.get(id); const [ic, tt] = PW_DEF[id]; let bar = $('pw-bar'); if (!bar) { bar = document.createElement('div'); bar.id = 'pw-bar'; bar.style.top = '76px'; document.body.appendChild(bar); pwLayout(); }
+  const el = document.createElement('div'); el.className = 'pwin'; el.id = 'pw-' + id; el.innerHTML = `<div class="pwh"><span class="pwt">${ic} ${tt}</span><button class="pwm" title="Minimizar">–</button><button class="pwx" title="Cerrar">✕</button></div><div class="pwb"></div>`; document.body.appendChild(el);
+  const chip = document.createElement('button'); chip.className = 'pwc'; chip.textContent = ic; chip.title = tt; chip.style.display = 'none'; bar.appendChild(chip); const r = { id, el, body: el.querySelector('.pwb'), chip };
+  const x0 = pwLeft() + 46 + (PW.n % 4) * 26, y0 = 72 + (PW.n % 6) * 34; PW.n++; el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
+  el.querySelector('.pwx').onclick = () => pwShow(id, false); el.querySelector('.pwm').onclick = () => el.classList.toggle('min'); chip.onclick = () => pwShow(id, !el.classList.contains('on'));
+  el.addEventListener('pointerdown', () => { el.style.zIndex = ++PW.z; });
+  const h = el.querySelector('.pwh'); let dg = null; h.addEventListener('pointerdown', ev => { if (ev.target.closest('button')) return; const rc = el.getBoundingClientRect(); dg = { dx: ev.clientX - rc.left, dy: ev.clientY - rc.top }; h.setPointerCapture(ev.pointerId); });
+  h.addEventListener('pointermove', ev => { if (!dg) return; el.style.left = Math.max(0, Math.min(innerWidth - 80, ev.clientX - dg.dx)) + 'px'; el.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dg.dy)) + 'px'; }); h.addEventListener('pointerup', () => { dg = null; });
+  PW.m.set(id, r); return r;
+}
+function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; r.el.classList.toggle('on', on); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); }
+const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
+function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
+function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
+// secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
+function pwAdopt(id, e) { const r = pwMake(id), vis = e.style.display; e.style.cssText = 'position:static;margin:0 0 8px;background:none;box-shadow:none;padding:0;border-radius:0;width:auto;max-width:none;max-height:none;transform:none;left:auto;right:auto;top:auto'; if (vis) e.style.display = vis; e.classList.remove('col'); r.body.appendChild(e); r.chip.style.display = ''; if (id === 'fr' && !r.obs) { r.obs = new MutationObserver(() => { if (['frp', 'rtp'].some(i => { const x = $(i); return x && x.style.display === 'block' && x.textContent.trim(); })) pwShow('fr', true); }); r.obs.observe(e, { attributes: true, attributeFilter: ['style'] }); } }
+function pwSweep() { ['notas', 'rgp', 'vcp'].forEach(id => { const e = $(id); if (e && !e.closest('.pwin')) pwAdopt(id, e); }); ['frp', 'rtp'].forEach(i => { const e = $(i); if (e && !e.closest('.pwin')) pwAdopt('fr', e); }); const t = $('trf-i'); if (t && !t.closest('.pwin')) pwAdopt('trf', t); }
+{ let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; pwSweep(); pwLayout(); }); }; const dk = $('dock'); if (dk) { new MutationObserver(go).observe(dk, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); } addEventListener('resize', pwLayout); go(); }
 const OD = { d: null, G: null, m: 'dia', busy: 0 };
 async function odCarga(S) {
   if (S.lat == null || qs.get('src')) return; const id = qs.get('fid') || ID;
@@ -1263,12 +1303,12 @@ function odDock(S) {
     return `<div style="margin:8px 0 2px;font-size:11.5px;font-weight:700;color:${col}">${out ? '🔴' : '🟢'} ${tit}</div>` + (Z.length ? Z.map((z, i) => `<div style="padding:4px 0;border-bottom:1px solid #e2e8f0"><div style="display:flex;align-items:center;gap:6px"><i style="flex:none;width:10px;height:10px;border-radius:3px;background:${PAL[i]}"></i><span style="flex:1;min-width:0;font-size:12px;font-weight:600">${z.nombre}</span><b style="font-size:12px">${(val(z) * 100).toFixed(1)} %</b></div><div style="height:6px;border-radius:3px;background:#e2e8f0;margin:3px 0 2px"><div style="height:6px;border-radius:3px;background:${col};width:${Math.max(2, val(z) * 100)}%"></div></div><small style="color:#64748b">${via(z) ? 'por ' + via(z) : ''}${!out && z.min != null ? ' · ~' + Math.round(z.min) + ' min' : ''}</small></div>`).join('') : `<div style="font-size:11px;color:#b45309">${out && d && !d.zonas.some(z => z.sal != null) ? 'Recalcula para ver los destinos.' : 'Sin datos con ≥ 1 %.'}</div>`); };
   const cuerpo = !d ? `<div style="font-size:11px;color:#475569">${en ? 'Aún no hay cálculo para esta selección: hazlo en 🗺️ Árbol en el mapa.' : 'Aún no se ha calculado para esta propiedad. Estima de qué zonas de la ciudad vienen los vehículos que pasan frente a ella (usa Google Routes, ≈ 3.6 USD como máximo).'}</div>`
     : `<div style="font-size:11px;color:#475569;margin-bottom:2px">${des ? 'Viajes que <b>llegan a</b> y <b>salen de</b> el punto de interés' : 'De los vehículos que cruzan por <b>' + d.calle + '</b>'}${src === 'punto' ? ' (punto elegido)' : ''}:</div>` + (dir === 'in' ? sec('in') : dir === 'out' ? sec('out') : sec('in') + sec('out'));
-  el.innerHTML = `<div class="btnrow" style="margin:0 0 6px">${des ? '' : `<select id="od-m" style="font-size:12px;padding:3px 6px;border-radius:8px"><option value="dia"${m === 'dia' ? ' selected' : ''}>Promedio del día</option><option value="am"${m === 'am' ? ' selected' : ''}>Hora pico mañana</option><option value="pm"${m === 'pm' ? ' selected' : ''}>Hora pico tarde</option></select>`}<button id="od-r">${OD.d ? 'Recalcular' : 'Calcular'}</button>${OD.d ? '<button id="od-t" title="Árbol de orígenes sobre el mapa de la ciudad">🗺️ Árbol en el mapa</button><button id="od-c" title="Mapa de toda la ciudad dentro de la maqueta 3D, con el árbol dibujado encima">🏙️ Ciudad en 3D</button>' : ''}</div>`
-    + (OD.d && !OD.d.flujo ? '<div style="font-size:11px;color:#b45309;margin-bottom:4px">Recalcula para ver el flujo dibujado sobre las calles.</div>' : '') + `<div style="max-height:46vh;overflow:auto">${cuerpo}</div>`
-    + (OD.d ? `<div style="font-size:10.5px;color:#64748b;margin-top:6px">⚠️ Estimación por modelo, no medición: reparte los viajes entre ${OD.d.zonas.length} zonas según viviendas y comercios de OpenStreetMap y los tiempos de Google en hora pico, y los rutea por la red vial. ${cal && cal.correlacion != null ? `Tiempos del modelo vs. Google: correlación ${cal.correlacion}. ` : ''}${ver && ver.n ? `Verificación con ${ver.n} rutas reales de Google: coincide en ${Math.round(cal.aciertos * 100)} %.` : ''} Calculado ${new Date(OD.d.at).toLocaleDateString('es-MX')}.</div>` : '')
+  el.innerHTML = `<div class="btnrow" style="margin:0 0 6px">${des ? '' : `<select id="od-m" style="font-size:12px;padding:3px 6px;border-radius:8px"><option value="dia"${m === 'dia' ? ' selected' : ''}>Promedio del día</option><option value="am"${m === 'am' ? ' selected' : ''}>Hora pico mañana</option><option value="pm"${m === 'pm' ? ' selected' : ''}>Hora pico tarde</option></select>`}<button id="od-r">${OD.d ? 'Recalcular' : 'Calcular'}</button>${OD.d ? '<button id="od-p" title="Abre u oculta la ventanita con los resultados">📊 Resultados</button><button id="od-t" title="Árbol de orígenes sobre el mapa de la ciudad">🗺️ Árbol en el mapa</button><button id="od-c" title="Mapa de toda la ciudad dentro de la maqueta 3D, con el árbol dibujado encima">🏙️ Ciudad en 3D</button>' : ''}</div>`
     + '<div id="od-msg" style="font-size:11px;color:#0f172a;margin-top:4px"></div>';
+  pwSet('od', (OD.d && !OD.d.flujo ? '<div style="font-size:11px;color:#b45309;margin-bottom:4px">Recalcula para ver el flujo dibujado sobre las calles.</div>' : '') + `<div>${cuerpo}</div>`
+    + (OD.d ? `<div style="font-size:10.5px;color:#64748b;margin-top:6px">⚠️ Estimación por modelo, no medición: reparte los viajes entre ${OD.d.zonas.length} zonas según viviendas y comercios de OpenStreetMap y los tiempos de Google en hora pico, y los rutea por la red vial. ${cal && cal.correlacion != null ? `Tiempos del modelo vs. Google: correlación ${cal.correlacion}. ` : ''}${ver && ver.n ? `Verificación con ${ver.n} rutas reales de Google: coincide en ${Math.round(cal.aciertos * 100)} %.` : ''} Calculado ${new Date(OD.d.at).toLocaleDateString('es-MX')}.</div>` : ''));
   delete el.dataset.col; wrapCol(el, '🧭 Origen del tráfico (estimado)', false);
-  if ($('od-m')) $('od-m').onchange = e => { OD.m = e.target.value; odDock(S); odDibuja(S); if (CITY.on) { cityArbol(S); const sm = $('cy-m'); if (sm) sm.value = OD.m; } }; $('od-r').onclick = () => odCalcula(S); if ($('od-t')) $('od-t').onclick = odAbre; if ($('od-c')) $('od-c').onclick = () => cityToggle(S);
+  if ($('od-m')) $('od-m').onchange = e => { OD.m = e.target.value; odDock(S); odDibuja(S); if (CITY.on) { cityArbol(S); const sm = $('cy-m'); if (sm) sm.value = OD.m; } }; $('od-r').onclick = () => odCalcula(S); if ($('od-p')) $('od-p').onclick = () => pwToggle('od'); if ($('od-t')) $('od-t').onclick = odAbre; if ($('od-c')) $('od-c').onclick = () => cityToggle(S);
 }
 // el mapa de ciudad con el árbol de orígenes se abre encima de la maqueta (ventana a pantalla completa); Esc o ✕ para cerrar
 function odAbre() {
@@ -1283,7 +1323,7 @@ async function odCalcula(S) {
   const lanza = async conf => { const r = await fetch('https://api.check-inn.mx/mercado/maqueta/od-estima', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, confirmo: !!conf }) }).then(x => x.json());
     if (r.requiere) { if (!confirm('Para calcular hay que consultar Google Routes por primera vez en esta propiedad.\n\nCosto máximo: ' + r.usd.toFixed(2) + ' USD.\n\n¿Aceptas el gasto?')) throw new Error('Cancelado: no se hizo ninguna consulta ni gasto.'); return lanza(true); } if (!r.ok) throw new Error(r.error || 'No se pudo iniciar'); };
   try { await lanza(false);
-    for (let i = 0; i < 150; i++) { await new Promise(r => setTimeout(r, 6000)); if (msg()) msg().textContent = 'Analizando… ' + (i * 6 + 6) + ' s'; const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${id}`, { cache: 'no-store' }).then(x => x.json()).catch(() => null); if (j && j.od && j.od.at !== antes) { OD.d = j.od; break; } if (i === 149) throw new Error('Tardó demasiado'); } odDock(S); odDibuja(S);
+    for (let i = 0; i < 150; i++) { await new Promise(r => setTimeout(r, 6000)); if (msg()) msg().textContent = 'Analizando… ' + (i * 6 + 6) + ' s'; const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${id}`, { cache: 'no-store' }).then(x => x.json()).catch(() => null); if (j && j.od && j.od.at !== antes) { OD.d = j.od; break; } if (i === 149) throw new Error('Tardó demasiado'); } odDock(S); odDibuja(S); pwShow('od', true);
   } catch (e) { if (msg()) { msg().style.color = '#dc2626'; msg().textContent = 'No se pudo calcular: ' + e.message; } if (btn) { btn.disabled = false; btn.textContent = t0; } } OD.busy = 0;
 }
 // ── ciudad alrededor de la maqueta: el mapa se carga por mosaicos a demanda (solo lo que se ve y con el detalle que pide el zoom) y el árbol de orígenes se dibuja en 3D encima, sin cambiar de escena
@@ -1412,14 +1452,14 @@ function covDock(S) {
   el.innerHTML = `<div class="btnrow" style="margin:0 0 6px;gap:8px;align-items:center">${seg('modo', COB.modo, [['radio', 'Radio'], ['iso', 'Isócrona']])}<select id="cov-a" style="font-size:12px;padding:4px 6px;border-radius:8px"><option value="p25"${COB.anio === 'p25' ? ' selected' : ''}>Estimación 2025</option><option value="p20"${COB.anio === 'p20' ? ' selected' : ''}>Censo 2020</option></select></div>`
     + `<div style="font-size:11px;color:#475569;margin-bottom:2px">${COB.modo === 'iso' ? 'Alcance real por calles (tiempo de viaje, OpenStreetMap/Valhalla).' : 'Círculo en línea recta; el tiempo se convierte a distancia con una velocidad media.'} Cambie los tiempos separándolos con comas.</div>` + fila('p') + fila('a')
     + (COB.modo === 'radio' ? `<div style="display:flex;gap:8px;align-items:center;font-size:11px;color:#475569;margin:2px 0 4px">Velocidad: a pie <input id="cov-vp" type="number" step=".1" min="1" value="${COB.vp}" style="width:52px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:6px"> km/h · auto <input id="cov-va" type="number" step="1" min="5" value="${COB.va}" style="width:52px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:6px"> km/h</div>` : '')
-    + `<div class="btnrow" style="margin:6px 0 4px"><button id="cov-go">Calcular cobertura</button><button id="cov-map" title="Dibuja los contornos y los hexágonos alcanzados sobre el mapa de la ciudad">${COB.mapa ? '🗺️ Quitar mapa' : '🗺️ Ver en el mapa'}</button></div><div id="cov-msg" style="font-size:11px;color:#0f172a;min-height:14px"></div><div id="cov-res"></div>`;
+    + `<div class="btnrow" style="margin:6px 0 4px"><button id="cov-go">Calcular cobertura</button><button id="cov-map" title="Dibuja los contornos y los hexágonos alcanzados sobre el mapa de la ciudad">${COB.mapa ? '🗺️ Quitar mapa' : '🗺️ Ver en el mapa'}</button></div><div id="cov-msg" style="font-size:11px;color:#0f172a;min-height:14px"></div><div class="btnrow" style="margin:2px 0 0"><button id="cov-p" title="Abre u oculta la ventanita con los resultados">📊 Resultados</button></div>`;
   delete el.dataset.col; wrapCol(el, '📡 Cobertura', false);
   el.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { COB.modo = b.dataset.modo; COB.res = {}; covDock(S); });
   el.querySelectorAll('[data-on]').forEach(b => b.onclick = () => { COB.on[b.dataset.on] = !COB.on[b.dataset.on]; covLee(); covDock(S); });
   el.querySelectorAll('[data-t]').forEach(i => i.onchange = () => { const l = covLista(i.value); if (l.length) { if (i.dataset.t === 'p') COB.tp = l; else COB.ta = l; } i.value = (i.dataset.t === 'p' ? COB.tp : COB.ta).join(', '); });
   $('cov-a').onchange = e => { COB.anio = e.target.value; if (Object.keys(COB.res).length) covCalcula(S); };
   if ($('cov-vp')) { $('cov-vp').onchange = e => { COB.vp = Math.max(1, +e.target.value || 4.8); }; $('cov-va').onchange = e => { COB.va = Math.max(5, +e.target.value || 30); }; }
-  $('cov-go').onclick = () => { covLee(); covCalcula(S); }; $('cov-map').onclick = () => covMapa(S, !COB.mapa); covRender(S);
+  $('cov-p').onclick = () => pwToggle('cov'); $('cov-go').onclick = () => { covLee(); covCalcula(S); }; $('cov-map').onclick = () => covMapa(S, !COB.mapa); covRender(S);
 }
 const covLee = () => { document.querySelectorAll('#cov [data-t]').forEach(i => { const l = covLista(i.value); if (l.length) { if (i.dataset.t === 'p') COB.tp = l; else COB.ta = l; } }); };
 // área de la intersección de un polígono cualquiera con un hexágono (convexo) por recorte de Sutherland–Hodgman; devuelve área y centroide
@@ -1446,12 +1486,12 @@ async function covCalcula(S) {
       if (COB.modo === 'radio') { const v = (k === 'p' ? COB.vp : COB.va) * 1000 / 60; rings = ts.map(t => { const c = []; for (let b = 0; b < 360; b += 5) c.push([v * t * Math.sin(b * Math.PI / 180), v * t * Math.cos(b * Math.PI / 180)]); return { t, r: v * t, polys: [[c]] }; }); }
       else { st(`Calculando isócronas ${COB_NOM[k]}…`); const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/cobertura?lat=${lat0}&lng=${lng0}&modo=${k}&t=${ts.join(',')}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'el servicio de isócronas no respondió'); rings = j.rings.map(r => ({ t: r.t, polys: r.polys.map(po => po.map(ring => ring.map(([la, lo]) => [(lo - lng0) * kx, (la - lat0) * ky]))) })); }
       st('Midiendo población…'); res[k] = covMide(D, rings); await new Promise(r => setTimeout(r, 0)); }
-    if (!Object.keys(res).length) throw new Error('active al menos un modo de transporte con tiempos'); COB.res = res; if (!res[COB.ver]) COB.ver = Object.keys(res)[0]; st(''); covRender(S); if (COB.mapa) { covDibuja(S); covEncuadra(S); }
+    if (!Object.keys(res).length) throw new Error('active al menos un modo de transporte con tiempos'); COB.res = res; if (!res[COB.ver]) COB.ver = Object.keys(res)[0]; st(''); covRender(S); pwShow('cov', true); if (COB.mapa) { covDibuja(S); covEncuadra(S); }
   } catch (e) { st('No se pudo calcular: ' + e.message); const m = $('cov-msg'); if (m) m.style.color = '#dc2626'; } COB.busy = 0; if (go) go.disabled = false;
 }
 // ── gráficas (SVG sencillo, mismo ancho que el panel)
 function covRender(S) {
-  const el = $('cov-res'); if (!el) return; const ks = Object.keys(COB.res); if (!ks.length) { el.innerHTML = '<div style="font-size:11px;color:#64748b;margin-top:4px">Elija los tiempos y pulse <b>Calcular cobertura</b>: se mide cuánta gente vive dentro de cada contorno.</div>'; return; }
+  const el = pwBody('cov'); const ks = Object.keys(COB.res); if (!ks.length) { el.innerHTML = '<div style="font-size:11px;color:#64748b;margin-top:4px">Elija los tiempos y pulse <b>Calcular cobertura</b>: se mide cuánta gente vive dentro de cada contorno.</div>'; return; }
   const W = 306, v = COB.res[COB.ver] || COB.res[ks[0]], k = COB.res[COB.ver] ? COB.ver : ks[0], n = v.rings.length, col = i => covCol(k, i, n).getStyle(), card = (t, b, s) => `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0"><div style="font-weight:700;font-size:12px">${t}</div>${s ? `<div style="font-size:10.5px;color:#64748b;margin-bottom:3px">${s}</div>` : ''}${b}</div>`;
   const rg = v.rings, mx = Math.max(...rg.map(r => r.pop), 1), pc = x => (100 * x / v.tot).toFixed(x / v.tot < .01 ? 2 : 1) + ' %', un = k === 'p' ? 'a pie' : 'en auto', top = rg[n - 1];
   const tabs = ks.length > 1 ? `<div style="display:flex;gap:6px;margin:8px 0 2px">${ks.map(q => `<button data-ver="${q}" style="flex:1;border:1px solid ${q === k ? COB_COL[q][0] : '#cbd5e1'};border-radius:999px;padding:5px 8px;font:700 12px system-ui;cursor:pointer;background:${q === k ? COB_COL[q][0] : '#fff'};color:${q === k ? '#fff' : '#334155'}">${COB_NOM[q]}</button>`).join('')}</div>` : '';
@@ -1585,7 +1625,7 @@ function citySale(S) {
 }
 async function cityToggle(S) {   // árbol de orígenes
   if (CITY.busy) return; CITY.busy = 1;
-  try { if (!CITY.od) { await cityEntra(S); CITY.od = true; CITY.arbol = true; cityBarra(S); await cityArbol(S); }
+  try { if (!CITY.od) { await cityEntra(S); CITY.od = true; CITY.arbol = true; cityBarra(S); await cityArbol(S); pwShow('od', true); }
     else { CITY.od = false; accQuita(); cityLabQuita(); const b = $('city-bar'); if (b) b.remove(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; } CITY.C = null; if (!CITY.demo && !CITY.cov) citySale(S); else odDock(S); } } finally { CITY.busy = 0; }
 }
 async function demoSet(S, on) {   // capa Demografía (Capas)
