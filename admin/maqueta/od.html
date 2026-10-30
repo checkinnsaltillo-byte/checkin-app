@@ -25,8 +25,12 @@
   .pc{font:700 11px/1 Inter,Arial,sans-serif;color:#1f2937;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,0 0 3px #fff;white-space:nowrap;transform:translate(-50%,-50%)}
   .me{background:#1d6fe0;color:#fff;font:800 13px/1 Inter,Arial,sans-serif;padding:7px 9px;border-radius:9px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%);white-space:nowrap}
   #ms{margin-top:8px;font-size:11px;color:var(--mu)}
-  #zs{margin-top:8px;max-height:26vh;overflow:auto;font-size:11.5px}
-  #zs div{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--bd)}
+  #zs{margin-top:6px;font-size:11.5px}
+  #zs svg{display:block;margin:0 auto}
+  #zl{max-height:22vh;overflow:auto;margin-top:6px}
+  #zl div{display:flex;align-items:center;gap:7px;padding:2px 0;border-bottom:1px solid var(--bd)}
+  #zl i{flex:none;width:11px;height:11px;border-radius:3px}
+  #zl span{flex:1;min-width:0}
 </style>
 </head>
 <body>
@@ -52,6 +56,7 @@
   <div id="ms"></div>
   <div class="lb">Zonas de origen (día)</div>
   <div id="zs"></div>
+  <div style="font-size:10.5px;color:var(--mu);margin-top:6px">Cada zona se colorea en el mapa con el mismo color de la dona. El punto ● marca su <b>origen</b> en el modelo: el nodo de vialidad principal más cercano al promedio de las avenidas de la zona.</div>
 </div>
 <div id="lg"><div>Porcentaje de los viajes que cruzan el punto</div><div class="bar"></div><div class="tk"><span>0</span><span>50</span><span>100 %</span></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -64,17 +69,26 @@ const V = { zonas: true, ref: true }, ZG = L.layerGroup().addTo(map); let D = nu
 const stops = [[0, [252, 211, 92]], [.5, [232, 112, 79]], [1, [91, 26, 107]]];
 const color = v => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (v - a[0]) / (b[0] - a[0]); return 'rgb(' + a[1].map((c, k) => Math.round(c + (b[1][k] - c) * t)).join(',') + ')'; } return 'rgb(91,26,107)'; };
 function val(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1, vi = i < 0 ? (r[4] + r[5]) / 2 : r[i], vo = o < 0 ? (r[6] + r[7]) / 2 : r[o]; return st.d === 'in' ? vi : st.d === 'out' ? vo : Math.max(vi, vo); }
+const PAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#3b82f6', '#ec4899'];
+function colorMap(C, m) { const L = C.zonas.filter(z => (z[m] || 0) >= .015).sort((a, b) => b[m] - a[m]).slice(0, 10), mp = new Map(); L.forEach((z, i) => mp.set(z.id, PAL[i])); return { L, mp }; }
+// dona: una porción por zona de origen (las principales) y 'otras'
+function lista() {
+  const C = cur(), el = $('zs'); if (!C) { el.innerHTML = ''; return; } const m = st.m, { L, mp } = colorMap(C, m), tot = L.reduce((a, z) => a + z[m], 0), otras = Math.max(0, 1 - tot), R = 46, c = 2 * Math.PI * R; let off = 0; const arcs = L.map(z => [z[m], mp.get(z.id)]).concat(otras > .002 ? [[otras, '#cbd5e1']] : []);
+  const svg = '<svg width="150" height="150" viewBox="0 0 120 120"><g transform="rotate(-90 60 60)"><circle cx="60" cy="60" r="' + R + '" fill="none" stroke="var(--bd)" stroke-width="20"/>' + arcs.map(([v, col]) => { const len = v * c, o = off; off += len; return '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-dasharray="' + Math.max(0, len - 1) + ' ' + (c - Math.max(0, len - 1)) + '" stroke-dashoffset="' + (-o) + '"/>'; }).join('') + '</g><text x="60" y="56" text-anchor="middle" font-size="9" fill="var(--mu)">de dónde</text><text x="60" y="68" text-anchor="middle" font-size="9" fill="var(--mu)">vienen</text></svg>';
+  el.innerHTML = svg + '<div id="zl">' + L.map(z => '<div><i style="background:' + mp.get(z.id) + '"></i><span>' + z.nombre + '</span><b>' + (z[m] * 100).toFixed(1) + ' %</b></div>').join('') + (otras > .002 ? '<div><i style="background:#cbd5e1"></i><span>Otras zonas</span><b>' + (otras * 100).toFixed(1) + ' %</b></div>' : '') + '</div>';
+}
 // zonas de origen (anillos de 2.5 / 6 / 11 / 20 km y 8 sectores, centrados en la propiedad) y tramo de referencia usado como 'punto'
 function capasRef() {
   ZG.clearLayers(); const C = cur(), A = D || DP; if (!C || !A) return; const la0 = A.lat, ln0 = A.lng, kx = 111320 * Math.cos(la0 * Math.PI / 180), ky = 111320, pt = (r, b) => [la0 + r * Math.cos(b * Math.PI / 180) / ky, ln0 + r * Math.sin(b * Math.PI / 180) / kx], m = st.m;
-  if (V.zonas) { [2500, 6000, 11000, 20000].forEach(r => { const pts = []; for (let b = 0; b <= 360; b += 5) pts.push(pt(r, b)); L.polyline(pts, { color: '#64748b', weight: 1.2, dashArray: '6 6', opacity: .8, interactive: false }).addTo(ZG); });
-    for (let k = 0; k < 8; k++) { const b = k * 45 + 22.5; L.polyline([pt(2500, b), pt(20000, b)], { color: '#64748b', weight: 1, dashArray: '2 6', opacity: .6, interactive: false }).addTo(ZG); }
-    C.zonas.forEach(z => { const sh = z[m]; if (sh == null || sh < .005) return; const r = (z.r0 + z.r1) / 2, p = z.rumbo == null ? pt(0, 0) : pt(r, z.rumbo); L.marker(p, { interactive: false, icon: L.divIcon({ className: '', html: '<div style="transform:translate(-50%,-50%);background:rgba(15,23,42,.85);color:#fff;border-radius:7px;padding:2px 6px;font:700 11px Inter,Arial,sans-serif;white-space:nowrap">' + (z.rumbo == null ? 'Entorno ' : '') + (sh * 100).toFixed(0) + ' %</div>', iconSize: [0, 0] }) }).addTo(ZG); }); }
+  if (V.zonas) { const cm = colorMap(C, m), arc = (r, b0, b1, st_) => { const o = []; for (let b = b0; b <= b1 + .01; b += st_) o.push(pt(r, b)); return o; };
+    C.zonas.forEach(z => { const col = cm.mp.get(z.id) || '#94a3b8', sh = z[m] || 0, pts = z.rumbo == null ? arc(z.r1, 0, 360, 6) : arc(z.r1, z.rumbo - 22.5, z.rumbo + 22.5, 3).concat(arc(z.r0, z.rumbo - 22.5, z.rumbo + 22.5, 3).reverse());
+      L.polygon(pts, { color: col, weight: 1.2, opacity: .8, dashArray: '5 5', fillColor: col, fillOpacity: cm.mp.has(z.id) ? .16 : .05, interactive: false }).addTo(ZG);
+      L.circleMarker([z.lat, z.lng], { radius: cm.mp.has(z.id) ? 7 : 4, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1 }).bindTooltip(z.nombre + ' · ' + (sh * 100).toFixed(1) + ' % · punto de origen del modelo', { direction: 'top' }).addTo(ZG); }); }
   if (V.ref) { (C.ref || []).forEach(r => L.polyline([[r[0], r[1]], [r[2], r[3]]], { color: '#1d4ed8', weight: 7, opacity: .85, lineCap: 'round', interactive: false }).addTo(ZG));
     if (st.modo !== 'punto') L.circle([la0, ln0], { radius: 150, color: '#1d4ed8', weight: 1.5, dashArray: '4 4', fillOpacity: .04, interactive: false }).addTo(ZG); }
 }
 function dibuja() {
-  capasRef(); G.clearLayers(); LB.clearLayers(); const C = cur(); if (!C || !C.arbol) { document.getElementById('ms').textContent = st.modo === 'punto' ? 'Aún no hay un cálculo para un punto específico.' : ''; return; } const mn = st.mn / 100;
+  lista(); capasRef(); G.clearLayers(); LB.clearLayers(); const C = cur(); if (!C || !C.arbol) { document.getElementById('ms').textContent = st.modo === 'punto' ? 'Aún no hay un cálculo para un punto específico.' : ''; return; } const mn = st.mn / 100;
   ED = C.arbol.map(r => ({ r, v: val(r) })).filter(e => e.v >= mn).sort((a, b) => a.v - b.v);
   ED.forEach(e => L.polyline([[e.r[0], e.r[1]], [e.r[2], e.r[3]]], { renderer: cv, color: color(e.v), weight: 2 + 9 * Math.sqrt(e.v), opacity: .92, lineCap: 'round' }).addTo(G));
   document.getElementById('ms').textContent = ED.length + ' tramos con ≥ ' + st.mn + ' % de los viajes';
@@ -102,7 +116,7 @@ function cabecera() {
   cl.textContent = (st.modo === 'punto' ? 'Punto: ' : 'Zona (calles a ≤ 150 m de la propiedad): ') + C.calle + ' · estimado por modelo (' + new Date(C.at).toLocaleDateString('es-MX') + ')';
   const pos = st.modo === 'punto' && C.enlace ? [C.enlace.lat, C.enlace.lng] : [C.lat, C.lng];
   MK = L.marker(pos, { icon: L.divIcon({ className: '', html: '<div class="me">100 %</div>', iconSize: [0, 0] }), zIndexOffset: 1000 }).addTo(map);
-  $('zs').innerHTML = C.zonas.filter(z => z.dia >= .01).map(z => '<div><span>' + z.nombre + '</span><b>' + (z.dia * 100).toFixed(1) + ' %</b></div>').join('');
+  lista();
 }
 function modo(m) { st.modo = m; fitted = false; document.querySelectorAll('#sz button').forEach(b => b.classList.toggle('on', b.dataset.v === m)); $('pt').style.display = m === 'punto' ? '' : 'none'; cabecera(); dibuja(); if (m === 'punto' && PT) { /* conserva el punto elegido */ } }
 $('sz').onclick = async e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.v === 'punto' && !DP) { try { const j = await fetch(API + 'od?id=' + encodeURIComponent(ID) + '&modo=punto', { cache: 'no-store' }).then(r => r.json()); DP = j && j.od && j.od.arbol ? j.od : null; } catch (_) {} } modo(b.dataset.v); };
