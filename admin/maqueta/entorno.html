@@ -1310,7 +1310,7 @@ function cgUpdate() {
 function cityTick(dt) {
   if (CITY.tw) { CITY.tw.t = Math.min(1, CITY.tw.t + dt / 1.6); const k = CITY.tw.t * CITY.tw.t * (3 - 2 * CITY.tw.t); camera.position.lerpVectors(CITY.tw.from, CITY.tw.to, k); if (CITY.tw.t >= 1) CITY.tw = null; }
   if (OD.tx && CITY.v.flechas) OD.tx.offset.y -= dt * .5; CITY.u.uPx.value = cityPx(); const d = camera.position.distanceTo(controls.target), nn = Math.max(1.5, Math.min(400, d * .012)), ff = Math.max(1500, d * 16); if (Math.abs(nn / camera.near - 1) > .08 || Math.abs(ff / camera.far - 1) > .08) { camera.near = nn; camera.far = ff; camera.updateProjectionMatrix(); }
-  CITY.t += dt; if (CITY.t > .3) { CITY.t = 0; cgUpdate(); }
+  CITY.t += dt; if (CITY.t > .3) { CITY.t = 0; cgUpdate(); } if (CITY.lab) { CITY.lab.t += dt; if (CITY.lab.t > .15) { CITY.lab.t = 0; cityLabTick(); } }
 }
 async function cityDatos(src) { if (CITY.d[src]) return CITY.d[src]; if (src === 'zona') return CITY.d.zona = OD.d; try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${qs.get('fid') || ID}&modo=${src}`, { cache: 'no-store' }).then(r => r.json()); CITY.d[src] = j && j.od && j.od.arbol ? j.od : null; } catch (_) { CITY.d[src] = null; } return CITY.d[src]; }
 function cityBarra(S) {
@@ -1330,6 +1330,18 @@ function cityRibbon(items, chev, opacity, order) {
   mt.onBeforeCompile = sh => { sh.uniforms.uPx = CITY.u.uPx; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uPx; attribute vec2 aN; attribute float aF; attribute float aW; attribute float aM;').replace('#include <uv_vertex>', '#ifdef USE_MAP\n float wv = max(aW, aM * uPx);\n vMapUv = ( mapTransform * vec3( uv.x, uv.y / ( wv * 2.0 ), 1.0 ) ).xy;\n#endif').replace('#include <begin_vertex>', '#include <begin_vertex>\n float wq = max(aW, aM * uPx);\n transformed += vec3( aN.x, 0.0, aN.y ) * aF * wq;'); };
   const me = new THREE.Mesh(g, mt); me.renderOrder = 9 + order; me.frustumCulled = false; return me;
 }
+// porcentajes sobre los tramos (como en el mapa 2D): de mayor a menor, sin encimarse en pantalla; se recalculan al mover la cámara
+function cityLabQuita() { const c = $('cy-lb'); if (c) c.remove(); CITY.lab = null; }
+function cityLabels(items, vals) {
+  cityLabQuita(); const c = document.createElement('div'); c.id = 'cy-lb'; c.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:7000;overflow:hidden'; document.body.appendChild(c);
+  CITY.lab = { c, pool: [], t: 1, L: items.map((it, k) => ({ x: (it.ax + it.bx) / 2, z: -(it.ay + it.by) / 2, v: vals[k], p: Math.round(vals[k] * 100) })).filter(l => l.v >= .03).sort((a, b) => b.v - a.v) };
+}
+function cityLabTick() {
+  const Lb = CITY.lab; if (!Lb || !CITY.on) return; const rc = renderer.domElement.getBoundingClientRect(), put = [], v = new THREE.Vector3(); let n = 0; Object.assign(Lb.c.style, { left: rc.left + 'px', top: rc.top + 'px', width: rc.width + 'px', height: rc.height + 'px' }); const dk = $('dock'), tapa = ['acc-box', 'city-bar', 'pob-box', 'pob-leg'].map(i => $(i)).filter(e => e && e.style.display !== 'none').map(e => e.getBoundingClientRect()), izq = dk ? dk.getBoundingClientRect().right + 8 : 0;   // no se rotula bajo los paneles
+  for (const l of Lb.L) { if (n >= 70) break; v.set(l.x, 3, l.z).project(camera); if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) continue; const px = (v.x + 1) / 2 * rc.width, py = (1 - v.y) / 2 * rc.height; const ax = px + rc.left, ay = py + rc.top; if (ax < izq || tapa.some(r => ax > r.left - 14 && ax < r.right + 14 && ay > r.top - 10 && ay < r.bottom + 10)) continue; if (put.some(q => Math.hypot(q[0] - px, q[1] - py) < 64)) continue; put.push([px, py]);
+    let d = Lb.pool[n]; if (!d) { d = document.createElement('div'); d.style.cssText = 'position:absolute;left:0;top:0;font:700 11.5px system-ui,sans-serif;color:#0f172a;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 2px #fff;white-space:nowrap'; Lb.c.appendChild(d); Lb.pool[n] = d; } d.textContent = l.p + ' %'; d.style.transform = `translate(${px.toFixed(1)}px,${py.toFixed(1)}px) translate(-50%,-50%)`; d.style.display = ''; n++; }
+  for (let i = n; i < Lb.pool.length; i++) Lb.pool[i].style.display = 'none';
+}
 function cityCintas(S) {
   if (CITY.cin) { CITY.G.remove(CITY.cin); CITY.cin.geometry.dispose(); CITY.cin = null; } const C = CITY.C; if (!C || !CITY.G) return;
   const lat0 = +S.lat, lng0 = +S.lng, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320, aj = S.__ajR || [0, 0], des = CITY.src === 'destino', m = OD.m, f = m === 'am' ? 4 : m === 'pm' ? 5 : -1, RW = { 6: 24, 5: 20, 4: 16, 3: 13, 2: 10, 1: 8, 0: 7 };
@@ -1337,7 +1349,7 @@ function cityCintas(S) {
   // color = dirección (entrantes en verde, salientes en rojo); grosor = fracción de los viajes que usa ese tramo
   const E = C.arbol.filter(r => val(r) > .015).sort((a, b) => val(a) - val(b)), verde = new THREE.Color('#16a34a'), rojo = new THREE.Color('#dc2626'), mx = Math.max(...E.map(val), .01);
   const items = E.map(r => { const t = Math.min(1, val(r) / mx), s = Math.sqrt(t), ow = r[9] === 1, [vi, vo] = vio(r), ent = CITY.dir === 'in' ? true : CITY.dir === 'out' ? false : vi >= vo; return { ax: (r[1] - lng0) * kx + aj[0], ay: (r[0] - lat0) * ky + aj[1], bx: (r[3] - lng0) * kx + aj[0], by: (r[2] - lat0) * ky + aj[1], ow, wm: (RW[r[8]] != null ? RW[r[8]] : 10) * (ow ? .9 : .5) * (.2 + .8 * s), wpx: 1.8 + 6.5 * s, cl: ent ? verde : rojo }; });
-  CITY.cin = cityRibbon(items, CITY.v.flechas, .85, 0); CITY.G.add(CITY.cin); cityAcc(S, E, items, val);
+  CITY.cin = cityRibbon(items, CITY.v.flechas, .85, 0); CITY.G.add(CITY.cin); cityLabels(items, E.map(val)); cityAcc(S, E, items, val);
   if (CITY.ref) { CITY.G.remove(CITY.ref); CITY.ref.geometry.dispose(); CITY.ref = null; } const bl = new THREE.Color('#1d4ed8');
   const rit = (C.ref || []).map(r => ({ ax: (r[1] - lng0) * kx + aj[0], ay: (r[0] - lat0) * ky + aj[1], bx: (r[3] - lng0) * kx + aj[0], by: (r[2] - lat0) * ky + aj[1], ow: true, wm: 9, wpx: 6, cl: bl })); if (rit.length) { CITY.ref = cityRibbon(rit, false, .7, 6); CITY.ref.visible = CITY.v.ref; CITY.G.add(CITY.ref); }
 }
@@ -1504,7 +1516,7 @@ function cityZonas(S, C, zv, Z) {
   return g;
 }
 async function cityArbol(S) {
-  accQuita(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; CITY.ref = null; } const i = $('cy-i'); CITY.S = S; const C = CITY.arbol ? await cityDatos(CITY.src) : (OD.d || null); if (!CITY.on) return; if (i) i.textContent = ''; CITY.C = C;
+  accQuita(); cityLabQuita(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; CITY.ref = null; } const i = $('cy-i'); CITY.S = S; const C = CITY.arbol ? await cityDatos(CITY.src) : (OD.d || null); if (!CITY.on) return; if (i) i.textContent = ''; CITY.C = C;
   if (!C || !C.arbol) { if (i) i.textContent = CITY.src === 'zona' ? 'Calcula primero el origen del tráfico' : 'Aún no hay cálculo para esto: hazlo en 🗺️ Árbol en el mapa'; odDock(S); return; }
   odDock(S); CITY.G = new THREE.Group(); CITY.G.userData.cat = 'od'; scene.add(CITY.G); CITY.circ = null; { const R = (S.radio || 200); CG.clip.forEach(p => { p.constant = -R; }); renderer.localClippingEnabled = true; } if (CITY.arbol) cityCintas(S);
   const lat0 = +S.lat, lng0 = +S.lng, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320, des = CITY.src === 'destino', m = OD.m, zv = z => des && CITY.dir === 'out' ? (z.sal || 0) : (z[m] || 0), Z = C.zonas.filter(z => zv(z) >= .015).sort((a, b) => zv(b) - zv(a)).slice(0, 10), H = renderer.domElement.clientHeight || 650, vf = 2 * Math.tan(camera.fov * Math.PI / 360);
@@ -1574,7 +1586,7 @@ function citySale(S) {
 async function cityToggle(S) {   // árbol de orígenes
   if (CITY.busy) return; CITY.busy = 1;
   try { if (!CITY.od) { await cityEntra(S); CITY.od = true; CITY.arbol = true; cityBarra(S); await cityArbol(S); }
-    else { CITY.od = false; accQuita(); const b = $('city-bar'); if (b) b.remove(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; } CITY.C = null; if (!CITY.demo && !CITY.cov) citySale(S); else odDock(S); } } finally { CITY.busy = 0; }
+    else { CITY.od = false; accQuita(); cityLabQuita(); const b = $('city-bar'); if (b) b.remove(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; } CITY.C = null; if (!CITY.demo && !CITY.cov) citySale(S); else odDock(S); } } finally { CITY.busy = 0; }
 }
 async function demoSet(S, on) {   // capa Demografía (Capas)
   if (CITY.busy) return; CITY.busy = 1;
