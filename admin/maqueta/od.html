@@ -82,12 +82,12 @@ function lista() {
 const AC = document.createElement('canvas'); AC.style.cssText = 'position:absolute;left:0;top:0;z-index:450;pointer-events:none'; map.getContainer().appendChild(AC);
 function aRes() { const z = map.getSize(), dpr = window.devicePixelRatio || 1; AC.width = z.x * dpr; AC.height = z.y * dpr; AC.style.width = z.x + 'px'; AC.style.height = z.y + 'px'; }
 map.on('resize', aRes); aRes();
-const T0 = performance.now(), SP = 30;
+const T0 = performance.now(), SP = 38;
 function anima(now) {
   const ctx = AC.getContext('2d'), dpr = window.devicePixelRatio || 1, W = AC.width / dpr, Hh = AC.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
-  if (V.flechas && ED.length) { const ph = ((now - T0) / 1000 * 44) % SP; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#fff'; ctx.lineWidth = 1;
+  if (V.flechas && ED.length) { const ph = ((now - T0) / 1000 * 44) % SP; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(15,23,42,.9)'; ctx.fillStyle = '#fff'; ctx.lineWidth = 1.6;
     for (const e of ED) { const a = map.latLngToContainerPoint([e.r[0], e.r[1]]), b = map.latLngToContainerPoint([e.r[2], e.r[3]]); if ((a.x < -40 && b.x < -40) || (a.x > W + 40 && b.x > W + 40) || (a.y < -40 && b.y < -40) || (a.y > Hh + 40 && b.y > Hh + 40)) continue;
-      const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy); if (L < 8) continue; const ux = dx / L, uy = dy / L, k = Math.max(3.6, (2 + 9 * Math.sqrt(e.v)) * .78);
+      const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy); if (L < 8) continue; const ux = dx / L, uy = dy / L, k = Math.max(6.5, (2 + 9 * Math.sqrt(e.v)) * 1.05);
       for (let s = ph % SP; s < L; s += SP) { const x = a.x + ux * s, y = a.y + uy * s; ctx.beginPath(); ctx.moveTo(x + ux * k, y + uy * k); ctx.lineTo(x - ux * k * .75 - uy * k * .8, y - uy * k * .75 + ux * k * .8); ctx.lineTo(x - ux * k * .25, y - uy * k * .25); ctx.lineTo(x - ux * k * .75 + uy * k * .8, y - uy * k * .75 - ux * k * .8); ctx.closePath(); ctx.fill(); ctx.stroke(); } } }
   requestAnimationFrame(anima);
 }
