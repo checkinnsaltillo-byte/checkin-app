@@ -39,18 +39,18 @@
   <h1>🧭 Origen del tráfico</h1>
   <small id="cl">Cargando…</small>
   <div class="lb">Punto de referencia</div>
-  <div class="sg" id="sz"><button data-v="zona" class="on">Zona de la propiedad</button><button data-v="punto">Punto específico</button></div>
+  <div class="sg" id="sz"><button data-v="zona" class="on">Zona de la propiedad</button><button data-v="punto">Punto específico</button><button data-v="destino">Destino / origen</button></div>
   <div id="pt" style="display:none">
-    <div id="pti" style="font-size:11.5px;color:var(--mu);margin-top:6px">Haz clic sobre una calle del mapa y elige el sentido de circulación que quieres analizar.</div>
+    <div id="pti" style="font-size:11.5px;color:var(--mu);margin-top:6px"></div>
     <div class="row" style="margin-top:6px"><select id="rb" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-size:12px"><option value="">Ambos sentidos</option><option value="0">Sentido hacia el norte</option><option value="180">Sentido hacia el sur</option><option value="90">Sentido hacia el este</option><option value="270">Sentido hacia el oeste</option></select><button id="pc" style="padding:7px 10px;border-radius:8px;border:0;background:#4f46e5;color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer" disabled>Calcular</button></div>
     <div id="pm" style="font-size:11px;color:var(--mu);margin-top:4px"></div>
   </div>
   <div class="lb">Ver en el mapa</div>
   <div class="sg" id="sv"><button data-v="zonas" class="on" title="Anillos y sectores en que se agrupan los orígenes, con su porcentaje">Zonas de origen</button><button data-v="ref" class="on" title="Tramos de calle que se cuentan como 'pasa por el punto'">Tramo de referencia</button></div>
   <div class="lb">Dirección de los viajes respecto al punto</div>
-  <div class="sg" id="sd"><button data-v="all" class="on">Todos</button><button data-v="in">Entrantes</button><button data-v="out">Salientes</button></div>
-  <div class="lb">Horario</div>
-  <div class="sg" id="sm"><button data-v="dia" class="on">Día</button><button data-v="am">Pico mañana</button><button data-v="pm">Pico tarde</button></div>
+  <div class="sg" id="sd"><button data-v="all" class="on">Todos</button><button data-v="in" id="sdi">Entrantes</button><button data-v="out" id="sdo">Salientes</button></div>
+  <div id="hr"><div class="lb">Horario</div>
+  <div class="sg" id="sm"><button data-v="dia" class="on">Día</button><button data-v="am">Pico mañana</button><button data-v="pm">Pico tarde</button></div></div>
   <div class="lb">Porcentaje mínimo a mostrar</div>
   <div class="row"><input id="mn" type="range" min="0.5" max="10" step="0.5" value="1.5"><b id="mnv" style="min-width:38px;text-align:right">1.5 %</b></div>
   <div id="ms"></div>
@@ -65,23 +65,23 @@ const qs = new URLSearchParams(location.search), ID = qs.get('id') || '';
 const map = L.map('map', { zoomControl: true, preferCanvas: true });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors' }).addTo(map);
 const cv = L.canvas({ padding: .3 }), G = L.layerGroup().addTo(map), LB = L.layerGroup().addTo(map);
-const V = { zonas: true, ref: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : D;
+const V = { zonas: true, ref: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, DD = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : st.modo === 'destino' ? DD : D, zv = z => st.modo === 'destino' && st.d === 'out' ? (z.sal || 0) : (z[st.m] || 0);
 const stops = [[0, [252, 211, 92]], [.5, [232, 112, 79]], [1, [91, 26, 107]]];
 const color = v => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (v - a[0]) / (b[0] - a[0]); return 'rgb(' + a[1].map((c, k) => Math.round(c + (b[1][k] - c) * t)).join(',') + ')'; } return 'rgb(91,26,107)'; };
 function val(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1, vi = i < 0 ? (r[4] + r[5]) / 2 : r[i], vo = o < 0 ? (r[6] + r[7]) / 2 : r[o]; return st.d === 'in' ? vi : st.d === 'out' ? vo : Math.max(vi, vo); }
 const PAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#3b82f6', '#ec4899'];
-function colorMap(C, m) { const L = C.zonas.filter(z => (z[m] || 0) >= .015).sort((a, b) => b[m] - a[m]).slice(0, 10), mp = new Map(); L.forEach((z, i) => mp.set(z.id, PAL[i])); return { L, mp }; }
+function colorMap(C, m) { const L = C.zonas.filter(z => (zv(z) || 0) >= .015).sort((a, b) => b[m] - a[m]).slice(0, 10), mp = new Map(); L.forEach((z, i) => mp.set(z.id, PAL[i])); return { L, mp }; }
 // dona: una porción por zona de origen (las principales) y 'otras'
 function lista() {
-  const C = cur(), el = $('zs'); if (!C) { el.innerHTML = ''; return; } const m = st.m, { L, mp } = colorMap(C, m), tot = L.reduce((a, z) => a + z[m], 0), otras = Math.max(0, 1 - tot), R = 46, c = 2 * Math.PI * R; let off = 0; const arcs = L.map(z => [z[m], mp.get(z.id)]).concat(otras > .002 ? [[otras, '#cbd5e1']] : []);
+  const C = cur(), el = $('zs'); if (!C) { el.innerHTML = ''; return; } const m = st.m, { L, mp } = colorMap(C, m), tot = L.reduce((a, z) => a + zv(z), 0), otras = Math.max(0, 1 - tot), R = 46, c = 2 * Math.PI * R; let off = 0; const arcs = L.map(z => [zv(z), mp.get(z.id)]).concat(otras > .002 ? [[otras, '#cbd5e1']] : []);
   const svg = '<svg width="150" height="150" viewBox="0 0 120 120"><g transform="rotate(-90 60 60)"><circle cx="60" cy="60" r="' + R + '" fill="none" stroke="var(--bd)" stroke-width="20"/>' + arcs.map(([v, col]) => { const len = v * c, o = off; off += len; return '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-dasharray="' + Math.max(0, len - 1) + ' ' + (c - Math.max(0, len - 1)) + '" stroke-dashoffset="' + (-o) + '"/>'; }).join('') + '</g><text x="60" y="56" text-anchor="middle" font-size="9" fill="var(--mu)">de dónde</text><text x="60" y="68" text-anchor="middle" font-size="9" fill="var(--mu)">vienen</text></svg>';
-  el.innerHTML = svg + '<div id="zl">' + L.map(z => '<div><i style="background:' + mp.get(z.id) + '"></i><span>' + z.nombre + '</span><b>' + (z[m] * 100).toFixed(1) + ' %</b></div>').join('') + (otras > .002 ? '<div><i style="background:#cbd5e1"></i><span>Otras zonas</span><b>' + (otras * 100).toFixed(1) + ' %</b></div>' : '') + '</div>';
+  el.innerHTML = svg + '<div id="zl">' + L.map(z => '<div><i style="background:' + mp.get(z.id) + '"></i><span>' + z.nombre + '</span><b>' + (zv(z) * 100).toFixed(1) + ' %</b></div>').join('') + (otras > .002 ? '<div><i style="background:#cbd5e1"></i><span>Otras zonas</span><b>' + (otras * 100).toFixed(1) + ' %</b></div>' : '') + '</div>';
 }
 // zonas de origen (anillos de 2.5 / 6 / 11 / 20 km y 8 sectores, centrados en la propiedad) y tramo de referencia usado como 'punto'
 function capasRef() {
   ZG.clearLayers(); const C = cur(), A = D || DP; if (!C || !A) return; const la0 = A.lat, ln0 = A.lng, kx = 111320 * Math.cos(la0 * Math.PI / 180), ky = 111320, pt = (r, b) => [la0 + r * Math.cos(b * Math.PI / 180) / ky, ln0 + r * Math.sin(b * Math.PI / 180) / kx], m = st.m;
   if (V.zonas) { const cm = colorMap(C, m), arc = (r, b0, b1, st_) => { const o = []; for (let b = b0; b <= b1 + .01; b += st_) o.push(pt(r, b)); return o; };
-    C.zonas.forEach(z => { const col = cm.mp.get(z.id) || '#94a3b8', sh = z[m] || 0, pts = z.rumbo == null ? arc(z.r1, 0, 360, 6) : arc(z.r1, z.rumbo - 22.5, z.rumbo + 22.5, 3).concat(arc(z.r0, z.rumbo - 22.5, z.rumbo + 22.5, 3).reverse());
+    C.zonas.forEach(z => { const col = cm.mp.get(z.id) || '#94a3b8', sh = zv(z) || 0, pts = z.rumbo == null ? arc(z.r1, 0, 360, 6) : arc(z.r1, z.rumbo - 22.5, z.rumbo + 22.5, 3).concat(arc(z.r0, z.rumbo - 22.5, z.rumbo + 22.5, 3).reverse());
       L.polygon(pts, { color: col, weight: 1.2, opacity: .8, dashArray: '5 5', fillColor: col, fillOpacity: cm.mp.has(z.id) ? .16 : .05, interactive: false }).addTo(ZG);
       L.circleMarker([z.lat, z.lng], { radius: cm.mp.has(z.id) ? 7 : 4, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1 }).bindTooltip(z.nombre + ' · ' + (sh * 100).toFixed(1) + ' % · punto de origen del modelo', { direction: 'top' }).addTo(ZG); }); }
   if (V.ref) { (C.ref || []).forEach(r => L.polyline([[r[0], r[1]], [r[2], r[3]]], { color: '#1d4ed8', weight: 7, opacity: .85, lineCap: 'round', interactive: false }).addTo(ZG));
@@ -112,25 +112,25 @@ const API = 'https://api.check-inn.mx/mercado/maqueta/', $ = i => document.getEl
 // cabecera: marcador del punto de referencia, lista de zonas y texto según el modo
 function cabecera() {
   const C = cur(), cl = $('cl'); if (MK) { map.removeLayer(MK); MK = null; }
-  if (!C) { cl.textContent = st.modo === 'punto' ? 'Elige un punto en una calle y calcula.' : 'Aún no hay un cálculo con árbol para esta propiedad: recalcúlalo desde la maqueta.'; $('zs').innerHTML = ''; return; }
-  cl.textContent = (st.modo === 'punto' ? 'Punto: ' : 'Zona (calles a ≤ 150 m de la propiedad): ') + C.calle + ' · estimado por modelo (' + new Date(C.at).toLocaleDateString('es-MX') + ')';
-  const pos = st.modo === 'punto' && C.enlace ? [C.enlace.lat, C.enlace.lng] : [C.lat, C.lng];
+  if (!C) { cl.textContent = st.modo === 'punto' ? 'Elige un punto en una calle y calcula.' : st.modo === 'destino' ? 'Pulsa Calcular para analizar los viajes que llegan a la propiedad y salen de ella.' : 'Aún no hay un cálculo con árbol para esta propiedad: recalcúlalo desde la maqueta.'; $('zs').innerHTML = ''; return; }
+  cl.textContent = (st.modo === 'punto' ? 'Punto: ' : st.modo === 'destino' ? '' : 'Zona (calles a ≤ 150 m de la propiedad): ') + (st.modo === 'destino' ? 'Viajes que llegan a y salen del punto de interés' : C.calle) + ' · estimado por modelo (' + new Date(C.at).toLocaleDateString('es-MX') + ')';
+  const pos = (st.modo === 'punto' || st.modo === 'destino') && C.enlace ? [C.enlace.lat, C.enlace.lng] : [C.lat, C.lng];
   MK = L.marker(pos, { icon: L.divIcon({ className: '', html: '<div class="me">100 %</div>', iconSize: [0, 0] }), zIndexOffset: 1000 }).addTo(map);
   lista();
 }
-function modo(m) { st.modo = m; fitted = false; document.querySelectorAll('#sz button').forEach(b => b.classList.toggle('on', b.dataset.v === m)); $('pt').style.display = m === 'punto' ? '' : 'none'; cabecera(); dibuja(); if (m === 'punto' && PT) { /* conserva el punto elegido */ } }
-$('sz').onclick = async e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.v === 'punto' && !DP) { try { const j = await fetch(API + 'od?id=' + encodeURIComponent(ID) + '&modo=punto', { cache: 'no-store' }).then(r => r.json()); DP = j && j.od && j.od.arbol ? j.od : null; } catch (_) {} } modo(b.dataset.v); };
-map.on('click', e => { if (st.modo !== 'punto') return; PT = e.latlng; if (MK && !cur()) { map.removeLayer(MK); } if (window._sel) map.removeLayer(window._sel); window._sel = L.circleMarker(PT, { radius: 8, color: '#1d4ed8', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(map); $('pc').disabled = false; $('pm').textContent = 'Punto elegido. Elige el sentido y pulsa Calcular.'; });
+function modo(m) { st.modo = m; fitted = false; document.querySelectorAll('#sz button').forEach(b => b.classList.toggle('on', b.dataset.v === m)); $('pt').style.display = m === 'zona' ? 'none' : ''; $('rb').style.display = m === 'punto' ? '' : 'none'; $('hr').style.display = m === 'destino' ? 'none' : ''; $('sdi').textContent = m === 'destino' ? 'Llegan' : 'Entrantes'; $('sdo').textContent = m === 'destino' ? 'Salen' : 'Salientes'; $('pti').textContent = m === 'destino' ? 'Analiza los viajes que llegan a la propiedad y los que salen de ella. Opcional: haz clic en el mapa para usar otro punto como destino y origen.' : 'Haz clic sobre una calle del mapa y elige el sentido de circulación que quieres analizar.'; if (m === 'destino') { $('pc').disabled = false; $('pm').textContent = PT ? 'Se usará el punto elegido.' : 'Se usará la propiedad.'; } else $('pc').disabled = !PT; cabecera(); dibuja(); if (m === 'punto' && PT) { /* conserva el punto elegido */ } }
+$('sz').onclick = async e => { const b = e.target.closest('button'); if (!b) return; if ((b.dataset.v === 'punto' && !DP) || (b.dataset.v === 'destino' && !DD)) { try { const j = await fetch(API + 'od?id=' + encodeURIComponent(ID) + '&modo=' + b.dataset.v, { cache: 'no-store' }).then(r => r.json()); const o = j && j.od && j.od.arbol ? j.od : null; if (b.dataset.v === 'punto') DP = o; else DD = o; } catch (_) {} } modo(b.dataset.v); };
+map.on('click', e => { if (st.modo === 'zona') return; PT = e.latlng; if (MK && !cur()) { map.removeLayer(MK); } if (window._sel) map.removeLayer(window._sel); window._sel = L.circleMarker(PT, { radius: 8, color: '#1d4ed8', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(map); $('pc').disabled = false; $('pm').textContent = 'Punto elegido. Elige el sentido y pulsa Calcular.'; });
 $('pc').onclick = async () => {
-  if (!PT || busy) return; busy = 1; const btn = $('pc'), t0 = btn.textContent, antes = DP ? DP.at : '', rb = $('rb').value, pm = $('pm'); btn.disabled = true; btn.textContent = 'Analizando…'; pm.style.color = ''; pm.textContent = 'Enviando el punto al modelo…';
-  const lanza = async conf => { const r = await fetch(API + 'od-estima', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, confirmo: !!conf, enlace: { lat: PT.lat, lng: PT.lng, rumbo: rb === '' ? null : +rb } }) }).then(x => x.json());
+  if ((!PT && st.modo !== 'destino') || busy) return; busy = 1; const btn = $('pc'), M = st.modo, t0 = btn.textContent, antes = (M === 'destino' ? DD : DP) ? (M === 'destino' ? DD : DP).at : '', rb = $('rb').value, pm = $('pm'), A0 = D || DP || DD, pto = PT ? { lat: PT.lat, lng: PT.lng } : { lat: A0 ? A0.lat : 0, lng: A0 ? A0.lng : 0 }; btn.disabled = true; btn.textContent = 'Analizando…'; pm.style.color = ''; pm.textContent = 'Enviando el punto al modelo…';
+  const lanza = async conf => { const r = await fetch(API + 'od-estima', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, confirmo: !!conf, enlace: M === 'destino' ? { lat: pto.lat, lng: pto.lng, destino: true } : { lat: PT.lat, lng: PT.lng, rumbo: rb === '' ? null : +rb } }) }).then(x => x.json());
     if (r.requiere) { if (!confirm('Para calcular este punto hay que consultar Google Routes por primera vez en esta propiedad.\n\nCosto máximo: ' + r.usd.toFixed(2) + ' USD.\n\n¿Aceptas el gasto?')) throw new Error('Cancelado: no se hizo ninguna consulta ni gasto.'); return lanza(true); } if (!r.ok) throw new Error(r.error || 'No se pudo iniciar'); return conf; };
   try { let conf = await lanza(false);
-    for (let i = 0; i < 80; i++) { await new Promise(r => setTimeout(r, 4000)); pm.textContent = 'Analizando el punto… ' + (i * 4 + 4) + ' s'; const j = await fetch(API + 'od?id=' + encodeURIComponent(ID) + '&modo=punto', { cache: 'no-store' }).then(x => x.json()).catch(() => null); if (j && j.od && j.od.arbol && j.od.at !== antes) { DP = j.od; break; }
+    for (let i = 0; i < 80; i++) { await new Promise(r => setTimeout(r, 4000)); pm.textContent = 'Analizando el punto… ' + (i * 4 + 4) + ' s'; const j = await fetch(API + 'od?id=' + encodeURIComponent(ID) + '&modo=' + (M === 'destino' ? 'destino' : 'punto'), { cache: 'no-store' }).then(x => x.json()).catch(() => null); if (j && j.od && j.od.arbol && j.od.at !== antes) { if (M === 'destino') DD = j.od; else DP = j.od; break; }
       const e = await fetch(API + 'od-estado', { cache: 'no-store' }).then(x => x.json()).catch(() => null); if (e && e.error && e.fin && Date.parse(e.fin) > Date.now() - 90000) { const m = /COSTO:([\d.]+)/.exec(e.error); if (m && !conf) { if (!confirm('Hay que consultar Google Routes.\n\nCosto máximo: ' + m[1] + ' USD.\n\n¿Aceptas el gasto?')) throw new Error('Cancelado: no se hizo ninguna consulta ni gasto.'); conf = true; await lanza(true); continue; } throw new Error(e.error.replace(/ \(.*$/, '')); }
       if (i === 79) throw new Error('Tardó demasiado'); }
     pm.textContent = '✓ Listo'; fitted = false; if (window._sel) { map.removeLayer(window._sel); window._sel = null; } cabecera(); dibuja();
-  } catch (e) { pm.style.color = '#dc2626'; pm.textContent = 'No se pudo calcular: ' + e.message; } busy = 0; btn.textContent = t0; btn.disabled = !PT;
+  } catch (e) { pm.style.color = '#dc2626'; pm.textContent = 'No se pudo calcular: ' + e.message; } busy = 0; btn.textContent = t0; btn.disabled = !PT && st.modo !== 'destino';
 };
 fetch(API + 'od?id=' + encodeURIComponent(ID), { cache: 'no-store' }).then(r => r.json()).then(j => {
   D = j && j.od && j.od.arbol ? j.od : null; if (!D) map.setView([25.42, -101], 12); cabecera(); dibuja();
