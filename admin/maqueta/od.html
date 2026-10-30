@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Origen del tráfico</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root{--bg:#fff;--tx:#0f172a;--mu:#64748b;--bd:#e2e8f0;--ac:#4f46e5}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111827;--tx:#e5e7eb;--mu:#94a3b8;--bd:#334155}}
+  html,body{margin:0;height:100%;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx)}
+  #map{position:absolute;inset:0}
+  #pn{position:absolute;z-index:1000;top:12px;left:12px;width:300px;max-width:calc(100% - 24px);background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:12px 14px;font-size:13px}
+  #pn h1{font-size:15px;margin:0 0 2px}
+  #pn small{color:var(--mu)}
+  .lb{font-size:11px;font-weight:700;color:var(--mu);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  .sg{display:flex;border:1px solid var(--bd);border-radius:999px;overflow:hidden}
+  .sg button{flex:1;border:0;background:transparent;color:var(--tx);padding:7px 4px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+  .sg button.on{background:#0f172a;color:#fff}
+  input[type=range]{width:100%;accent-color:#e11d48}
+  .row{display:flex;align-items:center;gap:8px}
+  #lg{position:absolute;z-index:1000;left:12px;bottom:18px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:8px 12px;box-shadow:0 8px 28px rgba(0,0,0,.18);font-size:11px;color:var(--mu)}
+  #lg .bar{width:220px;height:8px;border-radius:5px;background:linear-gradient(90deg,#fcd35c,#e8704f 50%,#5b1a6b);margin:4px 0 2px}
+  #lg .tk{display:flex;justify-content:space-between}
+  .pc{font:700 11px/1 Inter,Arial,sans-serif;color:#1f2937;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff,0 0 3px #fff;white-space:nowrap;transform:translate(-50%,-50%)}
+  .me{background:#1d6fe0;color:#fff;font:800 13px/1 Inter,Arial,sans-serif;padding:7px 9px;border-radius:9px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);transform:translate(-50%,-50%);white-space:nowrap}
+  #ms{margin-top:8px;font-size:11px;color:var(--mu)}
+  #zs{margin-top:8px;max-height:26vh;overflow:auto;font-size:11.5px}
+  #zs div{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--bd)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="pn">
+  <h1>🧭 Origen del tráfico</h1>
+  <small id="cl">Cargando…</small>
+  <div class="lb">Dirección de los viajes respecto al punto</div>
+  <div class="sg" id="sd"><button data-v="all" class="on">Todos</button><button data-v="in">Entrantes</button><button data-v="out">Salientes</button></div>
+  <div class="lb">Horario</div>
+  <div class="sg" id="sm"><button data-v="dia" class="on">Día</button><button data-v="am">Pico mañana</button><button data-v="pm">Pico tarde</button></div>
+  <div class="lb">Porcentaje mínimo a mostrar</div>
+  <div class="row"><input id="mn" type="range" min="0.5" max="10" step="0.5" value="1.5"><b id="mnv" style="min-width:38px;text-align:right">1.5 %</b></div>
+  <div id="ms"></div>
+  <div class="lb">Zonas de origen (día)</div>
+  <div id="zs"></div>
+</div>
+<div id="lg"><div>Porcentaje de los viajes que cruzan el punto</div><div class="bar"></div><div class="tk"><span>0</span><span>50</span><span>100 %</span></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const qs = new URLSearchParams(location.search), ID = qs.get('id') || '';
+const map = L.map('map', { zoomControl: true, preferCanvas: true });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap · © CARTO' }).addTo(map);
+const cv = L.canvas({ padding: .3 }), G = L.layerGroup().addTo(map), LB = L.layerGroup().addTo(map);
+let D = null, st = { d: 'all', m: 'dia', mn: 1.5 }, ED = [], fitted = false;
+const stops = [[0, [252, 211, 92]], [.5, [232, 112, 79]], [1, [91, 26, 107]]];
+const color = v => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (v - a[0]) / (b[0] - a[0]); return 'rgb(' + a[1].map((c, k) => Math.round(c + (b[1][k] - c) * t)).join(',') + ')'; } return 'rgb(91,26,107)'; };
+function val(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1, vi = i < 0 ? (r[4] + r[5]) / 2 : r[i], vo = o < 0 ? (r[6] + r[7]) / 2 : r[o]; return st.d === 'in' ? vi : st.d === 'out' ? vo : Math.max(vi, vo); }
+function dibuja() {
+  G.clearLayers(); LB.clearLayers(); if (!D) return; const mn = st.mn / 100;
+  ED = D.arbol.map(r => ({ r, v: val(r) })).filter(e => e.v >= mn).sort((a, b) => a.v - b.v);
+  ED.forEach(e => L.polyline([[e.r[0], e.r[1]], [e.r[2], e.r[3]]], { renderer: cv, color: color(e.v), weight: 2 + 9 * Math.sqrt(e.v), opacity: .92, lineCap: 'round' }).addTo(G));
+  document.getElementById('ms').textContent = ED.length + ' tramos con ≥ ' + st.mn + ' % de los viajes';
+  if (!fitted && ED.length) { fitted = true; map.fitBounds(L.latLngBounds(ED.map(e => [e.r[0], e.r[1]])).pad(.08)); }
+  etiqueta();
+}
+// etiquetas de porcentaje: de mayor a menor, sin encimarse en pantalla
+function etiqueta() {
+  LB.clearLayers(); const put = []; [...ED].sort((a, b) => b.v - a.v).forEach(e => { if (put.length > 70 || e.v < .03) return; const la = (e.r[0] + e.r[2]) / 2, ln = (e.r[1] + e.r[3]) / 2, p = map.latLngToContainerPoint([la, ln]); if (p.x < 0 || p.y < 0 || p.x > innerWidth || p.y > innerHeight) return; if (put.some(q => Math.hypot(q.x - p.x, q.y - p.y) < 64)) return; put.push(p); L.marker([la, ln], { interactive: false, icon: L.divIcon({ className: '', html: '<div class="pc">' + Math.round(e.v * 100) + ' %</div>', iconSize: [0, 0] }) }).addTo(LB); });
+}
+function ui() {
+  document.querySelectorAll('#sd button').forEach(b => b.classList.toggle('on', b.dataset.v === st.d)); document.querySelectorAll('#sm button').forEach(b => b.classList.toggle('on', b.dataset.v === st.m));
+  document.getElementById('mnv').textContent = st.mn + ' %';
+}
+document.getElementById('sd').onclick = e => { const b = e.target.closest('button'); if (b) { st.d = b.dataset.v; ui(); dibuja(); } };
+document.getElementById('sm').onclick = e => { const b = e.target.closest('button'); if (b) { st.m = b.dataset.v; ui(); dibuja(); } };
+document.getElementById('mn').oninput = e => { st.mn = +e.target.value; ui(); dibuja(); };
+map.on('zoomend moveend', () => { if (D) etiqueta(); });
+fetch('https://api.check-inn.mx/mercado/maqueta/od?id=' + encodeURIComponent(ID), { cache: 'no-store' }).then(r => r.json()).then(j => {
+  D = j && j.od; const cl = document.getElementById('cl');
+  if (!D || !D.arbol) { cl.textContent = 'Aún no hay un cálculo con árbol para esta propiedad: recalcúlalo desde la maqueta.'; map.setView([25.42, -101], 12); return; }
+  cl.textContent = 'Calle: ' + D.calle + ' · estimado por modelo (' + new Date(D.at).toLocaleDateString('es-MX') + ')';
+  L.marker([D.lat, D.lng], { icon: L.divIcon({ className: '', html: '<div class="me">100 %</div>', iconSize: [0, 0] }), zIndexOffset: 1000 }).addTo(map);
+  document.getElementById('zs').innerHTML = D.zonas.filter(z => z.dia >= .01).map(z => '<div><span>' + z.nombre + '</span><b>' + (z.dia * 100).toFixed(1) + ' %</b></div>').join('');
+  dibuja();
+}).catch(() => { document.getElementById('cl').textContent = 'No se pudo cargar el cálculo.'; map.setView([25.42, -101], 12); });
+</script>
+</body>
+</html>
