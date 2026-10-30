@@ -1342,10 +1342,10 @@ async function cityArbol(S) {
 async function cityToggle(S) {
   if (CITY.busy) return; CITY.busy = 1;
   try { if (!CITY.on) {
-    CITY.saved = { far: camera.far, near: camera.near, max: controls.maxDistance, d: camera.position.distanceTo(controls.target), rz: RZ.on }; if (RZ.on) rzSet(false); CITY.on = true; CITY.S = S; window.__cityOn = true; CITY.arbol = true;
+    CITY.saved = { far: camera.far, near: camera.near, max: controls.maxDistance, d: camera.position.distanceTo(controls.target), rz: RZ.on, od: !OD.G || OD.G.visible }; if (RZ.on) rzSet(false); if (OD.G) OD.G.visible = false; CITY.on = true; CITY.S = S; window.__cityOn = true; CITY.arbol = true;
     controls.maxDistance = 140000; if (CITY.saved.d < 4500) { const tg = controls.target.clone(), D = 7500; CITY.tw = { t: 0, from: camera.position.clone(), to: tg.clone().add(new THREE.Vector3(0, .8 * D, .6 * D)) }; } cityBarra(S); cgUpdate(); await cityArbol(S);
   } else { const sv = CITY.saved; CITY.on = false; window.__cityOn = false; const b = $('city-bar'); if (b) b.remove(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; } cgLimpia(); CITY.C = null;
-    CITY.tw = null; camera.far = sv.far; camera.near = sv.near; camera.updateProjectionMatrix(); controls.maxDistance = sv.max; zWant = Math.min(sv.d, sv.max); if (sv.rz) rzSet(true); } } finally { CITY.busy = 0; }
+    CITY.tw = null; camera.far = sv.far; camera.near = sv.near; camera.updateProjectionMatrix(); controls.maxDistance = sv.max; zWant = Math.min(sv.d, sv.max); if (sv.rz) rzSet(true); if (OD.G) OD.G.visible = sv.od !== false; } } finally { CITY.busy = 0; }
 }
 function odChev() { if (OD.tx) return OD.tx; const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d'); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(0, 0, 64, 128); g.lineJoin = 'round'; g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 6; g.fillStyle = '#fff'; g.beginPath(); g.moveTo(8, 112); g.lineTo(32, 66); g.lineTo(56, 112); g.lineTo(56, 92); g.lineTo(32, 46); g.lineTo(8, 92); g.closePath(); g.stroke(); g.fill(); const t = new THREE.CanvasTexture(c); t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return OD.tx = t; }
 // el flujo se dibuja sobre las calles realmente usadas: banda por sentido (carril derecho) con chevrones, color de calor según la fracción de los viajes que usan ese tramo
