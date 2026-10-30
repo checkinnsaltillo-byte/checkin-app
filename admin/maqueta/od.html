@@ -58,7 +58,7 @@
   <div id="zs"></div>
   <div style="font-size:10.5px;color:var(--mu);margin-top:6px">Cada zona se colorea en el mapa con el mismo color de la dona. El punto ● marca su <b>origen</b> en el modelo: el nodo de vialidad principal más cercano al promedio de las avenidas de la zona.</div>
 </div>
-<div id="lg"><div>Porcentaje de los viajes que cruzan el punto</div><div class="bar"></div><div class="tk"><span>0</span><span>50</span><span>100 %</span></div></div>
+<div id="lg"><div style="display:flex;gap:14px;align-items:center"><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#16a34a;vertical-align:-2px"></i> Entrantes</span><span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#dc2626;vertical-align:-2px"></i> Salientes</span></div><div style="margin-top:4px">El grosor indica el % de los viajes que usa cada tramo</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 const qs = new URLSearchParams(location.search), ID = qs.get('id') || '';
@@ -66,8 +66,10 @@ const map = L.map('map', { zoomControl: true, preferCanvas: true });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors' }).addTo(map);
 const cv = L.canvas({ padding: .3 }), G = L.layerGroup().addTo(map), LB = L.layerGroup().addTo(map);
 const V = { zonas: true, ref: true, flechas: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, DD = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : st.modo === 'destino' ? DD : D, zv = z => st.modo === 'destino' && st.d === 'out' ? (z.sal || 0) : (z[st.m] || 0);
-const stops = [[0, [252, 211, 92]], [.5, [232, 112, 79]], [1, [91, 26, 107]]];
-const color = v => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (v - a[0]) / (b[0] - a[0]); return 'rgb(' + a[1].map((c, k) => Math.round(c + (b[1][k] - c) * t)).join(',') + ')'; } return 'rgb(91,26,107)'; };
+const VERDE = '#16a34a', ROJO = '#dc2626';
+// color = dirección (entrantes verde, salientes rojo); grosor = fracción de los viajes
+function vio(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1; return [i < 0 ? (r[4] + r[5]) / 2 : r[i], o < 0 ? (r[6] + r[7]) / 2 : r[o]]; }
+const esEnt = r => st.d === 'in' ? true : st.d === 'out' ? false : (([a, b]) => a >= b)(vio(r));
 function val(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1, vi = i < 0 ? (r[4] + r[5]) / 2 : r[i], vo = o < 0 ? (r[6] + r[7]) / 2 : r[o]; return st.d === 'in' ? vi : st.d === 'out' ? vo : Math.max(vi, vo); }
 const PAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#3b82f6', '#ec4899'];
 function colorMap(C, m) { const L = C.zonas.filter(z => (zv(z) || 0) >= .015).sort((a, b) => b[m] - a[m]).slice(0, 10), mp = new Map(); L.forEach((z, i) => mp.set(z.id, PAL[i])); return { L, mp }; }
@@ -105,8 +107,8 @@ function capasRef() {
 }
 function dibuja() {
   lista(); capasRef(); G.clearLayers(); LB.clearLayers(); const C = cur(); if (!C || !C.arbol) { document.getElementById('ms').textContent = st.modo === 'punto' ? 'Aún no hay un cálculo para un punto específico.' : ''; return; } const mn = st.mn / 100;
-  ED = C.arbol.map(r => ({ r, v: val(r) })).filter(e => e.v >= mn).sort((a, b) => a.v - b.v);
-  ED.forEach(e => L.polyline([[e.r[0], e.r[1]], [e.r[2], e.r[3]]], { renderer: cv, color: color(e.v), weight: 2 + 9 * Math.sqrt(e.v), opacity: .92, lineCap: 'round' }).addTo(G));
+  ED = C.arbol.map(r => ({ r, v: val(r), c: esEnt(r) ? VERDE : ROJO })).filter(e => e.v >= mn).sort((a, b) => a.v - b.v);
+  ED.forEach(e => L.polyline([[e.r[0], e.r[1]], [e.r[2], e.r[3]]], { renderer: cv, color: e.c, weight: 1.6 + 11 * Math.sqrt(e.v), opacity: .88, lineCap: 'round' }).addTo(G));
   document.getElementById('ms').textContent = ED.length + ' tramos con ≥ ' + st.mn + ' % de los viajes';
   if (!fitted && ED.length) { fitted = true; map.fitBounds(L.latLngBounds(ED.map(e => [e.r[0], e.r[1]])).pad(.08)); }
   etiqueta();
