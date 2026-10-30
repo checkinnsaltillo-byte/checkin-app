@@ -125,6 +125,7 @@ document.getElementById('sm').onclick = e => { const b = e.target.closest('butto
 document.getElementById('mn').oninput = e => { st.mn = +e.target.value; ui(); dibuja(); };
 map.on('zoomend moveend', () => { if (cur()) etiqueta(); });
 const API = 'https://api.check-inn.mx/mercado/maqueta/', $ = i => document.getElementById(i);
+addEventListener('keydown', e => { if (e.key === 'Escape' && qs.get('emb')) parent.postMessage({ od: 'cerrar' }, '*'); });
 // cabecera: marcador del punto de referencia, lista de zonas y texto según el modo
 function cabecera() {
   const C = cur(), cl = $('cl'); if (MK) { map.removeLayer(MK); MK = null; }
