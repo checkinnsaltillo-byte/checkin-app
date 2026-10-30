@@ -27,7 +27,7 @@
   #ms{margin-top:8px;font-size:11px;color:var(--mu)}
   #zs{margin-top:6px;font-size:11.5px}
   #zs svg{display:block;margin:0 auto}
-  #zl{max-height:22vh;overflow:auto;margin-top:6px}
+  #zl{overflow:auto;margin-top:6px}
   #zl div{display:flex;align-items:center;gap:7px;padding:2px 0;border-bottom:1px solid var(--bd)}
   #zl i{flex:none;width:11px;height:11px;border-radius:3px}
   #zl span{flex:1;min-width:0}
@@ -65,7 +65,7 @@ const qs = new URLSearchParams(location.search), ID = qs.get('id') || '';
 const map = L.map('map', { zoomControl: true, preferCanvas: true });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors' }).addTo(map);
 const cv = L.canvas({ padding: .3 }), G = L.layerGroup().addTo(map), LB = L.layerGroup().addTo(map);
-const V = { zonas: true, ref: true, flechas: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, DD = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : st.modo === 'destino' ? DD : D, zv = z => st.modo === 'destino' && st.d === 'out' ? (z.sal || 0) : (z[st.m] || 0);
+const V = { zonas: true, ref: true, flechas: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, DD = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : st.modo === 'destino' ? DD : D, zv = z => st.d === 'out' ? (z.sal || 0) : (z[st.m] || 0);
 const VERDE = '#16a34a', ROJO = '#dc2626';
 // color = dirección (entrantes verde, salientes rojo); grosor = fracción de los viajes
 function vio(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1; return [i < 0 ? (r[4] + r[5]) / 2 : r[i], o < 0 ? (r[6] + r[7]) / 2 : r[o]]; }
@@ -75,26 +75,13 @@ const PAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '
 function colorMap(C, m) { const L = C.zonas.filter(z => (zv(z) || 0) >= .015).sort((a, b) => b[m] - a[m]).slice(0, 10), mp = new Map(); L.forEach((z, i) => mp.set(z.id, PAL[i])); return { L, mp }; }
 // dona: una porción por zona de origen (las principales) y 'otras'
 function lista() {
-  const C = cur(), el = $('zs'); if (!C) { el.innerHTML = ''; return; } const m = st.m, sal = st.modo === 'destino' && st.d === 'out', { L, mp } = colorMap(C, m), tot = L.reduce((a, z) => a + zv(z), 0), otras = Math.max(0, 1 - tot), R = 46, c = 2 * Math.PI * R; let off = 0; const arcs = L.map(z => [zv(z), mp.get(z.id)]).concat(otras > .002 ? [[otras, '#cbd5e1']] : []);
-  const svg = '<svg width="150" height="150" viewBox="0 0 120 120"><g transform="rotate(-90 60 60)"><circle cx="60" cy="60" r="' + R + '" fill="none" stroke="var(--bd)" stroke-width="20"/>' + arcs.map(([v, col]) => { const len = v * c, o = off; off += len; return '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-dasharray="' + Math.max(0, len - 1) + ' ' + (c - Math.max(0, len - 1)) + '" stroke-dashoffset="' + (-o) + '"/>'; }).join('') + '</g><text x="60" y="56" text-anchor="middle" font-size="9" fill="var(--mu)">' + (sal ? 'a dónde' : 'de dónde') + '</text><text x="60" y="68" text-anchor="middle" font-size="9" fill="var(--mu)">' + (sal ? 'van' : 'vienen') + '</text></svg>';
-  if ($('zt')) $('zt').textContent = sal ? 'Zonas de destino' : st.modo === 'destino' ? 'Zonas de origen' : 'Zonas de origen (' + (st.m === 'dia' ? 'día' : st.m === 'am' ? 'pico mañana' : 'pico tarde') + ')';
-  el.innerHTML = svg + '<div id="zl">' + L.map(z => '<div><i style="background:' + mp.get(z.id) + '"></i><span>' + z.nombre + '</span><b>' + (zv(z) * 100).toFixed(1) + ' %</b></div>').join('') + (otras > .002 ? '<div><i style="background:#cbd5e1"></i><span>Otras zonas</span><b>' + (otras * 100).toFixed(1) + ' %</b></div>' : '') + '</div>';
+  const C = cur(), el = $('zs'); if (!C) { el.innerHTML = ''; return; } const m = st.m, des = st.modo === 'destino', dir = st.d;
+  const sec = clave => { const out = clave === 'out', col = out ? '#dc2626' : '#16a34a', val = z => out ? (z.sal || 0) : (des ? (z.dia || 0) : (z[m] || 0)), via = z => out ? z.viaSal : z.via, Z = C.zonas.filter(z => val(z) >= .01).sort((a, b) => val(b) - val(a)).slice(0, 10);
+    const tit = des ? (out ? 'Salen · a dónde van' : 'Llegan · de dónde vienen') : (out ? 'Salientes · a dónde van los viajes' : 'Entrantes · de dónde vienen los viajes');
+    return '<div style="margin:8px 0 2px;font-size:11.5px;font-weight:700;color:' + col + '">' + (out ? '🔴 ' : '🟢 ') + tit + '</div>' + (Z.length ? Z.map((z, i) => '<div style="padding:4px 0;border-bottom:1px solid var(--bd)"><div style="display:flex;align-items:center;gap:6px"><i style="flex:none;width:10px;height:10px;border-radius:3px;background:' + PAL[i] + '"></i><span style="flex:1;min-width:0;font-weight:600">' + z.nombre + '</span><b>' + (val(z) * 100).toFixed(1) + ' %</b></div><div style="height:6px;border-radius:3px;background:var(--bd);margin:3px 0 2px"><div style="height:6px;border-radius:3px;background:' + col + ';width:' + Math.max(2, val(z) * 100) + '%"></div></div><small style="color:var(--mu)">' + (via(z) ? 'por ' + via(z) : '') + '</small></div>').join('') : '<div style="color:#b45309;font-size:11px">' + (out && !C.zonas.some(z => z.sal != null) ? 'Recalcula para ver los destinos.' : 'Sin datos con ≥ 1 %.') + '</div>'); };
+  if ($('zt')) $('zt').textContent = des ? 'Zonas (llegan y salen)' : 'Zonas (' + (m === 'dia' ? 'día' : m === 'am' ? 'pico mañana' : 'pico tarde') + ')';
+  el.innerHTML = '<div id="zl" style="max-height:34vh">' + (dir === 'in' ? sec('in') : dir === 'out' ? sec('out') : sec('in') + sec('out')) + '</div>';
 }
-
-// flechas animadas: avanzan sobre cada tramo en el sentido del viaje (hacia el punto en 'Llegan', desde el punto en 'Salen')
-const AC = document.createElement('canvas'); AC.style.cssText = 'position:absolute;left:0;top:0;z-index:450;pointer-events:none'; map.getContainer().appendChild(AC);
-function aRes() { const z = map.getSize(), dpr = window.devicePixelRatio || 1; AC.width = z.x * dpr; AC.height = z.y * dpr; AC.style.width = z.x + 'px'; AC.style.height = z.y + 'px'; }
-map.on('resize', aRes); aRes();
-const T0 = performance.now(), SP = 38;
-function anima(now) {
-  const ctx = AC.getContext('2d'), dpr = window.devicePixelRatio || 1, W = AC.width / dpr, Hh = AC.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
-  if (V.flechas && ED.length) { const ph = ((now - T0) / 1000 * 44) % SP; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(15,23,42,.9)'; ctx.fillStyle = '#fff'; ctx.lineWidth = 1.6;
-    for (const e of ED) { const a = map.latLngToContainerPoint([e.r[0], e.r[1]]), b = map.latLngToContainerPoint([e.r[2], e.r[3]]); if ((a.x < -40 && b.x < -40) || (a.x > W + 40 && b.x > W + 40) || (a.y < -40 && b.y < -40) || (a.y > Hh + 40 && b.y > Hh + 40)) continue;
-      const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy); if (L < 8) continue; const ux = dx / L, uy = dy / L, k = Math.max(6.5, (2 + 9 * Math.sqrt(e.v)) * 1.05);
-      for (let s = ph % SP; s < L; s += SP) { const x = a.x + ux * s, y = a.y + uy * s; ctx.beginPath(); ctx.moveTo(x + ux * k, y + uy * k); ctx.lineTo(x - ux * k * .75 - uy * k * .8, y - uy * k * .75 + ux * k * .8); ctx.lineTo(x - ux * k * .25, y - uy * k * .25); ctx.lineTo(x - ux * k * .75 + uy * k * .8, y - uy * k * .75 - ux * k * .8); ctx.closePath(); ctx.fill(); ctx.stroke(); } } }
-  requestAnimationFrame(anima);
-}
-requestAnimationFrame(anima);
 // zonas de origen (anillos de 2.5 / 6 / 11 / 20 km y 8 sectores, centrados en la propiedad) y tramo de referencia usado como 'punto'
 function capasRef() {
   ZG.clearLayers(); const C = cur(), A = D || DP; if (!C || !A) return; const la0 = A.lat, ln0 = A.lng, kx = 111320 * Math.cos(la0 * Math.PI / 180), ky = 111320, pt = (r, b) => [la0 + r * Math.cos(b * Math.PI / 180) / ky, ln0 + r * Math.sin(b * Math.PI / 180) / kx], m = st.m;
