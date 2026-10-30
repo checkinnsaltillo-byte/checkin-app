@@ -46,7 +46,7 @@
     <div id="pm" style="font-size:11px;color:var(--mu);margin-top:4px"></div>
   </div>
   <div class="lb">Ver en el mapa</div>
-  <div class="sg" id="sv"><button data-v="zonas" class="on" title="Anillos y sectores en que se agrupan los orígenes, con su porcentaje">Zonas de origen</button><button data-v="ref" class="on" title="Tramos de calle que se cuentan como 'pasa por el punto'">Tramo de referencia</button></div>
+  <div class="sg" id="sv"><button data-v="zonas" class="on" title="Anillos y sectores en que se agrupan los orígenes, con su porcentaje">Zonas de origen</button><button data-v="ref" class="on" title="Tramos de calle que se cuentan como 'pasa por el punto'">Tramo de referencia</button><button data-v="flechas" class="on" title="Flechas animadas en el sentido de los viajes">Flechas</button></div>
   <div class="lb">Dirección de los viajes respecto al punto</div>
   <div class="sg" id="sd"><button data-v="all" class="on">Todos</button><button data-v="in" id="sdi">Entrantes</button><button data-v="out" id="sdo">Salientes</button></div>
   <div id="hr"><div class="lb">Horario</div>
@@ -65,7 +65,7 @@ const qs = new URLSearchParams(location.search), ID = qs.get('id') || '';
 const map = L.map('map', { zoomControl: true, preferCanvas: true });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors' }).addTo(map);
 const cv = L.canvas({ padding: .3 }), G = L.layerGroup().addTo(map), LB = L.layerGroup().addTo(map);
-const V = { zonas: true, ref: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, DD = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : st.modo === 'destino' ? DD : D, zv = z => st.modo === 'destino' && st.d === 'out' ? (z.sal || 0) : (z[st.m] || 0);
+const V = { zonas: true, ref: true, flechas: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, DD = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : st.modo === 'destino' ? DD : D, zv = z => st.modo === 'destino' && st.d === 'out' ? (z.sal || 0) : (z[st.m] || 0);
 const stops = [[0, [252, 211, 92]], [.5, [232, 112, 79]], [1, [91, 26, 107]]];
 const color = v => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (v - a[0]) / (b[0] - a[0]); return 'rgb(' + a[1].map((c, k) => Math.round(c + (b[1][k] - c) * t)).join(',') + ')'; } return 'rgb(91,26,107)'; };
 function val(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1, vi = i < 0 ? (r[4] + r[5]) / 2 : r[i], vo = o < 0 ? (r[6] + r[7]) / 2 : r[o]; return st.d === 'in' ? vi : st.d === 'out' ? vo : Math.max(vi, vo); }
@@ -77,6 +77,21 @@ function lista() {
   const svg = '<svg width="150" height="150" viewBox="0 0 120 120"><g transform="rotate(-90 60 60)"><circle cx="60" cy="60" r="' + R + '" fill="none" stroke="var(--bd)" stroke-width="20"/>' + arcs.map(([v, col]) => { const len = v * c, o = off; off += len; return '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-dasharray="' + Math.max(0, len - 1) + ' ' + (c - Math.max(0, len - 1)) + '" stroke-dashoffset="' + (-o) + '"/>'; }).join('') + '</g><text x="60" y="56" text-anchor="middle" font-size="9" fill="var(--mu)">de dónde</text><text x="60" y="68" text-anchor="middle" font-size="9" fill="var(--mu)">vienen</text></svg>';
   el.innerHTML = svg + '<div id="zl">' + L.map(z => '<div><i style="background:' + mp.get(z.id) + '"></i><span>' + z.nombre + '</span><b>' + (zv(z) * 100).toFixed(1) + ' %</b></div>').join('') + (otras > .002 ? '<div><i style="background:#cbd5e1"></i><span>Otras zonas</span><b>' + (otras * 100).toFixed(1) + ' %</b></div>' : '') + '</div>';
 }
+
+// flechas animadas: avanzan sobre cada tramo en el sentido del viaje (hacia el punto en 'Llegan', desde el punto en 'Salen')
+const AC = document.createElement('canvas'); AC.style.cssText = 'position:absolute;left:0;top:0;z-index:450;pointer-events:none'; map.getContainer().appendChild(AC);
+function aRes() { const z = map.getSize(), dpr = window.devicePixelRatio || 1; AC.width = z.x * dpr; AC.height = z.y * dpr; AC.style.width = z.x + 'px'; AC.style.height = z.y + 'px'; }
+map.on('resize', aRes); aRes();
+const T0 = performance.now(), SP = 30;
+function anima(now) {
+  const ctx = AC.getContext('2d'), dpr = window.devicePixelRatio || 1, W = AC.width / dpr, Hh = AC.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
+  if (V.flechas && ED.length) { const ph = ((now - T0) / 1000 * 44) % SP; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#fff'; ctx.lineWidth = 1;
+    for (const e of ED) { const a = map.latLngToContainerPoint([e.r[0], e.r[1]]), b = map.latLngToContainerPoint([e.r[2], e.r[3]]); if ((a.x < -40 && b.x < -40) || (a.x > W + 40 && b.x > W + 40) || (a.y < -40 && b.y < -40) || (a.y > Hh + 40 && b.y > Hh + 40)) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy); if (L < 8) continue; const ux = dx / L, uy = dy / L, k = Math.max(3.6, (2 + 9 * Math.sqrt(e.v)) * .78);
+      for (let s = ph % SP; s < L; s += SP) { const x = a.x + ux * s, y = a.y + uy * s; ctx.beginPath(); ctx.moveTo(x + ux * k, y + uy * k); ctx.lineTo(x - ux * k * .75 - uy * k * .8, y - uy * k * .75 + ux * k * .8); ctx.lineTo(x - ux * k * .25, y - uy * k * .25); ctx.lineTo(x - ux * k * .75 + uy * k * .8, y - uy * k * .75 - ux * k * .8); ctx.closePath(); ctx.fill(); ctx.stroke(); } } }
+  requestAnimationFrame(anima);
+}
+requestAnimationFrame(anima);
 // zonas de origen (anillos de 2.5 / 6 / 11 / 20 km y 8 sectores, centrados en la propiedad) y tramo de referencia usado como 'punto'
 function capasRef() {
   ZG.clearLayers(); const C = cur(), A = D || DP; if (!C || !A) return; const la0 = A.lat, ln0 = A.lng, kx = 111320 * Math.cos(la0 * Math.PI / 180), ky = 111320, pt = (r, b) => [la0 + r * Math.cos(b * Math.PI / 180) / ky, ln0 + r * Math.sin(b * Math.PI / 180) / kx], m = st.m;
