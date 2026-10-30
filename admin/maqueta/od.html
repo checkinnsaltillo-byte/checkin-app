@@ -41,6 +41,8 @@
     <div class="row" style="margin-top:6px"><select id="rb" style="flex:1;padding:6px 8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-size:12px"><option value="">Ambos sentidos</option><option value="0">Sentido hacia el norte</option><option value="180">Sentido hacia el sur</option><option value="90">Sentido hacia el este</option><option value="270">Sentido hacia el oeste</option></select><button id="pc" style="padding:7px 10px;border-radius:8px;border:0;background:#4f46e5;color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer" disabled>Calcular</button></div>
     <div id="pm" style="font-size:11px;color:var(--mu);margin-top:4px"></div>
   </div>
+  <div class="lb">Ver en el mapa</div>
+  <div class="sg" id="sv"><button data-v="zonas" class="on" title="Anillos y sectores en que se agrupan los orígenes, con su porcentaje">Zonas de origen</button><button data-v="ref" class="on" title="Tramos de calle que se cuentan como 'pasa por el punto'">Tramo de referencia</button></div>
   <div class="lb">Dirección de los viajes respecto al punto</div>
   <div class="sg" id="sd"><button data-v="all" class="on">Todos</button><button data-v="in">Entrantes</button><button data-v="out">Salientes</button></div>
   <div class="lb">Horario</div>
@@ -58,12 +60,21 @@ const qs = new URLSearchParams(location.search), ID = qs.get('id') || '';
 const map = L.map('map', { zoomControl: true, preferCanvas: true });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors' }).addTo(map);
 const cv = L.canvas({ padding: .3 }), G = L.layerGroup().addTo(map), LB = L.layerGroup().addTo(map);
-let D = null, DP = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : D;
+const V = { zonas: true, ref: true }, ZG = L.layerGroup().addTo(map); let D = null, DP = null, st = { d: 'all', m: 'dia', mn: 1.5, modo: 'zona' }, ED = [], fitted = false, MK = null, PT = null, busy = 0; const cur = () => st.modo === 'punto' ? DP : D;
 const stops = [[0, [252, 211, 92]], [.5, [232, 112, 79]], [1, [91, 26, 107]]];
 const color = v => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const a = stops[i - 1], b = stops[i], t = (v - a[0]) / (b[0] - a[0]); return 'rgb(' + a[1].map((c, k) => Math.round(c + (b[1][k] - c) * t)).join(',') + ')'; } return 'rgb(91,26,107)'; };
 function val(r) { const m = st.m, i = m === 'am' ? 4 : m === 'pm' ? 5 : -1, o = m === 'am' ? 6 : m === 'pm' ? 7 : -1, vi = i < 0 ? (r[4] + r[5]) / 2 : r[i], vo = o < 0 ? (r[6] + r[7]) / 2 : r[o]; return st.d === 'in' ? vi : st.d === 'out' ? vo : Math.max(vi, vo); }
+// zonas de origen (anillos de 2.5 / 6 / 11 / 20 km y 8 sectores, centrados en la propiedad) y tramo de referencia usado como 'punto'
+function capasRef() {
+  ZG.clearLayers(); const C = cur(), A = D || DP; if (!C || !A) return; const la0 = A.lat, ln0 = A.lng, kx = 111320 * Math.cos(la0 * Math.PI / 180), ky = 111320, pt = (r, b) => [la0 + r * Math.cos(b * Math.PI / 180) / ky, ln0 + r * Math.sin(b * Math.PI / 180) / kx], m = st.m;
+  if (V.zonas) { [2500, 6000, 11000, 20000].forEach(r => { const pts = []; for (let b = 0; b <= 360; b += 5) pts.push(pt(r, b)); L.polyline(pts, { color: '#64748b', weight: 1.2, dashArray: '6 6', opacity: .8, interactive: false }).addTo(ZG); });
+    for (let k = 0; k < 8; k++) { const b = k * 45 + 22.5; L.polyline([pt(2500, b), pt(20000, b)], { color: '#64748b', weight: 1, dashArray: '2 6', opacity: .6, interactive: false }).addTo(ZG); }
+    C.zonas.forEach(z => { const sh = z[m]; if (sh == null || sh < .005) return; const r = (z.r0 + z.r1) / 2, p = z.rumbo == null ? pt(0, 0) : pt(r, z.rumbo); L.marker(p, { interactive: false, icon: L.divIcon({ className: '', html: '<div style="transform:translate(-50%,-50%);background:rgba(15,23,42,.85);color:#fff;border-radius:7px;padding:2px 6px;font:700 11px Inter,Arial,sans-serif;white-space:nowrap">' + (z.rumbo == null ? 'Entorno ' : '') + (sh * 100).toFixed(0) + ' %</div>', iconSize: [0, 0] }) }).addTo(ZG); }); }
+  if (V.ref) { (C.ref || []).forEach(r => L.polyline([[r[0], r[1]], [r[2], r[3]]], { color: '#1d4ed8', weight: 7, opacity: .85, lineCap: 'round', interactive: false }).addTo(ZG));
+    if (st.modo !== 'punto') L.circle([la0, ln0], { radius: 150, color: '#1d4ed8', weight: 1.5, dashArray: '4 4', fillOpacity: .04, interactive: false }).addTo(ZG); }
+}
 function dibuja() {
-  G.clearLayers(); LB.clearLayers(); const C = cur(); if (!C || !C.arbol) { document.getElementById('ms').textContent = st.modo === 'punto' ? 'Aún no hay un cálculo para un punto específico.' : ''; return; } const mn = st.mn / 100;
+  capasRef(); G.clearLayers(); LB.clearLayers(); const C = cur(); if (!C || !C.arbol) { document.getElementById('ms').textContent = st.modo === 'punto' ? 'Aún no hay un cálculo para un punto específico.' : ''; return; } const mn = st.mn / 100;
   ED = C.arbol.map(r => ({ r, v: val(r) })).filter(e => e.v >= mn).sort((a, b) => a.v - b.v);
   ED.forEach(e => L.polyline([[e.r[0], e.r[1]], [e.r[2], e.r[3]]], { renderer: cv, color: color(e.v), weight: 2 + 9 * Math.sqrt(e.v), opacity: .92, lineCap: 'round' }).addTo(G));
   document.getElementById('ms').textContent = ED.length + ' tramos con ≥ ' + st.mn + ' % de los viajes';
@@ -78,6 +89,7 @@ function ui() {
   document.querySelectorAll('#sd button').forEach(b => b.classList.toggle('on', b.dataset.v === st.d)); document.querySelectorAll('#sm button').forEach(b => b.classList.toggle('on', b.dataset.v === st.m));
   document.getElementById('mnv').textContent = st.mn + ' %';
 }
+document.getElementById('sv').onclick = e => { const b = e.target.closest('button'); if (!b) return; V[b.dataset.v] = !V[b.dataset.v]; b.classList.toggle('on', V[b.dataset.v]); capasRef(); };
 document.getElementById('sd').onclick = e => { const b = e.target.closest('button'); if (b) { st.d = b.dataset.v; ui(); dibuja(); } };
 document.getElementById('sm').onclick = e => { const b = e.target.closest('button'); if (b) { st.m = b.dataset.v; ui(); dibuja(); } };
 document.getElementById('mn').oninput = e => { st.mn = +e.target.value; ui(); dibuja(); };
