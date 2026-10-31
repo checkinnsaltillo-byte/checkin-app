@@ -90,6 +90,10 @@
   #pw-bar{position:fixed;z-index:8550;display:flex;flex-flow:column wrap;align-items:flex-start;align-content:flex-start;gap:6px;max-height:calc(100vh - 96px)}
   .pwc{height:34px;padding:0 12px 0 9px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit;font-weight:600;border-radius:10px;border:0;cursor:pointer;background:rgba(15,23,42,.88);color:#fff;font-size:16px;line-height:1;box-shadow:0 4px 14px rgba(2,6,23,.3);position:relative;transition:transform .12s,background .15s}
   .ico .pwc .pwl{display:none}.ico .pwc{padding:0 9px}.pwc .pwl{font-size:12px;letter-spacing:.1px}.pwc:hover{transform:translateX(2px);background:#1e293b}.pwc.on{background:linear-gradient(135deg,#6366f1,#4f46e5)}
+  /* tema oscuro: se invierten las superficies claras (tarjetas del menú, ventanas y popups) y se devuelven a su color las fotos y las tarjetas de portada */
+  .tema-osc #dock>div:not(#tt),.tema-osc .pwin,.tema-osc #ent-pop,.tema-osc #gp-pop,.tema-osc #psl-pop,.tema-osc #sol-map,.tema-osc #cr-pop,.tema-osc #map-ctl .zpar,.tema-osc #map-ctl #b-rot,.tema-osc button.mc-ind,.tema-osc #brujula{filter:invert(1) hue-rotate(180deg)}
+  .tema-osc :is(#dock,.pwin,#ent-pop,#gp-pop,#psl-pop) img:not(.leaflet-tile):not(.leaflet-marker-icon),.tema-osc :is(#dock,.pwin,#ent-pop,#gp-pop,#psl-pop) video,.tema-osc :is(.pwin,#ent-pop,#gp-pop,#psl-pop) [style*="linear-gradient(135deg"]{filter:invert(1) hue-rotate(180deg)}
+  .tema-osc .pwin .pwtabs button.on,.tema-osc #dock .seg button.on{filter:none}
   .pwc.dot::after{content:"";position:absolute;right:3px;top:3px;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px rgba(15,23,42,.9)}
   .pwin{position:fixed;z-index:8600;width:410px;max-width:92vw;background:#fff;border-radius:14px;box-shadow:0 14px 40px rgba(2,6,23,.38),0 0 0 1px rgba(15,23,42,.08);display:none;flex-direction:column;overflow:hidden;font-family:system-ui,sans-serif;color:#334155;font-size:12px}
   .pwin.on{display:flex}
@@ -897,6 +901,15 @@ const TODP = {
 };
 const NIGHT = { lv: 0, mats: [], reg(m, base) { this.mats.push({ m, base }); m.opacity = base * this.lv; m.visible = this.lv > 0; return m; }, set(lv) { this.lv = lv; this.mats.forEach(o => { o.m.opacity = o.base * lv; o.m.visible = lv > 0; }); } }, NLV = { dia: 0, mediodia: 0, amanecer: .35, atardecer: .7, noche: 1 };
 const TOD = { k: 'dia', h: null, hs: {}, bg0: null, bgs: {}, envs: {} };
+// ── tema Claro / Oscuro (sección Herramientas)
+const TEMA = { v: (() => { try { return localStorage.getItem('mq-tema') === 'osc' ? 'osc' : 'claro'; } catch (_) { return 'claro'; } })(), prevTod: null, prevBase: null }; window.__tema = TEMA.v;
+function temaSet(v) {
+  TEMA.v = window.__tema = v; try { localStorage.setItem('mq-tema', v); } catch (_) { } document.documentElement.classList.toggle('tema-osc', v === 'osc'); document.querySelectorAll('.tema-seg button').forEach(b => b.classList.toggle('on', b.dataset.t === v));
+  try { if (v === 'osc') { if (TOD.k !== 'noche') { TEMA.prevTod = TOD.k; todSet('noche'); } if (mapMesh) mapMesh.material.color.set(0x6a6a6a); if (CITY.on && CITY.base !== 'oscuro') { TEMA.prevBase = CITY.base; CITY.base = 'oscuro'; cgLimpia(); cgUpdate(); } }
+    else { if (TEMA.prevTod) { todSet(TEMA.prevTod); TEMA.prevTod = null; } if (mapMesh) mapMesh.material.color.set(0xa8a8a8); if (TEMA.prevBase && CITY.on) { CITY.base = TEMA.prevBase; TEMA.prevBase = null; cgLimpia(); cgUpdate(); } } } catch (_) { }
+}
+function temaSeg(tl) { if (tl.querySelector('.tema-seg')) return; const d = document.createElement('div'); d.className = 'seg tema-seg'; d.style.cssText = 'margin:0 0 6px'; d.innerHTML = `<b>🎨 Tema</b><button data-t="claro"${TEMA.v === 'claro' ? ' class="on"' : ''}>☀️ Claro</button><button data-t="osc"${TEMA.v === 'osc' ? ' class="on"' : ''}>🌙 Oscuro</button>`; d.onclick = e => { const b = e.target.closest('button[data-t]'); if (b) temaSet(b.dataset.t); }; tl.insertBefore(d, tl.firstChild); }
+if (TEMA.v === 'osc') document.documentElement.classList.add('tema-osc'); setTimeout(() => { if (TEMA.v === 'osc') temaSet('osc'); }, 3500);
 function todBg(k) {
   const p = TODP[k]; if (!p.bg) return TOD.bg0; if (TOD.bgs[k]) return TOD.bgs[k]; const c = document.createElement('canvas'); c.width = 512; c.height = 512; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512); p.bg.forEach((col, i) => gr.addColorStop(i / (p.bg.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
   if (p.stars) { for (let i = 0; i < 260; i++) { const y = Math.pow(Math.random(), 1.7) * 300, r = Math.random() < .08 ? 1.6 : .8; g.fillStyle = `rgba(255,255,255,${.35 + Math.random() * .6})`; g.beginPath(); g.arc(Math.random() * 512, y, r, 0, 7); g.fill(); } }
@@ -989,7 +1002,7 @@ async function mapaTextura(S, tipo, Rov, noAj) {
 async function setMapa(tipo) {
   if (window.__MQ && window.__MQ.sel.size) setTimeout(() => { try { mqMapas(); } catch (_) { } }, 0);
   if (mapMesh) { world.remove(mapMesh); mapMesh = null; } $('attr').textContent = ''; if (!curS || tipo === 'ninguno' || !curS.roads) return;
-  try { const t = await mapaTextura(curS, tipo), m = new THREE.Mesh(new THREE.PlaneGeometry(curS.radio * 2, curS.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; world.add(m); mapMesh = m; $('attr').textContent = MAPAS[tipo].at; renderer.shadowMap.needsUpdate = true; } catch (e) { $('msg').textContent = 'No se pudo cargar el mapa de fondo.'; }
+  try { const t = await mapaTextura(curS, tipo), m = new THREE.Mesh(new THREE.PlaneGeometry(curS.radio * 2, curS.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: window.__tema === 'osc' ? 0x6a6a6a : 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; world.add(m); mapMesh = m; $('attr').textContent = MAPAS[tipo].at; renderer.shadowMap.needsUpdate = true; } catch (e) { $('msg').textContent = 'No se pudo cargar el mapa de fondo.'; }
 }
 $('b-rg').onclick = e => { if (!alertG) return; alertG.visible = !alertG.visible; e.target.classList.toggle('on', alertG.visible); }; $('b-rl').onclick = e => { pwToggle('rgp'); e.target.classList.toggle('on', $('pw-rgp').classList.contains('on')); };
 { const ray = new THREE.Raycaster(), mv = new THREE.Vector2(); let dn = null; renderer.domElement.addEventListener('pointerdown', ev => { dn = [ev.clientX, ev.clientY]; }); renderer.domElement.addEventListener('pointerup', ev => { if (!dn || Math.hypot(ev.clientX - dn[0], ev.clientY - dn[1]) > 5 || !alertHeads.length || !alertG || !alertG.visible) return; const rc = renderer.domElement.getBoundingClientRect(); mv.set((ev.clientX - rc.left) / rc.width * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(mv, camera); const hit = ray.intersectObjects(alertHeads, false)[0]; if (hit) selAlerta(hit.object.userData.i); });
@@ -1282,7 +1295,7 @@ function buildCapas() {
   fm.querySelectorAll('#fr-seg button').forEach(b => b.onclick = () => frSet(+b.dataset.m)); const gb = $('b-gr'); gb.style.display = ''; fm.querySelector('#fr-btns').appendChild(gb); const tmb = document.createElement('button'); tmb.id = 'fr-tema'; tmb.textContent = '☀️ Tema claro'; tmb.onclick = frTema; fm.querySelector('#fr-btns').appendChild(tmb); { const rtb = document.createElement('button'); rtb.id = 'b-rt'; rtb.textContent = '🚗 Rutas de acceso'; rtb.title = 'Recorridos simultáneos desde cruces de vialidades principales hasta la propiedad'; rtb.onclick = () => rtSet(!RT.on); fm.querySelector('#fr-btns').appendChild(rtb); const rp = document.createElement('div'); rp.id = 'rtp'; rp.style.cssText = 'display:none;margin-top:8px;font-size:12px;color:#1f2937'; fm.appendChild(rp); } fm.appendChild($('frp')); wrapCol(fm, '🕸️ Accesibilidad', false); frSegSync();
   const rg = $('rgp'); dock.insertBefore(rg, fm.nextSibling); rg.style.display = 'block';
   let tl = $('tools'); if (!tl) { tl = document.createElement('div'); tl.id = 'tools'; tl.style.cssText = el.style.cssText; dock.appendChild(tl); } tl.innerHTML = '<div class="btnrow" id="tool-btns" style="margin-top:0"></div>'; delete tl.dataset.col;
-  const tb = tl.querySelector('#tool-btns'); ['t-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const b = $(id); b.style.display = ''; tb.appendChild(b); }); wrapCol(tl, '🛠️ Herramientas', false);
+  const tb = tl.querySelector('#tool-btns'); ['t-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const b = $(id); b.style.display = ''; tb.appendChild(b); }); temaSeg(tl); wrapCol(tl, '🛠️ Herramientas', false);
 }
 setInterval(() => { if (document.getElementById('cap')) capasSync(); }, 1000);
 const clock = new THREE.Clock();
@@ -2242,7 +2255,7 @@ async function mqCiudad(on) {
 // mapa de fondo de cada maqueta secundaria (el mismo tipo que la principal)
 async function mqMapaSec(q) {
   if (!q || !q.g) return; q.g.children.filter(o => o.userData.mqMapa).forEach(o => { q.g.remove(o); o.geometry.dispose(); o.material.dispose(); }); if (mapTipo === 'ninguno') return;
-  try { const t = await mapaTextura(q.S, mapTipo), m = new THREE.Mesh(new THREE.PlaneGeometry(q.S.radio * 2, q.S.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; m.userData.mqMapa = 1; q.g.add(m); renderer.shadowMap.needsUpdate = true; } catch (_) { }
+  try { const t = await mapaTextura(q.S, mapTipo), m = new THREE.Mesh(new THREE.PlaneGeometry(q.S.radio * 2, q.S.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: window.__tema === 'osc' ? 0x6a6a6a : 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; m.userData.mqMapa = 1; q.g.add(m); renderer.shadowMap.needsUpdate = true; } catch (_) { }
 }
 function mqMapas() { MQ.sel.forEach(q => mqMapaSec(q)); }
 // la luz del sol (y sus sombras) sigue a la maqueta más cercana al centro de la vista, para que todas tengan sombras completas
@@ -2827,7 +2840,7 @@ PW_CIERRA.od = () => { if (CITY.od) cityToggle(CITY.S || curS); };
 const ECO = { v: 'dbscan', g: 3, eps: 200, minp: 6, bw: 300, hx: 300, hmin: 5, fus: true, D: null, G: null, on: false, tabs: {}, stat: {}, cl: null, prevBase: null, op: 1 };
 const ECO_V = [['dbscan', '🔵 Conglomerados (DBSCAN)'], ['hull', '🫧 Envolvente cóncava'], ['kde', '🔥 Densidad (KDE)'], ['hex', '⬡ Fusión de teselas']];
 async function ecoLoad() { if (!ECO.D) { try { ECO.D = await fetch('data/denue_saltillo.json').then(r => r.json()); } catch (_) { ECO.D = null; } } return ECO.D; }
-function ecoGround(on) { world.children.forEach(o => { if (o.userData.keep && o.geometry && o.geometry.type === 'BoxGeometry') { if (on) { if (o.userData._ev === undefined) o.userData._ev = o.visible; o.visible = false; } else if (o.userData._ev !== undefined) { o.visible = o.userData._ev; delete o.userData._ev; } } }); if (mapMesh && mapMesh.material && mapMesh.material.color) mapMesh.material.color.set(on ? 0x3a3a3a : 0xa8a8a8); if (mapMesh) mapMesh.visible = !on; if (on && !SOLO.on) { ECO.hid = true; soloMapa(true); } else if (!on && ECO.hid) { ECO.hid = false; if (SOLO.on) soloMapa(false); } setTimeout(() => { if (mapMesh) mapMesh.visible = !ECO.on; }, 900); }
+function ecoGround(on) { world.children.forEach(o => { if (o.userData.keep && o.geometry && o.geometry.type === 'BoxGeometry') { if (on) { if (o.userData._ev === undefined) o.userData._ev = o.visible; o.visible = false; } else if (o.userData._ev !== undefined) { o.visible = o.userData._ev; delete o.userData._ev; } } }); if (mapMesh && mapMesh.material && mapMesh.material.color) mapMesh.material.color.set(on ? 0x3a3a3a : (window.__tema === 'osc' ? 0x6a6a6a : 0xa8a8a8)); if (mapMesh) mapMesh.visible = !on; if (on && !SOLO.on) { ECO.hid = true; soloMapa(true); } else if (!on && ECO.hid) { ECO.hid = false; if (SOLO.on) soloMapa(false); } setTimeout(() => { if (mapMesh) mapMesh.visible = !ECO.on; }, 900); }
 function ecoQuita() {
   if (ECO.G) { scene.remove(ECO.G); ECO.G.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); ECO.G = null; }
   ['eco-leg', 'eco-tip'].forEach(i => { const e = $(i); if (e) e.remove(); }); if (ECO.mv) { renderer.domElement.removeEventListener('pointermove', ECO.mv); ECO.mv = null; } ECO.pick = null;
