@@ -91,6 +91,13 @@
   .pwc{height:34px;padding:0 12px 0 9px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit;font-weight:600;border-radius:10px;border:0;cursor:pointer;background:rgba(15,23,42,.88);color:#fff;font-size:16px;line-height:1;box-shadow:0 4px 14px rgba(2,6,23,.3);position:relative;transition:transform .12s,background .15s}
   .ico .pwc .pwl{display:none}.ico .pwc{padding:0 9px}.pwc .pwl{font-size:12px;letter-spacing:.1px}.pwc:hover{transform:translateX(2px);background:#1e293b}.pwc.on{background:linear-gradient(135deg,#6366f1,#4f46e5)}
   /* tema oscuro: se invierten las superficies claras (tarjetas del menú, ventanas y popups) y se devuelven a su color las fotos y las tarjetas de portada */
+  /* menú lateral claro (modo claro); en modo oscuro conserva su marco oscuro */
+  html:not(.tema-osc) #dock{background:linear-gradient(180deg,rgba(248,250,252,.97),rgba(238,242,255,.95) 60%,rgba(241,245,249,.97));border-right:1px solid rgba(15,23,42,.1);box-shadow:10px 0 44px rgba(15,23,42,.16)}
+  html:not(.tema-osc) #tt{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.94));border-bottom:1px solid rgba(15,23,42,.1);color:#0f172a}
+  html:not(.tema-osc) #tt small{color:#64748b}
+  html:not(.tema-osc) #tt .tt-tools button{color:#475569;background:rgba(15,23,42,.07)}html:not(.tema-osc) #tt .tt-tools button:hover{background:rgba(99,102,241,.18);color:#0f172a}
+  html:not(.tema-osc) #dock::-webkit-scrollbar-thumb{background:rgba(100,116,139,.4)}
+  html:not(.tema-osc) #dock-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) #dock-tg:hover{color:#0f172a}
   .tema-osc #dock>div:not(#tt),.tema-osc .pwin,.tema-osc #ent-pop,.tema-osc #gp-pop,.tema-osc #psl-pop,.tema-osc #sol-map,.tema-osc #cr-pop,.tema-osc #map-ctl .zpar,.tema-osc #map-ctl #b-rot,.tema-osc button.mc-ind,.tema-osc #brujula{filter:invert(1) hue-rotate(180deg)}
   .tema-osc :is(#dock,.pwin,#ent-pop,#gp-pop,#psl-pop) img:not(.leaflet-tile):not(.leaflet-marker-icon),.tema-osc :is(#dock,.pwin,#ent-pop,#gp-pop,#psl-pop) video,.tema-osc :is(.pwin,#ent-pop,#gp-pop,#psl-pop) [style*="linear-gradient(135deg"]:not(#ent-ph):not(#gp-ph):not(.xl-ph){filter:invert(1) hue-rotate(180deg)}
   #ent-ph,#gp-ph,.xl-ph{background:linear-gradient(90deg,#f8fafc,#eef2ff)!important;color:#0f172a!important;border-bottom:1px solid #e2e8f0}#ent-ph button,#gp-ph button,.xl-ph button{background:rgba(15,23,42,.07)!important;color:#334155!important}#ent-ph button:hover,#gp-ph button:hover,.xl-ph button:hover{background:rgba(15,23,42,.14)!important}
