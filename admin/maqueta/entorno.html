@@ -2033,7 +2033,7 @@ function mqRender() {
 
 // ── sobrevuelo: la cámara recorre en bucle las maquetas como un avión; baja para ver el detalle de cada punto, vuelve a subir y desciende en el siguiente. Las características se dan en texto libre.
 const VUELO = { on: 0, raf: 0, pts: [], P: [], cum: [], sW: [], L: 0, s: 0, t: 0, vel: 1, pausa: 0, hud: null, lt: 0, hudT: 0, dw: null, bl: null, cfg: {} };
-const VUELO_DEF = { espera: 0, altBaja: null, altCrucero: null, pitch: 30, vel: 1, orbita: false, vueltas: null, repetir: true, orden: [], inicio: '' }, vsm = x => x * x * (3 - 2 * x), vcl = (v, a, b) => Math.max(a, Math.min(b, +v));
+const VUELO_DEF = { espera: 3, altBaja: null, altCrucero: null, pitch: 30, vel: 1, orbita: false, vueltas: null, repetir: true, orden: [], inicio: '' }, vsm = x => x * x * (3 - 2 * x), vcl = (v, a, b) => Math.max(a, Math.min(b, +v));
 // texto libre → parámetros: primero el asistente (Claude) y, si no responde, reglas simples sobre el texto
 const vueloNum = t => parseFloat(String(t).replace(/\./g, m => m).replace(',', '.'));
 function vueloLocal(tx) {
@@ -2068,10 +2068,10 @@ function vueloEstado(s) {
 function vueloTick(t) {
   VUELO.raf = 0; if (!VUELO.on) return; const dt = Math.min(.1, (t - (VUELO.lt || t)) / 1000), cf = VUELO.cfg; VUELO.lt = t; let e = vueloEstado(VUELO.s);
   if (!VUELO.pausa) {
-    if (VUELO.dw) { VUELO.dw.t += dt; if (VUELO.dw.t >= VUELO.dw.dur) { VUELO.dw = null; VUELO.bl = { t: 0, c: camera.position.clone(), tg: controls.target.clone() }; } }
-    else { const s0 = VUELO.s, a = s0 % VUELO.L; VUELO.s += e.v * cf.vel * VUELO.vel * dt; const b = VUELO.s % VUELO.L; VUELO.t += dt;
+    VUELO.t += dt; if (VUELO.dw) { VUELO.dw.t += dt; if (VUELO.dw.t >= VUELO.dw.pre) vueloKpiShow(true, VUELO.dw.k); if (VUELO.dw.t >= VUELO.dw.dur) { vueloKpiShow(false); VUELO.dw = null; VUELO.bl = { t: 0, c: camera.position.clone(), tg: controls.target.clone() }; } }
+    else { const s0 = VUELO.s, a = s0 % VUELO.L; VUELO.s += e.v * cf.vel * VUELO.vel * dt; const b = VUELO.s % VUELO.L;
       if (!cf.repetir && VUELO.s >= VUELO.L) { vueloPara(); return; }
-      if (cf.espera > 0) for (let k = 0; k < VUELO.sW.length; k++) { const w = VUELO.sW[k], cruza = a <= b ? (a < w && w <= b) : (w > a || w <= b); if (cruza && !(k === 0 && s0 < 1)) { VUELO.s = Math.floor(VUELO.s / VUELO.L) * VUELO.L + w; if (b < a && w > a) VUELO.s -= VUELO.L; const e2 = vueloEstado(VUELO.s); VUELO.dw = { k, t: 0, dur: cf.espera, a0: Math.atan2(-e2.fx, -e2.fz) }; VUELO.bl = { t: 0, c: camera.position.clone(), tg: controls.target.clone() }; break; } } }
+      if (cf.espera > 0) for (let k = 0; k < VUELO.sW.length; k++) { const w = VUELO.sW[k], cruza = a <= b ? (a < w && w <= b) : (w > a || w <= b); if (cruza && !(k === 0 && s0 < 1)) { VUELO.s = Math.floor(VUELO.s / VUELO.L) * VUELO.L + w; if (b < a && w > a) VUELO.s -= VUELO.L; const e2 = vueloEstado(VUELO.s); VUELO.dw = { k, t: 0, pre: 1.7, dur: cf.espera + 1.7, a0: Math.atan2(-e2.fx, -e2.fz) }; VUELO.bl = { t: 0, c: camera.position.clone(), tg: controls.target.clone() }; break; } } }
     e = vueloEstado(VUELO.s);
   }
   let C = new THREE.Vector3(e.x, e.alt, e.z), T = new THREE.Vector3(e.T[0], 0, e.T[1]);
@@ -2083,6 +2083,33 @@ function vueloTick(t) {
   VUELO.raf = requestAnimationFrame(vueloTick);
 }
 
+
+// ── pausa sobre cada punto con sus 5 indicadores clave en pantalla (KPIs grandes)
+const VK_IDS = [['inu', 'riesgo', 'Riesgo de inundación'], ['rie', 'rg', 'Riesgos detectados'], ['met', 'aire', 'Calidad del aire'], ['met', 'temp', 'Temperatura media'], ['urb', 'veg', 'Vegetación']];
+function kpiPick(lst) { const flat = lst.flatMap(c => c.an).flatMap(e => e.ind.map(i => ({ e: e.id, i }))); return VK_IDS.map(([e, id, n]) => { const f = flat.find(x => x.e === e && x.i.id === id), r = f && f.i.r; return { n, r: r || { val: '—', unit: '', viz: '<div class="ind-na">sin datos</div>', sem: 'na', msg: '' } }; }); }
+// maqueta principal: lo mínimo para sus 5 KPIs (clima y aire, relieve para la inundación, cobertura del suelo)
+async function kpiPrim() { const S = solS(); try { if (SOL.amb === undefined) await solAmbCarga(); } catch (_) { } try { const d = await demGet(S), k = [S.lat, S.lng, (S.roads || []).length].join('|'); if (!INU.net || INU.key !== k) { INU.net = inuNet(S, d); INU.key = k; } if (INU.net) { INU.f = 1; inuEval(); } } catch (_) { } try { if (!URB.suelo) await urbSuelo(S); } catch (_) { } return kpiPick(evalLst()); }
+// maquetas secundarias: mismos datos, calculados sin tocar el estado de la principal
+async function kpiSec(id, S) {
+  const c = INDX.cols.get(id) || {}; INDX.cols.set(id, c); Object.assign(c, { id, S }); const J = u => fetch('https://api.check-inn.mx/mercado/' + u, { cache: 'no-store' }).then(r => r.json()).catch(() => null), D = {}; D.amb = (await J(`airbnb/ambiente/dato?id=${id}`) || {}).ambiente || null; try { D.dem = await inuDem(S); } catch (_) { } try { D.suelo = await urbSueloGet(S); } catch (_) { }
+  const sv = indSnap(), sS = [window.__curS, curS, window.__IDO]; indPut(c.st || indVacio()); window.__curS = S; curS = S; window.__IDO = id; let k = null; try { SOL.amb = D.amb; if (D.dem) { INU.d = D.dem; INU.net = inuNet(S, D.dem); INU.key = 'k'; if (INU.net) { INU.f = 1; inuEval(); } } if (D.suelo) URB.suelo = D.suelo; k = kpiPick(evalLst()); } finally { c.st = indSnap(); indPut(sv); window.__curS = sS[0]; curS = sS[1]; window.__IDO = sS[2]; } return k || kpiPick([]);
+}
+function vueloKpiHtml(nom, K) {
+  if (!$('vk-css')) { const st = document.createElement('style'); st.id = 'vk-css'; st.textContent = `
+  .vkw{position:fixed;bottom:128px;transform:translateX(-50%);z-index:99989;pointer-events:none;text-align:center}
+  .vkt{display:inline-block;margin-bottom:10px;background:rgba(6,14,28,.93);border:1px solid rgba(125,211,252,.6);color:#fff;font:800 14px system-ui,sans-serif;letter-spacing:.02em;padding:6px 16px;border-radius:99px;animation:vk-in .4s both}.vkt small{font-weight:600;color:#bae6fd;margin-left:8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .vkr{display:flex;gap:12px;justify-content:center}
+  .vk{width:176px;background:rgba(6,14,28,.94);border:1px solid rgba(125,211,252,.5);border-top:4px solid var(--c,#94a3b8);border-radius:16px;padding:11px 13px 12px;color:#fff;text-align:left;box-shadow:0 12px 32px rgba(0,0,0,.45);animation:vk-in .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 80ms)}
+  .vk>small{display:block;font:700 10.5px system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#bae6fd;min-height:25px}
+  .vk .v{display:flex;align-items:baseline;gap:5px;margin:2px 0 7px;flex-wrap:wrap}.vk .v b{font:800 34px/1 system-ui,sans-serif;letter-spacing:-.02em}.vk .v span{font:600 12px system-ui,sans-serif;color:#cbd5e1}
+  .vk .z{height:64px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:10px}.vk .z>*{transform:scale(1.3)}
+  .vk .s{margin-top:8px;display:flex;align-items:center;gap:6px;font:800 11px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--c,#cbd5e1)}.vk .s i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+  @keyframes vk-in{from{opacity:0;transform:translateY(24px) scale(.94)}}`; document.head.appendChild(st); }
+  return `<div class="vkt">${esc_(nom)}<small>Indicadores clave</small></div><div class="vkr">${K.map((k, i) => `<div class="vk" style="--i:${i};--c:${IND_SEM[k.r.sem][0]}"><small>${k.n}</small><div class="v"><b>${k.r.val}</b><span>${k.r.unit}</span></div><div class="z">${k.r.viz}</div><div class="s"><i></i>${IND_SEM[k.r.sem][1]}</div></div>`).join('')}</div>`;
+}
+function vueloKpiShow(on, k) {
+  let e = $('vkw'); if (!on) { if (e) e.remove(); VUELO.kOn = -1; return; } if (VUELO.kOn === k) return; VUELO.kOn = k; const q = VUELO.pts[k]; if (!q || !q.kpi) return; if (e) e.remove(); e = document.createElement('div'); e.id = 'vkw'; e.className = 'vkw'; const d = $('dock'), L = d && !d.classList.contains('off') ? d.getBoundingClientRect().right : 0; const av = innerWidth - L - 176, kk = Math.max(.5, Math.min(1, av / 960)); e.style.left = (L + av / 2 + 10) + 'px'; e.style.transform = `translateX(-50%) scale(${kk})`; e.style.transformOrigin = 'bottom center'; e.innerHTML = vueloKpiHtml(String(q.n).split(' - ')[0].split(' · ')[0], q.kpi); document.body.appendChild(e);
+}
 // ── cabina: instrumentos sobre el mapa durante el vuelo (brújula, altímetro, velocidad, ángulo de la cámara y siguiente punto)
 function vueloCockpit() {
   if (!$('vf-css')) { const st = document.createElement('style'); st.id = 'vf-css'; st.textContent = `
@@ -2109,7 +2136,7 @@ function vueloCpAct(C, T, e, t) {
   c.trk.querySelector('#vf-nx').textContent = VUELO.dw ? `EN ESPERA · ${Math.max(0, Math.ceil(VUELO.dw.dur - VUELO.dw.t))} s` : `SIGUIENTE: ${nm} · ${(dist / 1000).toFixed(1)} km${eta ? ' · ' + Math.round(eta / (VUELO.cfg.vel * VUELO.vel > 0 ? 1 : 1)) + ' s' : ''}`; const d = c.trk.querySelector('.dts'); if (d.children.length !== n) d.innerHTML = '<i></i>'.repeat(n); [...d.children].forEach((q, k) => { const cur = VUELO.dw ? VUELO.dw.k : (nk - 1 + n) % n; q.className = k === nk && !VUELO.dw ? 'on' : VUELO.dw && VUELO.dw.k === k ? 'on' : ''; });
 }
 function vueloPara() {
-  if (!VUELO.on) return; VUELO.on = 0; cancelAnimationFrame(VUELO.raf); VUELO.raf = 0; controls.enabled = true; if (VUELO.hud) { VUELO.hud.remove(); VUELO.hud = null; } if (VUELO.cp) { Object.values(VUELO.cp).forEach(x => x && x.remove && x.remove()); VUELO.cp = null; } document.removeEventListener('keydown', VUELO.esc); mqToast(''); vueRender();
+  if (!VUELO.on) return; VUELO.on = 0; cancelAnimationFrame(VUELO.raf); VUELO.raf = 0; controls.enabled = true; if (VUELO.hud) { VUELO.hud.remove(); VUELO.hud = null; } if (VUELO.cp) { Object.values(VUELO.cp).forEach(x => x && x.remove && x.remove()); VUELO.cp = null; } vueloKpiShow(false); document.removeEventListener('keydown', VUELO.esc); mqToast(''); vueRender();
 }
 function vueRender() { const b = $('vue-go'); if (b) { b.classList.toggle('on', !!VUELO.on); b.textContent = VUELO.on ? '⏹ Detener sobrevuelo' : '✈️ Iniciar sobrevuelo'; } }
 async function vueloToggle() {
@@ -2117,16 +2144,17 @@ async function vueloToggle() {
   VUELO.cfg = tx.trim() ? await vueloInterpreta(tx) : Object.assign({}, VUELO_DEF, { via: '', nota: '' }); if (inf) inf.innerHTML = `<div style="font-size:11px;color:#475569;margin-top:6px"><b>Entendí${VUELO.cfg.via ? ' (' + VUELO.cfg.via + ')' : ''}:</b> ${vueloChips(VUELO.cfg).map(c => `<span style="display:inline-block;background:#eef2ff;color:#3730a3;border-radius:99px;padding:2px 8px;margin:2px 3px 0 0;font-weight:600">${esc_(c)}</span>`).join('')}${VUELO.cfg.nota ? `<div style="margin-top:4px;color:#64748b">${esc_(VUELO.cfg.nota)}</div>` : ''}</div>`;
   mqToast('Preparando el vuelo: desplegando las maquetas…'); MQ.items.filter(q => q.id !== pid() && !MQ.sel.has(q.id)).forEach(q => mqToggle(q.id, true));
   for (let i = 0; i < 1200 && VUELO.on; i++) { const pend = [...MQ.sel.values()].some(q => !q.g && q.cargando) || MQ.busy; if (!pend) break; await new Promise(r => setTimeout(r, 100)); }
-  if (!VUELO.on) return; const pts = [{ x: 0, z: 0, R: S.radio, n: S.tit || S.titulo || 'Principal' }]; MQ.sel.forEach((q, id) => { if (q.g) pts.push({ x: q.ox, z: q.oz, R: q.S.radio, n: (MQ.items.find(x => x.id === id) || {}).titulo || id }); });
+  if (!VUELO.on) return; const pts = [{ id: pid(), x: 0, z: 0, R: S.radio, n: S.tit || S.titulo || 'Principal' }]; MQ.sel.forEach((q, id) => { if (q.g) pts.push({ id, x: q.ox, z: q.oz, R: q.S.radio, n: (MQ.items.find(x => x.id === id) || {}).titulo || id }); });
   if (pts.length < 2) { mqToast('Se necesitan al menos 2 maquetas para el vuelo'); setTimeout(() => mqToast(''), 2500); VUELO.on = 0; vueRender(); return; }
   await mqCiudad(true);
+  if (VUELO.cfg.espera > 0) { mqToast('Calculando los indicadores clave de cada punto…'); try { const ks = await Promise.all(pts.map(q => q.id === pid() ? kpiPrim() : kpiSec(q.id, MQ.sel.get(q.id).S))); pts.forEach((q, i) => { q.kpi = ks[i]; }); } catch (_) { } if (!VUELO.on) return; }
   const nm = q => String(q.n).toLowerCase(), busca = t => pts.find(q => nm(q).includes(String(t).toLowerCase())); let orden = [];
   if (VUELO.cfg.orden.length) VUELO.cfg.orden.forEach(t => { const q = busca(t); if (q && !orden.includes(q)) orden.push(q); });
   if (!orden.length && VUELO.cfg.inicio) { const q = busca(VUELO.cfg.inicio); if (q) orden.push(q); } if (!orden.length) orden.push(pts[0]);
   const rest = pts.filter(q => !orden.includes(q)); while (rest.length) { const u = orden[orden.length - 1]; rest.sort((a, b) => Math.hypot(a.x - u.x, a.z - u.z) - Math.hypot(b.x - u.x, b.z - u.z)); orden.push(rest.shift()); }
   VUELO.pts = orden; vueloRuta(orden); let sp = 0; orden.forEach((a, i) => { const b = orden[(i + 1) % orden.length]; sp = Math.max(sp, Math.hypot(a.x - b.x, a.z - b.z)); });
   VUELO.hi = VUELO.cfg.altCrucero != null ? VUELO.cfg.altCrucero : Math.max(900, Math.min(3200, sp * .45)); VUELO.sig = Math.max(650, Math.min(1400, sp * .22)); VUELO.vmax = Math.max(260, Math.min(650, VUELO.hi * .4)); VUELO.s = 0; VUELO.t = 0; VUELO.lt = 0; VUELO.pausa = 0; VUELO.vel = 1; VUELO.bl = null; VUELO.from = { c: camera.position.clone(), t: controls.target.clone() };
-  VUELO.dw = VUELO.cfg.espera > 0 ? { k: 0, t: 0, dur: VUELO.cfg.espera, a0: Math.atan2(-1, -1) } : null;
+  VUELO.dw = VUELO.cfg.espera > 0 ? { k: 0, t: 0, pre: 2.7, dur: VUELO.cfg.espera + 2.7, a0: Math.atan2(-1, -1) } : null;
   mqToast(''); controls.enabled = false; controls.autoRotate = false; const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99990;display:flex;gap:10px;align-items:center;background:rgba(15,23,42,.94);color:#fff;font:700 12.5px system-ui,sans-serif;padding:9px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4)';
   h.innerHTML = '<span>✈️</span><span id="vf-t" style="min-width:250px">Despegando…</span><button id="vf-p" style="all:unset;cursor:pointer;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.14)">⏸ Pausa</button><select id="vf-v" style="font:inherit;border-radius:8px;border:0;padding:4px 6px"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="3">3×</option></select><button id="vf-x" style="all:unset;cursor:pointer;padding:4px 10px;border-radius:8px;background:#dc2626">⏹ Detener</button>';
   document.body.appendChild(h); VUELO.hud = h; $('vf-p').onclick = e => { VUELO.pausa = !VUELO.pausa; e.target.textContent = VUELO.pausa ? '▶ Seguir' : '⏸ Pausa'; }; $('vf-v').onchange = e => { VUELO.vel = +e.target.value; }; $('vf-x').onclick = vueloPara; VUELO.esc = ev => { if (ev.key === 'Escape') vueloPara(); }; document.addEventListener('keydown', VUELO.esc); vueloCockpit();
