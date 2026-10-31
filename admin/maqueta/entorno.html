@@ -3301,6 +3301,17 @@ function demVista(k) { DEM.v = k; CITY.dv = k; if (k === 'nse') CITY.anio = 'p20
 }
 function demSync() { document.querySelectorAll('#pw-dem .dem-map').forEach(b => { const k = [...document.querySelectorAll('#pw-dem .dem-map')].indexOf(b), kk = ['pob', 'viv', 'den', 'nse'][k]; b.textContent = CITY.demo && DEM.v === kk ? '✖ Quitar del mapa' : '🗺️ Ver en el mapa'; }); document.querySelectorAll('.dem-y').forEach(x => x.value = CITY.anio === 'p25' ? 'p25' : 'p20'); demRes(); }
 async function demLoad() { if (!CITY.pobD) { try { CITY.pobD = await fetch('data/poblacion_hex_saltillo.json').then(r => r.json()); } catch (_) { } } if (!CITY.nseD) { try { CITY.nseD = await fetch('data/nse_hex_saltillo.json').then(r => r.json()); } catch (_) { } } demSync(); }
+// ───── opacidad de las capas de cada análisis (control en Configuración de cada ventana)
+const OPA = { eco: { v: 1, g: () => [ECO.G, GP.G] }, dem: { v: 1, g: () => [CITY.hx] }, ent: { v: 1, g: () => [ENT.G] }, psl: { v: 1, g: () => [PSL.G] }, aire: { v: 1, g: () => [AIR.G] }, arb: { v: 1, g: () => [HXL.G] }, emi: { v: 1, g: () => [HXL.G] } };
+function opaAplica(id) {
+  const o = OPA[id]; o.g().forEach(g => { if (!g || (g.userData.opa === o.v && !g.userData.opaN)) return; g.userData.opa = o.v; g.traverse(m => { const ms = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : []; ms.forEach(mt => { if (mt.userData.op0 === undefined) mt.userData.op0 = mt.opacity == null ? 1 : mt.opacity; mt.transparent = true; mt.opacity = mt.userData.op0 * o.v; mt.needsUpdate = true; }); }); });
+}
+Object.keys(OPA).forEach(id => {
+  const el = $('pw-' + id); if (!el) return;
+  el.querySelectorAll('.pwcfg').forEach(c => { if (c.querySelector('.op-row')) return; const d = document.createElement('div'); d.className = 'op-row'; d.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0 2px;color:#475569'; d.innerHTML = '<span style="flex:none">◐ Opacidad de la capa</span><input class="op-s" type="range" min="10" max="100" value="100" style="flex:1"><b class="op-v" style="width:40px;text-align:right">100 %</b>'; c.appendChild(d); });
+  el.addEventListener('input', e => { if (!e.target.classList.contains('op-s')) return; OPA[id].v = +e.target.value / 100; el.querySelectorAll('.op-s').forEach(x => { x.value = e.target.value; }); el.querySelectorAll('.op-v').forEach(x => { x.textContent = e.target.value + ' %'; }); OPA[id].g().forEach(g => { if (g) delete g.userData.opa; }); opaAplica(id); });
+});
+setInterval(() => { if (document.hidden) return; Object.keys(OPA).forEach(id => { if (OPA[id].v !== 1 || OPA[id].g().some(g => g && g.userData.opa !== undefined)) opaAplica(id); }); }, 300);
 // opciones de la capa Demografía: se muestran debajo de su casilla en Capas
 function demoOpt() {
   const ck = document.querySelector('#cap .ck[data-k="demografia"]'); if (!ck) return; let o = $('demo-opt'); if (!CITY.demo) { if (o) o.remove(); return; }
