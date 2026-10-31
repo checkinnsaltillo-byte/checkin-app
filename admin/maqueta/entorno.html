@@ -1312,7 +1312,8 @@ function pwMake(id) {
   h.addEventListener('pointermove', ev => { if (!dg) return; el.style.left = Math.max(0, Math.min(innerWidth - 80, ev.clientX - dg.dx)) + 'px'; el.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dg.dy)) + 'px'; }); h.addEventListener('pointerup', () => { dg = null; });
   PW.m.set(id, r); return r;
 }
-function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; r.el.classList.toggle('on', on); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); }
+const PW_CIERRA = {};   // al cerrar la ventana de un análisis se retiran sus elementos del mapa y vuelve la maqueta
+function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
@@ -2810,6 +2811,11 @@ async function entSync(force) {
   new MutationObserver(() => { if (r.el.classList.contains('on')) entSync(); }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
   setInterval(() => { if (document.hidden) return; if ((r.el.classList.contains('on') || ENT.on) && String(curId()) !== ENT.k) entSync(); }, 1500);
 }
+PW_CIERRA.eco = () => { if (ECO.on) ecoSet(curS, false); };
+PW_CIERRA.dem = () => { if (CITY.demo) demoSet(curS, false); };
+PW_CIERRA.ent = () => { if (ENT.on) { ENT.on = false; entQuita(); entPopCierra(); document.querySelectorAll('#pw-ent .ent-map').forEach(b => b.textContent = '📷 Ver fotos en el mapa'); } };
+PW_CIERRA.cov = () => { if (COB.mapa) covMapa(CITY.S || curS, false); };
+PW_CIERRA.od = () => { if (CITY.od) cityToggle(CITY.S || curS); };
 // ───── Establecimientos económicos (DENUE-INEGI): 4 vistas de aglomeración sobre el mapa de la ciudad
 const ECO = { v: 'dbscan', g: 3, eps: 200, minp: 6, bw: 300, hx: 300, hmin: 5, fus: true, D: null, G: null, on: false, tabs: {}, stat: {}, cl: null, prevBase: null, op: 1 };
 const ECO_V = [['dbscan', '🔵 Conglomerados (DBSCAN)'], ['hull', '🫧 Envolvente cóncava'], ['kde', '🔥 Densidad (KDE)'], ['hex', '⬡ Fusión de teselas']];
