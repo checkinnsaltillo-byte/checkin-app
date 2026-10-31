@@ -2027,8 +2027,50 @@ const mqNom = t => esc_(String(t).replace(/\s*·\s*radio.*$/, ''));
 function mqRender() {
   const d = mqDatos(), el = $('pdi'); mqRenderMulti(); mmRefresh(); if (!el || !d) return; const foco = MQ.foco || pid();
   const fila = q => `<div class="ck rd${q.id === foco ? ' on' : ''}" data-id="${q.id}"><span class="bx" style="border-radius:50%">●</span><span style="min-width:0;flex:1"><b style="font-size:12px">${mqNom(q.titulo)}</b><br><small style="color:#64748b">${q.id === pid() ? 'Maqueta principal' : q.km.toFixed(1) + ' km de la principal' + (q.radio ? ' · radio ' + q.radio + ' m' : '')}${MQ.sel.has(q.id) ? (MQ.sel.get(q.id).cargando ? ' · cargando…' : ' · desplegada') : ''}</small></span></div>`;
-  el.innerHTML = `<div class="btnrow" style="margin:0 0 6px"><button id="pdi-map">🗺️ Mapa de puntos</button></div><div style="font-size:11px;color:#64748b;margin-bottom:6px">Elija un punto para desplegar su maqueta sobre el mapa de la ciudad; las que ya estén desplegadas se conservan. Para compararlas o quitarlas use <b>Indicadores</b>.</div>${fila(d.prin)}${d.otros.map(fila).join('') || `<div style="font-size:11px;color:#94a3b8;padding:6px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}`;
+  el.innerHTML = `<div class="btnrow" style="margin:0 0 6px"><button id="pdi-map">🗺️ Mapa de puntos</button><button id="pdi-fly"${VUELO.on ? ' class="on"' : ''}>${VUELO.on ? '⏹ Detener vuelo' : '✈️ Sobrevuelo'}</button></div><div style="font-size:11px;color:#64748b;margin-bottom:6px">Elija un punto para desplegar su maqueta sobre el mapa de la ciudad; las que ya estén desplegadas se conservan. Para compararlas o quitarlas use <b>Indicadores</b>.</div>${fila(d.prin)}${d.otros.map(fila).join('') || `<div style="font-size:11px;color:#94a3b8;padding:6px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}`;
   const col = el.dataset.col; delete el.dataset.col; if (col !== undefined) el.dataset.col = col; wrapCol(el, '📍 Puntos de interés', false);
+}
+
+// ── sobrevuelo: la cámara recorre en bucle las maquetas como un avión; baja para ver el detalle de cada punto, vuelve a subir y desciende en el siguiente
+const VUELO = { on: 0, raf: 0, pts: [], P: [], cum: [], L: 0, s: 0, t: 0, vel: 1, pausa: 0, hud: null, from: null, lt: 0, hudT: 0 };
+const vsm = x => x * x * (3 - 2 * x);
+function vueloRuta(pts) {
+  const n = pts.length, P = pts.map(q => [q.x, q.z]), out = [[...P[0]]]; for (let i = 0; i < n; i++) { const p0 = P[(i + n - 1) % n], p1 = P[i], p2 = P[(i + 1) % n], p3 = P[(i + 2) % n]; for (let k = 1; k <= 48; k++) { const t = k / 48, t2 = t * t, t3 = t2 * t, f = (a, b, c, d) => .5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]); } }
+  const cum = [0]; for (let i = 1; i < out.length; i++) cum.push(cum[i - 1] + Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1])); VUELO.P = out; VUELO.cum = cum; VUELO.L = cum[cum.length - 1];
+}
+function vueloPos(s) { const C = VUELO.cum, P = VUELO.P; s = ((s % VUELO.L) + VUELO.L) % VUELO.L; let a = 0, b = C.length - 1; while (b - a > 1) { const m = (a + b) >> 1; if (C[m] <= s) a = m; else b = m; } const u = (s - C[a]) / Math.max(1e-6, C[b] - C[a]); return [P[a][0] + (P[b][0] - P[a][0]) * u, P[a][1] + (P[b][1] - P[a][1]) * u]; }
+function vueloEstado(s) {
+  const [x, z] = vueloPos(s), [x2, z2] = vueloPos(s + 25), fl = Math.hypot(x2 - x, z2 - z) || 1, fx = (x2 - x) / fl, fz = (z2 - z) / fl; let bk = 0, bb = 0; VUELO.pts.forEach((q, k) => { const d = Math.hypot(x - q.x, z - q.z), b = Math.exp(-Math.pow(d / VUELO.sig, 2)); if (b > bb) { bb = b; bk = k; } });
+  const q = VUELO.pts[bk], lo = 260 + q.R * .8, b = vsm(bb), alt = VUELO.hi - (VUELO.hi - lo) * b, far = [x + fx * alt * 1.7, z + fz * alt * 1.7], T = [far[0] + (q.x - far[0]) * b, far[1] + (q.z - far[1]) * b];
+  return { x, z, alt, T, b, k: bk, v: VUELO.vmax * (1 - .78 * b) };
+}
+function vueloTick(t) {
+  VUELO.raf = 0; if (!VUELO.on) return; const dt = Math.min(.1, (t - (VUELO.lt || t)) / 1000); VUELO.lt = t;
+  if (!VUELO.pausa) { const e0 = vueloEstado(VUELO.s); VUELO.s += e0.v * VUELO.vel * dt; VUELO.t += dt; }
+  const e = vueloEstado(VUELO.s), k = vsm(Math.min(1, VUELO.t / 2.5)), C = new THREE.Vector3(e.x, e.alt, e.z), T = new THREE.Vector3(e.T[0], 0, e.T[1]);
+  if (k < 1 && VUELO.from) { C.lerpVectors(VUELO.from.c, C, k); T.lerpVectors(VUELO.from.t, T, k); }
+  zWant = 0; CITY.tw = null; camera.position.copy(C); controls.target.copy(T); controls.update();
+  if (t - VUELO.hudT > 200 && VUELO.hud) { VUELO.hudT = t; const q = VUELO.pts[e.k]; VUELO.hud.querySelector('#vf-t').textContent = `${e.b > .35 ? 'Sobre' : 'Rumbo a'} ${String(q.n).split(' - ')[0].split(' · ')[0]} · altitud ${Math.round(e.alt)} m`; }
+  VUELO.raf = requestAnimationFrame(vueloTick);
+}
+function vueloPara() {
+  if (!VUELO.on) return; VUELO.on = 0; cancelAnimationFrame(VUELO.raf); VUELO.raf = 0; controls.enabled = true; if (VUELO.hud) { VUELO.hud.remove(); VUELO.hud = null; } document.removeEventListener('keydown', VUELO.esc); mqToast(''); mqRender();
+}
+async function vueloToggle() {
+  if (VUELO.on) { vueloPara(); return; } const S = solS(); if (!S) return; VUELO.on = 1; mqRender(); mqToast('Preparando el vuelo: desplegando las maquetas…');
+  MQ.items.filter(q => q.id !== pid() && !MQ.sel.has(q.id)).forEach(q => mqToggle(q.id, true));
+  for (let i = 0; i < 1200 && VUELO.on; i++) { const pend = [...MQ.sel.values()].some(q => !q.g && q.cargando) || MQ.busy; if (!pend) break; await new Promise(r => setTimeout(r, 100)); }
+  if (!VUELO.on) return; const pts = [{ x: 0, z: 0, R: S.radio, n: S.tit || S.titulo || 'Principal' }]; MQ.sel.forEach((q, id) => { if (q.g) pts.push({ x: q.ox, z: q.oz, R: q.S.radio, n: (MQ.items.find(x => x.id === id) || {}).titulo || id }); });
+  if (pts.length < 2) { mqToast('Se necesitan al menos 2 maquetas para el vuelo'); setTimeout(() => mqToast(''), 2500); VUELO.on = 0; mqRender(); return; }
+  await mqCiudad(true);
+  // recorrido: el vecino más cercano partiendo de la maqueta activa
+  const orden = [pts[0]], rest = pts.slice(1); while (rest.length) { const u = orden[orden.length - 1]; rest.sort((a, b) => Math.hypot(a.x - u.x, a.z - u.z) - Math.hypot(b.x - u.x, b.z - u.z)); orden.push(rest.shift()); }
+  VUELO.pts = orden; vueloRuta(orden); let sp = 0; orden.forEach((a, i) => { const b = orden[(i + 1) % orden.length]; sp = Math.max(sp, Math.hypot(a.x - b.x, a.z - b.z)); });
+  VUELO.hi = Math.max(900, Math.min(3200, sp * .45)); VUELO.sig = Math.max(650, Math.min(1400, sp * .22)); VUELO.vmax = Math.max(260, Math.min(650, VUELO.hi * .4)); VUELO.s = 0; VUELO.t = 0; VUELO.lt = 0; VUELO.pausa = 0; VUELO.from = { c: camera.position.clone(), t: controls.target.clone() };
+  mqToast(''); controls.enabled = false; controls.autoRotate = false; const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99990;display:flex;gap:10px;align-items:center;background:rgba(15,23,42,.94);color:#fff;font:700 12.5px system-ui,sans-serif;padding:9px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.4)';
+  h.innerHTML = '<span>✈️</span><span id="vf-t" style="min-width:230px">Despegando…</span><button id="vf-p" style="all:unset;cursor:pointer;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.14)">⏸ Pausa</button><select id="vf-v" style="font:inherit;border-radius:8px;border:0;padding:4px 6px"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="3">3×</option></select><button id="vf-x" style="all:unset;cursor:pointer;padding:4px 10px;border-radius:8px;background:#dc2626">⏹ Detener</button>';
+  document.body.appendChild(h); VUELO.hud = h; $('vf-p').onclick = e => { VUELO.pausa = !VUELO.pausa; e.target.textContent = VUELO.pausa ? '▶ Seguir' : '⏸ Pausa'; }; $('vf-v').onchange = e => { VUELO.vel = +e.target.value; }; $('vf-x').onclick = vueloPara; VUELO.esc = ev => { if (ev.key === 'Escape') vueloPara(); }; document.addEventListener('keydown', VUELO.esc);
+  mqRender(); VUELO.raf = requestAnimationFrame(vueloTick);
 }
 // elegir un punto (menú o pin) lo convierte en la maqueta activa: todos los análisis y visualizaciones pasan a ser de ese punto, y la anterior se conserva desplegada
 async function mqIr(id) {
@@ -2136,7 +2178,7 @@ async function mqToggle(id, on) {
 }
 {
   let n = 0; const iv = setInterval(() => { const S = solS(); if (!S && ++n < 120) return; clearInterval(iv); if (!S || $('pdi')) return; const tt = $('tt'), dock = $('dock'); if (!tt || !dock) return; const el = document.createElement('div'); el.id = 'pdi'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, tt.nextSibling);
-    el.addEventListener('click', e => { if (e.target.closest('#pdi-map')) { e.stopPropagation(); pwShow('mapa', true); return; } const r = e.target.closest('.ck[data-id]'); if (r) mqIr(r.dataset.id); });
+    el.addEventListener('click', e => { if (e.target.closest('#pdi-map')) { e.stopPropagation(); pwShow('mapa', true); return; } if (e.target.closest('#pdi-fly')) { e.stopPropagation(); vueloToggle(); return; } const r = e.target.closest('.ck[data-id]'); if (r) mqIr(r.dataset.id); });
     mqRender(); mqLista(); }, 500);
 }
 
