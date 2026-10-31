@@ -56,8 +56,8 @@
   #tt .tt-tools button{all:unset;cursor:pointer;width:26px;height:26px;border-radius:8px;text-align:center;line-height:26px;font-size:13px;color:#94a3b8;background:rgba(148,163,184,.12);transition:all .15s;letter-spacing:0}
   #tt .tt-tools button:hover{background:rgba(99,102,241,.35);color:#fff;transform:translateY(-1px)}
   #notas{font-size:11.5px;color:#334155}#notas b{color:#0f172a}
-  #dock>#notas,#dock>#cap,#dock>#frm,#dock>#rgp,#dock>#trf,#dock>#tools,#dock>#frp{background:rgba(255,255,255,.97)!important;border-radius:16px!important;padding:0!important;box-shadow:0 10px 28px rgba(2,6,23,.32),0 0 0 1px rgba(255,255,255,.06)!important;overflow:hidden;transition:transform .2s,box-shadow .25s;position:relative}
-  #dock>#notas:hover,#dock>#cap:hover,#dock>#frm:hover,#dock>#rgp:hover,#dock>#trf:hover,#dock>#tools:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(2,6,23,.4),0 0 0 1px rgba(99,102,241,.35)!important}
+  #dock>#pdi,#dock>#notas,#dock>#cap,#dock>#frm,#dock>#rgp,#dock>#trf,#dock>#tools,#dock>#frp{background:rgba(255,255,255,.97)!important;border-radius:16px!important;padding:0!important;box-shadow:0 10px 28px rgba(2,6,23,.32),0 0 0 1px rgba(255,255,255,.06)!important;overflow:hidden;transition:transform .2s,box-shadow .25s;position:relative}
+  #dock>#pdi:hover,#dock>#notas:hover,#dock>#cap:hover,#dock>#frm:hover,#dock>#rgp:hover,#dock>#trf:hover,#dock>#tools:hover{transform:translateY(-1px);box-shadow:0 14px 34px rgba(2,6,23,.4),0 0 0 1px rgba(99,102,241,.35)!important}
   #dock .dh,.pwin .dh{padding:12px 14px;font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);background:linear-gradient(90deg,#f8fafc,#fff);position:relative;transition:background .2s}
   #dock .dh::before,.pwin .dh::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--ac1),var(--ac2))}
   #dock .dh:hover,.pwin .dh:hover{background:linear-gradient(90deg,#eef2ff,#fff)}
@@ -105,6 +105,8 @@
   .pwtabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:99px;font-size:11.5px;font-weight:700;color:#475569;background:#f1f5f9;box-shadow:inset 0 0 0 1px #e2e8f0}
   .pwtabs button.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:none}
   .pwin .pwb .dh{display:none!important}
+  .pwin .pwb #vcp>.dh{display:flex!important;cursor:default;margin:6px 0 4px;padding:6px 0}.pwin .pwb #vcp>.dh .ch{display:none}.pwin .pwb #vcp>.dh::before{display:none}
+  .pwin .pwb #vcp{border-top:1px dashed #cbd5e1;margin-top:10px;padding-top:4px}
   .pwin .pwb .col .db{display:block!important;max-height:none!important;opacity:1!important;padding:0!important}
   .pwin .pwb .db{max-height:none!important;overflow:visible!important;padding:0!important;margin:0!important}
   .pwin #trf-i{background:#f8fafc;border:1px solid var(--ln);border-radius:10px;padding:8px 10px}.pwin #trf-i:empty{display:none}
@@ -230,7 +232,7 @@ function tipoTxt(f) { if (!f || !f.t) return null; const p = Math.max(1, Math.mi
 function build(S) {
   TIPOLABS = [];
   if (world) { scene.remove(world); }
-  world = new THREE.Group(); scene.add(world); G = world; anim.people = []; anim.movers = [];
+  world = new THREE.Group(); scene.add(world); G = world; const W0 = world; anim.people = []; anim.movers = [];
   const R = rngF(7), rnd = (a, b) => a + R() * (b - a), pick = a => a[Math.floor(R() * a.length)];
   const geo = !!S.roads; const C = S.calle || { largo: 40, ancho: 8, banqueta: 1.5 }, L = C.largo, SW = C.ancho / 2, BQ = C.banqueta, ZB = SW + BQ, LOT = 14, TH = 3.4, ZMAX = ZB + LOT, X0 = -L / 2 - 2, SXL = L + 4, SZL = ZMAX * 2;
   if (!geo) { fitR = Math.max(SXL, SZL * 1.5) * .42; fit(); sc.left = -SXL * .62; sc.right = SXL * .62; sc.top = SZL * .75; sc.bottom = -SZL * .75; sc.updateProjectionMatrix(); }
@@ -745,7 +747,7 @@ function build(S) {
   // ───────── alumbrado y botes ─────────
   const tt = $('t-desc'); if (tt) tt.textContent = S.titulo || ''; if (S.roads) { $('b-nom').style.display = ''; $('b-poi').style.display = ''; } const nt = $('notas'); if (nt) { nt.innerHTML = '<b>Escena reconstruida a partir de las fotos del entorno</b><ul>' + (S.notas || []).filter(Boolean).map(n => `<li>${n}</li>`).join('') + '</ul>'; delete nt.dataset.col; wrapCol(nt, 'ℹ️ Resumen de la escena', true); }
   // pin
-  if (G.__sujeto) { const pos = G.__sujeto.clone(), kk_ = geo ? Math.max(9, (S.radio || 100) * .085) : 8; new THREE.TextureLoader().load('../gb-pin.png', t => { t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false })); sp.center.set(.5, 0); sp.scale.set(kk_ * 103 / 160, kk_, 1); sp.renderOrder = 12; pos.y = Math.max(pos.y - 1.5, 3); sp.position.copy(pos); world.add(sp); anim.prop = { spr: sp, y0: pos.y, k: kk_ }; const hd = new THREE.Mesh(new THREE.SphereGeometry(kk_ * .45, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); hd.position.set(pos.x, pos.y + kk_ * .55, pos.z); hd.userData.prop = true; world.add(hd); propHead = hd; }); }
+  if (G.__sujeto) { const pos = G.__sujeto.clone(), kk_ = geo ? Math.max(9, (S.radio || 100) * .085) : 8; new THREE.TextureLoader().load('../gb-pin.png', t => { t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false })); sp.center.set(.5, 0); sp.scale.set(kk_ * 103 / 160, kk_, 1); sp.renderOrder = 12; pos.y = Math.max(pos.y - 1.5, 3); sp.position.copy(pos); W0.add(sp); if (W0 === world) anim.prop = { spr: sp, y0: pos.y, k: kk_ }; const hd = new THREE.Mesh(new THREE.SphereGeometry(kk_ * .45, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); hd.position.set(pos.x, pos.y + kk_ * .55, pos.z); hd.userData.prop = true; W0.add(hd); if (W0 === world) propHead = hd; }); }
 }
 
 // ───────── post-proceso ─────────
@@ -1307,7 +1309,7 @@ function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
 function pwCfg(id) { const r = pwMake(id); r.cfg.parentNode.classList.add('has'); r.chip.style.display = ''; return r.cfg; }
-function pwMount(id, el) { if (el.parentNode && el.closest('.pwcfg')) return; el.style.cssText = ''; el.classList.remove('col'); pwCfg(id).appendChild(el); }
+function pwMount(id, el, first) { if (el.parentNode && el.closest('.pwcfg')) return; el.style.cssText = ''; el.classList.remove('col'); const c = pwCfg(id); if (first && c.firstChild) c.insertBefore(el, c.firstChild); else c.appendChild(el); }
 function pwAdopt(id, e, to) { const r = pwMake(id), vis = e.style.display; e.style.cssText = 'position:static;margin:0 0 8px;background:none;box-shadow:none;padding:0;border-radius:0;width:auto;max-width:none;max-height:none;transform:none;left:auto;right:auto;top:auto'; if (vis) e.style.display = vis; e.classList.remove('col'); (to === 'cfg' ? pwCfg(id) : r.body).appendChild(e); r.chip.style.display = ''; if (id === 'fr' && !r.obs) { r.obs = new MutationObserver(() => { if (['frp', 'rtp'].some(i => { const x = $(i); return x && x.style.display === 'block' && x.textContent.trim(); })) pwShow('fr', true); }); r.obs.observe(e, { attributes: true, attributeFilter: ['style'] }); } }
 function pwSweep() { const rg = $('rgp'); if (rg && !rg.closest('.pwin')) pwAdopt('rgp', rg); const fm = $('frm'); if (fm && !fm.closest('.pwin')) pwAdopt('fr', fm, 'cfg'); ['frp', 'rtp'].forEach(i => { const e = $(i); if (e && !e.closest('.pwres')) pwAdopt('fr', e); }); const tf = $('trf'); if (tf && !tf.closest('.pwin')) pwAdopt('trf', tf, 'cfg'); const t = $('trf-i'); if (t && !t.closest('.pwres')) pwAdopt('trf', t); }
 { let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; pwSweep(); pwLayout(); }); }; const dk = $('dock'); if (dk) { new MutationObserver(go).observe(dk, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); } addEventListener('resize', pwLayout); go(); }
@@ -1931,6 +1933,53 @@ async function indCarga() {
   r.body.addEventListener('click', ev => { const h = ev.target.closest('.ind-h'); if (!h) return; const n = h.parentNode, k = n.dataset.k; n.classList.toggle('open'); if (n.classList.contains('open')) INDX.open.add(k); else INDX.open.delete(k); });
   let first = 1; new MutationObserver(() => { if ($('pw-ind').classList.contains('on')) { indRender(); if (first) { first = 0; indCarga(); } } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
 }
+// ── Puntos de interés: otras maquetas ya generadas, visibles a la vez sobre un solo mapa de fondo (la vista de ciudad); las ventanas de análisis siguen usando la maqueta principal
+const MQ = { items: [], sel: new Map(), busy: 0, msg: '' }; window.__MQ = MQ; window.__scn = scene; window.__cam = camera; window.__ctl = controls;
+const mqKm = (a, b) => { const k = Math.PI / 180, dx = (b.lng - a.lng) * Math.cos((a.lat + b.lat) / 2 * k) * 111.32, dy = (b.lat - a.lat) * 110.54; return Math.hypot(dx, dy); };
+async function mqLista() { try { const j = await fetch('https://api.check-inn.mx/mercado/maqueta/lista', { cache: 'no-store' }).then(r => r.json()); MQ.items = j.ok ? j.items : []; MQ.msg = j.ok ? '' : 'No se pudo cargar la lista.'; } catch (_) { MQ.items = []; MQ.msg = 'No se pudo cargar la lista.'; } mqRender(); }
+function mqRender() {
+  const S = solS(), el = $('pdi'); if (!el || !S) return; const P = { lat: +S.lat, lng: +S.lng }, prin = { id: String(ID), titulo: S.tit || S.titulo || 'Maqueta principal', lat: P.lat, lng: P.lng, radio: S.radio }, otros = MQ.items.filter(q => q.id !== String(ID) && !(Math.abs(q.lat - P.lat) < 1e-5 && Math.abs(q.lng - P.lng) < 1e-5)).map(q => Object.assign({ km: mqKm(P, q) }, q)).sort((a, b) => a.km - b.km);
+  const fila = (q, pr) => `<div class="ck${pr || MQ.sel.has(q.id) ? ' on' : ''}" data-id="${q.id}"${pr ? ' data-p="1" style="cursor:default"' : ''}><span class="bx">✓</span><span style="min-width:0;flex:1"><b style="font-size:12px">${esc_(String(q.titulo).replace(/\s*·\s*radio.*$/, ''))}</b><br><small style="color:#64748b">${pr ? 'Maqueta principal (en pantalla)' : q.km.toFixed(1) + ' km de la principal' + (q.radio ? ' · radio ' + q.radio + ' m' : '')}${MQ.sel.has(q.id) && MQ.sel.get(q.id).cargando ? ' · cargando…' : ''}</small></span>${pr ? '' : `<a data-open="${q.id}" title="Abrir como maqueta principal (recarga la página)" style="cursor:pointer;color:#4f46e5;font-weight:800;padding:0 4px">⤴</a>`}</div>`;
+  el.innerHTML = `<div style="font-size:11px;color:#64748b;margin-bottom:6px">Marque otras maquetas para verlas junto a la principal sobre un solo mapa de la ciudad. Los análisis (Meteorología, Geología, etc.) siguen siendo de la maqueta principal.</div>${fila(prin, true)}${otros.map(q => fila(q)).join('') || `<div style="font-size:11px;color:#94a3b8;padding:6px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}<div id="pdi-msg" style="font-size:11px;color:#b45309;margin-top:4px">${MQ.err || ''}</div>`;
+  const col = el.dataset.col; delete el.dataset.col; if (col !== undefined) el.dataset.col = col; wrapCol(el, `📍 Puntos de interés${MQ.sel.size ? ' (' + (MQ.sel.size + 1) + ' maquetas)' : ''}`, false);
+}
+function mqBuildSec(S2) {
+  const sv = { world, G, people: anim.people, movers: anim.movers, mvGroup: anim.mvGroup, mkCar: anim.mkCar, addLights: anim.addLights, prop: anim.prop, neg: [NEG.items, NEG.upd], nm: NIGHT.mats, sunp: sun.position.clone(), sunt: sun.target.position.clone(), sc: [sc.left, sc.right, sc.top, sc.bottom, sc.far], cam: [camera.position.clone(), controls.target.clone(), camera.near, camera.far], fitR, ctl: [controls.minDistance, controls.maxDistance, controls.maxPolarAngle, controls.autoRotate], perfil: PERFIL, spec: [CURSPEC, RVOFF, ALON, NOBAR, LASTD], tip: TIPOLABS, ph: propHead, w: ['__curS', '__ajR', '__ovl', '__neg', '__esq', '__cp', '__mob'].map(k => [k, window[k]]) };
+  const nt = $('notas'), td = $('t-desc'); nt.id = 'notas_x'; td.id = 't-desc_x'; const f1 = document.createElement('div'), f2 = document.createElement('span'); f1.id = 'notas'; f2.id = 't-desc'; f1.style.display = f2.style.display = 'none'; document.body.append(f1, f2); let g = null;
+  try { world = null; G = null; build(S2); g = world; if (anim.mvGroup) anim.mvGroup.visible = false; const sm = NIGHT.mats; NIGHT.mats = sv.nm.concat(sm); NIGHT.set(NIGHT.lv); }
+  finally { world = sv.world; G = sv.G; anim.people = sv.people; anim.movers = sv.movers; anim.mvGroup = sv.mvGroup; anim.mkCar = sv.mkCar; anim.addLights = sv.addLights; anim.prop = sv.prop; NEG.items = sv.neg[0]; NEG.upd = sv.neg[1]; sun.position.copy(sv.sunp); sun.target.position.copy(sv.sunt); [sc.left, sc.right, sc.top, sc.bottom, sc.far] = sv.sc; sc.updateProjectionMatrix(); camera.position.copy(sv.cam[0]); controls.target.copy(sv.cam[1]); camera.near = sv.cam[2]; camera.far = sv.cam[3]; camera.updateProjectionMatrix(); fitR = sv.fitR; [controls.minDistance, controls.maxDistance, controls.maxPolarAngle, controls.autoRotate] = sv.ctl; PERFIL = sv.perfil; [CURSPEC, RVOFF, ALON, NOBAR, LASTD] = sv.spec; TIPOLABS = sv.tip; propHead = sv.ph; sv.w.forEach(([k, v]) => { window[k] = v; }); f1.remove(); f2.remove(); nt.id = 'notas'; td.id = 't-desc'; controls.update(); renderer.shadowMap.needsUpdate = true; }
+  return g;
+}
+// marco, tinte y rótulo de cada maqueta para distinguirla sobre el mapa de la ciudad
+function mqMarca(S, tit) {
+  const R = S.radio, g = new THREE.Group(), pts = [[-R, -R], [R, -R], [R, R], [-R, R]].map(p => new THREE.Vector3(p[0], 1.2, p[1])), ln = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x4f46e5, transparent: true, opacity: .95, depthTest: false })); ln.renderOrder = 30;
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * R, 2 * R).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x6366f1, transparent: true, opacity: .1, depthWrite: false })); fl.position.y = .25; fl.renderOrder = 1;
+  const lb = solTxt((t => t.length > 15 ? t.slice(0, 14) + '…' : t)(String(tit).split(' - ')[0].split(' · ')[0]), '#312e81', R * 1.5, 1, 1); lb.position.set(0, 60 + R * .25, -R * 1.05); g.add(ln, fl, lb); g.userData.noPick = 1; return g;
+}
+function mqEncuadra() {
+  const S = solS(); if (!S) return; const pts = [[0, 0]].concat([...MQ.sel.values()].filter(q => q.g).map(q => [q.ox, q.oz])), cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cz = pts.reduce((a, p) => a + p[1], 0) / pts.length; let sp = 0; pts.forEach(a => pts.forEach(b => { sp = Math.max(sp, Math.hypot(a[0] - b[0], a[1] - b[1])); }));
+  const D = Math.max(7500, sp * 1.8 + 2500), tg = new THREE.Vector3(cx, 0, cz); controls.target.copy(tg); CITY.tw = { t: 0, from: camera.position.clone(), to: tg.clone().add(new THREE.Vector3(0, .8 * D, .6 * D)) };
+}
+async function mqCiudad(on) {
+  const S = solS(); if (!S) return; for (let i = 0; i < 50 && CITY.busy; i++) await new Promise(r => setTimeout(r, 100));
+  if (on) { CITY.mq = true; if (!CITY.on) { CITY.busy = 1; try { await cityEntra(curS); } finally { CITY.busy = 0; } } }
+  else { CITY.mq = false; if (CITY.on && !CITY.od && !CITY.demo && !CITY.cov) citySale(curS); }
+}
+async function mqToggle(id, on) {
+  if (MQ.busy) return; const S = solS(); if (!S) return; MQ.err = '';
+  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); } mqRender(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } await mqCiudad(false); } else mqEncuadra(); return; }
+  const it = MQ.items.find(q => q.id === id); if (!it) return; MQ.busy = 1; MQ.sel.set(id, { cargando: true }); mqRender();
+  try {
+    const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/escena?id=${id}`, { cache: 'no-store' }).then(r => r.json()); const S2 = j.ok && j.escena; if (!S2 || !S2.roads) throw new Error('la escena no está disponible'); try { const jn = await fetch(`https://api.check-inn.mx/mercado/maqueta/negocios?id=${id}`, { cache: 'no-store' }).then(r => r.json()); S2.neg = jn.items || []; } catch (_) { }
+    const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it.titulo)); g.position.set(ox, 0, oz); MQ.sel.set(id, { g, S: S2, ox, oz }); if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } await mqCiudad(true); mqEncuadra();
+  } catch (e) { MQ.sel.delete(id); MQ.err = 'No se pudo cargar esa maqueta: ' + (e.message || e); }
+  MQ.busy = 0; mqRender();
+}
+{
+  let n = 0; const iv = setInterval(() => { const S = solS(); if (!S && ++n < 120) return; clearInterval(iv); if (!S || $('pdi')) return; const tt = $('tt'), dock = $('dock'); if (!tt || !dock) return; const el = document.createElement('div'); el.id = 'pdi'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, tt.nextSibling);
+    el.addEventListener('click', e => { const a = e.target.closest('[data-open]'); if (a) { e.stopPropagation(); const u = new URL(location.href); u.searchParams.set('id', a.dataset.open); u.searchParams.delete('fid'); location.href = u.toString(); return; } const r = e.target.closest('.ck[data-id]'); if (!r || r.dataset.p) return; mqToggle(r.dataset.id, !MQ.sel.has(r.dataset.id)); });
+    mqRender(); mqLista(); }, 500);
+}
 const OD = { d: null, G: null, m: 'dia', busy: 0 };
 async function odCarga(S) {
   if (S.lat == null || qs.get('src')) return; const id = qs.get('fid') || ID;
@@ -2187,7 +2236,7 @@ function covEncuadra(S) {
 async function covMapa(S, on) {
   if (CITY.busy) return; CITY.busy = 1; const b = $('cov-map');
   try { if (on) { await cityEntra(S); CITY.cov = true; COB.mapa = true; if (b) b.textContent = '🗺️ Quitar mapa'; if (COB.res[COB.ver]) { covDibuja(S); covEncuadra(S); } else { const m = $('cov-msg'); if (m) m.textContent = 'Mapa listo: pulse Calcular cobertura para dibujar los contornos.'; } }
-    else { COB.mapa = false; CITY.cov = false; covQuita(); if (b) b.textContent = '🗺️ Ver en el mapa'; if (!CITY.od && !CITY.demo) citySale(S); } } finally { CITY.busy = 0; }
+    else { COB.mapa = false; CITY.cov = false; covQuita(); if (b) b.textContent = '🗺️ Ver en el mapa'; if (!CITY.od && !CITY.demo && !CITY.mq) citySale(S); } } finally { CITY.busy = 0; }
 }
 // zonas de origen: áreas coloreadas, cuadrícula de anillos (2.5 / 6 / 11 / 20 km) y sectores, y el punto de origen de cada zona
 function cityZonas(S, C, zv, Z) {
@@ -2270,11 +2319,11 @@ function citySale(S) {
 async function cityToggle(S) {   // árbol de orígenes
   if (CITY.busy) return; CITY.busy = 1;
   try { if (!CITY.od) { await cityEntra(S); CITY.od = true; CITY.arbol = true; cityBarra(S); await cityArbol(S); pwShow('od', true); }
-    else { CITY.od = false; accQuita(); cityLabQuita(); const b = $('city-bar'); if (b) b.remove(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; } CITY.C = null; if (!CITY.demo && !CITY.cov) citySale(S); else odDock(S); } } finally { CITY.busy = 0; }
+    else { CITY.od = false; accQuita(); cityLabQuita(); const b = $('city-bar'); if (b) b.remove(); if (CITY.G) { scene.remove(CITY.G); CITY.G = null; CITY.cin = null; } CITY.C = null; if (!CITY.demo && !CITY.cov && !CITY.mq) citySale(S); else odDock(S); } } finally { CITY.busy = 0; }
 }
 async function demoSet(S, on) {   // capa Demografía (Capas)
   if (CITY.busy) return; CITY.busy = 1;
-  try { if (on) { await cityEntra(S); CITY.demo = true; demoOpt(); await cityPob(S); } else { CITY.demo = false; cityPobQuita(); if (!CITY.od && !CITY.cov) citySale(S); } } finally { CITY.busy = 0; } demoOpt(); capasSync();
+  try { if (on) { await cityEntra(S); CITY.demo = true; demoOpt(); await cityPob(S); } else { CITY.demo = false; cityPobQuita(); if (!CITY.od && !CITY.cov && !CITY.mq) citySale(S); } } finally { CITY.busy = 0; } demoOpt(); capasSync();
 }
 // opciones de la capa Demografía: se muestran debajo de su casilla en Capas
 function demoOpt() {
@@ -2316,7 +2365,7 @@ function tfCel(x, si, dia, hora) {
 }
 const tfDem = r => r && r[0] && r[1] ? Math.max(0, (r[0] / r[1] - 1) * 100) : null, tfVel = r => r && r[0] && r[2] ? 3.6 * r[2] / r[0] : null;
 function tfDock() {
-  const dock = $('dock'); let el = $('trf'); if (!el) { el = document.createElement('div'); el.id = 'trf'; pwMount('trf', el); }
+  const dock = $('dock'); let el = $('trf'); if (!el) { el = document.createElement('div'); el.id = 'trf'; pwMount('trf', el, true); }
   const ck = (x, i) => `<div class="ck" data-i="${i}"><span class="bx">✓</span><span style="min-width:0"><b style="font-size:12px">${x.v.n}</b><br><small style="color:#64748b">${TF_CL[x.v.h] || x.v.h} · ${x.v.o ? 'un sentido' : '2 sentidos'}</small></span></div>`;
   el.innerHTML = `<div class="btnrow" style="margin:0 0 6px"><select id="trf-d" style="font-size:12px;padding:3px 6px;border-radius:8px">${TF_DIAS.map(([d, t]) => `<option value="${d}" ${d === TF.dia ? 'selected' : ''}>${t}</option>`).join('')}</select><select id="trf-h" style="font-size:12px;padding:3px 6px;border-radius:8px">${TF.horas.map(h => `<option value="${h}" ${h === TF.hora ? 'selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('')}</select><button id="trf-p" title="Recorrer las horas">▶</button><button id="trf-a">Todas</button><button id="trf-n">Ninguna</button></div><div style="display:flex;align-items:center;gap:6px;margin:0 0 6px;font-size:12px" title="Factor sobre la cantidad de autos calculada automáticamente: 1 = 100 %, 0.9 = 90 %, 0 = sin autos"><b>Densidad vehicular</b><input id="trf-k" type="text" inputmode="decimal" value="${TF.dens}" style="width:58px;font-size:12px;padding:3px 6px;border-radius:8px;border:1px solid #cbd5e1;text-align:center"><span style="color:#64748b">× (1 = 100 %)</span></div><div style="max-height:34vh;overflow:auto">${TF.vias.map(ck).join('')}</div><div id="trf-i" style="font-size:11px;color:#0f172a;margin-top:6px"></div><div style="font-size:10.5px;color:#64748b;margin-top:4px">Elige una o varias vialidades: se resaltan en rojo, se abre su gráfica y los autos ajustan velocidad y densidad al tráfico del día y la hora elegidos.</div>`; delete el.dataset.col; wrapCol(el, `🚦 Tráfico (${TF.vias.length})`, false); pwSweep();
   el.querySelectorAll('.ck').forEach(d => d.onclick = () => { const i = +d.dataset.i; if (TF.sel.has(i)) TF.sel.delete(i); else TF.sel.add(i); tfRefresca(); });
@@ -2370,7 +2419,7 @@ function tfEnlaza() { TF.vias.forEach(x => { const P = x.P, mid = P[Math.floor(P
   // vías duplicadas: dos vías seleccionables que son la misma calzada (mismo sentido, encimadas)
   TF.vias.forEach((a, i) => { a.dup = false; if (/_link$/.test(a.v.h)) return; for (let j = 0; j < i; j++) { const b = TF.vias[j]; if (b.dup || /_link$/.test(b.v.h)) continue; const sm = vcMuestras(a.P, 12); let n = 0, same = 0; sm.forEach(p => { const q = vcCerca(p, b.P); if (q.d <= 7) { n++; if (vcDif(p[2], q.h) < 35) same++; } }); if (n >= 3 && same / Math.max(1, sm.length) >= .5) { a.dup = true; a.dupDe = j; break; } } }); }
 
-function vcDock() { const dock = $('dock'); if (!dock || !VC.lista.length) return; let el = $('vcp'); if (!el) { el = document.createElement('div'); el.id = 'vcp'; el.style.cssText = ($('cap') || { style: { cssText: '' } }).style.cssText; dock.insertBefore(el, $('tools') || null); }
+function vcDock() { const dock = $('dock'); if (!dock || !VC.lista.length) return; let el = $('vcp'); if (!el) { el = document.createElement('div'); el.id = 'vcp'; el.style.cssText = ($('cap') || { style: { cssText: '' } }).style.cssText; pwMount('trf', el); }
   const col = { osm: '#15803d', 'osm÷2': '#b45309', foto: '#2563eb', clase: '#6b7280', manual: '#7c3aed' }, nDup = VC.lista.reduce((a, e) => a + e.dups, 0);
   el.innerHTML = `<div style="font-size:11px;color:#475569;margin-bottom:6px">Qué usa la maqueta y el tráfico: una fila por vialidad y calzada. <b>Carriles por sentido</b> es el dato final. Fuente: <span style="color:${col.osm}">osm</span> (etiqueta «lanes»), <span style="color:${col['osm÷2']}">osm÷2</span> (corregido: parecía el total de la avenida), <span style="color:${col.foto}">foto</span> (leído en Street View), <span style="color:${col.clase}">clase</span> (supuesto por tipo de vía) y <span style="color:${col.manual}">manual</span>.${nDup ? ` <b style="color:#b91c1c">${nDup} línea(s) duplicada(s) de OpenStreetMap se ignoran.</b>` : ''}</div>
 <div style="max-height:34vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="text-align:left;color:#64748b"><th>Vialidad</th><th>OSM</th><th title="Carriles por sentido">Carr./sent.</th><th>Fuente</th></tr>${VC.lista.map((e, i) => `<tr style="border-top:1px solid #e5e7eb" title="${(e.nota || '').replace(/"/g, '&quot;')}"><td><b>${e.n.replace(/</g, '&lt;')}</b><br><small style="color:#64748b">${e.h} · ${e.tipo}${e.dups ? ' · ⚠️ dup.' : ''}</small></td><td>${e.osm == null ? '—' : e.osm}</td><td><input class="vc-in" data-i="${i}" type="number" min="1" max="8" value="${e.nd}" style="width:42px;padding:2px 3px;border-radius:6px;border:1px solid #cbd5e1"></td><td style="color:${col[e.src] || '#475569'};font-weight:600">${e.src}</td></tr>${e.nota ? `<tr><td colspan="4" style="font-size:10px;color:#92400e;padding-bottom:3px">${e.nota}</td></tr>` : ''}`).join('')}</table></div>
