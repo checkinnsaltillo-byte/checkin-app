@@ -2169,7 +2169,7 @@ async function odCarga(S) {
 function odDock(S) {
   const dock = $('dock'); let el = $('od'); if (!el) { el = document.createElement('div'); el.id = 'od'; el.style.cssText = ($('cap') || { style: { cssText: '' } }).style.cssText; pwMount('od', el); }
   // el panel sigue lo elegido en la barra de la vista de ciudad (datos, dirección y horario); sin esa vista muestra la zona de la propiedad
-  const en = CITY.on, src = en ? CITY.src : 'zona', dir = en ? CITY.dir : 'all', des = src === 'destino', m = OD.m, d = (en && CITY.d[src]) || (src === 'zona' || !en ? OD.d : null), dz = OD.d;
+  const en = CITY.on && CITY.od, src = en ? CITY.src : 'zona', dir = en ? CITY.dir : 'all', des = src === 'destino', m = OD.m, d = (en && CITY.d[src]) || (src === 'zona' || !en ? OD.d : null), dz = OD.d;
   const PAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#3b82f6', '#ec4899'], cal = dz && dz.cal, ver = cal && cal.verificacion;
   const sec = (clave) => { const out = clave === 'out', col = out ? '#dc2626' : '#16a34a', val = z => out ? (z.sal || 0) : (des ? (z.dia || 0) : (z[m] || 0)), via = z => out ? z.viaSal : z.via, Z = (d ? d.zonas : []).filter(z => val(z) >= .01).sort((a, b) => val(b) - val(a)).slice(0, 10);
     const tit = des ? (out ? 'Salen de la propiedad · a dónde van' : 'Llegan a la propiedad · de dónde vienen') : (out ? 'Salientes · a dónde van los viajes' : 'Entrantes · de dónde vienen los viajes');
@@ -2197,7 +2197,7 @@ async function odCalcula(S) {
     if (r.requiere) { if (!confirm('Para calcular hay que consultar Google Routes por primera vez en esta propiedad.\n\nCosto máximo: ' + r.usd.toFixed(2) + ' USD.\n\n¿Aceptas el gasto?')) throw new Error('Cancelado: no se hizo ninguna consulta ni gasto.'); return lanza(true); } if (!r.ok) throw new Error(r.error || 'No se pudo iniciar'); };
   try { await lanza(false);
     for (let i = 0; i < 150; i++) { await new Promise(r => setTimeout(r, 6000)); if (msg()) msg().textContent = 'Analizando… ' + (i * 6 + 6) + ' s'; const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${id}`, { cache: 'no-store' }).then(x => x.json()).catch(() => null); if (j && j.od && j.od.at !== antes) { OD.d = j.od; break; } if (i === 149) throw new Error('Tardó demasiado'); } odDock(S); odDibuja(S); pwShow('od', true);
-  } catch (e) { if (msg()) { msg().style.color = '#dc2626'; msg().textContent = 'No se pudo calcular: ' + e.message; } if (btn) { btn.disabled = false; btn.textContent = t0; } } OD.busy = 0;
+  } catch (e) { if (msg()) { const c = /^Cancelado/.test(e.message); msg().style.color = c ? '#475569' : '#dc2626'; msg().textContent = c ? 'Cálculo cancelado: no se hizo ninguna consulta ni gasto.' : 'No se pudo calcular: ' + e.message; } if (btn) { btn.disabled = false; btn.textContent = t0; } } OD.busy = 0;
 }
 // ── ciudad alrededor de la maqueta: el mapa se carga por mosaicos a demanda (solo lo que se ve y con el detalle que pide el zoom) y el árbol de orígenes se dibuja en 3D encima, sin cambiar de escena
 const CITY = { v: { zonas: true, ref: true, flechas: true, acc: true, pob: false }, anio: 'p25', hx: null, pobD: null, on: false, G: null, cin: null, S: null, C: null, src: 'zona', dir: 'all', arbol: true, d: {}, base: 'gris', saved: null, busy: 0, t: 0, u: { uPx: { value: 1 } } }, CPAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#3b82f6', '#ec4899'];
