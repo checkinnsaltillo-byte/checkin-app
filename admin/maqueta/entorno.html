@@ -1881,7 +1881,7 @@ async function indCargaSec(c) {
   c.busy = 0; indRender();
 }
 function indColumnas() {
-  const S = solS(), cols = [{ id: String(ID), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: evalLst() }];
+  const S = solS(), cols = [{ id: pid(), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: evalLst() }];
   MQ.sel.forEach((q, id) => { if (!q.g) return; const c = INDX.cols.get(id) || {}; INDX.cols.set(id, c); Object.assign(c, { id, titulo: (MQ.items.find(x => x.id === id) || {}).titulo || id, S: q.S }); cols.push(c); });
   [...INDX.cols.keys()].forEach(k => { if (!MQ.sel.has(k) || !MQ.sel.get(k).g) INDX.cols.delete(k); }); return cols;
 }
@@ -2019,26 +2019,63 @@ const MQ = { items: [], sel: new Map(), busy: 0, msg: '', foco: null }; window._
 const mqKm = (a, b) => { const k = Math.PI / 180, dx = (b.lng - a.lng) * Math.cos((a.lat + b.lat) / 2 * k) * 111.32, dy = (b.lat - a.lat) * 110.54; return Math.hypot(dx, dy); };
 async function mqLista() { try { const j = await fetch('https://api.check-inn.mx/mercado/maqueta/lista', { cache: 'no-store' }).then(r => r.json()); MQ.items = j.ok ? j.items : []; MQ.msg = j.ok ? '' : 'No se pudo cargar la lista.'; } catch (_) { MQ.items = []; MQ.msg = 'No se pudo cargar la lista.'; } mqRender(); }
 function mqDatos() {
-  const S = solS(); if (!S) return null; const P = { lat: +S.lat, lng: +S.lng }, prin = { id: String(ID), titulo: S.tit || S.titulo || 'Maqueta principal', lat: P.lat, lng: P.lng, radio: S.radio }, otros = MQ.items.filter(q => q.id !== String(ID) && !(Math.abs(q.lat - P.lat) < 1e-5 && Math.abs(q.lng - P.lng) < 1e-5)).map(q => Object.assign({ km: mqKm(P, q) }, q)).sort((a, b) => a.km - b.km);
+  const S = solS(); if (!S) return null; const P = { lat: +S.lat, lng: +S.lng }, prin = { id: pid(), titulo: S.tit || S.titulo || 'Maqueta principal', lat: P.lat, lng: P.lng, radio: S.radio }, otros = MQ.items.filter(q => q.id !== pid() && !(Math.abs(q.lat - P.lat) < 1e-5 && Math.abs(q.lng - P.lng) < 1e-5)).map(q => Object.assign({ km: mqKm(P, q) }, q)).sort((a, b) => a.km - b.km);
   return { prin, otros };
 }
 const mqNom = t => esc_(String(t).replace(/\s*·\s*radio.*$/, ''));
 // menú izquierdo: una sola selección; elegir un punto despliega esa maqueta sobre el mapa de la ciudad (sin borrar las demás) y lleva la cámara hacia ella
 function mqRender() {
-  const d = mqDatos(), el = $('pdi'); mqRenderMulti(); mmRefresh(); if (!el || !d) return; const foco = MQ.foco || String(ID);
-  const fila = q => `<div class="ck rd${q.id === foco ? ' on' : ''}" data-id="${q.id}"><span class="bx" style="border-radius:50%">●</span><span style="min-width:0;flex:1"><b style="font-size:12px">${mqNom(q.titulo)}</b><br><small style="color:#64748b">${q.id === String(ID) ? 'Maqueta principal' : q.km.toFixed(1) + ' km de la principal' + (q.radio ? ' · radio ' + q.radio + ' m' : '')}${MQ.sel.has(q.id) ? (MQ.sel.get(q.id).cargando ? ' · cargando…' : ' · desplegada') : ''}</small></span></div>`;
+  const d = mqDatos(), el = $('pdi'); mqRenderMulti(); mmRefresh(); if (!el || !d) return; const foco = MQ.foco || pid();
+  const fila = q => `<div class="ck rd${q.id === foco ? ' on' : ''}" data-id="${q.id}"><span class="bx" style="border-radius:50%">●</span><span style="min-width:0;flex:1"><b style="font-size:12px">${mqNom(q.titulo)}</b><br><small style="color:#64748b">${q.id === pid() ? 'Maqueta principal' : q.km.toFixed(1) + ' km de la principal' + (q.radio ? ' · radio ' + q.radio + ' m' : '')}${MQ.sel.has(q.id) ? (MQ.sel.get(q.id).cargando ? ' · cargando…' : ' · desplegada') : ''}</small></span></div>`;
   el.innerHTML = `<div class="btnrow" style="margin:0 0 6px"><button id="pdi-map">🗺️ Mapa de puntos</button></div><div style="font-size:11px;color:#64748b;margin-bottom:6px">Elija un punto para desplegar su maqueta sobre el mapa de la ciudad; las que ya estén desplegadas se conservan. Para compararlas o quitarlas use <b>Indicadores</b>.</div>${fila(d.prin)}${d.otros.map(fila).join('') || `<div style="font-size:11px;color:#94a3b8;padding:6px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}`;
   const col = el.dataset.col; delete el.dataset.col; if (col !== undefined) el.dataset.col = col; wrapCol(el, '📍 Puntos de interés', false);
 }
-// despliega (si hace falta) la maqueta de un punto y enfoca la cámara en ella
+// elegir un punto (menú o pin) lo convierte en la maqueta activa: todos los análisis y visualizaciones pasan a ser de ese punto, y la anterior se conserva desplegada
 async function mqIr(id) {
-  const S = solS(); if (!S) return; id = String(id); MQ.foco = id; MQ.err = '';
-  if (id !== String(ID) && !MQ.sel.has(id)) { if (!MQ.items.some(q => q.id === id)) return; mqToggle(id, true); }
-  mqRender(); for (let i = 0; i < 900 && id !== String(ID); i++) { const q = MQ.sel.get(id); if (!q) { MQ.foco = null; mqRender(); return; } if (q.g) break; await new Promise(r => setTimeout(r, 100)); }
-  if (MQ.foco === id) mqFoco(id);
+  const S = solS(); if (!S) return; id = String(id); MQ.err = '';
+  if (id === pid()) { MQ.foco = id; mqRender(); mqFoco(id); return; }
+  if (!MQ.items.some(q => q.id === id)) return; await mqCambia(id);
+}
+const mqToast = t => { let e = $('mq-toast'); if (!t) { if (e) e.remove(); return; } if (!e) { e = document.createElement('div'); e.id = 'mq-toast'; e.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:99990;background:rgba(15,23,42,.94);color:#fff;font:700 13px system-ui,sans-serif;padding:10px 18px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35)'; document.body.appendChild(e); } e.textContent = t; };
+// escena completa de una maqueta (igual que al abrir la página): escena, calles auditadas, negocios y fachadas
+async function escenaCompleta(id) {
+  const J = u => fetch(`https://api.check-inn.mx/mercado/maqueta/${u}?id=${id}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})), [j, jv, jn, jf] = await Promise.all([J('escena'), J('vial'), J('negocios'), J('fachadas')]); const S = j.ok && j.escena; if (!S || !S.roads) throw new Error('la escena no está disponible');
+  S.neg = jn.items || []; if (S.obs) (jf.items || []).forEach(x => { const o = S.obs.find(r => r.pano === x.pano && r.h === x.h), f = o && (o.fr || []).find(r => r.x === x.x); if (f) f.tx = `https://api.check-inn.mx/mercado/maqueta/fachada/img?id=${id}&k=${encodeURIComponent(x.k)}`; }); return { S, vc: jv && jv.ok ? jv.cfg : null };
+}
+// lo que sigue a build() al abrir una maqueta como principal
+// buildCapas() reemplaza el contenido de Capas, Fricción y Herramientas: los botones que ya se habían movido ahí se devuelven antes a la barra para no perderlos
+function capasRescata() { const bar = document.querySelector('.bar'); if (!bar) return; ['b-map', 'b-gh', 'b-solo', 'b-gr', 'b-rot', 'b-zi', 'b-zo', 't-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const e = $(id); if (e && !bar.contains(e)) bar.appendChild(e); }); const f = $('frp'); if (f && !f.closest('.pwin')) document.body.appendChild(f); }
+function postBuild(S) {
+  if (S.roads) { S.riesgos = (S.riesgos || []).filter(q => !/posible|probable|ambigu|podr[ií]a|se renta|mural/i.test((q.n || '') + ' ' + (q.k || ''))); const n = buildAlertas(S); panelRiesgos(S); $('b-rg').style.display = ''; $('b-rl').style.display = ''; $('b-rg').textContent = `🚨 Riesgos (${n})`; }
+  [0, 300, 1200, 3000].forEach(ms => setTimeout(() => { renderer.shadowMap.needsUpdate = true; }, ms));
+  if (S.roads) { capasRescata(); buildCapas(); vcDock(); if (!CITY.on) rzSet(true); tfCarga(S); odCarga(S); setMapa(mapTipo); }
+}
+// deja los análisis en blanco para la maqueta nueva (sus datos se vuelven a pedir)
+function mqReset() {
+  solPlay(0); solLibera(SOL.g); SOL.g = SOL.w = null; SOL.key = ''; SOL.amb = undefined; SOL.ambB = 0; SOL.ev = null; SOL.arr = []; SOL.vErr = ''; SOL.vBusy = 0;
+  if (INU.play) inuPlay(0); if (INU.g) { scene.remove(INU.g); INU.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } INU.g = null; INU.st = INU.pts = INU.pc = INU.fl = null; INU.d = null; INU.dk = ''; INU.net = null; INU.key = ''; INU.ev = null; INU.f = 1; INU.msg = '';
+  GEO.st = null; GEO.cv = null; GEO.key = ''; grdHide('geo-alt'); grdHide('geo-pend'); if (URB.play) urbPlay(0); URB.ser = null; URB.suelo = null; URB.key = ''; grdHide('urb-crec'); grdHide('urb-suelo'); if (GRD.mesh) GRD.mesh.visible = false;
+  FR.B = null; FR.res = null; FR.mapMesh = null; FR.saved = null; RT.routes = []; RT.F = null; RT.estado = ''; COB.res = {}; covQuita();
+  clearInterval(TF.play); TF.play = null; TF.vias = []; TF.sel.clear(); TF.horas = []; TF.doc = null; TF.G = null; TF.flow.clear(); { const w = $('tf-win'); if (w) w.remove(); const t = $('trf'); if (t) t.remove(); const v = $('vcp'); if (v) v.remove(); } VC.lista = []; VC.roads = [];
+  OD.d = null; OD.G = null; CITY.d = {}; INDX.cols.clear(); mapMesh = null; alertHeads.length = 0;
+}
+async function mqCambia(id) {
+  if (MQ.cambia) return; MQ.cambia = 1; MQ.err = ''; mqToast('Cargando la maqueta…');
+  try {
+    for (let i = 0; i < 600 && MQ.busy; i++) await new Promise(r => setTimeout(r, 100));
+    const { S: S2, vc } = await escenaCompleta(id), Sold = curS;
+    if (RT.on) await rtSet(false); if (FR.mode) await frSet(0); if (CITY.od) await cityToggle(Sold); if (CITY.demo) await demoSet(Sold, false); if (COB.mapa) await covMapa(Sold, false);
+    const idOld = pid(), gOld = world, ya = MQ.sel.get(id); if (ya && ya.g) { scene.remove(ya.g); ya.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); MQ.sel.delete(id); }
+    if (anim.mvGroup) anim.mvGroup.visible = false; if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } gOld.add(mqMarca(Sold, Sold.tit || Sold.titulo)); MQ.sel.set(idOld, { g: gOld, S: Sold, ox: 0, oz: 0 });
+    mqReset(); VC.cfg = vc; VC.ov = (vc && vc.ov) || {}; const nm0 = NIGHT.mats; window.__PID = id; window.__IDO = null; curS = S2; S2.__pendRg = true; world = null; G = null; build(S2); NIGHT.mats = nm0.concat(NIGHT.mats); NIGHT.set(NIGHT.lv);
+    MQ.sunC = null; MQ.act = ''; MQ.foco = id; const lat0 = +S2.lat, lng0 = +S2.lng; MQ.sel.forEach(q => { q.ox = (+q.S.lng - lng0) * 111320 * Math.cos(lat0 * Math.PI / 180); q.oz = -(+q.S.lat - lat0) * 111320; q.g.position.set(q.ox, 0, q.oz); });
+    MQ.pm = mqMarca(S2, S2.tit || S2.titulo); scene.add(MQ.pm); mqHoles(); if (CITY.on) { CITY.S = S2; cgLimpia(); cgUpdate(); } else await mqCiudad(true);
+    postBuild(S2); mqRender(); mqFoco(id); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400); [solRes, inuRes, geoRes, urbRes].forEach(f => { try { f(); } catch (_) { } }); [solSync, inuSync, geoSync, urbSync].forEach(f => { try { f(); } catch (_) { } }); indOnMq();
+  } catch (e) { console.warn('mqCambia', e.stack); MQ.err = 'No se pudo abrir esa maqueta: ' + (e.message || e); mqRender(); }
+  MQ.cambia = 0; mqToast('');
 }
 function mqFoco(id) {
-  const S = solS(); if (!S) return; let cx = 0, cz = 0, R = S.radio; if (id !== String(ID)) { const q = MQ.sel.get(id); if (!q || !q.g) return; cx = q.ox; cz = q.oz; R = q.S.radio; }
+  const S = solS(); if (!S) return; let cx = 0, cz = 0, R = S.radio; if (id !== pid()) { const q = MQ.sel.get(id); if (!q || !q.g) return; cx = q.ox; cz = q.oz; R = q.S.radio; }
   const D = Math.max(900, R * 4.5), tg = new THREE.Vector3(cx, 0, cz), to = tg.clone().add(new THREE.Vector3(0, .8 * D, .6 * D)); controls.target.copy(tg); zWant = 0; if (CITY.on) CITY.tw = { t: 0, from: camera.position.clone(), to }; else camera.position.copy(to); controls.update();
 }
 // ventana Indicadores: selección múltiple (cada punto marcado se dibuja en el mapa y es una columna de la tabla)
@@ -2048,10 +2085,10 @@ function mqRenderMulti() {
   el.innerHTML = `<div class="ind-pdih">📍 Puntos de interés <small>(marque varios para compararlos en columnas y verlos en el mapa)</small></div><div class="ind-pdil">${fila(d.prin, true)}${d.otros.map(q => fila(q)).join('') || `<div style="font-size:11px;color:#94a3b8;padding:4px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}</div><div style="font-size:11px;color:#b45309">${MQ.err || ''}</div>`;
 }
 function mqBuildSec(S2) {
-  const sv = { world, G, people: anim.people, movers: anim.movers, mvGroup: anim.mvGroup, mkCar: anim.mkCar, addLights: anim.addLights, prop: anim.prop, neg: [NEG.items, NEG.upd], nm: NIGHT.mats, sunp: sun.position.clone(), sunt: sun.target.position.clone(), sc: [sc.left, sc.right, sc.top, sc.bottom, sc.far], cam: [camera.position.clone(), controls.target.clone(), camera.near, camera.far], fitR, ctl: [controls.minDistance, controls.maxDistance, controls.maxPolarAngle, controls.autoRotate], perfil: PERFIL, spec: [CURSPEC, RVOFF, ALON, NOBAR, LASTD], tip: TIPOLABS, ph: propHead, w: ['__curS', '__ajR', '__ovl', '__neg', '__esq', '__cp', '__mob'].map(k => [k, window[k]]) };
+  const sv = { world, G, people: anim.people, movers: anim.movers, mvGroup: anim.mvGroup, mkCar: anim.mkCar, addLights: anim.addLights, prop: anim.prop, neg: [NEG.items, NEG.upd], nm: NIGHT.mats, sunp: sun.position.clone(), sunt: sun.target.position.clone(), sc: [sc.left, sc.right, sc.top, sc.bottom, sc.far], cam: [camera.position.clone(), controls.target.clone(), camera.near, camera.far], vc: [VC.roads, VC.lista, VC.cfg, VC.ov], fitR, ctl: [controls.minDistance, controls.maxDistance, controls.maxPolarAngle, controls.autoRotate], perfil: PERFIL, spec: [CURSPEC, RVOFF, ALON, NOBAR, LASTD], tip: TIPOLABS, ph: propHead, w: ['__curS', '__ajR', '__ovl', '__neg', '__esq', '__cp', '__mob'].map(k => [k, window[k]]) };
   const nt = $('notas'), td = $('t-desc'); nt.id = 'notas_x'; td.id = 't-desc_x'; const f1 = document.createElement('div'), f2 = document.createElement('span'); f1.id = 'notas'; f2.id = 't-desc'; f1.style.display = f2.style.display = 'none'; document.body.append(f1, f2); let g = null;
   try { world = null; G = null; build(S2); g = world; if (anim.mvGroup) anim.mvGroup.visible = false; const sm = NIGHT.mats; NIGHT.mats = sv.nm.concat(sm); NIGHT.set(NIGHT.lv); }
-  finally { world = sv.world; G = sv.G; anim.people = sv.people; anim.movers = sv.movers; anim.mvGroup = sv.mvGroup; anim.mkCar = sv.mkCar; anim.addLights = sv.addLights; anim.prop = sv.prop; NEG.items = sv.neg[0]; NEG.upd = sv.neg[1]; sun.position.copy(sv.sunp); sun.target.position.copy(sv.sunt); [sc.left, sc.right, sc.top, sc.bottom, sc.far] = sv.sc; sc.updateProjectionMatrix(); camera.position.copy(sv.cam[0]); controls.target.copy(sv.cam[1]); camera.near = sv.cam[2]; camera.far = sv.cam[3]; camera.updateProjectionMatrix(); fitR = sv.fitR; [controls.minDistance, controls.maxDistance, controls.maxPolarAngle, controls.autoRotate] = sv.ctl; PERFIL = sv.perfil; [CURSPEC, RVOFF, ALON, NOBAR, LASTD] = sv.spec; TIPOLABS = sv.tip; propHead = sv.ph; sv.w.forEach(([k, v]) => { window[k] = v; }); f1.remove(); f2.remove(); nt.id = 'notas'; td.id = 't-desc'; controls.update(); renderer.shadowMap.needsUpdate = true; }
+  finally { world = sv.world; G = sv.G; anim.people = sv.people; anim.movers = sv.movers; anim.mvGroup = sv.mvGroup; anim.mkCar = sv.mkCar; anim.addLights = sv.addLights; anim.prop = sv.prop; NEG.items = sv.neg[0]; NEG.upd = sv.neg[1]; sun.position.copy(sv.sunp); sun.target.position.copy(sv.sunt); [sc.left, sc.right, sc.top, sc.bottom, sc.far] = sv.sc; sc.updateProjectionMatrix(); camera.position.copy(sv.cam[0]); controls.target.copy(sv.cam[1]); camera.near = sv.cam[2]; camera.far = sv.cam[3]; camera.updateProjectionMatrix(); [VC.roads, VC.lista, VC.cfg, VC.ov] = sv.vc; fitR = sv.fitR; [controls.minDistance, controls.maxDistance, controls.maxPolarAngle, controls.autoRotate] = sv.ctl; PERFIL = sv.perfil; [CURSPEC, RVOFF, ALON, NOBAR, LASTD] = sv.spec; TIPOLABS = sv.tip; propHead = sv.ph; sv.w.forEach(([k, v]) => { window[k] = v; }); f1.remove(); f2.remove(); nt.id = 'notas'; td.id = 't-desc'; controls.update(); renderer.shadowMap.needsUpdate = true; }
   return g;
 }
 // marco, tinte y rótulo de cada maqueta para distinguirla sobre el mapa de la ciudad
@@ -2112,9 +2149,9 @@ function pwResizable(el, onRz) {
 }
 function mmPin(estado) { return window.L.divIcon({ className: '', html: `<div class="mm-pin ${estado}"><i></i></div>`, iconSize: [26, 26], iconAnchor: [13, 30] }); }
 function mmRefresh() {
-  if (!MM.map || !window.L) return; const d = mqDatos(); if (!d) return; const foco = MQ.foco || String(ID), todos = [d.prin].concat(d.otros), vivos = new Set();
-  todos.forEach(q => { vivos.add(q.id); const est = (q.id === String(ID) ? 'p' : MQ.sel.has(q.id) ? 'd' : '') + (q.id === foco ? ' f' : ''); let m = MM.mk.get(q.id);
-    if (!m) { m = window.L.marker([q.lat, q.lng], { icon: mmPin(est), title: q.titulo, riseOnHover: true }).addTo(MM.map); m.bindTooltip(String(q.titulo).split(' - ')[0].split(' · ')[0], { permanent: true, direction: 'right', offset: [10, -16], className: 'mm-tip' }); m.on('click', () => mqIr(q.id)); m.on('dblclick', e => { window.L.DomEvent.stop(e); if (q.id !== String(ID) && MQ.sel.has(q.id)) { mqToggle(q.id, false); if (MQ.foco === q.id) MQ.foco = null; } }); MM.mk.set(q.id, m); } else m.setIcon(mmPin(est)); });
+  if (!MM.map || !window.L) return; const d = mqDatos(); if (!d) return; const foco = MQ.foco || pid(), todos = [d.prin].concat(d.otros), vivos = new Set();
+  todos.forEach(q => { vivos.add(q.id); const est = (q.id === pid() ? 'p' : MQ.sel.has(q.id) ? 'd' : '') + (q.id === foco ? ' f' : ''); let m = MM.mk.get(q.id);
+    if (!m) { m = window.L.marker([q.lat, q.lng], { icon: mmPin(est), title: q.titulo, riseOnHover: true }).addTo(MM.map); m.bindTooltip(String(q.titulo).split(' - ')[0].split(' · ')[0], { permanent: true, direction: 'right', offset: [10, -16], className: 'mm-tip' }); m.on('click', () => mqIr(q.id)); m.on('dblclick', e => { window.L.DomEvent.stop(e); if (q.id !== pid() && MQ.sel.has(q.id)) { mqToggle(q.id, false); if (MQ.foco === q.id) MQ.foco = null; } }); MM.mk.set(q.id, m); } else m.setIcon(mmPin(est)); });
   MM.mk.forEach((m, id) => { if (!vivos.has(id)) { MM.map.removeLayer(m); MM.mk.delete(id); } });
   if (!MM.fit && todos.length > 1) { MM.fit = 1; MM.map.fitBounds(window.L.latLngBounds(todos.map(q => [q.lat, q.lng])), { padding: [50, 50], maxZoom: 14 }); } else if (!MM.fit && todos.length === 1) MM.map.setView([todos[0].lat, todos[0].lng], 13);
 }
@@ -2122,7 +2159,7 @@ function mmRefresh() {
   const r = pwMake('mapa'), el = r.el, pws = el.querySelector('.pws'); el.classList.add('pwmap'); pws.innerHTML = '<div id="mm-map"></div>'; Object.assign(el.style, { width: '440px', height: '360px', top: '64px', left: Math.max(8, innerWidth - 456) + 'px' }); pwResizable(el, () => { if (MM.map) MM.map.invalidateSize(); });
   new MutationObserver(() => { if (!el.classList.contains('on')) return; if (!MM.built) { MM.built = 1; solLeaflet(() => { MM.map = window.L.map('mm-map', { zoomControl: true, doubleClickZoom: false }).setView([25.43, -100.98], 12); window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(MM.map); MM.ro = new ResizeObserver(() => MM.map && MM.map.invalidateSize()); MM.ro.observe(pws); mmRefresh(); }); } else if (MM.map) setTimeout(() => MM.map.invalidateSize(), 60); }).observe(el, { attributes: true, attributeFilter: ['class'] });
 }
-const curId = () => window.__IDO || qs.get('fid') || ID;
+const pid = () => String(window.__PID || ID), curId = () => window.__IDO || (window.__PID ? window.__PID : qs.get('fid') || ID);
 const OD = { d: null, G: null, m: 'dia', busy: 0 };
 async function odCarga(S) {
   if (S.lat == null || qs.get('src')) return; const id = curId();
