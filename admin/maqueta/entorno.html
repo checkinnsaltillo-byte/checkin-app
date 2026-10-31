@@ -1299,7 +1299,7 @@ const TF_DIAS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6
 const TF_CL = { motorway: 'Autopista', trunk: 'Troncal', primary: 'Primaria', secondary: 'Secundaria', tertiary: 'Terciaria', motorway_link: 'Enlace', trunk_link: 'Enlace', primary_link: 'Enlace', secondary_link: 'Enlace', tertiary_link: 'Enlace', unclassified: 'Sin clasificar', residential: 'Residencial', living_street: 'Calle compartida', service: 'Servicio' };
 // ── origen del tráfico frente a la propiedad: estimación por modelo (gravedad + red vial + tiempos de Google), no es una medición
 // ── ventanitas emergentes sobre el mapa: los resultados de cada análisis salen del menú izquierdo y viven aquí (se arrastran, se minimizan y se cierran; un botón al borde del mapa las abre)
-const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Riesgos'], fr: ['🕸️', 'Accesibilidad'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Población'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Terreno'], urb: ['🏘️', 'Urbanización'], dem: ['👥', 'Demografía'], eco: ['🏪', 'Actividad económica'], ent: ['🏙️', 'Análisis del entorno urbano (IA)'], psl: ['☀️', 'Potencial solar'], aire: ['💨', 'Aire, polen y clima'], arb: ['🌳', 'Cobertura arbórea'], emi: ['🏭', 'Emisiones de carbono'], ind: ['📋', 'Indicadores'], mapa: ['🗺️', 'Mapa de puntos de interés'], trf: ['🚦', 'Tráfico'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'dem', 'eco', 'ent', 'psl', 'aire', 'arb', 'emi', 'ind', 'mapa', 'trf'];
+const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Riesgos'], fr: ['🕸️', 'Accesibilidad'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Población'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Terreno'], urb: ['🏘️', 'Urbanización'], dem: ['👥', 'Demografía'], eco: ['🏪', 'Actividad económica'], ent: ['🏙️', 'Análisis del entorno urbano (IA)'], amb: ['🌿', 'Medio ambiente'], psl: ['☀️', 'Potencial solar'], aire: ['💨', 'Aire, polen y clima'], arb: ['🌳', 'Cobertura arbórea'], emi: ['🏭', 'Emisiones de carbono'], ind: ['📋', 'Indicadores'], mapa: ['🗺️', 'Mapa de puntos de interés'], trf: ['🚦', 'Tráfico'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'dem', 'eco', 'ent', 'amb', 'psl', 'aire', 'arb', 'emi', 'ind', 'mapa', 'trf'];
 function pwLeft() { const d = $('dock'); return d && !d.classList.contains('off') ? Math.round(d.getBoundingClientRect().right) + 6 : 8; }
 function pwLayout() { const b = $('pw-bar'); if (b) { const l = pwLeft(); b.style.left = l + 'px'; b.classList.toggle('ico', l + 210 > innerWidth); } }
 function pwMake(id) {
@@ -3312,6 +3312,16 @@ Object.keys(OPA).forEach(id => {
   el.addEventListener('input', e => { if (!e.target.classList.contains('op-s')) return; OPA[id].v = +e.target.value / 100; el.querySelectorAll('.op-s').forEach(x => { x.value = e.target.value; }); el.querySelectorAll('.op-v').forEach(x => { x.textContent = e.target.value + ' %'; }); OPA[id].g().forEach(g => { if (g) delete g.userData.opa; }); opaAplica(id); });
 });
 setInterval(() => { if (document.hidden) return; Object.keys(OPA).forEach(id => { if (OPA[id].v !== 1 || OPA[id].g().some(g => g && g.userData.opa !== undefined)) opaAplica(id); }); }, 300);
+// ───── «Medio ambiente» reúne Aire/polen/clima, Potencial solar y Emisiones de carbono en una sola ventana
+{
+  const R = pwMake('amb'), ids = [['aire', '💨 Aire, polen y clima'], ['psl', '☀️ Potencial solar'], ['emi', '🏭 Emisiones de carbono']]; R.el.querySelector('.pws').remove(); R.el.style.width = '430px';
+  const seg = document.createElement('div'); seg.className = 'seg'; seg.style.cssText = 'margin:6px 10px 2px;padding-bottom:6px;border-bottom:1px solid #e2e8f0'; seg.innerHTML = ids.map(([k, l], i) => `<button data-g="${k}"${i === 0 ? ' class="on"' : ''}>${l}</button>`).join(''); R.el.appendChild(seg);
+  ids.forEach(([k]) => { const e = $('pw-' + k), r = PW.m.get(k); r.chip.remove(); e.classList.remove('on'); e.style.cssText = 'position:static;width:auto;max-width:none;box-shadow:none;border-radius:0;background:transparent;overflow:visible;z-index:auto'; e.querySelector('.pwh').style.display = 'none'; e.querySelectorAll('.pws').forEach(p => { p.style.maxHeight = '62vh'; }); R.el.appendChild(e); });
+  let act = 'aire'; const aplica = () => { const abierta = R.el.classList.contains('on'); ids.forEach(([k]) => $('pw-' + k).classList.toggle('on', abierta && k === act)); seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.g === act)); };
+  seg.onclick = e => { const b = e.target.closest('button[data-g]'); if (b) { act = b.dataset.g; aplica(); } };
+  new MutationObserver(aplica).observe(R.el, { attributes: true, attributeFilter: ['class'] });
+  PW_CIERRA.amb = () => { ['aire', 'psl', 'emi'].forEach(k => { try { PW_CIERRA[k](); } catch (_) { } }); };
+}
 // opciones de la capa Demografía: se muestran debajo de su casilla en Capas
 function demoOpt() {
   const ck = document.querySelector('#cap .ck[data-k="demografia"]'); if (!ck) return; let o = $('demo-opt'); if (!CITY.demo) { if (o) o.remove(); return; }
