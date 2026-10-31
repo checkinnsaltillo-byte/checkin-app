@@ -1282,7 +1282,7 @@ function buildCapas() {
   fm.querySelectorAll('#fr-seg button').forEach(b => b.onclick = () => frSet(+b.dataset.m)); const gb = $('b-gr'); gb.style.display = ''; fm.querySelector('#fr-btns').appendChild(gb); const tmb = document.createElement('button'); tmb.id = 'fr-tema'; tmb.textContent = '☀️ Tema claro'; tmb.onclick = frTema; fm.querySelector('#fr-btns').appendChild(tmb); { const rtb = document.createElement('button'); rtb.id = 'b-rt'; rtb.textContent = '🚗 Rutas de acceso'; rtb.title = 'Recorridos simultáneos desde cruces de vialidades principales hasta la propiedad'; rtb.onclick = () => rtSet(!RT.on); fm.querySelector('#fr-btns').appendChild(rtb); const rp = document.createElement('div'); rp.id = 'rtp'; rp.style.cssText = 'display:none;margin-top:8px;font-size:12px;color:#1f2937'; fm.appendChild(rp); } fm.appendChild($('frp')); wrapCol(fm, '🕸️ Accesibilidad', false); frSegSync();
   const rg = $('rgp'); dock.insertBefore(rg, fm.nextSibling); rg.style.display = 'block';
   let tl = $('tools'); if (!tl) { tl = document.createElement('div'); tl.id = 'tools'; tl.style.cssText = el.style.cssText; dock.appendChild(tl); } tl.innerHTML = '<div class="btnrow" id="tool-btns" style="margin-top:0"></div>'; delete tl.dataset.col;
-  const tb = tl.querySelector('#tool-btns'); ['b-rot', 'b-zi', 'b-zo', 't-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const b = $(id); b.style.display = ''; tb.appendChild(b); }); wrapCol(tl, '🛠️ Herramientas', false);
+  const tb = tl.querySelector('#tool-btns'); ['t-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const b = $(id); b.style.display = ''; tb.appendChild(b); }); wrapCol(tl, '🛠️ Herramientas', false);
 }
 setInterval(() => { if (document.getElementById('cap')) capasSync(); }, 1000);
 const clock = new THREE.Clock();
@@ -2178,7 +2178,7 @@ async function escenaCompleta(id) {
 }
 // lo que sigue a build() al abrir una maqueta como principal
 // buildCapas() reemplaza el contenido de Capas, Fricción y Herramientas: los botones que ya se habían movido ahí se devuelven antes a la barra para no perderlos
-function capasRescata() { const bar = document.querySelector('.bar'); if (!bar) return; ['b-map', 'b-gh', 'b-solo', 'b-gr', 'b-rot', 'b-zi', 'b-zo', 't-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const e = $(id); if (e && !bar.contains(e)) bar.appendChild(e); }); const f = $('frp'); if (f && !f.closest('.pwin')) document.body.appendChild(f); }
+function capasRescata() { const bar = document.querySelector('.bar'); if (!bar) return; ['b-map', 'b-gh', 'b-solo', 'b-gr', 't-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const e = $(id); if (e && !bar.contains(e)) bar.appendChild(e); }); const f = $('frp'); if (f && !f.closest('.pwin')) document.body.appendChild(f); }
 function postBuild(S) {
   if (S.roads) { S.riesgos = (S.riesgos || []).filter(q => !/posible|probable|ambigu|podr[ií]a|se renta|mural/i.test((q.n || '') + ' ' + (q.k || ''))); const n = buildAlertas(S); panelRiesgos(S); $('b-rg').style.display = ''; $('b-rl').style.display = ''; $('b-rg').textContent = `🚨 Riesgos (${n})`; }
   [0, 300, 1200, 3000].forEach(ms => setTimeout(() => { renderer.shadowMap.needsUpdate = true; }, ms));
@@ -2667,8 +2667,11 @@ async function demoSet(S, on) {   // capa Demografía (Capas)
   const RUM = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   const tick = () => {
     const a = controls.getAzimuthalAngle(); if (Math.abs(a - last) > 1e-4 || isNaN(last)) { last = a; dial.style.transform = `rotate(${a}rad)`; const b = ((-a * 180 / Math.PI) % 360 + 360) % 360; lab.textContent = RUM[Math.round(b / 45) % 8] + ' ' + Math.round(b) + '°'; el.style.opacity = '1'; }
-    const ab = $('acc-box'); el.style.right = (ab && ab.style.display !== 'none' && ab.isConnected ? 462 : 14) + 'px'; requestAnimationFrame(tick);
+    const ab = $('acc-box'); const rr = (ab && ab.style.display !== 'none' && ab.isConnected ? 462 : 14) + 'px'; el.style.right = rr; const mc = $('map-ctl'); if (mc) mc.style.right = rr; requestAnimationFrame(tick);
   };
+  const mc = document.createElement('div'); mc.id = 'map-ctl'; mc.style.cssText = 'position:fixed;right:14px;bottom:102px;z-index:9001;display:flex;flex-direction:column;align-items:flex-end;gap:7px'; const fila = document.createElement('div'); fila.style.cssText = 'display:flex;gap:7px';
+  const css = document.createElement('style'); css.textContent = '#map-ctl button{all:unset;cursor:pointer;box-sizing:border-box;background:#fff;color:#334155;font:700 12px system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.3);border-radius:99px;text-align:center;line-height:1;transition:background .15s}#map-ctl #b-rot{padding:10px 16px}#map-ctl #b-zi,#map-ctl #b-zo{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}#map-ctl button:hover{background:#eef2ff}#map-ctl button.on{background:#0f172a;color:#fff}'; document.head.appendChild(css);
+  ['b-rot', 'b-zi', 'b-zo'].forEach(id => { const b = $(id); if (b) { b.style.display = ''; (id === 'b-rot' ? mc : fila).appendChild(b); } }); mc.appendChild(fila); document.body.appendChild(mc);
   requestAnimationFrame(tick);
   el.onclick = () => { if (anim) return; const a0 = controls.getAzimuthalAngle(); if (Math.abs(a0) < 1e-3) return; const off = camera.position.clone().sub(controls.target), r = Math.hypot(off.x, off.z), t0 = performance.now(); let d = -a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const th0 = a0;
     const step = () => { const k = Math.min(1, (performance.now() - t0) / 450), e = k * k * (3 - 2 * k), th = th0 + d * e; camera.position.set(controls.target.x + r * Math.sin(th), camera.position.y, controls.target.z + r * Math.cos(th)); controls.update(); if (k < 1) anim = requestAnimationFrame(step); else anim = 0; }; anim = requestAnimationFrame(step); };
