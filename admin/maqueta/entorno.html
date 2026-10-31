@@ -101,6 +101,14 @@
   .pwsec.cfg:not(.has){display:none}
   .pwres:empty::before{content:"Aún sin resultados.";color:#94a3b8;font-size:11.5px}
   .pwin.min .pws,.pwin.min .pwtabs{display:none}
+  .pwin.pwmap{max-width:96vw}.pwin.pwmap.min{height:auto!important}
+  .pwin.pwmap .pws{flex:1;max-height:none;overflow:hidden;min-height:0;position:relative}#mm-map{position:absolute;inset:0}
+  .pwrz{position:absolute;z-index:7}.pwrz.n{top:0;left:12px;right:12px;height:7px;cursor:ns-resize}.pwrz.s{bottom:0;left:12px;right:12px;height:7px;cursor:ns-resize}.pwrz.e{right:0;top:12px;bottom:12px;width:7px;cursor:ew-resize}.pwrz.w{left:0;top:12px;bottom:12px;width:7px;cursor:ew-resize}
+  .pwrz.ne{top:0;right:0;width:14px;height:14px;cursor:nesw-resize}.pwrz.nw{top:0;left:0;width:14px;height:14px;cursor:nwse-resize}.pwrz.se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}.pwrz.sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
+  .pwin.pwmap.min .pwrz{display:none}
+  .mm-pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.4);background:#94a3b8;display:flex;align-items:center;justify-content:center;box-sizing:border-box}.mm-pin i{width:8px;height:8px;border-radius:50%;background:#fff}
+  .mm-pin.p{background:#dc2626}.mm-pin.d{background:#4f46e5}.mm-pin.f{box-shadow:0 0 0 5px rgba(79,70,229,.35),0 3px 8px rgba(0,0,0,.4)}
+  .mm-tip{font:700 11px system-ui,sans-serif;background:rgba(255,255,255,.96);border:0;color:#1e293b;box-shadow:0 2px 6px rgba(0,0,0,.25);padding:2px 6px}
   .pwtabs{display:flex;gap:4px;padding:6px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}
   .pwtabs button{all:unset;cursor:pointer;padding:5px 11px;border-radius:99px;font-size:11.5px;font-weight:700;color:#475569;background:#f1f5f9;box-shadow:inset 0 0 0 1px #e2e8f0}
   .pwtabs button.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:none}
@@ -1290,7 +1298,7 @@ const TF_DIAS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6
 const TF_CL = { motorway: 'Autopista', trunk: 'Troncal', primary: 'Primaria', secondary: 'Secundaria', tertiary: 'Terciaria', motorway_link: 'Enlace', trunk_link: 'Enlace', primary_link: 'Enlace', secondary_link: 'Enlace', tertiary_link: 'Enlace', unclassified: 'Sin clasificar', residential: 'Residencial', living_street: 'Calle compartida', service: 'Servicio' };
 // ── origen del tráfico frente a la propiedad: estimación por modelo (gravedad + red vial + tiempos de Google), no es una medición
 // ── ventanitas emergentes sobre el mapa: los resultados de cada análisis salen del menú izquierdo y viven aquí (se arrastran, se minimizan y se cierran; un botón al borde del mapa las abre)
-const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Lista de riesgos'], fr: ['🕸️', 'Fricción y rutas de acceso'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Cobertura poblacional'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Geología'], urb: ['🏘️', 'Urbanización'], ind: ['📋', 'Indicadores'], trf: ['🚦', 'Tráfico'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'ind', 'trf'];
+const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Lista de riesgos'], fr: ['🕸️', 'Fricción y rutas de acceso'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Cobertura poblacional'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Geología'], urb: ['🏘️', 'Urbanización'], ind: ['📋', 'Indicadores'], mapa: ['🗺️', 'Mapa de puntos de interés'], trf: ['🚦', 'Tráfico'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'ind', 'mapa', 'trf'];
 function pwLeft() { const d = $('dock'); return d && !d.classList.contains('off') ? Math.round(d.getBoundingClientRect().right) + 6 : 8; }
 function pwLayout() { const b = $('pw-bar'); if (b) b.style.left = pwLeft() + 'px'; }
 function pwMake(id) {
@@ -2007,7 +2015,7 @@ async function indCarga() {
   let first = 1; new MutationObserver(() => { if ($('pw-ind').classList.contains('on')) { indRender(); if (first) { first = 0; indCarga(); } else indOnMq(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
 }
 // ── Puntos de interés: otras maquetas ya generadas, visibles a la vez sobre un solo mapa de fondo (la vista de ciudad); las ventanas de análisis siguen usando la maqueta principal
-const MQ = { items: [], sel: new Map(), busy: 0, msg: '' }; window.__MQ = MQ; window.__scn = scene; window.__cam = camera; window.__ctl = controls;
+const MQ = { items: [], sel: new Map(), busy: 0, msg: '', foco: null }; window.__MQ = MQ; window.__scn = scene; window.__cam = camera; window.__ctl = controls;
 const mqKm = (a, b) => { const k = Math.PI / 180, dx = (b.lng - a.lng) * Math.cos((a.lat + b.lat) / 2 * k) * 111.32, dy = (b.lat - a.lat) * 110.54; return Math.hypot(dx, dy); };
 async function mqLista() { try { const j = await fetch('https://api.check-inn.mx/mercado/maqueta/lista', { cache: 'no-store' }).then(r => r.json()); MQ.items = j.ok ? j.items : []; MQ.msg = j.ok ? '' : 'No se pudo cargar la lista.'; } catch (_) { MQ.items = []; MQ.msg = 'No se pudo cargar la lista.'; } mqRender(); }
 function mqDatos() {
@@ -2015,12 +2023,23 @@ function mqDatos() {
   return { prin, otros };
 }
 const mqNom = t => esc_(String(t).replace(/\s*·\s*radio.*$/, ''));
-// menú izquierdo: una sola selección (la maqueta que se muestra); elegir otra la abre como principal
+// menú izquierdo: una sola selección; elegir un punto despliega esa maqueta sobre el mapa de la ciudad (sin borrar las demás) y lleva la cámara hacia ella
 function mqRender() {
-  const d = mqDatos(), el = $('pdi'); mqRenderMulti(); if (!el || !d) return;
-  const fila = (q, pr) => `<div class="ck rd${pr ? ' on' : ''}" data-id="${q.id}"${pr ? ' data-p="1" style="cursor:default"' : ''}><span class="bx" style="border-radius:50%">●</span><span style="min-width:0;flex:1"><b style="font-size:12px">${mqNom(q.titulo)}</b><br><small style="color:#64748b">${pr ? 'Maqueta en pantalla' : q.km.toFixed(1) + ' km de la actual' + (q.radio ? ' · radio ' + q.radio + ' m' : '')}</small></span></div>`;
-  el.innerHTML = `<div style="font-size:11px;color:#64748b;margin-bottom:6px">Elija la maqueta que quiere ver y analizar (se abre como principal). Para compararlas entre sí marque varias en <b>Indicadores</b>.</div>${fila(d.prin, true)}${d.otros.map(q => fila(q)).join('') || `<div style="font-size:11px;color:#94a3b8;padding:6px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}${MQ.sel.size ? `<div style="font-size:11px;color:#4f46e5;margin-top:4px">+ ${MQ.sel.size} maqueta(s) comparada(s) en pantalla</div>` : ''}`;
+  const d = mqDatos(), el = $('pdi'); mqRenderMulti(); mmRefresh(); if (!el || !d) return; const foco = MQ.foco || String(ID);
+  const fila = q => `<div class="ck rd${q.id === foco ? ' on' : ''}" data-id="${q.id}"><span class="bx" style="border-radius:50%">●</span><span style="min-width:0;flex:1"><b style="font-size:12px">${mqNom(q.titulo)}</b><br><small style="color:#64748b">${q.id === String(ID) ? 'Maqueta principal' : q.km.toFixed(1) + ' km de la principal' + (q.radio ? ' · radio ' + q.radio + ' m' : '')}${MQ.sel.has(q.id) ? (MQ.sel.get(q.id).cargando ? ' · cargando…' : ' · desplegada') : ''}</small></span></div>`;
+  el.innerHTML = `<div class="btnrow" style="margin:0 0 6px"><button id="pdi-map">🗺️ Mapa de puntos</button></div><div style="font-size:11px;color:#64748b;margin-bottom:6px">Elija un punto para desplegar su maqueta sobre el mapa de la ciudad; las que ya estén desplegadas se conservan. Para compararlas o quitarlas use <b>Indicadores</b>.</div>${fila(d.prin)}${d.otros.map(fila).join('') || `<div style="font-size:11px;color:#94a3b8;padding:6px 0">${MQ.msg || (MQ.items.length ? 'No hay otras maquetas generadas.' : 'Cargando maquetas…')}</div>`}`;
   const col = el.dataset.col; delete el.dataset.col; if (col !== undefined) el.dataset.col = col; wrapCol(el, '📍 Puntos de interés', false);
+}
+// despliega (si hace falta) la maqueta de un punto y enfoca la cámara en ella
+async function mqIr(id) {
+  const S = solS(); if (!S) return; id = String(id); MQ.foco = id; MQ.err = '';
+  if (id !== String(ID) && !MQ.sel.has(id)) { if (!MQ.items.some(q => q.id === id)) return; mqToggle(id, true); }
+  mqRender(); for (let i = 0; i < 900 && id !== String(ID); i++) { const q = MQ.sel.get(id); if (!q) { MQ.foco = null; mqRender(); return; } if (q.g) break; await new Promise(r => setTimeout(r, 100)); }
+  if (MQ.foco === id) mqFoco(id);
+}
+function mqFoco(id) {
+  const S = solS(); if (!S) return; let cx = 0, cz = 0, R = S.radio; if (id !== String(ID)) { const q = MQ.sel.get(id); if (!q || !q.g) return; cx = q.ox; cz = q.oz; R = q.S.radio; }
+  const D = Math.max(900, R * 4.5), tg = new THREE.Vector3(cx, 0, cz), to = tg.clone().add(new THREE.Vector3(0, .8 * D, .6 * D)); controls.target.copy(tg); zWant = 0; if (CITY.on) CITY.tw = { t: 0, from: camera.position.clone(), to }; else camera.position.copy(to); controls.update();
 }
 // ventana Indicadores: selección múltiple (cada punto marcado se dibuja en el mapa y es una columna de la tabla)
 function mqRenderMulti() {
@@ -2038,7 +2057,7 @@ function mqBuildSec(S2) {
 // marco, tinte y rótulo de cada maqueta para distinguirla sobre el mapa de la ciudad
 function mqMarca(S, tit) {
   const R = S.radio, g = new THREE.Group(), pts = [[-R, -R], [R, -R], [R, R], [-R, R]].map(p => new THREE.Vector3(p[0], 1.2, p[1])), ln = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x4f46e5, transparent: true, opacity: .95, depthTest: false })); ln.renderOrder = 30;
-  const lb = solTxt((t => t.length > 15 ? t.slice(0, 14) + '…' : t)(String(tit).split(' - ')[0].split(' · ')[0]), '#312e81', R * 1.5, 1, 1); lb.position.set(0, 60 + R * .25, -R * 1.05); g.add(ln, lb); g.userData.noPick = 1; return g;
+  const lb = solTxt((t => t.length > 15 ? t.slice(0, 14) + '…' : t)(String(tit).split(' - ')[0].split(' · ')[0]), '#312e81', R * 1.5, 1, 1); lb.position.set(0, 60 + R * .25, -R * 1.05); g.add(ln, lb); g.userData.noPick = 1; g.userData.lb = lb; g.userData.R = R; return g;
 }
 function mqEncuadra() {
   const S = solS(); if (!S) return; const pts = [[0, 0]].concat([...MQ.sel.values()].filter(q => q.g).map(q => [q.ox, q.oz])), cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cz = pts.reduce((a, p) => a + p[1], 0) / pts.length; let sp = 0; pts.forEach(a => pts.forEach(b => { sp = Math.max(sp, Math.hypot(a[0] - b[0], a[1] - b[1])); }));
@@ -2057,7 +2076,7 @@ async function mqMapaSec(q) {
 function mqMapas() { MQ.sel.forEach(q => mqMapaSec(q)); }
 // la luz del sol (y sus sombras) sigue a la maqueta más cercana al centro de la vista, para que todas tengan sombras completas
 function mqSombra() {
-  const S = solS(); if (!S) return; const act = [{ id: '', x: 0, z: 0, R: S.radio }].concat([...MQ.sel.entries()].filter(([, q]) => q.g).map(([id, q]) => ({ id, x: q.ox, z: q.oz, R: q.S.radio }))), t = controls.target; let b = act[0], bd = 1e12; act.forEach(a => { const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < bd) { bd = d; b = a; } });
+  const S = solS(); if (!S) return; { const cp = camera.position, mk = []; if (MQ.pm) mk.push([MQ.pm, new THREE.Vector3()]); MQ.sel.forEach(q => { if (q.g) { const m = q.g.children.find(o => o.userData.lb); if (m) mk.push([m, new THREE.Vector3(q.ox, 0, q.oz)]); } }); mk.forEach(([m, c]) => { m.userData.lb.visible = cp.distanceTo(c) > m.userData.R * 7; }); } const act = [{ id: '', x: 0, z: 0, R: S.radio }].concat([...MQ.sel.entries()].filter(([, q]) => q.g).map(([id, q]) => ({ id, x: q.ox, z: q.oz, R: q.S.radio }))), t = controls.target; let b = act[0], bd = 1e12; act.forEach(a => { const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < bd) { bd = d; b = a; } });
   if (MQ.act === b.id) return; MQ.act = b.id; const c0 = MQ.sunC || new THREE.Vector3(), dir = sun.position.clone().sub(c0).normalize(), R = b.R; MQ.sunC = b.id ? new THREE.Vector3(b.x, 0, b.z) : null; const c = MQ.sunC || new THREE.Vector3(); sun.target.position.copy(c); sun.position.copy(c).addScaledVector(dir, R * 1.6); sc.left = -R * 1.08; sc.right = R * 1.08; sc.top = R * 1.08; sc.bottom = -R * 1.08; sc.far = R * 5; sc.updateProjectionMatrix(); renderer.shadowMap.needsUpdate = true;
 }
 async function mqCola() {
@@ -2068,7 +2087,7 @@ async function mqCola() {
       const J = u => fetch(`https://api.check-inn.mx/mercado/maqueta/${u}?id=${id}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})), [j, jn, jf] = await Promise.all([J('escena'), J('negocios'), J('fachadas')]); const S2 = j.ok && j.escena; if (!S2 || !S2.roads) throw new Error('la escena no está disponible'); S2.neg = jn.items || [];
       if (S2.obs) (jf.items || []).forEach(x => { const o = S2.obs.find(r => r.pano === x.pano && r.h === x.h), f = o && (o.fr || []).find(r => r.x === x.x); if (f) f.tx = `https://api.check-inn.mx/mercado/maqueta/fachada/img?id=${id}&k=${encodeURIComponent(x.k)}`; });
       const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it ? it.titulo : id)); g.position.set(ox, 0, oz); Object.assign(q, { g, S: S2, ox, oz, cargando: false }); mqHoles();
-      if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } mqMapaSec(q); await mqCiudad(true); mqEncuadra(); indOnMq(); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400);
+      if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } mqMapaSec(q); await mqCiudad(true); if (MQ.foco === id) mqFoco(id); else mqEncuadra(); indOnMq(); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400);
     } catch (err) { MQ.sel.delete(id); MQ.err = 'No se pudo cargar esa maqueta: ' + (err.message || err); }
     mqRender();
   } } finally { MQ.busy = 0; } mqRender();
@@ -2080,8 +2099,28 @@ async function mqToggle(id, on) {
 }
 {
   let n = 0; const iv = setInterval(() => { const S = solS(); if (!S && ++n < 120) return; clearInterval(iv); if (!S || $('pdi')) return; const tt = $('tt'), dock = $('dock'); if (!tt || !dock) return; const el = document.createElement('div'); el.id = 'pdi'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, tt.nextSibling);
-    el.addEventListener('click', e => { const r = e.target.closest('.ck[data-id]'); if (!r || r.dataset.p) return; const u = new URL(location.href); u.searchParams.set('id', r.dataset.id); u.searchParams.delete('fid'); location.href = u.toString(); });
+    el.addEventListener('click', e => { if (e.target.closest('#pdi-map')) { e.stopPropagation(); pwShow('mapa', true); return; } const r = e.target.closest('.ck[data-id]'); if (r) mqIr(r.dataset.id); });
     mqRender(); mqLista(); }, 500);
+}
+
+// ── ventana flotante con el mapa de la ciudad y un pin por cada punto de interés (clic = desplegar su maqueta)
+const MM = { map: null, mk: new Map(), built: 0, ro: null };
+function pwResizable(el, onRz) {
+  const dirs = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']; dirs.forEach(d => { const h = document.createElement('div'); h.className = 'pwrz ' + d; el.appendChild(h);
+    h.addEventListener('pointerdown', ev => { ev.preventDefault(); ev.stopPropagation(); const r0 = el.getBoundingClientRect(), x0 = ev.clientX, y0 = ev.clientY; try { h.setPointerCapture(ev.pointerId); } catch (_) { } const mw = 300, mh = 220;
+      const mv = e => { let L = r0.left, T = r0.top, W = r0.width, H = r0.height, dx = e.clientX - x0, dy = e.clientY - y0; if (d.includes('e')) W = Math.max(mw, r0.width + dx); if (d.includes('s')) H = Math.max(mh, r0.height + dy); if (d.includes('w')) { W = Math.max(mw, r0.width - dx); L = r0.left + r0.width - W; } if (d.includes('n')) { H = Math.max(mh, r0.height - dy); T = r0.top + r0.height - H; } Object.assign(el.style, { left: L + 'px', top: Math.max(0, T) + 'px', width: W + 'px', height: H + 'px' }); onRz && onRz(); }, up = () => { h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); }; h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up); }); });
+}
+function mmPin(estado) { return window.L.divIcon({ className: '', html: `<div class="mm-pin ${estado}"><i></i></div>`, iconSize: [26, 26], iconAnchor: [13, 30] }); }
+function mmRefresh() {
+  if (!MM.map || !window.L) return; const d = mqDatos(); if (!d) return; const foco = MQ.foco || String(ID), todos = [d.prin].concat(d.otros), vivos = new Set();
+  todos.forEach(q => { vivos.add(q.id); const est = (q.id === String(ID) ? 'p' : MQ.sel.has(q.id) ? 'd' : '') + (q.id === foco ? ' f' : ''); let m = MM.mk.get(q.id);
+    if (!m) { m = window.L.marker([q.lat, q.lng], { icon: mmPin(est), title: q.titulo, riseOnHover: true }).addTo(MM.map); m.bindTooltip(String(q.titulo).split(' - ')[0].split(' · ')[0], { permanent: true, direction: 'right', offset: [10, -16], className: 'mm-tip' }); m.on('click', () => mqIr(q.id)); m.on('dblclick', e => { window.L.DomEvent.stop(e); if (q.id !== String(ID) && MQ.sel.has(q.id)) { mqToggle(q.id, false); if (MQ.foco === q.id) MQ.foco = null; } }); MM.mk.set(q.id, m); } else m.setIcon(mmPin(est)); });
+  MM.mk.forEach((m, id) => { if (!vivos.has(id)) { MM.map.removeLayer(m); MM.mk.delete(id); } });
+  if (!MM.fit && todos.length > 1) { MM.fit = 1; MM.map.fitBounds(window.L.latLngBounds(todos.map(q => [q.lat, q.lng])), { padding: [50, 50], maxZoom: 14 }); } else if (!MM.fit && todos.length === 1) MM.map.setView([todos[0].lat, todos[0].lng], 13);
+}
+{
+  const r = pwMake('mapa'), el = r.el, pws = el.querySelector('.pws'); el.classList.add('pwmap'); pws.innerHTML = '<div id="mm-map"></div>'; Object.assign(el.style, { width: '440px', height: '360px', top: '64px', left: Math.max(8, innerWidth - 456) + 'px' }); pwResizable(el, () => { if (MM.map) MM.map.invalidateSize(); });
+  new MutationObserver(() => { if (!el.classList.contains('on')) return; if (!MM.built) { MM.built = 1; solLeaflet(() => { MM.map = window.L.map('mm-map', { zoomControl: true, doubleClickZoom: false }).setView([25.43, -100.98], 12); window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(MM.map); MM.ro = new ResizeObserver(() => MM.map && MM.map.invalidateSize()); MM.ro.observe(pws); mmRefresh(); }); } else if (MM.map) setTimeout(() => MM.map.invalidateSize(), 60); }).observe(el, { attributes: true, attributeFilter: ['class'] });
 }
 const curId = () => window.__IDO || qs.get('fid') || ID;
 const OD = { d: null, G: null, m: 'dia', busy: 0 };
