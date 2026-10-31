@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#dc2626">
   <link rel="icon" id="app-favicon" type="image/png" href="gb-pin.png?v=1">
-  <link rel="stylesheet" href="styles.css?v=1981">
+  <link rel="stylesheet" href="styles.css?v=1982">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -247,6 +247,10 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
             onclick="switchModule('mercado');closeNavMenu()">
           📈 Investigación de mercados
         </li>
+        <li class="nav-item" id="nav-item-geometrika"
+            onclick="switchModule('geometrika');closeNavMenu()">
+          🌐 GeoMetrika
+        </li>
         <!-- "Información de huéspedes" oculto temporalmente -->
         <li class="nav-item hidden" id="nav-item-huespedes"
             onclick="switchModule('huespedes');closeNavMenu()">
@@ -376,6 +380,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
               <button type="button" class="hm-tile home-card-rentas-lp" onclick="switchModule('rentas-lp')"><span class="hm-ico">🏘️</span><span class="hm-tx"><b>Rentas de largo plazo</b><small>Propiedades en renta o venta</small></span></button>
               <button type="button" class="hm-tile home-card-marketing" onclick="switchModule('marketing')"><span class="hm-ico">📣</span><span class="hm-tx"><b>Marketing en redes</b><small>Facebook, Instagram y estadísticas</small></span></button>
               <button type="button" class="hm-tile home-card-mercado" onclick="switchModule('mercado')"><span class="hm-ico">📈</span><span class="hm-tx"><b>Investigación de mercados</b><small>Airbnb: publicaciones y disponibilidad</small></span></button>
+              <button type="button" class="hm-tile home-card-geometrika" onclick="switchModule('geometrika')"><span class="hm-ico">🌐</span><span class="hm-tx"><b>GeoMetrika</b><small>Geo-inteligencia: fuentes y visor de maquetas</small></span></button>
             </div>
           </section>
           <section class="hm-sec" data-g="rep" style="--hc:#6d28d9">
@@ -2067,6 +2072,9 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
     <!-- ═══════════════ MÓDULO SEÑALÉTICA (editor de señales para impresión) ═══════════════ -->
     <div id="module-senaletica" class="hidden" style="padding:20px 24px 60px"><div id="senaletica-host"></div></div>
 
+    <!-- ═══════════════ MÓDULO GEOMETRIKA (landing) ═══════════════ -->
+    <div id="module-geometrika" class="hidden"><div id="geometrika-host"></div></div>
+
     <!-- ═══════════════ MÓDULO DOCUMENTACIÓN DE PROCESOS ═══════════════ -->
     <div id="module-procesos" class="hidden" style="padding:20px 24px 60px"><div id="procesos-host" style="max-width:1600px;margin:0 auto"></div></div>
 
@@ -2970,7 +2978,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
-  <script src="app.js?v=2306"></script>
+  <script src="app.js?v=2307"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
