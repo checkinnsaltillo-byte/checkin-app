@@ -1983,7 +1983,7 @@ async function mqCola() {
     try {
       const J = u => fetch(`https://api.check-inn.mx/mercado/maqueta/${u}?id=${id}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})), [j, jn, jf] = await Promise.all([J('escena'), J('negocios'), J('fachadas')]); const S2 = j.ok && j.escena; if (!S2 || !S2.roads) throw new Error('la escena no está disponible'); S2.neg = jn.items || [];
       if (S2.obs) (jf.items || []).forEach(x => { const o = S2.obs.find(r => r.pano === x.pano && r.h === x.h), f = o && (o.fr || []).find(r => r.x === x.x); if (f) f.tx = `https://api.check-inn.mx/mercado/maqueta/fachada/img?id=${id}&k=${encodeURIComponent(x.k)}`; });
-      const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it ? it.titulo : id)); g.position.set(ox, 0, oz); Object.assign(q, { g, S: S2, ox, oz, cargando: false });
+      const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it ? it.titulo : id)); g.position.set(ox, 0, oz); Object.assign(q, { g, S: S2, ox, oz, cargando: false }); mqHoles();
       if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } mqMapaSec(q); await mqCiudad(true); mqEncuadra(); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400);
     } catch (err) { MQ.sel.delete(id); MQ.err = 'No se pudo cargar esa maqueta: ' + (err.message || err); }
     mqRender();
@@ -1991,7 +1991,7 @@ async function mqCola() {
 }
 async function mqToggle(id, on) {
   const S = solS(); if (!S) return; MQ.err = '';
-  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); } mqRender(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } if (MQ.iv) { clearInterval(MQ.iv); MQ.iv = 0; } MQ.act = '__'; mqSombra(); MQ.act = ''; await mqCiudad(false); } else mqEncuadra(); return; }
+  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); mqHoles(); } mqRender(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } if (MQ.iv) { clearInterval(MQ.iv); MQ.iv = 0; } MQ.act = '__'; mqSombra(); MQ.act = ''; await mqCiudad(false); } else mqEncuadra(); return; }
   if (!MQ.items.some(q => q.id === id) || MQ.sel.has(id)) return; MQ.sel.set(id, { cargando: true }); mqRender(); mqCola();
 }
 {
@@ -2045,8 +2045,15 @@ const CG = { clip: [new THREE.Plane(new THREE.Vector3(-1, 0, 0), -200), new THRE
 // metros por píxel de pantalla en el punto de mira
 const cityPx = () => 2 * camera.position.distanceTo(controls.target) * Math.tan(camera.fov * Math.PI / 360) / (renderer.domElement.clientHeight || 650);
 function cgLimpia() { if (CG.grp) { scene.remove(CG.grp); CG.vivos.forEach(m => m.material.dispose()); } CG.vivos.clear(); CG.cache.forEach(t => t.dispose()); CG.cache.clear(); CG.carga.clear(); CG.grp = null; }
+// huecos del mapa de la ciudad bajo cada maqueta (la principal y las secundarias): el fragmento se descarta si cae dentro de alguno
+CG.holes = { value: Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, 0, 0)) };
+function cgHoleFx(m) {
+  m.onBeforeCompile = sh => { sh.uniforms.uHoles = CG.holes; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(transformed, 1.0)).xyz;'); sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;\nuniform vec4 uHoles[6];').replace('void main() {', 'void main() {\n for (int i = 0; i < 6; i++) { vec4 h = uHoles[i]; if (h.w > 0.5 && abs(vWp.x - h.x) < h.z && abs(vWp.z - h.y) < h.z) discard; }'); };
+  return m;
+}
+function mqHoles() { let i = 1; MQ.sel.forEach(q => { if (q.g && i < 6) CG.holes.value[i++].set(q.ox, q.oz, q.S.radio, 1); }); for (; i < 6; i++) CG.holes.value[i].w = 0; }
 function cgUpdate() {
-  const S = CITY.S; if (!CITY.on || !S) return; { const R = (S.radio || 200); CG.clip.forEach(p => { p.constant = -R; }); renderer.localClippingEnabled = true; }
+  const S = CITY.S; if (!CITY.on || !S) return; { const R = (S.radio || 200); CG.clip.forEach(p => { p.constant = -R; }); CG.holes.value[0].set(0, 0, R, 1); renderer.localClippingEnabled = true; }
   const lat0 = +S.lat, lng0 = +S.lng, [urlf, zmax] = CITY_U[CITY.base], coslat = Math.cos(lat0 * Math.PI / 180), M = 40075016.686 * coslat; if (!CG.grp) { CG.grp = new THREE.Group(); CG.grp.userData.noPick = 1; scene.add(CG.grp); }
   const px = cityPx(), zf = Math.max(11, Math.min(zmax, Math.round(Math.log2(M / (256 * px))))), need = new Map();
   const tileM = z => M / 2 ** z, fxy = z => { const n = 2 ** z, la = lat0 * Math.PI / 180; return [(lng0 + 180) / 360 * n, (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n]; };
@@ -2055,7 +2062,7 @@ function cgUpdate() {
   const x0 = Math.min(...pts.map(p => p.x)), x1 = Math.max(...pts.map(p => p.x)), z0 = Math.min(...pts.map(p => p.z)), z1 = Math.max(...pts.map(p => p.z));
   const add = (z, bx0, bx1, bz0, bz1, cap) => { const tm = tileM(z), [fx, fy] = fxy(z), i0 = Math.floor(fx + bx0 / tm), i1 = Math.floor(fx + bx1 / tm), j0 = Math.floor(fy + bz0 / tm), j1 = Math.floor(fy + bz1 / tm); if ((i1 - i0 + 1) * (j1 - j0 + 1) > cap) return false; for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) need.set(z + '/' + i + '/' + j, [z, i, j, tm, fx, fy]); return true; };
   add(11, -45000, 45000, -45000, 45000, 400); let z = zf; while (z > 12 && !add(z, x0, x1, z0, z1, 42)) z--; if (z === 12 && zf > 12) add(12, x0, x1, z0, z1, 120);
-  need.forEach(([zz, i, j, tm, fx, fy], k) => { if (CG.vivos.has(k) || CG.carga.has(k)) return; const done = tx => { const mat = new THREE.MeshBasicMaterial({ map: tx, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -zz, polygonOffsetUnits: -zz, clippingPlanes: CG.clip, clipIntersection: true }), m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat); m.scale.set(tm, 1, tm); m.position.set((i + .5 - fx) * tm, -3 + zz * .04, (j + .5 - fy) * tm); m.renderOrder = -10 + zz; m.userData.k = k; if (CG.grp && CITY.on) { CG.grp.add(m); CG.vivos.set(k, m); } CG.carga.delete(k); };
+  need.forEach(([zz, i, j, tm, fx, fy], k) => { if (CG.vivos.has(k) || CG.carga.has(k)) return; const done = tx => { const mat = cgHoleFx(new THREE.MeshBasicMaterial({ map: tx, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -zz, polygonOffsetUnits: -zz })), m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat); m.scale.set(tm, 1, tm); m.position.set((i + .5 - fx) * tm, -3 + zz * .04, (j + .5 - fy) * tm); m.renderOrder = -10 + zz; m.userData.k = k; if (CG.grp && CITY.on) { CG.grp.add(m); CG.vivos.set(k, m); } CG.carga.delete(k); };
     const hit = CG.cache.get(k); if (hit) { done(hit); return; } CG.carga.add(k); new THREE.TextureLoader().setCrossOrigin('anonymous').load(urlf(zz, i, j), tx => { tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; CG.cache.set(k, tx); done(tx); }, undefined, () => CG.carga.delete(k)); });
   CG.vivos.forEach((m, k) => { if (!need.has(k)) { CG.grp.remove(m); m.material.dispose(); m.geometry.dispose(); CG.vivos.delete(k); } }); if (CG.cache.size > 260) { [...CG.cache.keys()].slice(0, 80).forEach(k => { if (!CG.vivos.has(k)) { CG.cache.get(k).dispose(); CG.cache.delete(k); } }); }
 }
