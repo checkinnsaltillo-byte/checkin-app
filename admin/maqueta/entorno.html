@@ -1072,7 +1072,7 @@ async function frCiclo(btn) {
   if (RT.on) await rtSet(false);
   const S = curS; if (!S || !S.roads) return; const next = (FR.mode + 1) % 3;
   if (next === 0) { frDisp(); world.visible = true; scene.background = FR.saved.bg; fitR = FR.saved.fitR; camera.far = FR.saved.far; camera.near = FR.saved.near; camera.updateProjectionMatrix(); fit(); $('frp').style.display = 'none'; FR.mode = 0; FR.mapMesh = null; grRefresh(); $('attr').textContent = mapTipo === 'ninguno' ? '' : MAPAS[mapTipo].at; btn.textContent = '🕸️ Fricción: off'; btn.classList.remove('on'); return; }
-  if (!FR.B) { btn.textContent = '🕸️ Cargando red vial…'; btn.disabled = true; try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${qs.get('fid') || ID}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); FR.B = frConstruir(j.f, S); } catch (e) { $('msg').textContent = 'No se pudo calcular la fricción: ' + e.message; btn.textContent = '🕸️ Fricción: off'; btn.disabled = false; return; } btn.disabled = false; }
+  if (!FR.B) { btn.textContent = '🕸️ Cargando red vial…'; btn.disabled = true; try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${curId()}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); FR.B = frConstruir(j.f, S); } catch (e) { $('msg').textContent = 'No se pudo calcular la fricción: ' + e.message; btn.textContent = '🕸️ Fricción: off'; btn.disabled = false; return; } btn.disabled = false; }
   if (FR.mode === 0) { FR.saved = { bg: scene.background, fitR, far: camera.far, near: camera.near }; world.visible = false; scene.background = new THREE.Color(FR.light ? '#e9edf3' : '#1e2229'); fitR = FR.B.Rf * .9; camera.far = FR.B.Rf * 9; camera.near = Math.max(3, FR.B.Rf * .01); camera.updateProjectionMatrix(); controls.target.set(0, 0, 0); fit(); controls.autoRotate = false; $('b-rot').classList.remove('on'); }
   FR.mode = next; frComp(); const res = frEscena(FR.B, next); frPanel(res, next, FR.B); frMapa(mapTipo); $('frp').style.display = 'block'; btn.textContent = '🕸️ Fricción: ' + (next === 1 ? 'Deformación' : 'Dominancia'); btn.classList.add('on'); grRefresh();
 }
@@ -1223,7 +1223,7 @@ function rtGoogle(gen, ya) {
     RTK.add(k); rtGoogle0(gen); }, ya ? 0 : 3000);
 }
 async function rtGoogle0(gen) { const B = FR.B, F = RT.F, aj = curS.__ajR || [0, 0], org = RT.org; RT.estado = 'cargando'; rtEstado(); if (!B.junc) { const G = B.G; B.junc = []; for (let u = 0; u < G.n; u++) { const nb = new Map(); G.adj[u].forEach(e => nb.set(e[0], (nb.get(e[0]) || 0) | (e[2] ? 1 : 0))); (G.radj ? G.radj[u] : []).forEach(e => nb.set(e[0], (nb.get(e[0]) || 0) | (e[2] ? 1 : 0))); if (nb.size >= 3 && [...nb.values()].filter(v => v).length >= 3) B.junc.push([G.X[u] + aj[0], G.Y[u] + aj[1]]); } }
-  try { const kx = 111320 * Math.cos(F.lat * Math.PI / 180), body = { id: qs.get('fid') || ID, dia: RT.dia, hora: RT.hora, origenes: org.map(c => ({ lat: F.lat + B.G.Y[c.u] / 111320, lng: F.lng + B.G.X[c.u] / kx })) };
+  try { const kx = 111320 * Math.cos(F.lat * Math.PI / 180), body = { id: curId(), dia: RT.dia, hora: RT.hora, origenes: org.map(c => ({ lat: F.lat + B.G.Y[c.u] / 111320, lng: F.lng + B.G.X[c.u] / kx })) };
     const j = await fetch('https://api.check-inn.mx/mercado/maqueta/rutas-acceso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()); if (gen !== RT.gen || !RT.on) return; if (!j.ok) throw new Error(j.error || 'Error');
     let ok = 0; RT.routes.forEach((r, i) => { const it = j.items[i]; if (!it || !it.enc) return; const g = rtDesdeGoogle(r, it, F, aj); if (!g) return; rtQuita(r); RT.routes[i] = g; rtMeshRuta(g); (g.stops || []).forEach(q => { if (q.est === 'demora') sigAgrega({ x: q.x, y: q.y, est: 'demora' }); }); ok++; });
     RT.maxT = Math.max(1, ...RT.routes.map(r => r.T)); if (RT.auto) RT.speed = Math.max(3, Math.round(RT.maxT / 45)); RT.t = 0; RT.pulseAt = null; RT.estado = ok ? 'google' : 'osm'; RT.nota = ok ? '' : 'Google no devolvió rutas'; RT.fallos = j.items.length - ok; rtPanel();
@@ -1255,7 +1255,7 @@ async function rtSet(on) {
   if (on === RT.on) return; const btn = $('b-rt');
   if (!on) { RT.on = false; rtLimpia(); if (FR.bloom && RT.bloom0 != null) FR.bloom.strength = RT.bloom0; const sv = RT.saved; if (sv) { fitR = sv.fitR; camera.far = sv.far; camera.near = sv.near; camera.updateProjectionMatrix(); fit(); if (world.__nombres) world.__nombres.visible = sv.nom; if (world.__marks) world.__marks.visible = sv.mar; if (alertG) alertG.visible = sv.ale; world.traverse(o => { if (o.userData && o.userData.cat === 'negocios') o.visible = sv.neg; }); todSet(sv.hora); } if ($('rtp')) $('rtp').style.display = 'none'; if (btn) { btn.classList.remove('on'); btn.textContent = '🚗 Rutas de acceso'; } return; }
   const S = curS; if (!S || !S.roads) return; if (FR.mode > 0) await frSet(0);
-  if (!FR.B || !RT.F) { if (btn) { btn.textContent = '🚗 Cargando red vial…'; btn.disabled = true; } try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${qs.get('fid') || ID}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); RT.F = j.f; if (!FR.B) FR.B = frConstruir(j.f, S); } catch (e) { $('msg').textContent = 'No se pudieron calcular las rutas: ' + e.message; if (btn) { btn.textContent = '🚗 Rutas de acceso'; btn.disabled = false; } return; } if (btn) btn.disabled = false; }
+  if (!FR.B || !RT.F) { if (btn) { btn.textContent = '🚗 Cargando red vial…'; btn.disabled = true; } try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${curId()}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); RT.F = j.f; if (!FR.B) FR.B = frConstruir(j.f, S); } catch (e) { $('msg').textContent = 'No se pudieron calcular las rutas: ' + e.message; if (btn) { btn.textContent = '🚗 Rutas de acceso'; btn.disabled = false; } return; } if (btn) btn.disabled = false; }
   let nom = true, mar = true, ale = true, neg = true; if (world.__nombres) nom = world.__nombres.visible; if (world.__marks) mar = world.__marks.visible; if (alertG) ale = alertG.visible; world.traverse(o => { if (o.userData && o.userData.cat === 'negocios') neg = o.visible; });
   RT.saved = { fitR, far: camera.far, near: camera.near, hora: TOD.k, nom, mar, ale, neg }; if (world.__nombres) world.__nombres.visible = false; if (world.__marks) world.__marks.visible = false; if (alertG) alertG.visible = false; world.traverse(o => { if (o.userData && o.userData.cat === 'negocios') o.visible = false; });
   RT.on = true; RT.auto = true; RT.play = true; todSet('noche'); frComp(); RT.bloom0 = FR.bloom.strength; FR.bloom.strength = .06; rtConstruye(); const Rr = Math.max(500, RT.dist * 1.25); fitR = Rr * .95; camera.far = Rr * 12; camera.near = Math.max(3, Rr * .01); camera.updateProjectionMatrix(); controls.target.set(0, 0, 0); fit(); camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(-.3, .95, .6).normalize(), Rr * 2.9); controls.maxDistance = Rr * 7; controls.update(); controls.autoRotate = false; $('b-rot').classList.remove('on');
@@ -1375,8 +1375,8 @@ function solTick(t) {
   SOL.raf = 0; if (!SOL.g) return; if (SOL.g.visible && SOL.v.vien) SOL.arr.forEach(a => { const ph = (a.ph + t / 1000 * a.sp) % 1, s = Math.sin(Math.PI * ph); a.grp.position.set(a.dx * (ph - .5) * a.span + a.px * a.off, a.y, a.dz * (ph - .5) * a.span + a.pz * a.off); a.grp.scale.setScalar(.3 + .7 * s); }); SOL.raf = requestAnimationFrame(solTick);
 }
 // vientos: un año de datos horarios del punto (Open-Meteo, reanálisis ERA5) resumido por mes, hora y rumbo de 8 sectores
-async function solCarga() {
-  const S = solS(); if (!S) return null; const k = (+S.lat).toFixed(2) + ',' + (+S.lng).toFixed(2); if (SOL.raw[k]) return SOL.raw[k]; try { const c = localStorage.getItem('solw:' + k); if (c) return SOL.raw[k] = JSON.parse(c); } catch (_) { }
+async function solCarga(S0) {
+  const S = S0 || solS(); if (!S) return null; const k = (+S.lat).toFixed(2) + ',' + (+S.lng).toFixed(2); if (SOL.raw[k]) return SOL.raw[k]; try { const c = localStorage.getItem('solw:' + k); if (c) return SOL.raw[k] = JSON.parse(c); } catch (_) { }
   const fin = new Date(Date.now() - 7 * 864e5), ini = new Date(fin.getTime() - 364 * 864e5), f = d => d.toISOString().slice(0, 10);
   const j = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${(+S.lat).toFixed(4)}&longitude=${(+S.lng).toFixed(4)}&start_date=${f(ini)}&end_date=${f(fin)}&hourly=wind_speed_10m,wind_direction_10m,temperature_2m,relative_humidity_2m&wind_speed_unit=ms&timezone=auto`).then(r => r.json()); if (!j.hourly) throw new Error('sin datos');
   const H = j.hourly, A = { c: new Array(12 * 24 * 8).fill(0), s: new Array(12 * 24 * 8).fill(0), n: new Array(12 * 24).fill(0), t: new Array(12 * 24).fill(0), u: new Array(12 * 24).fill(0), ini: f(ini), fin: f(fin) };
@@ -1391,7 +1391,7 @@ function solViento() {
 
 // clima, altitud y calidad del aire: los mismos datos de «Datos ambientales y de riesgo» de la ficha de Alojamientos (Open-Meteo, promedio 2020-2024 y modelo de aire de 30 días)
 async function solAmbCarga() {
-  const id = qs.get('fid') || ID; try { const j = await fetch(`https://api.check-inn.mx/mercado/airbnb/ambiente/dato?id=${encodeURIComponent(id)}`, { cache: 'no-store' }).then(r => r.json()); SOL.amb = (j && j.ambiente) || null; } catch (_) { SOL.amb = null; } solRes();
+  const id = curId(); try { const j = await fetch(`https://api.check-inn.mx/mercado/airbnb/ambiente/dato?id=${encodeURIComponent(id)}`, { cache: 'no-store' }).then(r => r.json()); SOL.amb = (j && j.ambiente) || null; } catch (_) { SOL.amb = null; } solRes();
 }
 
 // humedad relativa: promedio anual, por mes y por hora del día (mismos datos horarios ERA5 que el viento)
@@ -1651,7 +1651,7 @@ async function geoSync() {
 const URB = { y: 2020, op: { crec: .75, suelo: .8 }, show: { crec: true, suelo: true }, play: 0, ghsl: {}, meta: null, ser: null, suelo: null, busy: 0, msg: '', key: '', pC: null, pS: null }, URB_EP = [1975, 1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2025, 2030], URB_WC = { 10: ['Árboles', '#006400'], 20: ['Matorral', '#ffbb22'], 30: ['Pastizal', '#ffff4c'], 40: ['Cultivos', '#f096ff'], 50: ['Construido', '#fa0000'], 60: ['Suelo desnudo', '#b4b4b4'], 70: ['Nieve y hielo', '#e5e7eb'], 80: ['Agua', '#0064c8'], 90: ['Humedal', '#0096a0'], 95: ['Manglar', '#00cf75'], 100: ['Musgo y líquenes', '#fae6a0'] };
 const urbN = (v, d) => Number(v).toFixed(d);
 async function urbMapaCiudad() {
-  const S0 = solS(); if (!S0) return; const id = qs.get('fid') || ID, i = { titulo: S0.titulo, geoTipo: '' }, lat = +S0.lat, lng = +S0.lng; if (!isFinite(lat) || !isFinite(lng)) return;
+  const S0 = solS(); if (!S0) return; const id = curId(), i = { titulo: S0.titulo, geoTipo: '' }, lat = +S0.lat, lng = +S0.lng; if (!isFinite(lat) || !isFinite(lng)) return;
   let meta = URB.metaC; if (!meta) { try { meta = URB.metaC = await fetch('../crecimiento/meta.json', { cache: 'no-cache' }).then(r => r.json()); } catch (_) {} }
   if (!meta) { alert('El mapa de crecimiento no está disponible por ahora.'); return; }
   const old = document.getElementById('cr-pop'); if (old) old.remove();
@@ -1725,15 +1725,17 @@ async function urbImg(y) { if (URB.ghsl[y]) return URB.ghsl[y]; const im = await
 function urbPx(S, M, I, x, y) { const lat = +S.lat + y / 110540, lng = +S.lng + x / (111320 * Math.cos(+S.lat * Math.PI / 180)), B = M.bounds; return [(lng - B.west) / (B.east - B.west) * I.w, (urbMer(B.north) - urbMer(lat)) / (urbMer(B.north) - urbMer(B.south)) * I.h]; }
 function urbVal(I, px, py) { if (px < 0 || py < 0 || px >= I.w || py >= I.h) return 0; const a = I.d[(Math.floor(py) * I.w + Math.floor(px)) * 4 + 3]; return a < 100 ? 0 : Math.max(0, (a - 110) / 120 * .7) * 100; } // el PNG codifica la fracción edificada en el canal alfa
 function urbMedia(S, M, I, rad, box) { let s = 0, n = 0; for (let y = -rad; y <= rad; y += 15) for (let x = -rad; x <= rad; x += 15) { if (!box && Math.hypot(x, y) > rad) continue; const [px, py] = urbPx(S, M, I, x, y); s += urbVal(I, px, py); n++; } return n ? s / n : 0; }
-async function urbCarga(S) {
-  if (!URB.meta) URB.meta = await fetch('../crecimiento/meta.json', { cache: 'no-cache' }).then(r => r.json()); const R = S.radio, ser = []; for (const y of URB_EP) { const I = await urbImg(y); ser.push({ y, box: urbMedia(S, URB.meta, I, R, true), r5: urbMedia(S, URB.meta, I, 500), r15: urbMedia(S, URB.meta, I, 1500) }); } URB.ser = ser;
+async function urbSerie(S) {
+  if (!URB.meta) URB.meta = await fetch('../crecimiento/meta.json', { cache: 'no-cache' }).then(r => r.json()); const R = S.radio, ser = []; for (const y of URB_EP) { const I = await urbImg(y); ser.push({ y, box: urbMedia(S, URB.meta, I, R, true), r5: urbMedia(S, URB.meta, I, 500), r15: urbMedia(S, URB.meta, I, 1500) }); } return ser;
 }
+async function urbCarga(S) { URB.ser = await urbSerie(S); }
 async function urbCanvas(S, y) { const I = await urbImg(y), R = S.radio, [x0, y0] = urbPx(S, URB.meta, I, -R, R), [x1, y1] = urbPx(S, URB.meta, I, R, -R), c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); g.fillStyle = 'rgba(30,41,59,.10)'; g.fillRect(0, 0, 512, 512); g.imageSmoothingEnabled = true; g.drawImage(I.im, x0, y0, x1 - x0, y1 - y0, 0, 0, 512, 512); return c; }
-async function urbSuelo(S) {
+async function urbSueloGet(S) {
   const R = S.radio, j = await fetch(`https://api.check-inn.mx/mercado/maqueta/suelo?lat=${(+S.lat).toFixed(5)}&lng=${(+S.lng).toFixed(5)}&r=${Math.round(R)}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'sin datos de cobertura'); const raw = atob(j.b64), n = j.n, c = document.createElement('canvas'); c.width = c.height = n; const g = c.getContext('2d'), im = g.createImageData(n, n), cnt = {}; let tot = 0;
   for (let i = 0; i < n * n; i++) { const v = raw.charCodeAt(i), w = URB_WC[v], q = i * 4; if (!w) { im.data[q + 3] = 0; continue; } const col = new THREE.Color(w[1]); im.data[q] = col.r * 255; im.data[q + 1] = col.g * 255; im.data[q + 2] = col.b * 255; im.data[q + 3] = 255; cnt[v] = (cnt[v] || 0) + 1; tot++; }
-  g.putImageData(im, 0, 0); URB.suelo = { c, n, mpp: j.mpp, cnt, tot, fuente: j.fuente };
+  g.putImageData(im, 0, 0); return { c, n, mpp: j.mpp, cnt, tot, fuente: j.fuente };
 }
+async function urbSuelo(S) { URB.suelo = await urbSueloGet(S); }
 function urbRes() {
   const S = solS(), tl = (t, v, s, c) => `<div style="flex:1 1 44%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:6px 9px"><small style="color:#64748b;display:block">${t}</small><b style="font-size:14px;color:${c || '#0f172a'}">${v}</b>${s ? `<small style="color:#64748b;display:block;line-height:1.3">${s}</small>` : ''}</div>`, msg = m => `<div style="font-size:11.5px;color:${URB.msg.startsWith('No') ? '#dc2626' : '#64748b'}">${m}</div>`;
   if (!S) { const t = 'Esperando los datos de la propiedad…'; URB.pC.res.innerHTML = msg(t); URB.pS.res.innerHTML = msg(t); return; }
@@ -1842,8 +1844,60 @@ function indLista() {
   const AN = { met: { id: 'met', ico: '🌦️', n: 'Meteorología', d: 'Clima anual, aire, viento y sol del sitio.', ind: met }, inu: { id: 'inu', ico: '🌊', n: 'Lluvia e inundación', d: 'Respuesta de las calles a una tormenta: caudales, profundidades y peligro.', ind: inu }, geo: { id: 'geo', ico: '⛰️', n: 'Geología', d: 'Forma del terreno: altura, desnivel y pendiente.', ind: geo }, urb: { id: 'urb', ico: '🏘️', n: 'Urbanización', d: 'Madurez urbana, crecimiento y cobertura del suelo.', ind: urb }, rie: { id: 'rie', ico: '🚨', n: 'Riesgos en la escena', d: 'Elementos críticos detectados alrededor de la propiedad.', ind: rie }, fri: { id: 'fri', ico: '🕸️', n: 'Fricción y rutas de acceso', d: 'Tiempo real de llegada a destinos de interés y a la propiedad, con semáforos, estacionamiento y tráfico.', ind: fri }, cob: { id: 'cob', ico: '📡', n: 'Cobertura poblacional', d: 'Cuánta gente vive dentro de los tiempos de recorrido desde la propiedad.', ind: cob }, tra: { id: 'tra', ico: '🚦', n: 'Tráfico', d: 'Demora y velocidad de las vialidades de la zona según día y hora.', ind: tra }, od: { id: 'od', ico: '🧭', n: 'Origen/Destino vehicular', d: 'De dónde viene el tráfico que pasa frente a la propiedad.', ind: od } };
   return [{ id: 'nat', ico: '🌍', n: 'Entorno natural', d: 'Clima, agua y relieve: lo que la naturaleza impone al sitio.', an: [AN.met, AN.inu, AN.geo] }, { id: 'con', ico: '🏙️', n: 'Entorno construido', d: 'Cómo está urbanizada la zona y qué riesgos tiene la escena.', an: [AN.urb, AN.rie] }, { id: 'mov', ico: '🚗', n: 'Accesibilidad y movilidad', d: 'Qué tan fácil es llegar, cuánta gente alcanza y cómo se mueve el tráfico.', an: [AN.fri, AN.cob, AN.tra, AN.od] }];
 }
+
+// ── comparación: una columna por maqueta (la principal y las secundarias marcadas en Puntos de interés)
+INDX.cols = new Map();
+const IND_KEYS = () => [[SOL, ['amb']], [GEO, ['st', 'cv', 'key']], [INU, ['d', 'dk', 'net', 'key', 'ev']], [URB, ['ser', 'suelo', 'key']], [FR, ['B', 'res']], [TF, ['vias', 'horas', 'hora', 'dia']], [OD, ['d']], [COB, ['res']], [RT, ['routes']]];
+const indSnap = () => IND_KEYS().map(([o, ks]) => ks.map(k => o[k])), indPut = sn => IND_KEYS().forEach(([o, ks], i) => ks.forEach((k, j) => { o[k] = sn[i][j]; }));
+const indVacio = () => [[undefined], [null, null, ''], [null, '', null, '', null], [null, null, ''], [null, null], [[], [], 8, new Date().getDay()], [null], [{}], [[]]];
+function evalLst() { const L = indLista(); L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { try { i.r = i.calc(); } catch (_) { i.r = indNA('No se pudo calcular.'); } i.vars.forEach(v => { try { v.vv = v.v(); } catch (_) { v.vv = '—'; } }); }))); return L; }
+// carga y evalúa todos los indicadores de una maqueta secundaria sin tocar el estado de la principal: primero se descargan los datos y luego, en un bloque síncrono, se cambia el contexto, se calcula y se restaura
+async function indCargaSec(c) {
+  if (c.busy) return; c.busy = 1; c.err = ''; indRender(); const S = c.S, id = c.id, B = 'https://api.check-inn.mx/mercado/', J = u => fetch(B + u, { cache: 'no-store' }).then(r => r.json()).catch(() => null), D = {};
+  try {
+    const [am, td, od, jf] = await Promise.all([J(`airbnb/ambiente/dato?id=${id}`), J(`trafico?id=${id}`), J(`maqueta/od?id=${id}`), J(`maqueta/friccion?id=${id}`)]); D.amb = am && am.ambiente || null; D.tf = td && td.ok && td.doc; D.od = od && od.od || null; D.fr = jf && jf.ok ? jf.f : null;
+    try { await solCarga(S); } catch (_) { } try { D.dem = await inuDem(S); } catch (_) { } try { D.ser = await urbSerie(S); } catch (_) { } try { D.suelo = await urbSueloGet(S); } catch (_) { }
+    const sv = indSnap(), sS = [window.__curS, curS, window.__IDO]; indPut(c.st || indVacio()); window.__curS = S; curS = S; window.__IDO = id;
+    try {
+      SOL.amb = D.amb; if (D.dem) { geoCalc(S, D.dem); GEO.key = [S.lat, S.lng, S.radio].join('|'); INU.d = D.dem; INU.dk = [S.lat, S.lng].join('|'); INU.net = inuNet(S, D.dem); INU.key = [S.lat, S.lng, (S.roads || []).length].join('|'); if (INU.net) { INU.f = 1; inuEval(); } }
+      URB.ser = D.ser || null; URB.suelo = D.suelo || null; OD.d = D.od;
+      if (D.tf && D.tf.vias && D.tf.vias.length) { TF.vias = D.tf.vias.map(v => ({ v, horas: v.horas || D.tf.horas || [] })); TF.horas = [...new Set(TF.vias.flatMap(x => x.horas))].sort((a, b) => a - b); const hh = new Date().getHours(); TF.hora = TF.horas.length ? TF.horas.reduce((b, h) => Math.abs(h - hh) < Math.abs(b - hh) ? h : b, TF.horas[0]) : 8; }
+      if (D.fr && !FR.mode && !RT.on) { try { FR.B = frConstruir(D.fr, S); FR.res = frEscena(FR.B, 1); frDisp(); } catch (_) { FR.res = null; } }
+      c.lst = evalLst();
+    } finally { c.st = indSnap(); indPut(sv); window.__curS = sS[0]; curS = sS[1]; window.__IDO = sS[2]; }
+  } catch (e) { c.err = e.message || 'error'; }
+  c.busy = 0; indRender();
+}
+function indColumnas() {
+  const S = solS(), cols = [{ id: String(ID), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: evalLst() }];
+  MQ.sel.forEach((q, id) => { if (!q.g) return; const c = INDX.cols.get(id) || {}; INDX.cols.set(id, c); Object.assign(c, { id, titulo: (MQ.items.find(x => x.id === id) || {}).titulo || id, S: q.S }); cols.push(c); });
+  [...INDX.cols.keys()].forEach(k => { if (!MQ.sel.has(k) || !MQ.sel.get(k).g) INDX.cols.delete(k); }); return cols;
+}
+function indRenderN(cols) {
+  const X = cols.length, tn = IND_SEM, dot = s => `<i class="ind-dot ${s}" style="--c:${tn[s][0]}"></i>`, op = k => INDX.open.has(k) ? ' open' : '', short = t => { t = String(t || '').split(' - ')[0].split(' · ')[0]; return t.length > 22 ? t.slice(0, 21) + '…' : t; }, st = `style="--x:${X}"`;
+  const at = (c, ci, ai, ii) => c.lst && c.lst[ci].an[ai].ind[ii], tot = cols.map(c => { const t = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; if (c.lst) c.lst.forEach(cc => cc.an.forEach(e => e.ind.forEach(i => t[i.r.sem]++))); return t; });
+  const worst = (c, ci, ai) => { if (!c.lst) return 'na'; const L = ai == null ? c.lst[ci].an.flatMap(e => e.ind) : c.lst[ci].an[ai].ind; return L.some(i => i.r.sem === 'bad') ? 'bad' : L.some(i => i.r.sem === 'warn') ? 'warn' : L.some(i => i.r.sem === 'ok') ? 'ok' : 'info'; };
+  const stack = t => `<span class="ind-mini">${['bad', 'warn', 'ok', 'info'].filter(s => t[s]).map(s => `<i style="flex:${t[s]};background:${tn[s][0]}" title="${tn[s][1]}: ${t[s]}"></i>`).join('')}</span><span class="ind-minin">${t.bad ? `<em class="b">${t.bad} alertas</em>` : ''}${t.warn ? `<em class="w">${t.warn} atención</em>` : ''}<em class="o">${t.ok} favorables</em></span>`;
+  const head = `<div class="ind-colh" ${st}><span>Maquetas</span>${cols.map((c, k) => `<div title="${esc_(c.titulo)}"><b>${esc_(short(c.titulo))}</b><small>${c.principal ? 'principal' : c.busy ? '⏳ calculando…' : c.err ? 'sin datos' : c.lst ? 'comparada' : 'pendiente'}</small>${c.lst ? stack(tot[k]) : ''}</div>`).join('')}</div>`;
+  const cell = i => !i ? '<div class="ind-cell"><span class="ind-na">…</span></div>' : `<div class="ind-cell ${i.r.sem}" title="${esc_(i.r.msg)}" style="--c:${tn[i.r.sem][0]}"><div class="v"><b>${i.r.val}</b><small>${i.r.unit}</small></div><div class="z">${i.r.viz}</div><div class="s ${i.r.sem}">${dot(i.r.sem)}<b>${tn[i.r.sem][1]}</b></div><p>${i.r.msg}</p></div>`;
+  const tree = (k, h, b) => `<div class="ind-n${op(k)}" data-k="${k}"><div class="ind-h">${h}<span class="ind-ch">▾</span></div><div class="ind-b"><div>${b}</div></div></div>`, cats = cols[0].lst;
+  const html = cats.map((cat, ci) => { const ens = cat.an.map((e, ai) => { const its = e.ind.map((i, ii) => ({ i, ii })).filter(({ ii }) => !INDX.only || cols.some(c => { const q = at(c, ci, ai, ii); return q && ['warn', 'bad'].includes(q.r.sem); })); if (!its.length) return '';
+      return tree('e:' + e.id, `<span class="ind-ico">${e.ico}</span><span class="ind-t"><b>${e.n}</b><small>${e.d}</small></span><span class="ind-dots">${cols.map(c => dot(worst(c, ci, ai))).join('')}</span>`, its.map(({ i, ii }) => {
+        const ws = ['bad', 'warn', 'ok', 'info'].find(s => cols.some(c => { const q = at(c, ci, ai, ii); return q && q.r.sem === s; })) || 'na';
+        const vars = i.vars.map((v, vi) => tree(`v:${e.id}:${i.id}:${vi}`, `<div class="ind-vrow" ${st}><span class="ind-t"><span class="ind-lv">Variable</span> <b>${v.n}</b></span>${cols.map(c => { const q = at(c, ci, ai, ii), vv = q && q.vars[vi] ? q.vars[vi].vv : '—'; return `<span class="ind-vc">${vv} <em>${v.u}</em></span>`; }).join('')}</div>`, `<div class="ind-meta"><p>${v.d}</p><p><span>Unidades</span> ${v.u} · <span>Fuente</span> ${v.f}</p></div>${v.tr.length ? `<div class="ind-cap">Transformaciones (${v.tr.length})</div>` + v.tr.map(t => `<div class="ind-tr"><span class="ind-lv t">Transformación</span><b>${t.n}</b><p>${t.d}</p><code>${t.f}</code></div>`).join('') : '<div class="ind-cap">Sin transformaciones: dato directo de la fuente</div>'}`)).join('');
+        return tree(`i:${e.id}:${i.id}`, `<div class="ind-row w-${ws}" ${st}><div class="ind-c1"><b>${i.n}</b><span class="ind-tp t-${i.tipo.split(' ')[0]}">${i.tipo}</span></div>${cols.map(c => cell(at(c, ci, ai, ii))).join('')}</div>`, `<div class="ind-meta"><p>${i.d}</p><p><span>Unidades</span> ${i.u}</p><p><span>Metodología</span> ${i.m}</p><code>${i.f}</code></div><div class="ind-cap">Variables (${i.vars.length})</div><div class="ind-tree">${vars}</div>`); }).join('')); }).join('');
+    if (!ens) return ''; return tree('c:' + cat.id, `<span class="ind-ico c">${cat.ico}</span><span class="ind-t"><b>${cat.n}</b><small>${cat.d}</small></span><span class="ind-dots">${cols.map(c => dot(worst(c, ci))).join('')}</span>`, ens); }).join('');
+  pwSet('ind', head + (html || '<div style="font-size:11.5px;color:#16a34a;padding:8px 0">Sin indicadores en atención ni en alerta.</div>') + '<div style="font-size:10.5px;color:#64748b;margin-top:10px">Cada columna es una maqueta. Las maquetas secundarias se calculan con sus propios datos; Rutas de acceso y Cobertura poblacional solo existen para la principal. Los umbrales de semáforo son criterios orientativos propios.</div>');
+}
 function indRender() {
   const S = solS(); if (!S) { pwSet('ind', '<div style="font-size:11.5px;color:#64748b">Esperando los datos de la propiedad…</div>'); return; }
+  const cols = indColumnas(), w = $('pw-ind'); if (cols.length <= 1) { if (w) w.style.width = ''; indRender1(); return; }
+  if (w) w.style.width = Math.min(innerWidth * .94, 240 + cols.length * 215) + 'px'; indRenderN(cols);
+}
+// al marcar o quitar maquetas con la ventana abierta, se calcula la nueva columna
+function indOnMq() { const w = $('pw-ind'); if (!w || !w.classList.contains('on')) return; indRender(); [...INDX.cols.values()].forEach(c => { if (!c.lst && !c.busy && !c.err) indCargaSec(c); }); }
+function indRender1() {
+  const S = solS();
   const cats = indLista(), lst = cats.flatMap(c => c.an), tot = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; lst.forEach(e => e.ind.forEach(i => { i.r = i.calc(); tot[i.r.sem]++; }));
   const n = lst.reduce((a, e) => a + e.ind.length, 0), tn = IND_SEM, op = k => INDX.open.has(k) ? ' open' : '', dot = s => `<i class="ind-dot ${s}" style="--c:${tn[s][0]}"></i>`;
   const resumen = `<div class="ind-sum"><div class="ind-sumh"><b>${n}</b> indicadores · <b>${tot.bad}</b> alertas · <b>${tot.warn}</b> en atención · <b>${tot.ok}</b> favorables · <b>${tot.info}</b> informativos${tot.na ? ' · <b>' + tot.na + '</b> sin datos' : ''}</div><div class="ind-stack">${['bad', 'warn', 'ok', 'info', 'na'].filter(s => tot[s]).map(s => `<i style="flex:${tot[s]};background:${tn[s][0]}" title="${tn[s][1]}: ${tot[s]}"></i>`).join('')}</div></div>`;
@@ -1861,14 +1915,27 @@ async function indCarga() {
   await tryp('Cargando vientos y humedad…', async () => { await solCarga(); });
   await tryp('Calculando relieve y pendiente…', async () => { const d = await demGet(S), k = [S.lat, S.lng, S.radio].join('|'); if (GEO.key !== k) { geoCalc(S, d); GEO.key = k; } });
   await tryp('Trazando el agua por las calles…', async () => { const d = await demGet(S), k = [S.lat, S.lng, (S.roads || []).length].join('|'); if (!INU.net || INU.key !== k) { INU.net = inuNet(S, d); INU.key = k; } if (INU.net) { INU.f = 1; inuEval(); } });
-  await tryp('Calculando fricción de accesibilidad…', async () => { if (FR.mode || FR.res) return; if (!FR.B) { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${qs.get('fid') || ID}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); FR.B = frConstruir(j.f, S); } FR.res = frEscena(FR.B, 1); frDisp(); });
+  await tryp('Calculando fricción de accesibilidad…', async () => { if (FR.mode || FR.res) return; if (!FR.B) { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${curId()}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); FR.B = frConstruir(j.f, S); } FR.res = frEscena(FR.B, 1); frDisp(); });
   await tryp('Cargando urbanización y cobertura…', async () => { const k = [S.lat, S.lng, S.radio].join('|'); if (!URB.ser) await urbCarga(S); if (!URB.suelo) await urbSuelo(S); URB.key = URB.ser && URB.suelo ? k : URB.key; });
+  indColumnas(); for (const c of [...INDX.cols.values()]) { msg('Calculando ' + String(c.titulo).split(' - ')[0] + '…'); c.lst = null; c.st = null; await indCargaSec(c); }
   msg('Actualizado.'); INDX.busy = 0; indRender();
 }
 {
   if (!$('ind-css')) { const st = document.createElement('style'); st.id = 'ind-css'; st.textContent = `
   @property --p{syntax:'<number>';inherits:false;initial-value:0}
-  #pw-ind{width:640px}
+  #pw-ind{width:640px;max-width:94vw}
+  .ind-colh{display:grid;grid-template-columns:minmax(130px,1.05fr) repeat(var(--x),minmax(0,1fr));gap:8px;position:sticky;top:-10px;z-index:4;background:linear-gradient(135deg,#0f172a,#1e293b);color:#e2e8f0;border-radius:14px;padding:10px 12px;margin:-2px 0 10px;box-shadow:0 8px 22px rgba(15,23,42,.22)}
+  .ind-colh>span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;align-self:center}
+  .ind-colh>div{min-width:0;display:flex;flex-direction:column;gap:3px}.ind-colh b{font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ind-colh small{font-size:10px;color:#a5b4fc}
+  .ind-mini{display:flex;height:5px;border-radius:99px;overflow:hidden;gap:1px;margin-top:2px}.ind-mini i{display:block}.ind-minin{display:flex;flex-wrap:wrap;gap:3px 7px}.ind-minin em{font-style:normal;font-size:9.5px;color:#cbd5e1}.ind-minin em.b{color:#fca5a5;font-weight:800}.ind-minin em.w{color:#fcd34d;font-weight:700}
+  .ind-dots{flex:none;display:inline-flex;gap:5px;align-items:center;background:rgba(15,23,42,.06);border-radius:99px;padding:5px 9px}.ind-n[data-k^="c:"]>.ind-h .ind-dots{background:rgba(255,255,255,.14)}
+  .ind-row{flex:1;min-width:0;display:grid;grid-template-columns:minmax(130px,1.05fr) repeat(var(--x),minmax(0,1fr));gap:8px;align-items:start}
+  .ind-cell{min-width:0;display:flex;flex-direction:column;gap:3px;background:#f8fafc;border:1px solid #eef2f7;border-top:3px solid var(--c,#cbd5e1);border-radius:10px;padding:6px 8px}
+  .ind-cell .v{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}.ind-cell .v b{font:800 17px/1.1 system-ui;color:#0f172a;letter-spacing:-.02em;word-break:break-word}.ind-cell .v small{font-size:10px;color:#64748b;font-weight:600}
+  .ind-cell .z{height:42px;display:flex;align-items:center}.ind-cell .s{display:flex;align-items:center;gap:5px}.ind-cell .s b{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em}.ind-cell .s.ok b{color:#15803d}.ind-cell .s.warn b{color:#b45309}.ind-cell .s.bad b{color:#b91c1c}.ind-cell .s.info b{color:#1d4ed8}.ind-cell .s.na b{color:#64748b}
+  .ind-cell p{margin:0;font-size:10.5px;color:#64748b;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .ind-n[data-k^="i:"]>.ind-h:has(.ind-row.w-ok)::before{background:#16a34a}.ind-n[data-k^="i:"]>.ind-h:has(.ind-row.w-warn)::before{background:#f59e0b}.ind-n[data-k^="i:"]>.ind-h:has(.ind-row.w-bad)::before{background:#dc2626}.ind-n[data-k^="i:"]>.ind-h:has(.ind-row.w-info)::before{background:#3b82f6}
+  .ind-vrow{flex:1;min-width:0;display:grid;grid-template-columns:minmax(130px,1.05fr) repeat(var(--x),minmax(0,1fr));gap:8px;align-items:center}.ind-vc{min-width:0;font-size:11.5px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ind-vc em{font-style:normal;font-weight:500;color:#64748b;font-size:10px}
   #pw-ind .pwres{padding:10px 10px 14px;background:#f8fafc}
   .ind-sum{background:linear-gradient(135deg,#0f172a,#1e293b);color:#e2e8f0;border-radius:14px;padding:11px 14px;margin-bottom:10px;box-shadow:0 8px 22px rgba(15,23,42,.18)}
   .ind-sumh{font-size:12px;letter-spacing:.01em}.ind-sumh b{color:#fff;font-size:14px}
@@ -1984,14 +2051,14 @@ async function mqCola() {
       const J = u => fetch(`https://api.check-inn.mx/mercado/maqueta/${u}?id=${id}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})), [j, jn, jf] = await Promise.all([J('escena'), J('negocios'), J('fachadas')]); const S2 = j.ok && j.escena; if (!S2 || !S2.roads) throw new Error('la escena no está disponible'); S2.neg = jn.items || [];
       if (S2.obs) (jf.items || []).forEach(x => { const o = S2.obs.find(r => r.pano === x.pano && r.h === x.h), f = o && (o.fr || []).find(r => r.x === x.x); if (f) f.tx = `https://api.check-inn.mx/mercado/maqueta/fachada/img?id=${id}&k=${encodeURIComponent(x.k)}`; });
       const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it ? it.titulo : id)); g.position.set(ox, 0, oz); Object.assign(q, { g, S: S2, ox, oz, cargando: false }); mqHoles();
-      if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } mqMapaSec(q); await mqCiudad(true); mqEncuadra(); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400);
+      if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } mqMapaSec(q); await mqCiudad(true); mqEncuadra(); indOnMq(); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400);
     } catch (err) { MQ.sel.delete(id); MQ.err = 'No se pudo cargar esa maqueta: ' + (err.message || err); }
     mqRender();
   } } finally { MQ.busy = 0; } mqRender();
 }
 async function mqToggle(id, on) {
   const S = solS(); if (!S) return; MQ.err = '';
-  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); mqHoles(); } mqRender(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } if (MQ.iv) { clearInterval(MQ.iv); MQ.iv = 0; } MQ.act = '__'; mqSombra(); MQ.act = ''; await mqCiudad(false); } else mqEncuadra(); return; }
+  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); mqHoles(); } mqRender(); indOnMq(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } if (MQ.iv) { clearInterval(MQ.iv); MQ.iv = 0; } MQ.act = '__'; mqSombra(); MQ.act = ''; await mqCiudad(false); } else mqEncuadra(); return; }
   if (!MQ.items.some(q => q.id === id) || MQ.sel.has(id)) return; MQ.sel.set(id, { cargando: true }); mqRender(); mqCola();
 }
 {
@@ -1999,9 +2066,10 @@ async function mqToggle(id, on) {
     el.addEventListener('click', e => { const a = e.target.closest('[data-open]'); if (a) { e.stopPropagation(); const u = new URL(location.href); u.searchParams.set('id', a.dataset.open); u.searchParams.delete('fid'); location.href = u.toString(); return; } const r = e.target.closest('.ck[data-id]'); if (!r || r.dataset.p) return; mqToggle(r.dataset.id, !MQ.sel.has(r.dataset.id)); });
     mqRender(); mqLista(); }, 500);
 }
+const curId = () => window.__IDO || qs.get('fid') || ID;
 const OD = { d: null, G: null, m: 'dia', busy: 0 };
 async function odCarga(S) {
-  if (S.lat == null || qs.get('src')) return; const id = qs.get('fid') || ID;
+  if (S.lat == null || qs.get('src')) return; const id = curId();
   try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${id}`, { cache: 'no-store' }).then(r => r.json()); OD.d = (j && j.od) || null; } catch (_) { OD.d = null; }
   odDock(S); odDibuja(S); covDock(S);
 }
@@ -2025,12 +2093,12 @@ function odDock(S) {
 // el mapa de ciudad con el árbol de orígenes se abre encima de la maqueta (ventana a pantalla completa); Esc o ✕ para cerrar
 function odAbre() {
   if ($('od-ov')) return; const ov = document.createElement('div'); ov.id = 'od-ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b1220;display:flex;flex-direction:column';
-  const f = document.createElement('iframe'); f.src = 'od.html?id=' + encodeURIComponent(qs.get('fid') || ID) + '&emb=1'; f.style.cssText = 'flex:1;border:0;width:100%;background:#fff'; f.allow = 'fullscreen';
+  const f = document.createElement('iframe'); f.src = 'od.html?id=' + encodeURIComponent(curId()) + '&emb=1'; f.style.cssText = 'flex:1;border:0;width:100%;background:#fff'; f.allow = 'fullscreen';
   const x = document.createElement('button'); x.textContent = '✕ Cerrar'; x.title = 'Volver a la maqueta (Esc)'; x.style.cssText = 'position:absolute;top:12px;right:14px;z-index:2;border:0;border-radius:999px;padding:9px 16px;font:700 13px system-ui,sans-serif;background:#0f172a;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)';
   const cierra = () => { document.removeEventListener('keydown', esc); removeEventListener('message', msg); ov.remove(); }, esc = ev => { if (ev.key === 'Escape') cierra(); }, msg = ev => { if (ev.data && ev.data.od === 'cerrar') cierra(); }; x.onclick = cierra; document.addEventListener('keydown', esc); addEventListener('message', msg); ov.append(f, x); document.body.appendChild(ov);
 }
 async function odCalcula(S) {
-  if (OD.busy) return; OD.busy = 1; const id = qs.get('fid') || ID, btn = $('od-r'), t0 = btn ? btn.textContent : '', antes = OD.d ? OD.d.at : '', msg = () => $('od-msg');
+  if (OD.busy) return; OD.busy = 1; const id = curId(), btn = $('od-r'), t0 = btn ? btn.textContent : '', antes = OD.d ? OD.d.at : '', msg = () => $('od-msg');
   if (btn) { btn.disabled = true; btn.textContent = 'Analizando…'; } if (msg()) { msg().style.color = ''; msg().textContent = 'Enviando…'; }
   const lanza = async conf => { const r = await fetch('https://api.check-inn.mx/mercado/maqueta/od-estima', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, confirmo: !!conf }) }).then(x => x.json());
     if (r.requiere) { if (!confirm('Para calcular hay que consultar Google Routes por primera vez en esta propiedad.\n\nCosto máximo: ' + r.usd.toFixed(2) + ' USD.\n\n¿Aceptas el gasto?')) throw new Error('Cancelado: no se hizo ninguna consulta ni gasto.'); return lanza(true); } if (!r.ok) throw new Error(r.error || 'No se pudo iniciar'); };
@@ -2071,7 +2139,7 @@ function cityTick(dt) {
   if (OD.tx && CITY.v.flechas) OD.tx.offset.y -= dt * .5; CITY.u.uPx.value = cityPx(); const d = camera.position.distanceTo(controls.target), nn = Math.max(1.5, Math.min(400, d * .012)), ff = Math.max(1500, d * 16); if (Math.abs(nn / camera.near - 1) > .08 || Math.abs(ff / camera.far - 1) > .08) { camera.near = nn; camera.far = ff; camera.updateProjectionMatrix(); }
   CITY.t += dt; if (CITY.t > .3) { CITY.t = 0; cgUpdate(); } if (CITY.lab) { CITY.lab.t += dt; if (CITY.lab.t > .15) { CITY.lab.t = 0; cityLabTick(); } }
 }
-async function cityDatos(src) { if (CITY.d[src]) return CITY.d[src]; if (src === 'zona') return CITY.d.zona = OD.d; try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${qs.get('fid') || ID}&modo=${src}`, { cache: 'no-store' }).then(r => r.json()); CITY.d[src] = j && j.od && j.od.arbol ? j.od : null; } catch (_) { CITY.d[src] = null; } return CITY.d[src]; }
+async function cityDatos(src) { if (CITY.d[src]) return CITY.d[src]; if (src === 'zona') return CITY.d.zona = OD.d; try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/od?id=${curId()}&modo=${src}`, { cache: 'no-store' }).then(r => r.json()); CITY.d[src] = j && j.od && j.od.arbol ? j.od : null; } catch (_) { CITY.d[src] = null; } return CITY.d[src]; }
 function cityBarra(S) {
   let b = $('city-bar'); if (b) b.remove(); b = document.createElement('div'); b.id = 'city-bar'; b.style.cssText = 'position:fixed;top:12px;left:calc(356px + (100vw - 356px) / 2);transform:translateX(-50%);z-index:9000;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;background:rgba(15,23,42,.92);color:#fff;border-radius:14px;padding:8px 12px;font:600 12px system-ui,sans-serif;box-shadow:0 6px 22px rgba(0,0,0,.35);max-width:96vw';
   const sel = (id, opts, v) => `<select id="${id}" style="font:inherit;padding:5px 8px;border-radius:8px;border:0">${opts.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`, des = CITY.src === 'destino';
@@ -2374,7 +2442,7 @@ function odDibuja(S) {
 }
 async function tfCarga(S) {
   try {
-    const j = await fetch(`https://api.check-inn.mx/mercado/trafico?id=${qs.get('fid') || ID}`, { cache: 'no-store' }).then(r => r.json()); const D = j && j.ok && j.doc; if (!D || !D.vias || !D.vias.length || S.lat == null) { sigRespaldoTF(); return; }
+    const j = await fetch(`https://api.check-inn.mx/mercado/trafico?id=${curId()}`, { cache: 'no-store' }).then(r => r.json()); const D = j && j.ok && j.doc; if (!D || !D.vias || !D.vias.length || S.lat == null) { sigRespaldoTF(); return; }
     const lat0 = +S.lat, lng0 = +S.lng, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320, aj = S.__ajR || [0, 0], RAD = S.radio, loc = p => [(p[1] - lng0) * kx + aj[0], (p[0] - lat0) * ky + aj[1]];
     TF.doc = D; TF.vias = []; D.vias.forEach((v, vi) => { const pl = (v.pl && v.pl.length > 1 ? v.pl : [v.sentidos[0].a, v.sentidos[0].b]).map(loc); // solo se usa la parte del tramo que cae dentro del modelo (el tramo real puede ser más largo)
       const dentro = p => Math.abs(p[0]) <= RAD - 2 && Math.abs(p[1]) <= RAD - 2; let runs = [], cur = []; pl.forEach(p => { if (dentro(p)) cur.push(p); else { if (cur.length > 1) runs.push(cur); cur = []; } }); if (cur.length > 1) runs.push(cur); const lg = r => r.reduce((a, p, i) => i ? a + Math.hypot(p[0] - r[i - 1][0], p[1] - r[i - 1][1]) : 0, 0); runs.sort((a, b) => lg(b) - lg(a)); const run = runs[0]; if (!run || lg(run) < 20) return; const real = v.len || lg(pl);
