@@ -6786,7 +6786,8 @@ body:not(.dark) .user-greeting.gb .gb-right .ug-panel:hover{background:#fffbe8;f
 .gm-top{border-bottom:1px solid var(--gm-lin)}.gm-top .gm-w{display:flex;align-items:center;justify-content:space-between;height:62px}
 .gm-logo{height:30px;width:auto;display:block}
 .gm-nav{display:flex;gap:26px}.gm-nav a{color:#444;text-decoration:none;font-size:12.5px;cursor:pointer}.gm-nav a:hover{color:var(--gm-ink)}
-.gm-main{padding-top:clamp(56px,14vh,150px);padding-bottom:clamp(40px,9vh,90px)}
+.gm-main{padding-top:clamp(44px,10vh,110px);padding-bottom:clamp(40px,9vh,90px)}
+.gm-hero-logo{height:clamp(74px,11vw,116px);width:auto;display:block;margin:0 0 34px -4px}
 .gm-st{display:inline-flex;align-items:center;gap:9px;color:#444;font-size:12px;margin-bottom:22px}
 .gm-dot{width:7px;height:7px;border-radius:50%;background:#aaa;display:inline-block}.gm-dot.ok{background:var(--gm-acc)}.gm-dot.mid{background:#b45309}
 .gm-h1{margin:0 0 22px;font-size:clamp(24px,3.6vw,38px);line-height:1.2;font-weight:600;letter-spacing:-.02em;color:var(--gm-ink)}.gm-h1 span{color:#555}
