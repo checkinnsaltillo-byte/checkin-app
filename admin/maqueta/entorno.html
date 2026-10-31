@@ -3324,7 +3324,7 @@ Object.keys(OPA).forEach(id => {
 setInterval(() => { if (document.hidden) return; Object.keys(OPA).forEach(id => { if (OPA[id].v !== 1 || OPA[id].g().some(g => g && g.userData.opa !== undefined)) opaAplica(id); }); }, 300);
 // ───── «Medio ambiente» reúne Aire/polen/clima, Potencial solar y Emisiones de carbono en una sola ventana
 {
-  const R = pwMake('amb'), ids = [['aire', '💨 Calidad del aire y polen'], ['psl', '☀️ Potencial solar'], ['emi', '🏭 Emisiones de carbono']]; R.el.querySelector('.pws').remove(); R.el.style.width = '430px';
+  const R = pwMake('amb'), ids = [['aire', '💨 Calidad del aire y polen'], ['psl', '☀️ Potencial solar'], ['emi', '🏭 Emisiones de carbono']]; R.el.querySelector('.pws').remove(); R.el.style.width = '430px'; R.chip.style.display = '';
   const seg = document.createElement('div'); seg.className = 'seg'; seg.style.cssText = 'margin:6px 10px 2px;padding-bottom:6px;border-bottom:1px solid #e2e8f0'; seg.innerHTML = ids.map(([k, l], i) => `<button data-g="${k}"${i === 0 ? ' class="on"' : ''}>${l}</button>`).join(''); R.el.appendChild(seg);
   ids.forEach(([k]) => { const e = $('pw-' + k), r = PW.m.get(k); r.chip.remove(); e.classList.remove('on'); e.style.cssText = 'position:static;width:auto;max-width:none;box-shadow:none;border-radius:0;background:transparent;overflow:visible;z-index:auto'; e.querySelector('.pwh').style.display = 'none'; e.querySelectorAll('.pws').forEach(p => { p.style.maxHeight = '62vh'; }); R.el.appendChild(e); });
   let act = 'aire'; const aplica = () => { const abierta = R.el.classList.contains('on'); ids.forEach(([k]) => $('pw-' + k).classList.toggle('on', abierta && k === act)); seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.g === act)); };
