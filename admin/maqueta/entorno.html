@@ -2654,6 +2654,21 @@ async function demoSet(S, on) {   // capa Demografía (Capas)
   if (CITY.busy) return; CITY.busy = 1;
   try { if (on) { await cityEntra(S); CITY.demo = true; demoOpt(); await cityPob(S); } else { CITY.demo = false; cityPobQuita(); if (!CITY.od && !CITY.cov && !CITY.mq && !CITY.eco) citySale(S); } } finally { CITY.busy = 0; } demoOpt(); capasSync(); try { demSync(); } catch (_) { }
 }
+// ───── brújula tipo Google Maps (esquina inferior derecha): muestra hacia dónde está el norte y, al pulsarla, gira la vista para dejar el norte arriba
+{
+  const el = document.createElement('button'); el.id = 'brujula'; el.title = 'Brújula: pulse para orientar el mapa al norte';
+  el.style.cssText = 'position:fixed;right:14px;bottom:46px;z-index:9001;width:46px;height:46px;border-radius:50%;border:0;padding:0;cursor:pointer;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center';
+  el.innerHTML = '<div id="brj-d" style="width:34px;height:34px;transition:none"><svg viewBox="-20 -20 40 40" width="34" height="34"><circle r="18" fill="none" stroke="#cbd5e1" stroke-width="1"/><path d="M0-16 L6 0 L-6 0Z" fill="#ef4444"/><path d="M0 16 L6 0 L-6 0Z" fill="#64748b"/><circle r="1.6" fill="#fff" stroke="#94a3b8" stroke-width=".6"/><text y="-8" x="0" font-size="0"></text></svg></div><span id="brj-g" style="position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font:700 10px system-ui,sans-serif;color:#fff;background:rgba(15,23,42,.8);border-radius:8px;padding:1px 6px;pointer-events:none">N 0°</span>';
+  document.body.appendChild(el); const dial = el.querySelector('#brj-d'), lab = el.querySelector('#brj-g'); let last = NaN, anim = 0;
+  const RUM = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  const tick = () => {
+    const a = controls.getAzimuthalAngle(); if (Math.abs(a - last) > 1e-4 || isNaN(last)) { last = a; dial.style.transform = `rotate(${a}rad)`; const b = ((-a * 180 / Math.PI) % 360 + 360) % 360; lab.textContent = RUM[Math.round(b / 45) % 8] + ' ' + Math.round(b) + '°'; el.style.opacity = '1'; }
+    const ab = $('acc-box'); el.style.right = (ab && ab.style.display !== 'none' && ab.isConnected ? 462 : 14) + 'px'; requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  el.onclick = () => { if (anim) return; const a0 = controls.getAzimuthalAngle(); if (Math.abs(a0) < 1e-3) return; const off = camera.position.clone().sub(controls.target), r = Math.hypot(off.x, off.z), t0 = performance.now(); let d = -a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const th0 = a0;
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / 450), e = k * k * (3 - 2 * k), th = th0 + d * e; camera.position.set(controls.target.x + r * Math.sin(th), camera.position.y, controls.target.z + r * Math.cos(th)); controls.update(); if (k < 1) anim = requestAnimationFrame(step); else anim = 0; }; anim = requestAnimationFrame(step); };
+}
 // ───── Establecimientos económicos (DENUE-INEGI): 4 vistas de aglomeración sobre el mapa de la ciudad
 const ECO = { v: 'dbscan', g: 3, eps: 200, minp: 6, bw: 300, hx: 300, hmin: 5, fus: true, D: null, G: null, on: false, tabs: {}, stat: {}, cl: null, prevBase: null, op: 1 };
 const ECO_V = [['dbscan', '🔵 Conglomerados (DBSCAN)'], ['hull', '🫧 Envolvente cóncava'], ['kde', '🔥 Densidad (KDE)'], ['hex', '⬡ Fusión de teselas']];
