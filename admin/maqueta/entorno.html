@@ -155,7 +155,7 @@ let zWant = 0; const zClamp = d => Math.max(controls.minDistance, Math.min(contr
 renderer.domElement.addEventListener('wheel', e => { e.preventDefault(); const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; zMul(Math.exp(Math.max(-60, Math.min(60, dy)) * (e.ctrlKey ? .006 : .0016))); }, { passive: false });
 let pinchD = 0; renderer.domElement.addEventListener('touchmove', e => { if (e.touches.length !== 2) { pinchD = 0; return; } const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (pinchD) zMul(pinchD / d); pinchD = d; }, { passive: true }); renderer.domElement.addEventListener('touchend', () => { pinchD = 0; });
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-let fitR = 46; const fit = () => { const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect), d = fitR / Math.sin(Math.min(vf, hf) / 2); camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(-.78, .5, .75).normalize(), d); controls.maxDistance = d * 2.2; controls.update(); };
+let fitR = 46; const fit = () => { const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect), d = fitR / Math.sin(Math.min(vf, hf) / 2); camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(-.78, .5, .75).normalize(), d); controls.maxDistance = window.__cityOn ? 140000 : d * 2.2; controls.update(); };
 const hemi = new THREE.HemisphereLight(0xcfe2ff, 0xd9cdb8, .6); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff3e0, 3.6); sun.position.set(40, 70, 30); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); const sc = sun.shadow.camera; sc.left = -50; sc.right = 50; sc.top = 36; sc.bottom = -36; sc.near = 10; sc.far = 220; sun.shadow.bias = -.0003; sun.shadow.normalBias = .05; sun.shadow.radius = 2.2; scene.add(sun);
 const fillL = new THREE.DirectionalLight(0xbfd4ff, .45); fillL.position.set(-50, 30, -30); scene.add(fillL);
@@ -897,10 +897,10 @@ function todEnv(k) {
 }
 function todApply() {
   const p = TODP[TOD.k], on = RZ.on, B = { si: on ? RZ.si : 3.6, hi: on ? RZ.hi : .6, fi: on ? RZ.fi : .45, ei: on ? RZ.ei : 1, ex: on ? RZ.ex : .95 };
-  sun.position.set(...p.pos).normalize().multiplyScalar(85); sun.color.set(p.sc); sun.intensity = B.si * p.sk; hemi.color.set(p.hs); hemi.groundColor.set(p.hg); hemi.intensity = B.hi * p.hk; fillL.color.set(p.fc); fillL.intensity = B.fi * p.fk; renderer.toneMappingExposure = B.ex * p.ex;
+  sun.position.set(...p.pos).normalize().multiplyScalar(85); if (window.__MQ && window.__MQ.sunC) sun.position.add(window.__MQ.sunC); sun.color.set(p.sc); sun.intensity = B.si * p.sk; hemi.color.set(p.hs); hemi.groundColor.set(p.hg); hemi.intensity = B.hi * p.hk; fillL.color.set(p.fc); fillL.intensity = B.fi * p.fk; renderer.toneMappingExposure = B.ex * p.ex;
   if (on) scene.environment = todEnv(TOD.k) || RZ.room; else if (RZ.room) scene.environment = RZ.room; rzEnvI(B.ei * p.ek);
   if (!(typeof FR !== 'undefined' && FR.mode > 0)) { scene.background = TOD.h != null ? todHBg(TOD.h) : todBg(TOD.k); }
-  if (TOD.h != null) { const d = todSol(TOD.h); if (d.y > 0) sun.position.set(d.x, Math.max(d.y, .1), d.z).normalize().multiplyScalar(85); }
+  if (TOD.h != null) { const d = todSol(TOD.h); if (d.y > 0) { sun.position.set(d.x, Math.max(d.y, .1), d.z).normalize().multiplyScalar(85); if (window.__MQ && window.__MQ.sunC) sun.position.add(window.__MQ.sunC); } }
   const seen = new Set(); scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (!m || seen.has(m) || m === M.glass || !m.emissive || m.__em0 === undefined && m.emissive.getHex() === 0) return; seen.add(m); if (m.__em0 === undefined) m.__em0 = m.emissiveIntensity; m.emissiveIntensity = m.__em0 * (1 + p.glow); }); });
   M.glass.emissive.set(0xffc27a); M.glass.emissiveIntensity = p.win;
   const tw = $('t-hora'); if (tw) tw.value = TOD.k; NIGHT.set(NLV[TOD.k] || 0); if (NEG.upd) NEG.upd(); renderer.shadowMap.needsUpdate = true;
@@ -977,6 +977,7 @@ async function mapaTextura(S, tipo, Rov, noAj) {
   const ok = (await Promise.all(jobs)).reduce((a, b) => a + b, 0); if (!ok) throw new Error('sin teselas'); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; mapCache[ck] = t; return t;
 }
 async function setMapa(tipo) {
+  if (window.__MQ && window.__MQ.sel.size) setTimeout(() => { try { mqMapas(); } catch (_) { } }, 0);
   if (mapMesh) { world.remove(mapMesh); mapMesh = null; } $('attr').textContent = ''; if (!curS || tipo === 'ninguno' || !curS.roads) return;
   try { const t = await mapaTextura(curS, tipo), m = new THREE.Mesh(new THREE.PlaneGeometry(curS.radio * 2, curS.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; world.add(m); mapMesh = m; $('attr').textContent = MAPAS[tipo].at; renderer.shadowMap.needsUpdate = true; } catch (e) { $('msg').textContent = 'No se pudo cargar el mapa de fondo.'; }
 }
@@ -1953,8 +1954,7 @@ function mqBuildSec(S2) {
 // marco, tinte y rótulo de cada maqueta para distinguirla sobre el mapa de la ciudad
 function mqMarca(S, tit) {
   const R = S.radio, g = new THREE.Group(), pts = [[-R, -R], [R, -R], [R, R], [-R, R]].map(p => new THREE.Vector3(p[0], 1.2, p[1])), ln = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x4f46e5, transparent: true, opacity: .95, depthTest: false })); ln.renderOrder = 30;
-  const fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * R, 2 * R).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x6366f1, transparent: true, opacity: .1, depthWrite: false })); fl.position.y = .25; fl.renderOrder = 1;
-  const lb = solTxt((t => t.length > 15 ? t.slice(0, 14) + '…' : t)(String(tit).split(' - ')[0].split(' · ')[0]), '#312e81', R * 1.5, 1, 1); lb.position.set(0, 60 + R * .25, -R * 1.05); g.add(ln, fl, lb); g.userData.noPick = 1; return g;
+  const lb = solTxt((t => t.length > 15 ? t.slice(0, 14) + '…' : t)(String(tit).split(' - ')[0].split(' · ')[0]), '#312e81', R * 1.5, 1, 1); lb.position.set(0, 60 + R * .25, -R * 1.05); g.add(ln, lb); g.userData.noPick = 1; return g;
 }
 function mqEncuadra() {
   const S = solS(); if (!S) return; const pts = [[0, 0]].concat([...MQ.sel.values()].filter(q => q.g).map(q => [q.ox, q.oz])), cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cz = pts.reduce((a, p) => a + p[1], 0) / pts.length; let sp = 0; pts.forEach(a => pts.forEach(b => { sp = Math.max(sp, Math.hypot(a[0] - b[0], a[1] - b[1])); }));
@@ -1965,15 +1965,34 @@ async function mqCiudad(on) {
   if (on) { CITY.mq = true; if (!CITY.on) { CITY.busy = 1; try { await cityEntra(curS); } finally { CITY.busy = 0; } } }
   else { CITY.mq = false; if (CITY.on && !CITY.od && !CITY.demo && !CITY.cov) citySale(curS); }
 }
+// mapa de fondo de cada maqueta secundaria (el mismo tipo que la principal)
+async function mqMapaSec(q) {
+  if (!q || !q.g) return; q.g.children.filter(o => o.userData.mqMapa).forEach(o => { q.g.remove(o); o.geometry.dispose(); o.material.dispose(); }); if (mapTipo === 'ninguno') return;
+  try { const t = await mapaTextura(q.S, mapTipo), m = new THREE.Mesh(new THREE.PlaneGeometry(q.S.radio * 2, q.S.radio * 2), new THREE.MeshStandardMaterial({ map: t, roughness: 1, color: 0xa8a8a8 })); m.rotation.x = -Math.PI / 2; m.position.y = .012; m.receiveShadow = true; m.userData.mqMapa = 1; q.g.add(m); renderer.shadowMap.needsUpdate = true; } catch (_) { }
+}
+function mqMapas() { MQ.sel.forEach(q => mqMapaSec(q)); }
+// la luz del sol (y sus sombras) sigue a la maqueta más cercana al centro de la vista, para que todas tengan sombras completas
+function mqSombra() {
+  const S = solS(); if (!S) return; const act = [{ id: '', x: 0, z: 0, R: S.radio }].concat([...MQ.sel.entries()].filter(([, q]) => q.g).map(([id, q]) => ({ id, x: q.ox, z: q.oz, R: q.S.radio }))), t = controls.target; let b = act[0], bd = 1e12; act.forEach(a => { const d = Math.hypot(a.x - t.x, a.z - t.z); if (d < bd) { bd = d; b = a; } });
+  if (MQ.act === b.id) return; MQ.act = b.id; const c0 = MQ.sunC || new THREE.Vector3(), dir = sun.position.clone().sub(c0).normalize(), R = b.R; MQ.sunC = b.id ? new THREE.Vector3(b.x, 0, b.z) : null; const c = MQ.sunC || new THREE.Vector3(); sun.target.position.copy(c); sun.position.copy(c).addScaledVector(dir, R * 1.6); sc.left = -R * 1.08; sc.right = R * 1.08; sc.top = R * 1.08; sc.bottom = -R * 1.08; sc.far = R * 5; sc.updateProjectionMatrix(); renderer.shadowMap.needsUpdate = true;
+}
+async function mqCola() {
+  if (MQ.busy) return; MQ.busy = 1; const S = solS();
+  try { for (; ;) {
+    const e = [...MQ.sel.entries()].find(([, q]) => q.cargando && !q.g && !q.fallo); if (!e) break; const [id, q] = e, it = MQ.items.find(x => x.id === id);
+    try {
+      const J = u => fetch(`https://api.check-inn.mx/mercado/maqueta/${u}?id=${id}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})), [j, jn, jf] = await Promise.all([J('escena'), J('negocios'), J('fachadas')]); const S2 = j.ok && j.escena; if (!S2 || !S2.roads) throw new Error('la escena no está disponible'); S2.neg = jn.items || [];
+      if (S2.obs) (jf.items || []).forEach(x => { const o = S2.obs.find(r => r.pano === x.pano && r.h === x.h), f = o && (o.fr || []).find(r => r.x === x.x); if (f) f.tx = `https://api.check-inn.mx/mercado/maqueta/fachada/img?id=${id}&k=${encodeURIComponent(x.k)}`; });
+      const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it ? it.titulo : id)); g.position.set(ox, 0, oz); Object.assign(q, { g, S: S2, ox, oz, cargando: false });
+      if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } mqMapaSec(q); await mqCiudad(true); mqEncuadra(); if (!MQ.iv) MQ.iv = setInterval(mqSombra, 400);
+    } catch (err) { MQ.sel.delete(id); MQ.err = 'No se pudo cargar esa maqueta: ' + (err.message || err); }
+    mqRender();
+  } } finally { MQ.busy = 0; } mqRender();
+}
 async function mqToggle(id, on) {
-  if (MQ.busy) return; const S = solS(); if (!S) return; MQ.err = '';
-  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); } mqRender(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } await mqCiudad(false); } else mqEncuadra(); return; }
-  const it = MQ.items.find(q => q.id === id); if (!it) return; MQ.busy = 1; MQ.sel.set(id, { cargando: true }); mqRender();
-  try {
-    const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/escena?id=${id}`, { cache: 'no-store' }).then(r => r.json()); const S2 = j.ok && j.escena; if (!S2 || !S2.roads) throw new Error('la escena no está disponible'); try { const jn = await fetch(`https://api.check-inn.mx/mercado/maqueta/negocios?id=${id}`, { cache: 'no-store' }).then(r => r.json()); S2.neg = jn.items || []; } catch (_) { }
-    const g = mqBuildSec(S2), P = curS, ox = (+S2.lng - +P.lng) * 111320 * Math.cos(+P.lat * Math.PI / 180), oz = -(+S2.lat - +P.lat) * 111320; g.add(mqMarca(S2, it.titulo)); g.position.set(ox, 0, oz); MQ.sel.set(id, { g, S: S2, ox, oz }); if (!MQ.pm) { MQ.pm = mqMarca(P, P.tit || P.titulo || 'Principal'); scene.add(MQ.pm); } await mqCiudad(true); mqEncuadra();
-  } catch (e) { MQ.sel.delete(id); MQ.err = 'No se pudo cargar esa maqueta: ' + (e.message || e); }
-  MQ.busy = 0; mqRender();
+  const S = solS(); if (!S) return; MQ.err = '';
+  if (!on) { const q = MQ.sel.get(id); if (q) { if (q.g) { scene.remove(q.g); q.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } MQ.sel.delete(id); } mqRender(); if (!MQ.sel.size) { if (MQ.pm) { scene.remove(MQ.pm); MQ.pm = null; } if (MQ.iv) { clearInterval(MQ.iv); MQ.iv = 0; } MQ.act = '__'; mqSombra(); MQ.act = ''; await mqCiudad(false); } else mqEncuadra(); return; }
+  if (!MQ.items.some(q => q.id === id) || MQ.sel.has(id)) return; MQ.sel.set(id, { cargando: true }); mqRender(); mqCola();
 }
 {
   let n = 0; const iv = setInterval(() => { const S = solS(); if (!S && ++n < 120) return; clearInterval(iv); if (!S || $('pdi')) return; const tt = $('tt'), dock = $('dock'); if (!tt || !dock) return; const el = document.createElement('div'); el.id = 'pdi'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, tt.nextSibling);
