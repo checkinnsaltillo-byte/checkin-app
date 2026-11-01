@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>GeoMetrika · Geo-Intelligence</title>
+<link rel="icon" href="geometrika-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="geometrika.css?v=2344">
+<style>
+html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;color:#111}
+.gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top left,rgba(31,138,138,.10),transparent 32%),linear-gradient(180deg,#fff 0%,#f1f1ef 100%)}
+.gp-login.hidden{display:none}
+.gp-card{background:#fff;border:1px solid #dcdcda;padding:38px 30px 30px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(15,23,42,.08)}
+.gp-card img{height:76px;width:auto;display:block;margin:0 auto 22px}
+.gp-card h2{margin:0 0 6px;font-size:15px;font-weight:600}.gp-card p.s{margin:0 0 22px;font-size:11.5px;color:#6b6b6b}
+.gp-card input{width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid #cfcfcc;background:#f6f6f4;font:500 15px "JetBrains Mono",monospace;text-align:center;letter-spacing:4px;outline:none;margin-bottom:12px}
+.gp-card input:focus{border-color:#1f8a8a;box-shadow:0 0 0 3px rgba(31,138,138,.15)}
+.gp-card button{width:100%;padding:13px;border:0;background:#111;color:#fff;font:600 13px "JetBrains Mono",monospace;cursor:pointer}
+.gp-card button:hover{background:#1f8a8a}
+.gp-err{color:#d62828;font-size:12px;margin:0 0 10px;min-height:16px}
+</style>
+</head>
+<body>
+<div id="gpLogin" class="gp-login">
+  <div class="gp-card">
+    <img src="geometrika-logo.png" alt="GeoMetrika Geo-Intelligence">
+    <h2>Sistema de geointeligencia de mercados</h2>
+    <p class="s">acceso restringido</p>
+    <input type="password" id="gpPass" placeholder="Contraseña" autocomplete="current-password" autofocus>
+    <p class="gp-err" id="gpErr"></p>
+    <button type="button" id="gpGo">Entrar</button>
+  </div>
+</div>
+<div id="geometrika-host" style="display:none"></div>
+<script>
+const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee";
+window.GM_MAQ = "/admin/maqueta/entorno.html";
+window.GM_SALIR = function () { try { sessionStorage.removeItem("gp_ok"); } catch (_) { } location.reload(); };
+window._rsvEnsureLeaflet_ = function (cb) {
+  if (window.L) return cb();
+  const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(l);
+  const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = cb; document.head.appendChild(s);
+};
+async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+function gpAbre() {
+  document.getElementById("gpLogin").classList.add("hidden"); document.getElementById("geometrika-host").style.display = "";
+  const s = document.createElement("script"); s.src = "geometrika.js?v=2344"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
+}
+async function gpEntra() {
+  const v = document.getElementById("gpPass").value.trim(), e = document.getElementById("gpErr"); if (!v) { e.textContent = "Captura tu contraseña."; return; }
+  if (await gpSha(v) === GP_HASH) { try { sessionStorage.setItem("gp_ok", "1"); } catch (_) { } gpAbre(); } else { e.textContent = "Contraseña incorrecta."; document.getElementById("gpPass").select(); }
+}
+document.getElementById("gpGo").onclick = gpEntra; document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpEntra(); };
+try { if (sessionStorage.getItem("gp_ok") === "1") gpAbre(); } catch (_) { }
+</script>
+</body>
+</html>
