@@ -6872,3 +6872,5 @@ input.gmw-rng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;backgro
 
 #geometrika-host { position: relative; }
 .gmw-beta { position: absolute; top: 10px; right: 14px; z-index: 5; padding: 3px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; font: 600 11px/1.4 inherit; letter-spacing: .02em; pointer-events: none; }
+
+.gmw-b { grid-template-columns: 1fr !important; gap: 0 !important; }
