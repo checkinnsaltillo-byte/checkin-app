@@ -6882,4 +6882,13 @@ input.gmw-rng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;backgro
 .gmw-bar2 { height: 6px; }
 .gmw-bar2 i { left: 0; animation: none; transition: width .6s ease; }
 
-.gm-pa { white-space: nowrap; font-size: 11.5px; cursor: pointer; }
+
+.gm-pr { position: relative; padding-right: 44px; }
+.gm-km { position: absolute; top: 0; right: 0; bottom: 0; display: flex; align-items: center; }
+.gm-kb { width: 34px; height: 100%; border: 0; background: transparent; cursor: pointer; font-size: 18px; line-height: 1; color: #6b6b6b; }
+.gm-kb:hover { color: #111; background: rgba(0,0,0,.04); }
+.gm-kmenu { display: none; position: absolute; right: 6px; top: calc(50% + 16px); z-index: 20; min-width: 170px; background: #fff; border: 1px solid #dcdcda; box-shadow: 0 10px 28px rgba(15,23,42,.14); }
+.gm-kmenu.on { display: block; }
+.gm-kmenu a { display: block; padding: 9px 14px; font-size: 12px; color: #111; cursor: pointer; white-space: nowrap; }
+.gm-kmenu a:hover { background: #f3f3f1; }
+.gmw-beta { right: auto !important; left: 14px; }
