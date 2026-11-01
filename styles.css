@@ -6876,3 +6876,8 @@ input.gmw-rng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;backgro
 .gmw-b { grid-template-columns: 1fr !important; gap: 0 !important; }
 
 .gmw-star { color: #d97706; font-size: 1.05em; }
+
+.gmw-pct { max-width: 560px; }
+.gmw-pct > b { display: block; margin-bottom: 8px; font-size: 28px; font-weight: 600; letter-spacing: -.02em; color: #111; }
+.gmw-bar2 { height: 6px; }
+.gmw-bar2 i { left: 0; animation: none; transition: width .6s ease; }
