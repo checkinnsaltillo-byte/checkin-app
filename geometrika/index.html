@@ -7,7 +7,7 @@
 <title>GeoMetrika · Geo-Intelligence</title>
 <link rel="icon" href="geometrika-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="geometrika.css?v=2347">
+<link rel="stylesheet" href="geometrika.css?v=2348">
 <style>
 html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;color:#111}
 .gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top left,rgba(31,138,138,.10),transparent 32%),linear-gradient(180deg,#fff 0%,#f1f1ef 100%)}
@@ -35,7 +35,8 @@ html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,
 </div>
 <div id="geometrika-host" style="display:none"></div>
 <script>
-const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee";
+const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "8f844c42961d211c4f0f3155b03ba1d0f595cdf5607732ebee41d0b9dd03562d";  // GP_HASH2: nivel con precios reales
+function gpNivel(n) { window.GM_PRECIOS = n === "2"; }
 window.GM_MAQ = "/admin/maqueta/entorno.html";
 window.GM_SALIR = function () { try { sessionStorage.removeItem("gp_ok"); } catch (_) { } location.reload(); };
 window._rsvEnsureLeaflet_ = function (cb) {
@@ -46,14 +47,15 @@ window._rsvEnsureLeaflet_ = function (cb) {
 async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function gpAbre() {
   document.getElementById("gpLogin").classList.add("hidden"); document.getElementById("geometrika-host").style.display = "";
-  const s = document.createElement("script"); s.src = "geometrika.js?v=2347"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
+  const s = document.createElement("script"); s.src = "geometrika.js?v=2348"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
 }
 async function gpEntra() {
   const v = document.getElementById("gpPass").value.trim(), e = document.getElementById("gpErr"); if (!v) { e.textContent = "Captura tu contraseña."; return; }
-  if (await gpSha(v) === GP_HASH) { try { sessionStorage.setItem("gp_ok", "1"); } catch (_) { } gpAbre(); } else { e.textContent = "Contraseña incorrecta."; document.getElementById("gpPass").select(); }
+  const h = await gpSha(v), n = h === GP_HASH2 ? "2" : h === GP_HASH ? "1" : "";
+  if (n) { try { sessionStorage.setItem("gp_ok", n); } catch (_) { } gpNivel(n); gpAbre(); } else { e.textContent = "Contraseña incorrecta."; document.getElementById("gpPass").select(); }
 }
 document.getElementById("gpGo").onclick = gpEntra; document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpEntra(); };
-try { if (sessionStorage.getItem("gp_ok") === "1") gpAbre(); } catch (_) { }
+try { const n = sessionStorage.getItem("gp_ok"); if (n === "1" || n === "2") { gpNivel(n); gpAbre(); } } catch (_) { }
 </script>
 </body>
 </html>
