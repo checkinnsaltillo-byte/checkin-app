@@ -35,7 +35,7 @@ html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,
 </div>
 <div id="geometrika-host" style="display:none"></div>
 <script>
-const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "8f844c42961d211c4f0f3155b03ba1d0f595cdf5607732ebee41d0b9dd03562d";  // GP_HASH2: nivel con precios reales
+const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "4739ee3bd29e4f415da8ba9298a087e0fdc9c61378420ba8fbbab298bd74c4df";  // GP_HASH2: nivel con precios reales
 function gpNivel(n) { window.GM_PRECIOS = n === "2"; }
 window.GM_MAQ = "/admin/maqueta/entorno.html";
 window.GM_SALIR = function () { try { sessionStorage.removeItem("gp_ok"); } catch (_) { } location.reload(); };
