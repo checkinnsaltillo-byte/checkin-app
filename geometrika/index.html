@@ -7,7 +7,7 @@
 <title>GeoMetrika · Geo-Intelligence</title>
 <link rel="icon" href="geometrika-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="geometrika.css?v=2364">
+<link rel="stylesheet" href="geometrika.css?v=2366">
 <style>
 html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;color:#111}
 .gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top left,rgba(31,138,138,.10),transparent 32%),linear-gradient(180deg,#fff 0%,#f1f1ef 100%)}
@@ -37,7 +37,7 @@ html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,
 <script>
 const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "4739ee3bd29e4f415da8ba9298a087e0fdc9c61378420ba8fbbab298bd74c4df";  // GP_HASH2: nivel con precios reales
 function gpNivel(n) { window.GM_PRECIOS = n === "2"; }
-window.GM_MAQ = "/admin/maqueta/entorno.html";
+window.GM_MAQ = "/admin/maqueta/entorno.html"; window.GM_PUBLICO = true;
 window.GM_SALIR = function () { try { sessionStorage.removeItem("gp_ok"); } catch (_) { } location.reload(); };
 window._rsvEnsureLeaflet_ = function (cb) {
   if (window.L) return cb();
@@ -47,7 +47,7 @@ window._rsvEnsureLeaflet_ = function (cb) {
 async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function gpAbre() {
   document.getElementById("gpLogin").classList.add("hidden"); document.getElementById("geometrika-host").style.display = "";
-  const s = document.createElement("script"); s.src = "geometrika.js?v=2364"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
+  const s = document.createElement("script"); s.src = "geometrika.js?v=2366"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
 }
 async function gpEntra() {
   const v = document.getElementById("gpPass").value.trim(), e = document.getElementById("gpErr"); if (!v) { e.textContent = "Captura tu contraseña."; return; }
