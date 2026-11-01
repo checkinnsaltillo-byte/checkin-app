@@ -6843,3 +6843,6 @@ input.gmw-rng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;backgro
 .gmw-vg{margin-bottom:10px}.gmw-vg small{display:block;color:#6b6b6b;font-size:10.5px;margin-bottom:5px}
 .gmw-ft.gmw-top{margin:26px 0 0}
 .gmw-c.gmw-dash{border:1px dashed #8a8a88;background:transparent;margin-left:6px}.gmw-c.gmw-dash.on{border:1px dashed #111;background:#111}
+.gmw-pl{margin:0 0 12px}.gmw-c span[data-rmpt]{margin-left:8px;opacity:.6;cursor:pointer}.gmw-c span[data-rmpt]:hover{opacity:1}
+.gmw-pin i{font-style:normal;display:flex;align-items:center;justify-content:center;font:600 11px "JetBrains Mono",ui-monospace,monospace;color:#1f8a8a}.gmw-pin i:not(:empty)::after{display:none}.gmw-pin.sel i{background:#1f8a8a;color:#fff}
+.gmw-cam{background:none}.gmw-cam i{display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#1f8a8a;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer}
