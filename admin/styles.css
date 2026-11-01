@@ -6892,3 +6892,9 @@ input.gmw-rng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;backgro
 .gm-kmenu a { display: block; padding: 9px 14px; font-size: 12px; color: #111; cursor: pointer; white-space: nowrap; }
 .gm-kmenu a:hover { background: #f3f3f1; }
 .gmw-beta { right: auto !important; left: 14px; }
+
+.gm-or { display: inline-block; margin-left: 8px; padding: 1px 7px; border: 1px solid #c8c8c4; font: 500 10px/1.5 "JetBrains Mono", ui-monospace, monospace; font-style: normal; letter-spacing: .03em; color: #52525b; vertical-align: 1px; }
+.gm-or.geometrika { color: #1f6f6f; border-color: #1f8a8a; background: rgba(31,138,138,.08); }
+.gm-or.airbnb { color: #be123c; border-color: #fda4af; background: #fff1f2; }
+.gm-or.mercadolibre { color: #a16207; border-color: #fde047; background: #fefce8; }
+.gm-or.facebook { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
