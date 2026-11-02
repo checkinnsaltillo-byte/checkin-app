@@ -2514,7 +2514,7 @@ function cgHoleFx(m) {
 function mqHoles() { let i = 1; MQ.sel.forEach(q => { if (q.g && i < 6) CG.holes.value[i++].set(q.ox, q.oz, q.S.radio, 1); }); for (; i < 6; i++) CG.holes.value[i].w = 0; }
 function cgUpdate() {
   const S = CITY.S; if (!CITY.on || !S) return; { const R = (S.radio || 200); CG.clip.forEach(p => { p.constant = -R; }); CG.holes.value[0].set(0, 0, R, CITY.eco ? 0 : 1); renderer.localClippingEnabled = true; }
-  const lat0 = +S.lat, lng0 = +S.lng, [urlf, zmax] = CITY_U[CITY.base], coslat = Math.cos(lat0 * Math.PI / 180), M = 40075016.686 * coslat; if (!CG.grp) { CG.grp = new THREE.Group(); CG.grp.userData.noPick = 1; scene.add(CG.grp); }
+  const lat0 = +S.lat, lng0 = +S.lng, [urlf, zmax] = CITY_U[CITY.base], coslat = Math.cos(lat0 * Math.PI / 180), M = 40075016.686 * coslat; if (!CG.grp) { CG.grp = new THREE.Group(); CG.grp.userData.noPick = 1; scene.add(CG.grp); } /* con el mapa 3D de Google activo no se dibuja el mapa de calles de la ciudad */ { const v3 = !!(window.__g3d && window.__g3d.on && window.__g3d.t); CG.grp.visible = !v3; if (v3) return; }
   const px = cityPx(), zf = Math.max(11, Math.min(zmax, Math.round(Math.log2(M / (256 * px))))), need = new Map();
   const tileM = z => M / 2 ** z, fxy = z => { const n = 2 ** z, la = lat0 * Math.PI / 180; return [(lng0 + 180) / 360 * n, (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n]; };
   // región visible sobre el suelo: rayos desde las 4 esquinas de la pantalla
