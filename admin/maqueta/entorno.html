@@ -420,7 +420,7 @@ function build(S) {
     const RAD = S.radio, BQg = 1.55, DET = Math.min(S.det || 85, RAD), PI = Math.PI;
     const ROADW = { motorway: 16, trunk: 14, primary: 13, secondary: 11, tertiary: 9, unclassified: 7.5, residential: 7.2, living_street: 6, service: 4.2, pedestrian: 4, track: 3.5 };
     const rw = r => r.w || (r.l ? Math.max(r.l * 3.2, 5.5) : (ROADW[r.h] || 7));
-    const roads = (S.roads || []).filter(r => r.h !== 'cycleway').map(r => Object.assign({}, r, { wd: rw(r) })); window.__peaCtx = { roads, BQ: BQg, RAD };
+    const roads = (S.roads || []).filter(r => r.h !== 'cycleway').map(r => Object.assign({}, r, { wd: rw(r) })); window.__peaCtx = { roads, BQ: BQg, RAD, S };
     const ix = r => r.g.map(p => p);
     // registro: las huellas satelitales (Microsoft) vienen de imágenes y las calles de OpenStreetMap; si están desfasadas se corrigen las calles (y lo que depende de OSM) hacia las huellas
     let ajR = [0, 0]; { const mbr = S.mb || []; if (mbr.length >= 25) { const cell = new Map(), ck = (i, j) => i + ',' + j; roads.forEach(r_ => { for (let i = 1; i < r_.g.length; i++) { const a = r_.g[i - 1], b = r_.g[i], hw = r_.wd / 2 + 1.85; for (let x = Math.floor((Math.min(a[0], b[0]) - 12) / 30); x <= Math.floor((Math.max(a[0], b[0]) + 12) / 30); x++) for (let y = Math.floor((Math.min(a[1], b[1]) - 12) / 30); y <= Math.floor((Math.max(a[1], b[1]) + 12) / 30); y++) (cell.get(ck(x, y)) || cell.set(ck(x, y), []).get(ck(x, y))).push({ a, b, hw }); } });
@@ -3813,10 +3813,18 @@ function peaPunto(r, s) {
   const c = peaTrazo(r), L = c[c.length - 1]; s = Math.max(0, Math.min(L, s)); let i = 1; while (i < c.length - 1 && c[i] < s) i++; const l = c[i] - c[i - 1] || 1, u = (s - c[i - 1]) / l, a = r.g[i - 1], b = r.g[i], tx = (b[0] - a[0]) / l, ty = (b[1] - a[1]) / l;
   return { x: a[0] + (b[0] - a[0]) * u, y: a[1] + (b[1] - a[1]) * u, tx, ty, L };
 }
+/* afluencia por zona: lugares ancla (universidad, estadio, centro comercial, plaza…) y áreas de parque/plaza/cancha atraen más gente que una calle residencial */
+const PEA_W = { universidad: 5, estadio: 5, centro_comercial: 5, mercado: 4, plaza: 4, hospital: 3.5, escuela: 3.5, parque: 3, supermercado: 3, gobierno: 2.5, iglesia: 2, hotel: 1.5, edificio_alto: 1.2, gasolinera: 1 }, PEA_WA = { plaza: 4, parque: 2.5, cancha: 3, estadio: 4 };
+function peaAtract(ctx) {
+  if (ctx.__att) return ctx.__att; const A = [], S = ctx.S || {}; (S.pois || []).forEach(q => { const w = PEA_W[q.t]; if (w && isFinite(q.x) && isFinite(q.y)) A.push({ x: q.x, y: q.y, w, r: 35 + w * 12 }); });
+  ((S.sat && S.sat.areas) || []).forEach(q => { const w = PEA_WA[q.t]; if (!w || !q.g || q.g.length < 3) return; let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; q.g.forEach(pt => { x0 = Math.min(x0, pt[0]); x1 = Math.max(x1, pt[0]); y0 = Math.min(y0, pt[1]); y1 = Math.max(y1, pt[1]); }); A.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, w, r: 20 + Math.max(x1 - x0, y1 - y0) * .6 }); });
+  return ctx.__att = A;
+}
+function peaDens(ctx, x, y) { let d = 1; peaAtract(ctx).forEach(a => { const k = Math.hypot(a.x - x, a.y - y) / a.r; if (k < 2.2) d += a.w * Math.exp(-k * k); }); return d; }
 function peaApareceUno(ctx, base) {   // base: {r, s, dir, side, vel} para que un grupo comparta la ruta
   const ap = peaApariencia(), r = base ? base.r : null; let R = r, s = base ? base.s : 0, dir = base ? base.dir : (Math.random() < .5 ? 1 : -1), side = base ? base.side : (Math.random() < .5 ? 1 : -1);
-  if (!R) { const cx = controls.target.x, cy = -controls.target.z, cand = ctx.roads.filter(q => /^(residential|tertiary|secondary|primary|unclassified|living_street)$/.test(q.h) && q.g.length > 1), tot = cand.reduce((a, q) => a + peaTrazo(q)[peaTrazo(q).length - 1], 0); if (!cand.length || tot < 30) return null;
-    for (let t = 0; t < 40 && !R; t++) { let x = Math.random() * tot, q = cand.find(w => (x -= peaTrazo(w)[peaTrazo(w).length - 1]) <= 0) || cand[0], L = peaTrazo(q)[peaTrazo(q).length - 1]; if (L < 14) continue; const ss = Math.random() * L, p = peaPunto(q, ss); if (Math.hypot(p.x - cx, p.y - cy) <= PEA.radio) { R = q; s = ss; } } }
+  if (!R) { const cx = controls.target.x, cy = -controls.target.z, cand = ctx.roads.filter(q => /^(residential|tertiary|secondary|primary|unclassified|living_street|pedestrian|footway|path)$/.test(q.h) && q.g.length > 1), tot = cand.reduce((a, q) => a + peaTrazo(q)[peaTrazo(q).length - 1], 0); if (!cand.length || tot < 30) return null;
+    const DMAX = 1 + peaAtract(ctx).reduce((m, a) => Math.max(m, a.w), 0) * 1.3; for (let t = 0; t < 160 && !R; t++) { let x = Math.random() * tot, q = cand.find(w => (x -= peaTrazo(w)[peaTrazo(w).length - 1]) <= 0) || cand[0], L = peaTrazo(q)[peaTrazo(q).length - 1]; if (L < 14) continue; const ss = Math.random() * L, p = peaPunto(q, ss); if (Math.hypot(p.x - cx, p.y - cy) <= PEA.radio && Math.random() < peaDens(ctx, p.x, p.y) / DMAX) { R = q; s = ss; } } }
   if (!R) return null;
   const mod = peaConstruye(ap); mod.g.userData.cat = 'personas'; PEA.g.add(mod.g);
   const camina = peaRnd(35, 190), cruza = Math.random() < .26;
@@ -3827,8 +3835,9 @@ function peaTick(dt, t) {
   const ctx = window.__peaCtx; if (!ctx || !world || window.__cityOn) { if (PEA && PEA.g) PEA.g.visible = false; return; }
   if (!PEA || PEA.mundo !== world) { if (PEA && PEA.g && PEA.g.parent) PEA.g.parent.remove(PEA.g); PEA = { mundo: world, g: new THREE.Group(), list: [], prox: peaRnd(.5, 2.5), radio: Math.min(230, ctx.RAD * .8), mats: PEA ? PEA.mats : null }; PEA.g.userData.cat = 'personas'; world.add(PEA.g); }
   PEA.g.visible = world.visible; if (!world.visible) return; dt = Math.min(dt, .1);
-  PEA.prox -= dt; const dentro = PEA.list.filter(p => !p.saliendo).length;
-  if (PEA.prox <= 0) { PEA.prox = -Math.log(1 - Math.random() * .97) * 3.2; if (dentro < 26) { const a = peaApareceUno(ctx, null); if (a && Math.random() < .06) { const n = Math.floor(peaRnd(1, 3.99)); for (let i = 0; i < n; i++) peaApareceUno(ctx, { r: a.r, s: a.s - a.dir * (i + 1) * peaRnd(.5, 1.1), dir: a.dir, side: a.side, vel: a.vel }); } } }
+  const dT = peaDens(ctx, controls.target.x, -controls.target.z), cap = Math.round(Math.min(90, 26 + 9 * (dT - 1)));   /* más afluencia donde hay lugares ancla */
+  PEA.prox -= dt * Math.min(3, Math.max(1, dT * .6)); const dentro = PEA.list.filter(p => !p.saliendo).length;
+  if (PEA.prox <= 0) { PEA.prox = -Math.log(1 - Math.random() * .97) * 3.2; if (dentro < cap) { const a = peaApareceUno(ctx, null); if (a && Math.random() < Math.min(.35, .06 * dT)) { const n = Math.floor(peaRnd(1, 3.99)); for (let i = 0; i < n; i++) peaApareceUno(ctx, { r: a.r, s: a.s - a.dir * (i + 1) * peaRnd(.5, 1.1), dir: a.dir, side: a.side, vel: a.vel }); } } }
   const cx = controls.target.x, cy = -controls.target.z;
   for (let i = PEA.list.length - 1; i >= 0; i--) {
     const p = PEA.list[i];
