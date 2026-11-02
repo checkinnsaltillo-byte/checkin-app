@@ -6985,3 +6985,4 @@ input.gmw-rng::-moz-range-thumb{background:#6366f1;box-shadow:0 0 0 1px #6366f1}
 .gmw-star{color:#f59e0b}
 @media(max-width:760px){.gm-hd{padding:10px 14px}.gm-tabs{padding:8px 14px 0;overflow:auto}.gm-pl{grid-template-columns:1fr}}
 .gm-lgw{background:#fff;border-radius:10px;padding:4px 10px;display:flex;align-items:center;flex:none;box-shadow:0 4px 14px rgba(99,102,241,.35)}.gm-lgw img{height:36px;width:auto;display:block}
+.gm-lgw{background:none!important;box-shadow:none!important;padding:0!important}.gm-lgw img{height:42px}
