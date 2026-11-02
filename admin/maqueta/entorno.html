@@ -2323,6 +2323,7 @@ async function indCarga() {
   await tryp('Trazando el agua por las calles…', async () => { const d = await demGet(S), k = [S.lat, S.lng, (S.roads || []).length].join('|'); if (!INU.net || INU.key !== k) { INU.net = inuNet(S, d); INU.key = k; } if (INU.net) { INU.f = 1; inuEval(); } });
   await tryp('Calculando fricción de accesibilidad…', async () => { if (FR.mode || FR.res) return; if (!FR.B) { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/friccion?id=${curId()}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); FR.B = frConstruir(j.f, S); } FR.res = frEscena(FR.B, 1); frDisp(); });
   await tryp('Cargando urbanización y cobertura…', async () => { const k = [S.lat, S.lng, S.radio].join('|'); if (!URB.ser) await urbCarga(S); if (!URB.suelo) await urbSuelo(S); URB.key = URB.ser && URB.suelo ? k : URB.key; });
+  await tryp('Calculando población alcanzada…', async () => { if (!Object.keys(COB.res).length) await covCalcula(S, true); });
   await tryp('Cargando entorno urbano, negocios, solar y aire…', async () => { await indNuevos(String(curId()), S); });
   indColumnas(); for (const c of [...INDX.cols.values()]) { msg('Calculando ' + String(c.titulo).split(' - ')[0] + '…'); c.lst = null; c.st = null; await indCargaSec(c); }
   msg('Actualizado.'); INDX.busy = 0; indRender();
@@ -2893,14 +2894,14 @@ function covMide(D, rings) {
   const hex = []; if (top) top.fr.forEach((f, i) => { let ri = rs.findIndex(r => (r.fr.get(i) || 0) >= .5); if (ri < 0) ri = rs.findIndex(r => (r.fr.get(i) || 0) > 0); hex.push({ x: Hs[i].x, y: Hs[i].y, p: Hs[i].p * f, ri }); });
   return { rings: rs, tot, sec, hex };
 }
-async function covCalcula(S) {
+async function covCalcula(S, silent) {
   if (COB.busy) return; COB.busy = 1; const st = m => { const e = $('cov-msg'); if (e) { e.style.color = ''; e.textContent = m; } }, go = $('cov-go'); if (go) go.disabled = true;
   try { st('Cargando población…'); const D = await cityPopD(); if (!D) throw new Error('no se pudo cargar la población'); const lat0 = +S.lat, lng0 = +S.lng, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320, res = {};
     for (const k of ['p', 'a']) { if (!COB.on[k]) continue; const ts = k === 'p' ? COB.tp : COB.ta; if (!ts.length) continue; let rings;
       if (COB.modo === 'radio') { const v = (k === 'p' ? COB.vp : COB.va) * 1000 / 60; rings = ts.map(t => { const c = []; for (let b = 0; b < 360; b += 5) c.push([v * t * Math.sin(b * Math.PI / 180), v * t * Math.cos(b * Math.PI / 180)]); return { t, r: v * t, polys: [[c]] }; }); }
       else { st(`Calculando isócronas ${COB_NOM[k]}…`); const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/cobertura?lat=${lat0}&lng=${lng0}&modo=${k}&t=${ts.join(',')}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'el servicio de isócronas no respondió'); rings = j.rings.map(r => ({ t: r.t, polys: r.polys.map(po => po.map(ring => ring.map(([la, lo]) => [(lo - lng0) * kx, (la - lat0) * ky]))) })); }
       st('Midiendo población…'); res[k] = covMide(D, rings); await new Promise(r => setTimeout(r, 0)); }
-    if (!Object.keys(res).length) throw new Error('active al menos un modo de transporte con tiempos'); COB.res = res; if (!res[COB.ver]) COB.ver = Object.keys(res)[0]; st(''); covRender(S); pwShow('cov', true); if (COB.mapa) { covDibuja(S); covEncuadra(S); }
+    if (!Object.keys(res).length) throw new Error('active al menos un modo de transporte con tiempos'); COB.res = res; if (!res[COB.ver]) COB.ver = Object.keys(res)[0]; st(''); covRender(S); if (!silent) pwShow('cov', true); if (COB.mapa) { covDibuja(S); covEncuadra(S); }
   } catch (e) { st('No se pudo calcular: ' + e.message); const m = $('cov-msg'); if (m) m.style.color = '#dc2626'; } COB.busy = 0; if (go) go.disabled = false;
 }
 // ── gráficas (SVG sencillo, mismo ancho que el panel)
