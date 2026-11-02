@@ -94,6 +94,45 @@
   /* ventanitas emergentes */
   /* menú izquierdo con pestañas: Análisis (lista por secciones; el análisis se abre en el mismo panel) y Configuración */
   #pw-bar{display:none!important}
+  /* ── sistema de controles: cada tipo de elemento se ve distinto ──
+     ejecutar análisis = botón sólido · ver en el mapa = interruptor · modo = control segmentado · parámetro = campo / lista desplegable · valor rápido = etiqueta · destructivo = contorno rojo */
+  :is(#dock,.pwin) button[data-k]{all:unset;box-sizing:border-box;cursor:pointer;font:600 12px/1.25 system-ui,sans-serif!important;transition:background .15s,border-color .15s,box-shadow .15s,color .15s,transform .1s}
+  :is(#dock,.pwin) button[data-k]:active{transform:translateY(1px)}
+  :is(#dock,.pwin) button[data-k=run]{display:flex!important;align-items:center;justify-content:center;gap:8px;flex:1 1 100%;width:100%;padding:10px 14px!important;border-radius:10px!important;color:#fff!important;background:linear-gradient(135deg,#4f46e5,#4338ca)!important;box-shadow:0 1px 2px rgba(15,23,42,.25),0 8px 16px -8px rgba(79,70,229,.7)!important;font-weight:700!important;letter-spacing:.01em}
+  :is(#dock,.pwin) button[data-k=run]:hover{background:linear-gradient(135deg,#6366f1,#4f46e5)!important;box-shadow:0 1px 2px rgba(15,23,42,.25),0 10px 18px -8px rgba(79,70,229,.8)!important}
+  :is(#dock,.pwin) button[data-k=run][disabled]{opacity:.5;pointer-events:none}
+  :is(#dock,.pwin) button[data-k=act]{display:inline-flex!important;align-items:center;gap:6px;padding:7px 12px!important;border-radius:9px!important;color:#4338ca!important;background:#fff!important;border:1px solid #c7d2fe!important}
+  :is(#dock,.pwin) button[data-k=act]:hover{background:#eef2ff!important;border-color:#a5b4fc!important}
+  :is(#dock,.pwin) button[data-k=link]{display:inline-flex!important;align-items:center;gap:5px;padding:4px 2px!important;color:#4f46e5!important;background:none!important;font-weight:600!important}
+  :is(#dock,.pwin) button[data-k=link]::after{content:"↗";font-size:12px}:is(#dock,.pwin) button[data-k=link]:hover{text-decoration:underline}
+  :is(#dock,.pwin) button[data-k=tg]{display:flex!important;align-items:center;justify-content:space-between;gap:12px;flex:1 1 100%;width:100%;padding:9px 12px!important;border-radius:10px!important;color:#0f172a!important;background:#fff!important;border:1px solid #e2e8f0!important;font-weight:600!important}
+  :is(#dock,.pwin) button[data-k=tg]:hover{border-color:#c7d2fe!important;background:#f8faff!important}
+  :is(#dock,.pwin) button[data-k=tg]::after{content:"";flex:none;width:34px;height:20px;border-radius:99px;background:radial-gradient(circle,#fff 0 8px,transparent 8.5px) 2px 50%/18px 18px no-repeat,#cbd5e1;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);transition:background-position .18s,background-color .18s}
+  :is(#dock,.pwin) button[data-k=tg].on{background:#f5f7ff!important;border-color:#c7d2fe!important;color:#0f172a!important}
+  :is(#dock,.pwin) button[data-k=tg].on::after{background-position:calc(100% - 2px) 50%;background-color:#4f46e5}
+  :is(#dock,.pwin) button[data-k=chip]{display:inline-flex!important;align-items:center;padding:4px 11px!important;border-radius:99px!important;color:#475569!important;background:#fff!important;border:1px solid #e2e8f0!important;font-weight:500!important;font-size:11.5px!important}
+  :is(#dock,.pwin) button[data-k=chip]:hover{border-color:#94a3b8!important;color:#0f172a!important}
+  :is(#dock,.pwin) button[data-k=chip].on{color:#fff!important;background:#0f172a!important;border-color:#0f172a!important}
+  :is(#dock,.pwin) button[data-k=bad]{display:inline-flex!important;align-items:center;gap:6px;padding:7px 12px!important;border-radius:9px!important;color:#b91c1c!important;background:#fff!important;border:1px solid #fecaca!important}
+  :is(#dock,.pwin) button[data-k=bad]:hover{background:#fef2f2!important;border-color:#fca5a5!important}
+  :is(#dock,.pwin) button[data-k=tool]{display:flex!important;align-items:center;gap:7px;padding:9px 10px!important;border-radius:10px!important;color:#334155!important;background:#f8fafc!important;border:1px solid #e2e8f0!important;font-weight:600!important;font-size:11.5px!important;text-align:left}
+  :is(#dock,.pwin) button[data-k=tool]:hover{background:#eef2ff!important;border-color:#c7d2fe!important}
+  :is(#dock,.pwin) button[data-k=tool].on{color:#fff!important;background:#4f46e5!important;border-color:#4f46e5!important}
+  :is(#dock,.pwin) .ed-tools{display:grid!important;grid-template-columns:1fr 1fr;gap:6px!important;margin-top:8px}
+  :is(#dock,.pwin) .seg{display:flex!important;flex-wrap:nowrap!important;gap:2px!important;padding:3px!important;margin-top:8px!important;background:#eef0f4!important;border-radius:11px!important;align-items:stretch!important}
+  :is(#dock,.pwin) .seg>b{display:flex;align-items:center;padding:0 6px 0 7px;font-size:13px!important;margin:0!important}
+  :is(#dock,.pwin) .seg>button{all:unset;box-sizing:border-box;flex:1 1 0;min-width:0;text-align:center;cursor:pointer;padding:7px 6px!important;border-radius:8px!important;color:#64748b!important;background:transparent!important;border:0!important;font:600 11.5px/1.25 system-ui,sans-serif!important;transition:background .15s,color .15s,box-shadow .15s}
+  :is(#dock,.pwin) .seg>button:hover{color:#0f172a!important}
+  :is(#dock,.pwin) .seg>button.on{color:#0f172a!important;background:#fff!important;box-shadow:0 1px 3px rgba(15,23,42,.18),0 0 0 1px rgba(15,23,42,.04)!important}
+  :is(#dock,.pwin) .pwtabs{display:flex!important;gap:2px!important;flex-wrap:wrap;border-bottom:1px solid #e2e8f0!important;background:none!important;padding:0 8px!important}
+  :is(#dock,.pwin) .pwtabs>button{all:unset;box-sizing:border-box;cursor:pointer;padding:9px 8px 8px!important;color:#64748b!important;font:600 11.5px system-ui,sans-serif!important;border-bottom:2px solid transparent!important;margin-bottom:-1px;border-radius:0!important;background:none!important}
+  :is(#dock,.pwin) .pwtabs>button:hover{color:#0f172a!important}:is(#dock,.pwin) .pwtabs>button.on{color:#4338ca!important;border-bottom-color:#4f46e5!important;background:none!important}
+  :is(#dock,.pwin) select{appearance:none;-webkit-appearance:none;box-sizing:border-box;max-width:100%;padding:8px 30px 8px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 10px center no-repeat;color:#0f172a;font:500 12px system-ui,sans-serif;cursor:pointer;outline:0}
+  :is(#dock,.pwin) select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.18)}
+  :is(#dock,.pwin) input:is([type=number],[type=text],[type=date],[type=search]):not(#dk-q){box-sizing:border-box;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font:500 12px system-ui,sans-serif;outline:0}
+  :is(#dock,.pwin) input:is([type=number],[type=text],[type=date]):focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.18)}
+  :is(#dock,.pwin) input[type=range]{accent-color:#4f46e5}
+  :is(#dock,.pwin) .btnrow{gap:6px!important}
   #dock.vK{height:100vh;overflow:hidden}#dock.vK>#cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden}#dock.vK>#cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}
   /* móvil: 100vh en iOS/Android incluye las barras del navegador y recorta lo de abajo; 100dvh es la altura realmente visible */
   #dock{max-height:100vh;max-height:100dvh}#dock.vK{height:100vh;height:100dvh}
@@ -1448,6 +1487,20 @@ function dkLista() {
   const sec = (tit, ids) => { const l = ids.filter(vis); l.forEach(i => usados.add(i)); if (l.length) h += `<div class="dk-s">${tit}</div>` + l.map(i => `<button class="dk-it" data-id="${i}"><span class="i">${PW_DEF[i][0]}</span><span class="t">${PW_DEF[i][1]}</span>${PW.m.get(i).chip.classList.contains('dot') ? '<i class="pt" title="Con resultados nuevos"></i>' : ''}<span class="c">›</span></button>`).join(''); };
   DK.sec.forEach(([t, ids]) => sec(t, ids)); sec('Otros', [...PW.m.keys()].filter(i => !usados.has(i))); L.innerHTML = h || `<div class="dk-vacio">${q ? 'Ningún análisis coincide con «' + $('dk-q').value.replace(/[<>&]/g, '') + '».' : 'Los análisis aparecerán aquí cuando estén listos.'}</div>`;
 }
+/* clasifica cada botón por su función para darle el aspecto que le corresponde (ver «sistema de controles») */
+function dkClasifica(root) {
+  const TG = /^(b-gr|b-rt|fr-tema|sol-tray|sol-hrs|sol-vien|inu-flu|inu-zon|ga-cont|ent-cn|ent-rg|eco-fus|b-rz|b-gh|b-solo)$/, RUN = /^(ind-go|od-r|cov-go|psl-calc|sol-play|inu-play|uc-play|vue-go|ed-save|vc-g|sol-load)$/;
+  (root || document).querySelectorAll('#dock button:not([data-k]),.pwin button:not([data-k])').forEach(b => {
+    if (b.closest('#dk-tabs,#dk-lista,#tt,.pwh,#dk-bus') || b.matches('.pwm,.pwx,.dk-back,.dk-out')) return; const t = (b.textContent || '').trim(), id = b.id || ''; let k;
+    if (b.closest('.pwtabs')) k = 'tab'; else if (b.closest('.seg')) k = 'seg'; else if (b.closest('.ed-tools')) k = 'tool';
+    else if (/^(Eliminar|Cancelar|Descartar|Restablecer)|(Cancelar figura|Descartar)$/.test(t.replace(/^[^\wÁ-ú]+/, '')) || id === 'ed-can' || id === 'ed-dis' || id === 'vc-r') k = 'bad';
+    else if (RUN.test(id) || /^(▶ (Animar|Simular)|Calcular|☀️ Calcular|↻ Calcular)/.test(t)) k = 'run';
+    else if (/Ver mapa de la ciudad|Mapa de puntos/.test(t)) k = 'link';
+    else if (TG.test(id) || /^[^\wÁ-ú]*(Ver |Solo mapa)/.test(t) && !/ciudad/.test(t)) k = 'tg';
+    else if (/Actualizar|Grabar|Modelo 3D|Calidad|✔️ Terminar|Deshacer|Expandir|Contraer|Solo alertas/.test(t)) k = 'act';
+    else k = 'chip'; b.dataset.k = k;
+  });
+}
 function dkRefresca() { clearTimeout(DK.t); DK.t = setTimeout(() => { if (DK.tab === 'A' && !DK.cur) dkLista(); }, 60); }
 function dkAbre(id, r) {
   dkInit(); const d = $('dock'); if (!d) return; if (DK.cur && DK.cur !== id) pwShow(DK.cur, false); d.classList.remove('off'); const el = r.el;
@@ -1461,7 +1514,7 @@ function dkSuelta(id) {   /* saca el análisis del panel y lo deja como ventana 
 function dkCierra() { DK.cur = null; const L = $('dk-lista'); if (L) { L.style.display = ''; $('dk-bus').style.display = ''; dkLista(); } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
-dkInit();
+dkInit(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { clearTimeout(dkT); dkT = setTimeout(() => dkClasifica(), 120); }).observe(document.body, { childList: true, subtree: true }); } catch (_) { }
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
