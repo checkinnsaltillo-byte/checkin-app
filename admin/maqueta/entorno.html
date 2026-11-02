@@ -108,8 +108,8 @@
   :is(#dock,.pwin) button[data-k=tg]{display:flex!important;align-items:center;justify-content:space-between;gap:12px;flex:1 1 100%;width:100%;padding:9px 12px!important;border-radius:10px!important;color:#0f172a!important;background:#fff!important;border:1px solid #e2e8f0!important;font-weight:600!important}
   :is(#dock,.pwin) button[data-k=tg]:hover{border-color:#c7d2fe!important;background:#f8faff!important}
   :is(#dock,.pwin) button[data-k=tg]::after{content:"";flex:none;width:34px;height:20px;border-radius:99px;background:radial-gradient(circle,#fff 0 8px,transparent 8.5px) 2px 50%/18px 18px no-repeat,#cbd5e1;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);transition:background-position .18s,background-color .18s}
-  :is(#dock,.pwin) button[data-k=tg].on{background:#f5f7ff!important;border-color:#c7d2fe!important;color:#0f172a!important}
-  :is(#dock,.pwin) button[data-k=tg].on::after{background-position:calc(100% - 2px) 50%;background-color:#4f46e5}
+  :is(#dock,.pwin) button[data-k=tg].on,:is(#dock,.pwin) button[data-k=tg][data-s="1"]{background:#f5f7ff!important;border-color:#c7d2fe!important;color:#0f172a!important}
+  :is(#dock,.pwin) button[data-k=tg].on::after,:is(#dock,.pwin) button[data-k=tg][data-s="1"]::after{background-position:calc(100% - 2px) 50%;background-color:#4f46e5}
   :is(#dock,.pwin) button[data-k=chip]{display:inline-flex!important;align-items:center;padding:4px 11px!important;border-radius:99px!important;color:#475569!important;background:#fff!important;border:1px solid #e2e8f0!important;font-weight:500!important;font-size:11.5px!important}
   :is(#dock,.pwin) button[data-k=chip]:hover{border-color:#94a3b8!important;color:#0f172a!important}
   :is(#dock,.pwin) button[data-k=chip].on{color:#fff!important;background:#0f172a!important;border-color:#0f172a!important}
@@ -127,12 +127,13 @@
   :is(#dock,.pwin) .pwtabs{display:flex!important;gap:2px!important;flex-wrap:wrap;border-bottom:1px solid #e2e8f0!important;background:none!important;padding:0 8px!important}
   :is(#dock,.pwin) .pwtabs>button{all:unset;box-sizing:border-box;cursor:pointer;padding:9px 8px 8px!important;color:#64748b!important;font:600 11.5px system-ui,sans-serif!important;border-bottom:2px solid transparent!important;margin-bottom:-1px;border-radius:0!important;background:none!important}
   :is(#dock,.pwin) .pwtabs>button:hover{color:#0f172a!important}:is(#dock,.pwin) .pwtabs>button.on{color:#4338ca!important;border-bottom-color:#4f46e5!important;background:none!important}
-  :is(#dock,.pwin) select{appearance:none;-webkit-appearance:none;box-sizing:border-box;max-width:100%;padding:8px 30px 8px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 10px center no-repeat;color:#0f172a;font:500 12px system-ui,sans-serif;cursor:pointer;outline:0}
+  :is(#dock,.pwin) select{appearance:none;-webkit-appearance:none;box-sizing:border-box;max-width:100%;padding:8px 30px 8px 11px!important;border:1px solid #cbd5e1;border-radius:10px!important;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 10px center no-repeat;color:#0f172a;font:500 12px system-ui,sans-serif;cursor:pointer;outline:0}
   :is(#dock,.pwin) select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.18)}
   :is(#dock,.pwin) input:is([type=number],[type=text],[type=date],[type=search]):not(#dk-q){box-sizing:border-box;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font:500 12px system-ui,sans-serif;outline:0}
   :is(#dock,.pwin) input:is([type=number],[type=text],[type=date]):focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.18)}
   :is(#dock,.pwin) input[type=range]{accent-color:#4f46e5}
   :is(#dock,.pwin) .btnrow{gap:6px!important}
+  .pwin .dk-info{margin:0 0 10px}.pwin .dk-info .pwk{margin-bottom:6px}.pwin .dk-info>div.dk-c{margin:0 0 8px!important}.pwin .dk-info svg{max-width:100%;height:auto}.pwin .dk-info:not(:has(.dk-c)){display:none}
   #dock.vK{height:100vh;overflow:hidden}#dock.vK>#cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden}#dock.vK>#cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}
   /* móvil: 100vh en iOS/Android incluye las barras del navegador y recorta lo de abajo; 100dvh es la altura realmente visible */
   #dock{max-height:100vh;max-height:100dvh}#dock.vK{height:100vh;height:100dvh}
@@ -1499,7 +1500,21 @@ function dkClasifica(root) {
     else if (TG.test(id) || /^[^\wÁ-ú]*(Ver |Solo mapa)/.test(t) && !/ciudad/.test(t)) k = 'tg';
     else if (/Actualizar|Grabar|Modelo 3D|Calidad|✔️ Terminar|Deshacer|Expandir|Contraer|Solo alertas/.test(t)) k = 'act';
     else k = 'chip'; b.dataset.k = k;
+    if (k !== 'seg' && k !== 'tab' && b.parentElement && b.parentElement.tagName === 'SPAN' && /inline-flex/.test(b.parentElement.getAttribute('style') || '') && /background/.test(b.getAttribute('style') || '')) { b.dataset.k = 'seg'; b.parentElement.classList.add('seg'); }
   });
+  /* estado «encendido»: por clase .on, por el fondo oscuro que le pone el código o por el texto («Quitar del mapa», «…: activas») */
+  document.querySelectorAll('#dock button[data-k],.pwin button[data-k]').forEach(b => {
+    const k = b.dataset.k, st = b.getAttribute('style') || '', t = (b.textContent || '').trim().replace(/^[^\wÁ-ú]+/, '');
+    if (k === 'tg') { const on = b.classList.contains('on') || /^(Quitar|Ocultar|Detener|Apagar)\b/i.test(t) || /:\s*(activ\w+|sí|encendid\w+)$/i.test(t); if ((b.dataset.s === '1') !== on) b.dataset.s = on ? '1' : '0'; }
+    else if ((k === 'seg' || k === 'chip') && /background/.test(st)) { const on = /background:\s*(#0f172a|#111\b|rgb\(15, ?23, ?42\))/i.test(st); if (b.classList.contains('on') !== on) b.classList.toggle('on', on); }
+  });
+}
+/* cajas de información que el código dibuja flotando sobre el mapa: se pasan a la sección de resultados del análisis abierto */
+document.addEventListener('click', e => { const w = e.target.closest && e.target.closest('.pwin'); if (w && w.id) DK.ult = w.id.replace(/^pw-/, ''); }, true);
+function dkInfo(el) {
+  const id = DK.ult || DK.cur, r = id && PW.m.get(id); if (!r) return; const R = [...r.el.querySelectorAll('.pwres')].find(x => x.offsetParent) || r.el.querySelector('.pwres'); if (!R) return;
+  let c = R.parentNode.querySelector(':scope > .dk-info'); if (!c) { c = document.createElement('div'); c.className = 'dk-info'; R.parentNode.insertBefore(c, R); }
+  el.classList.add('dk-c'); el.style.position = 'static'; el.style.left = el.style.right = el.style.top = el.style.bottom = 'auto'; el.style.width = 'auto'; el.style.maxWidth = 'none'; el.style.margin = '0 0 8px'; el.style.zIndex = 'auto'; c.appendChild(el);
 }
 function dkRefresca() { clearTimeout(DK.t); DK.t = setTimeout(() => { if (DK.tab === 'A' && !DK.cur) dkLista(); }, 60); }
 function dkAbre(id, r) {
@@ -1514,7 +1529,7 @@ function dkSuelta(id) {   /* saca el análisis del panel y lo deja como ventana 
 function dkCierra() { DK.cur = null; const L = $('dk-lista'); if (L) { L.style.display = ''; $('dk-bus').style.display = ''; dkLista(); } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
-dkInit(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { clearTimeout(dkT); dkT = setTimeout(() => dkClasifica(), 120); }).observe(document.body, { childList: true, subtree: true }); } catch (_) { }
+dkInit(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
