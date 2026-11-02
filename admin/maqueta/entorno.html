@@ -1340,8 +1340,12 @@ async function msRawSet(on) {
   finally { MSR.busy = 0; if (bt) bt.style.opacity = ''; capasSync(); }
 }
 function capaVis(k) { if (k === 'mapa3d') return !!G3D.on; if (k === 'ms_raw') return !!(MSR.g && MSR.g.visible); if (k === 'demografia') { try { return !!CITY.demo; } catch (_) { return false; } } if (k === 'maqueta') return !SOLO.on; if (/^neg_/.test(k)) return NEG.sub[k] !== false && capaVis('negocios'); if (SOLO.on && k !== 'mapa') return SOLO.sel ? SOLO.sel.has(k) : false; if (k === 'nombres') return !world.__nombres || world.__nombres.visible; if (k === 'lugares') return !world.__marks || world.__marks.visible; if (k === 'riesgos') return !alertG || alertG.visible; if (k === 'mapa') return mapTipo !== 'ninguno'; let v = true, f = false; world.traverse(o => { if (!f && o.userData && o.userData.cat === k) { v = o.visible; f = true; } }); return v; }
-const CAPA_ESP = new Set(['mapa3d', 'ms_raw', 'demografia', 'maqueta', 'nombres', 'lugares', 'riesgos', 'mapa', 'negocios', 'neg_noche', 'neg_dia']);
-function capaHay(k) { if (CAPA_ESP.has(k)) return true; let f = false; world.traverse(o => { if (!f && o.userData && o.userData.cat === k) f = true; }); return f; }
+const CAPA_ESP = new Set(['mapa3d', 'ms_raw', 'demografia', 'maqueta', 'mapa']), CAPA_CAT = { t: 0, s: new Set() };
+// ¿tiene elementos la capa en esta zona? (las categorías presentes se recalculan cada 1.5 s, no en cada consulta)
+function capaHay(k) {
+  if (CAPA_ESP.has(k)) return true; if (k === 'nombres') return !!world.__nombres; if (k === 'lugares') return !!world.__marks; if (k === 'riesgos') return !!alertG; if (k === 'negocios' || /^neg_/.test(k)) return NEG.items.length > 0;
+  if (Date.now() - CAPA_CAT.t > 1500) { const s = new Set(); world.traverse(o => { if (o.userData && o.userData.cat) s.add(o.userData.cat); }); CAPA_CAT.s = s; CAPA_CAT.t = Date.now(); } return CAPA_CAT.s.has(k);
+}
 function soloObjs(k) { if (k === 'nombres') return world.__nombres ? [world.__nombres] : []; if (k === 'lugares') return world.__marks ? [world.__marks] : []; if (k === 'riesgos') return alertG ? [alertG] : []; const r = []; world.traverse(o => { if (o.userData && o.userData.cat === k) r.push(o); }); return r; }
 // con «Maqueta 3D» apagada se puede encender una capa suelta: se muestra solo esa (y los contenedores que la llevan)
 function soloCapa(k, v) {
@@ -1357,7 +1361,7 @@ async function soloMapa(on) {
   world.children.forEach(o => { if (o === mapMesh || o.userData.keep) return; if (on) { if (o.userData._v === undefined) o.userData._v = o.visible; o.visible = false; } else if (o.userData._v !== undefined) { o.visible = o.userData._v; delete o.userData._v; } });
   const mm = world.children.find(o => o === mapMesh); if (mm) mm.visible = true; $('b-solo').classList.toggle('on', on); renderer.shadowMap.needsUpdate = true;
 }
-function capasSync() { document.querySelectorAll('#cap .ck').forEach(d => d.classList.toggle('on', capaVis(d.dataset.k))); capGruposSync(); const a = $('cap-m'), b = $('cap-bg'); if (a) a.style.opacity = SOLO.on ? .45 : 1; if (b) b.style.opacity = mapTipo === 'ninguno' ? .45 : 1; }
+function capasSync() { document.querySelectorAll('#cap .ck').forEach(d => d.classList.toggle('on', capaHay(d.dataset.k) && capaVis(d.dataset.k))); capGruposSync(); const a = $('cap-m'), b = $('cap-bg'); if (a) a.style.opacity = SOLO.on ? .45 : 1; if (b) b.style.opacity = mapTipo === 'ninguno' ? .45 : 1; }
 function frTema() {
   FR.light = !FR.light; $('fr-tema').textContent = FR.light ? '🌙 Tema oscuro' : '☀️ Tema claro';
   if (FR.mode > 0 && FR.B) { scene.background = new THREE.Color(FR.light ? '#e9edf3' : '#1e2229'); frComp(); const res = frEscena(FR.B, FR.mode); frPanel(res, FR.mode, FR.B); frMapa(mapTipo); grRefresh(); }
@@ -1485,7 +1489,7 @@ function capGruposInit(el) {
   });
 }
 function capGruposSync() {
-  document.querySelectorAll('#cap .ck').forEach(d => { const v = !capaHay(d.dataset.k); d.classList.toggle('vacia', v); d.title = v ? 'Sin elementos en esta zona' : ''; });
+  document.querySelectorAll('#cap .ck').forEach(d => { const v = !capaHay(d.dataset.k); d.classList.toggle('vacia', v); d.title = v ? (/^neg|negocios/.test(d.dataset.k) ? 'Sin negocios cargados: genere el análisis «Actividad económica» (Google Places)' : 'Sin elementos en esta zona') : ''; });
   document.querySelectorAll('#cap .cg').forEach(g => { const ks = g.dataset.ks.split(',').filter(capaHay), n = ks.filter(k => capaVis(k)).length, tot = g.dataset.ks.split(',').length; g.querySelector('.cgn').textContent = n + '/' + ks.length + (ks.length < tot ? ' · ' + (tot - ks.length) + ' sin datos' : ''); const m = g.querySelector('.cgm'), all = ks.length > 0 && n === ks.length; m.classList.toggle('on', all); m.classList.toggle('part', n > 0 && n < ks.length); m.querySelector('.bx').textContent = all ? '✓' : n ? '–' : '✓'; });
 }
 function buildCapas() {
