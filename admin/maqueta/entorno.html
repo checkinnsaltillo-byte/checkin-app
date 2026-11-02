@@ -1491,7 +1491,7 @@ const LAM = { busy: 0 };
 function laminaCaptura() { try { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', .88); } catch (_) { return ''; } }
 function laminaCss() { let o = ''; try { [...document.styleSheets].forEach(ss => { try { [...ss.cssRules].forEach(r => { if (r.cssText && /\.ind-(gauge|bar|scale|cols|spark|donut|rose|steps|na|dot)|\.ind-(g|b|s|c|m|z)\b/.test(r.selectorText || '')) o += r.cssText + '\n'; }); } catch (_) { } }); } catch (_) { } return o; }
 async function laminaGenera() {
-  const S = solS(); if (!S || LAM.busy) return; LAM.busy = 1; const bt = $('dk-lam'), msg = t => { if (bt) bt.textContent = t; };
+  const S = solS(); if (!S || LAM.busy) return; LAM.busy = 1; const w = window.open('', '_blank'); if (!w) { LAM.busy = 0; alert('Permite las ventanas emergentes para ver la lámina.'); return; } try { w.document.write('<title>Lámina…</title><body style="font:600 16px system-ui;display:grid;place-items:center;height:100vh;margin:0;background:#0f172a;color:#fff">Preparando la lámina del proyecto…</body>'); } catch (_) { } const bt = $('dk-lam'), msg = t => { if (bt) bt.textContent = t; };
   try {
     msg('⏳ Calculando indicadores…'); try { await indCarga(); } catch (_) { }
     msg('⏳ Armando la lámina…'); const img = laminaCaptura(), L = evalLst(), tn = IND_SEM, ord = { bad: 0, warn: 1, ok: 2, info: 3 };
@@ -1520,8 +1520,8 @@ h2.t{margin:0;padding:22px 32px 6px;font-size:13px;letter-spacing:.14em;text-tra
 <div class="res"><span class="n">Resumen</span>${['bad', 'warn', 'ok', 'info'].filter(s => tot[s]).map(s => `<span><i style="background:${tn[s][0]}"></i>${tot[s]} ${tn[s][1].toLowerCase()}${tot[s] > 1 && s !== 'ok' ? (s === 'warn' ? '' : 's') : ''}</span>`).join('')}<span>${all.length - tot.na} de ${all.length} indicadores con datos</span></div>
 ${dest.length ? `<h2 class="t">Lo más importante</h2><div class="kp">${dest.map(card).join('')}</div>` : ''}${L.map(sec).join('')}
 <div class="ft"><span>GeoMetrika · Check Inn · documento generado ${fecha}</span><span>Fuentes públicas y servicios de terceros; cada indicador detalla su método en la maqueta.</span></div></div></body></html>`;
-    const w = window.open('', '_blank'); if (!w) { alert('Permite las ventanas emergentes para ver la lámina.'); return; } w.document.open(); w.document.write(html); w.document.close();
-  } finally { LAM.busy = 0; if (bt) bt.textContent = '📄 Generar lámina del proyecto'; }
+    w.document.open(); w.document.write(html); w.document.close();
+  } catch (e) { try { w.document.body.textContent = 'No se pudo generar la lámina: ' + e.message; } catch (_) { } } finally { LAM.busy = 0; if (bt) bt.textContent = '📄 Generar lámina del proyecto'; }
 }
 function laminaInit() { const d = $('dock'); if (!d || $('dk-rep')) return; const s = document.createElement('div'); s.id = 'dk-rep'; s.innerHTML = '<h4>Documento</h4><p>Genera una lámina visual con los resultados más importantes del proyecto, lista para imprimir o guardar en PDF.</p><button id="dk-lam" type="button">📄 Generar lámina del proyecto</button>'; d.appendChild(s); $('dk-lam').onclick = laminaGenera; }
 
