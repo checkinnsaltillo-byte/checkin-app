@@ -142,6 +142,8 @@
   /* escritorio: el ancho del menú se ajusta arrastrando su borde derecho */
   @media (min-width:761px){#dock{width:var(--dkw,404px)}#dock-tg{left:var(--dkw,404px)}#dock-tg.off{left:0}#dk-rs{left:calc(var(--dkw,404px) - 4px)}}
   #dock{overflow-x:hidden}
+  #dk-rep{display:none;order:-1;padding:14px;margin:0 2px;border-radius:14px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.06);pointer-events:auto}#dock.vC>#dk-rep{display:block}#dk-rep h4{margin:0 0 4px;font:800 11px system-ui;letter-spacing:.1em;text-transform:uppercase;color:#64748b}#dk-rep p{margin:0 0 10px;font-size:12px;color:#475569}#dk-lam{width:100%;height:40px;border:0;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font:700 13px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.35)}#dk-lam:hover{filter:brightness(1.08)}
+
   #dk-rs{position:fixed;top:0;bottom:0;width:9px;cursor:col-resize;z-index:6;touch-action:none}#dk-rs::after{content:"";position:absolute;left:3px;top:50%;width:3px;height:44px;margin-top:-22px;border-radius:3px;background:rgba(100,116,139,.35);opacity:0;transition:opacity .15s}#dk-rs:hover::after,html.dk-drag #dk-rs::after{opacity:1;background:#6366f1}
   html.dk-drag,html.dk-drag *{cursor:col-resize!important;user-select:none!important}html.dk-drag #dock-tg{transition:none!important}
   @media (max-width:760px){#dk-rs{display:none}}body:has(#dock.off) #dk-rs{display:none}
@@ -1484,6 +1486,45 @@ function pwMake(id) {
 const PW_CIERRA = {};   // al cerrar la ventana de un análisis se retiran sus elementos del mapa y vuelve la maqueta
 /* ── menú izquierdo con 2 pestañas */
 var DK = { cur: null, tab: 'K', t: 0, sec: [['🛡️ Riesgos y movilidad', ['rgp', 'fr', 'od', 'trf']], ['👥 Población y economía', ['cov', 'dem', 'eco']], ['🌿 Territorio y ambiente', ['geo', 'urb', 'sol', 'inu', 'amb', 'psl', 'aire', 'arb', 'emi']], ['🏙️ Entorno urbano', ['ent', 'mapa']], ['📋 Síntesis', ['ind']]] };
+// ── Lámina del proyecto: documento visual (cartel) con los resultados más importantes, listo para imprimir o guardar como PDF ──
+const LAM = { busy: 0 };
+function laminaCaptura() { try { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', .88); } catch (_) { return ''; } }
+function laminaCss() { let o = ''; try { [...document.styleSheets].forEach(ss => { try { [...ss.cssRules].forEach(r => { if (r.cssText && /\.ind-(gauge|bar|scale|cols|spark|donut|rose|steps|na|dot)|\.ind-(g|b|s|c|m|z)\b/.test(r.selectorText || '')) o += r.cssText + '\n'; }); } catch (_) { } }); } catch (_) { } return o; }
+async function laminaGenera() {
+  const S = solS(); if (!S || LAM.busy) return; LAM.busy = 1; const bt = $('dk-lam'), msg = t => { if (bt) bt.textContent = t; };
+  try {
+    msg('⏳ Calculando indicadores…'); try { await indCarga(); } catch (_) { }
+    msg('⏳ Armando la lámina…'); const img = laminaCaptura(), L = evalLst(), tn = IND_SEM, ord = { bad: 0, warn: 1, ok: 2, info: 3 };
+    const all = L.flatMap(c => c.an.flatMap(e => e.ind)), tot = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; all.forEach(i => tot[i.r.sem]++);
+    const nom = esc_(S.tit || S.titulo || 'Proyecto'), fecha = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }), ver = ($('tt-ver') || {}).textContent || '';
+    const dest = all.filter(i => i.r.sem !== 'na').sort((a, b) => ord[a.r.sem] - ord[b.r.sem]).slice(0, 6);
+    const card = i => `<div class="lc" style="--c:${tn[i.r.sem][0]}"><small>${esc_(i.n)}</small><div class="lv"><b>${i.r.val}</b><span>${i.r.unit}</span></div><div class="lz">${i.r.viz}</div><div class="ls"><i></i>${tn[i.r.sem][1]}</div><p>${i.r.msg || ''}</p></div>`;
+    const sec = c => { const an = c.an.map(e => { const its = e.ind.filter(i => i.r.sem !== 'na').sort((a, b) => ord[a.r.sem] - ord[b.r.sem]).slice(0, 6); return its.length ? `<div class="la"><h4>${e.ico} ${esc_(e.n)}</h4><div class="lg">${its.map(card).join('')}</div></div>` : ''; }).join(''); return an ? `<section class="ls2"><h3><i>${c.ico}</i>${esc_(c.n)}<small>${esc_(c.d)}</small></h3>${an}</section>` : ''; };
+    const css = `*{box-sizing:border-box}body{margin:0;background:#cbd5e1;font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#334155}
+.bar{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;padding:10px 18px;background:#0f172a;color:#fff}.bar b{flex:1}.bar button{border:0;border-radius:10px;padding:9px 16px;font:700 13px system-ui;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;cursor:pointer}
+.pg{width:1100px;max-width:100%;margin:18px auto;background:#f8fafc;box-shadow:0 14px 40px rgba(2,6,23,.3)}
+.hd{display:flex;align-items:center;gap:18px;padding:22px 32px;background:linear-gradient(135deg,#0f172a,#1e1b4b);color:#fff}.hd img{height:46px}.hd div{flex:1}.hd small{display:block;color:#a5b4fc;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:11px}.hd h1{margin:2px 0 0;font-size:30px;letter-spacing:-.02em}.hd span{color:#94a3b8;font-size:12px;text-align:right}
+.hero{position:relative;height:420px;background:#0f172a url(${img}) center/cover}.hero::after{content:"";position:absolute;inset:auto 0 0 0;height:120px;background:linear-gradient(transparent,rgba(15,23,42,.85))}.hero p{position:absolute;z-index:1;left:32px;bottom:18px;margin:0;color:#fff;font-weight:600}
+.res{display:flex;gap:10px;padding:16px 32px;background:#fff;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;align-items:center}.res .n{font:800 12px system-ui;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-right:6px}.res span{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;background:#f1f5f9;font-weight:700;color:#0f172a}.res i{width:9px;height:9px;border-radius:50%}
+h2.t{margin:0;padding:22px 32px 6px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#4f46e5}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:8px 32px 22px}
+.lc{background:#fff;border:1px solid #e2e8f0;border-top:4px solid var(--c);border-radius:14px;padding:12px 14px;break-inside:avoid;box-shadow:0 2px 8px rgba(15,23,42,.05)}.lc small{display:block;font:700 10.5px system-ui;letter-spacing:.06em;text-transform:uppercase;color:#64748b;min-height:26px}.lv{display:flex;align-items:baseline;gap:5px;margin:2px 0 8px;flex-wrap:wrap}.lv b{font:800 30px/1 system-ui;color:#0f172a;letter-spacing:-.02em}.lv span{font:600 12px system-ui;color:#64748b}.lz{min-height:44px;display:flex;align-items:center;justify-content:center;background:#f1f5f9;border-radius:10px;padding:4px}.ls{margin-top:8px;display:flex;align-items:center;gap:6px;font:800 10.5px system-ui;letter-spacing:.06em;text-transform:uppercase;color:var(--c)}.ls i{width:8px;height:8px;border-radius:50%;background:var(--c)}.lc p{margin:6px 0 0;font-size:11.5px;color:#64748b}
+.ls2{padding:6px 32px 8px}.ls2>h3{display:flex;align-items:center;gap:10px;margin:14px 0 4px;padding-bottom:8px;border-bottom:2px solid #0f172a;font-size:20px;color:#0f172a}.ls2>h3 i{font-style:normal;font-size:22px}.ls2>h3 small{margin-left:auto;font:500 12px system-ui;color:#64748b;max-width:46%;text-align:right}
+.la h4{margin:16px 0 8px;font-size:13px;color:#4f46e5;letter-spacing:.04em}.lg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ft{display:flex;justify-content:space-between;gap:14px;padding:16px 32px;margin-top:14px;background:#0f172a;color:#94a3b8;font-size:11px}
+@media print{body{background:#fff}.bar{display:none}.pg{margin:0;box-shadow:none;width:auto}.hero,.hd,.ft{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A3 portrait;margin:0}}
+@media(max-width:800px){.kp,.lg{grid-template-columns:1fr 1fr}.hero{height:260px}}${laminaCss()}`;
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lámina · ${nom}</title><style>${css}</style></head><body><div class="bar"><b>Lámina del proyecto · ${nom}</b><button onclick="print()">🖨️ Imprimir / Guardar PDF</button></div><div class="pg">
+<div class="hd"><img src="${new URL('../geometrika-logo-claro.png', location.href).href}" alt="GeoMetrika"><div><small>Sistema de Geo-Inteligencia</small><h1>${nom}</h1></div><span>${fecha}<br>radio de ${S.radio} m${ver ? '<br>' + esc_(ver) : ''}</span></div>
+<div class="hero"><p>Vista de la maqueta 3D · ${S.lat.toFixed(5)}, ${S.lng.toFixed(5)}</p></div>
+<div class="res"><span class="n">Resumen</span>${['bad', 'warn', 'ok', 'info'].filter(s => tot[s]).map(s => `<span><i style="background:${tn[s][0]}"></i>${tot[s]} ${tn[s][1].toLowerCase()}${tot[s] > 1 && s !== 'ok' ? (s === 'warn' ? '' : 's') : ''}</span>`).join('')}<span>${all.length - tot.na} de ${all.length} indicadores con datos</span></div>
+${dest.length ? `<h2 class="t">Lo más importante</h2><div class="kp">${dest.map(card).join('')}</div>` : ''}${L.map(sec).join('')}
+<div class="ft"><span>GeoMetrika · Check Inn · documento generado ${fecha}</span><span>Fuentes públicas y servicios de terceros; cada indicador detalla su método en la maqueta.</span></div></div></body></html>`;
+    const w = window.open('', '_blank'); if (!w) { alert('Permite las ventanas emergentes para ver la lámina.'); return; } w.document.open(); w.document.write(html); w.document.close();
+  } finally { LAM.busy = 0; if (bt) bt.textContent = '📄 Generar lámina del proyecto'; }
+}
+function laminaInit() { const d = $('dock'); if (!d || $('dk-rep')) return; const s = document.createElement('div'); s.id = 'dk-rep'; s.innerHTML = '<h4>Documento</h4><p>Genera una lámina visual con los resultados más importantes del proyecto, lista para imprimir o guardar en PDF.</p><button id="dk-lam" type="button">📄 Generar lámina del proyecto</button>'; d.appendChild(s); $('dk-lam').onclick = laminaGenera; }
+
 function dkInit() {
   const d = $('dock'); if (!d || $('dk-tabs')) return; const tb = document.createElement('div'); tb.id = 'dk-tabs'; tb.innerHTML = '<button data-t="K">🧩 Capas</button><button data-t="A">📊 Análisis</button><button data-t="C">⚙️ Configuración</button>';
   const an = document.createElement('div'); an.id = 'dk-an'; an.innerHTML = '<div id="dk-bus"><input id="dk-q" type="search" placeholder="🔍 Buscar análisis…" autocomplete="off"></div><div id="dk-lista"></div><div id="dk-det"></div>'; const tt = $('tt'); d.insertBefore(tb, tt ? tt.nextSibling : d.firstChild); d.insertBefore(an, tb.nextSibling);
@@ -1545,7 +1586,7 @@ function dkSuelta(id) {   /* saca el análisis del panel y lo deja como ventana 
 function dkCierra() { DK.cur = null; const L = $('dk-lista'); if (L) { L.style.display = ''; $('dk-bus').style.display = ''; dkLista(); } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
-dkInit(); dkAncho(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
+dkInit(); laminaInit(); dkAncho(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
