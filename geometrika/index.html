@@ -6,31 +6,31 @@
 <meta name="robots" content="noindex,nofollow">
 <title>GeoMetrika · Geo-Intelligence</title>
 <link rel="icon" href="geometrika-logo.png?v=2371">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="geometrika.css?v=2402">
+<link rel="stylesheet" href="geometrika.css?v=2403">
 <style>
-html,body{margin:0;background:#f7f7f5;font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;color:#111}
-.gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top left,rgba(31,138,138,.10),transparent 32%),linear-gradient(180deg,#fff 0%,#f1f1ef 100%)}
+html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a}
+.gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 20% 20%,#312e81,transparent 55%),radial-gradient(circle at 80% 80%,#0e7490,transparent 55%),#0b1020}
 .gp-login.hidden{display:none}
-.gp-card{background:#fff;border:1px solid #dcdcda;padding:38px 30px 30px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(15,23,42,.08)}
-.gp-card img{height:76px;width:auto;display:block;margin:0 auto 22px}
-.gp-card h2{margin:0 0 6px;font-size:15px;font-weight:600}.gp-card p.s{margin:0 0 22px;font-size:11.5px;color:#6b6b6b}
-.gp-card input{width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid #cfcfcc;background:#f6f6f4;font:500 15px "JetBrains Mono",monospace;text-align:center;letter-spacing:4px;outline:none;margin-bottom:12px}
-.gp-card input:focus{border-color:#1f8a8a;box-shadow:0 0 0 3px rgba(31,138,138,.15)}
-.gp-card button{width:100%;padding:13px;border:0;background:#111;color:#fff;font:600 13px "JetBrains Mono",monospace;cursor:pointer}
-.gp-card button:hover{background:#1f8a8a}
-.gp-err{color:#d62828;font-size:12px;margin:0 0 10px;min-height:16px}
+.gp-card{background:#fff;border-radius:18px;padding:34px 30px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 14px 40px rgba(2,6,23,.4)}
+.gp-lg{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#06b6d4);display:grid;place-items:center;font-weight:800;font-size:22px;color:#fff;margin:0 auto 14px;box-shadow:0 4px 14px rgba(99,102,241,.5)}
+.gp-card h2{margin:0 0 4px;font-size:20px;font-weight:700}.gp-card p.s{margin:0 0 18px;font-size:13px;color:#64748b}
+.gp-card input{width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;font:500 15px system-ui,sans-serif;text-align:center;letter-spacing:3px;outline:none;margin-bottom:12px}
+.gp-card input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.gp-card button{width:100%;padding:12px;border:0;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font:700 14px system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.35)}
+.gp-err{color:#dc2626;font-size:12px;margin:0 0 10px;min-height:16px}
+.gp-v{margin-top:14px;font-size:11px;color:#94a3b8}
 </style>
 </head>
 <body>
 <div id="gpLogin" class="gp-login">
   <div class="gp-card">
-    <img src="geometrika-logo.png?v=2371" alt="GeoMetrika Geo-Intelligence">
-    <h2>Sistema de geointeligencia de mercados</h2>
-    <p class="s">acceso restringido</p>
+    <div class="gp-lg">G</div>
+    <h2>GeoMetrika</h2>
+    <p class="s">Sistema de Geo-Inteligencia · acceso restringido</p>
     <input type="password" id="gpPass" placeholder="Contraseña" autocomplete="current-password" autofocus>
     <p class="gp-err" id="gpErr"></p>
     <button type="button" id="gpGo">Entrar</button>
+    <div class="gp-v">v.Beta.2403 · Check Inn</div>
   </div>
 </div>
 <div id="geometrika-host" style="display:none"></div>
@@ -48,7 +48,7 @@ window._rsvEnsureLeaflet_ = function (cb) {
 async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function gpAbre() {
   document.getElementById("gpLogin").classList.add("hidden"); document.getElementById("geometrika-host").style.display = "";
-  const s = document.createElement("script"); s.src = "geometrika.js?v=2402"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
+  const s = document.createElement("script"); s.src = "geometrika.js?v=2403"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
 }
 async function gpEntra() {
   const v = document.getElementById("gpPass").value.trim(), e = document.getElementById("gpErr"); if (!v) { e.textContent = "Captura tu contraseña."; return; }
