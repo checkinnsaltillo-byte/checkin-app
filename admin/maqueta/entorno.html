@@ -90,6 +90,20 @@
   @media (max-width:760px){#dock{width:88vw}#dock-tg{left:88vw}}
 
   /* ventanitas emergentes */
+  /* menú izquierdo con pestañas: Análisis (lista por secciones; el análisis se abre en el mismo panel) y Configuración */
+  #pw-bar{display:none!important}
+  #dk-tabs{position:sticky;top:0;z-index:6;display:flex;gap:4px;padding:8px 0 8px;margin:0 -12px;padding-left:12px;padding-right:12px;background:rgba(10,16,32,.97)}
+  #dk-tabs button{all:unset;cursor:pointer;flex:1;text-align:center;padding:8px 6px;border-radius:9px;font:700 12px system-ui,sans-serif;color:#cbd5e1;background:rgba(148,163,184,.14);transition:background .15s}
+  #dk-tabs button:hover{background:rgba(148,163,184,.26)}#dk-tabs button.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff}
+  #dock.vA>:not(#tt):not(#dk-tabs):not(#dk-an){display:none!important}#dock.vC>#dk-an{display:none!important}
+  #dk-lista .dk-s{font:800 10.5px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin:12px 2px 6px}
+  #dk-lista .dk-it{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;margin-bottom:5px;border-radius:10px;background:#fff;color:#0f172a;font:600 12.5px system-ui,sans-serif;box-shadow:0 1px 4px rgba(2,6,23,.25);transition:transform .12s,background .12s}
+  #dk-lista .dk-it:hover{background:#eef2ff;transform:translateX(2px)}#dk-lista .dk-it .i{font-size:17px;width:22px;text-align:center}#dk-lista .dk-it .t{flex:1;min-width:0}#dk-lista .dk-it .c{color:#94a3b8;font-size:16px}
+  #dk-lista .dk-it .pt{width:8px;height:8px;border-radius:50%;background:#22c55e}#dk-lista .dk-vacio{font:12px system-ui,sans-serif;color:#94a3b8;padding:10px 2px}
+  #dk-det .pwin.dk{position:static!important;width:auto!important;max-width:none!important;height:auto!important;box-shadow:none;border-radius:12px;margin-top:2px}
+  #dk-det .pwin.dk .pwm,#dk-det .pwin.dk .pwx{display:none}#dk-det .pwin.dk .pwh{cursor:default}
+  #dk-det .pwin.dk .dk-back{all:unset;cursor:pointer;width:auto;height:auto;padding:4px 10px;border-radius:8px;background:#e0e7ff;color:#3730a3;font:700 11.5px system-ui,sans-serif;line-height:1.2;margin-right:4px;white-space:nowrap}#dk-det .pwin.dk .dk-back:hover{background:#c7d2fe}
+  #dk-det .pwin.dk.pwmap .pws{height:58vh!important;flex:none}
   #pw-bar{position:fixed;z-index:8550;display:flex;flex-flow:column wrap;align-items:flex-start;align-content:flex-start;gap:6px;max-height:calc(100vh - 96px)}
   .pwc{height:34px;padding:0 12px 0 9px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit;font-weight:600;border-radius:10px;border:0;cursor:pointer;background:rgba(15,23,42,.88);color:#fff;font-size:16px;line-height:1;box-shadow:0 4px 14px rgba(2,6,23,.3);position:relative;transition:transform .12s,background .15s}
   .ico .pwc .pwl{display:none}.ico .pwc{padding:0 9px}.pwc .pwl{font-size:12px;letter-spacing:.1px}.pwc:hover{transform:translateX(2px);background:#1e293b}.pwc.on{background:linear-gradient(135deg,#6366f1,#4f46e5)}
@@ -1403,7 +1417,7 @@ function pwLayout() { const b = $('pw-bar'); if (b) { const l = pwLeft(); b.styl
 function pwMake(id) {
   if (PW.m.has(id)) return PW.m.get(id); const [ic, tt] = PW_DEF[id]; let bar = $('pw-bar'); if (!bar) { bar = document.createElement('div'); bar.id = 'pw-bar'; bar.style.top = '76px'; document.body.appendChild(bar); pwLayout(); }
   const el = document.createElement('div'); el.className = 'pwin'; el.id = 'pw-' + id; el.innerHTML = `<div class="pwh"><span class="pwt">${ic} ${tt}</span><button class="pwm" title="Minimizar">–</button><button class="pwx" title="Cerrar">✕</button></div><div class="pws"><div class="pwsec cfg"><div class="pwk">⚙️ Configuración</div><div class="pwb pwcfg"></div></div><div class="pwsec"><div class="pwk">📊 Resultados</div><div class="pwb pwres"></div></div></div>`; document.body.appendChild(el);
-  const chip = document.createElement('button'); chip.className = 'pwc'; chip.innerHTML = `<span>${ic}</span><span class="pwl">${tt}</span>`; chip.title = tt; chip.style.display = 'none'; bar.appendChild(chip); chip.style.order = PW_ORD.indexOf(id); const r = { id, el, body: el.querySelector('.pwres'), cfg: el.querySelector('.pwcfg'), chip };
+  const chip = document.createElement('button'); chip.className = 'pwc'; chip.innerHTML = `<span>${ic}</span><span class="pwl">${tt}</span>`; chip.title = tt; chip.style.display = 'none'; bar.appendChild(chip); try { new MutationObserver(dkRefresca).observe(chip, { attributes: true, attributeFilter: ['style', 'class'] }); } catch (_) { } chip.style.order = PW_ORD.indexOf(id); const r = { id, el, body: el.querySelector('.pwres'), cfg: el.querySelector('.pwcfg'), chip };
   const x0 = pwLeft() + 46 + (PW.n % 4) * 26, y0 = 72 + (PW.n % 6) * 34; PW.n++; el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
   el.querySelector('.pwx').onclick = () => pwShow(id, false); el.querySelector('.pwm').onclick = () => el.classList.toggle('min'); chip.onclick = () => pwShow(id, !el.classList.contains('on'));
   el.addEventListener('pointerdown', () => { el.style.zIndex = ++PW.z; });
@@ -1412,8 +1426,29 @@ function pwMake(id) {
   PW.m.set(id, r); return r;
 }
 const PW_CIERRA = {};   // al cerrar la ventana de un análisis se retiran sus elementos del mapa y vuelve la maqueta
-function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); }
+/* ── menú izquierdo con 2 pestañas */
+var DK = { cur: null, tab: 'A', t: 0, sec: [['🛡️ Riesgos y movilidad', ['rgp', 'fr', 'od', 'trf']], ['👥 Población y economía', ['cov', 'dem', 'eco']], ['🌿 Territorio y ambiente', ['geo', 'urb', 'sol', 'inu', 'amb', 'psl', 'aire', 'arb', 'emi']], ['🏙️ Entorno urbano', ['ent', 'mapa']], ['📋 Síntesis', ['ind']]] };
+function dkInit() {
+  const d = $('dock'); if (!d || $('dk-tabs')) return; const tb = document.createElement('div'); tb.id = 'dk-tabs'; tb.innerHTML = '<button data-t="A">📊 Análisis</button><button data-t="C">⚙️ Configuración</button>';
+  const an = document.createElement('div'); an.id = 'dk-an'; an.innerHTML = '<div id="dk-lista"></div><div id="dk-det"></div>'; const tt = $('tt'); d.insertBefore(tb, tt ? tt.nextSibling : d.firstChild); d.insertBefore(an, tb.nextSibling);
+  tb.onclick = e => { const b = e.target.closest('button'); if (b) { if (DK.cur) pwShow(DK.cur, false); dkTab(b.dataset.t); } }; $('dk-lista').onclick = e => { const b = e.target.closest('.dk-it'); if (b) pwShow(b.dataset.id, true); }; dkTab(DK.tab);
+}
+function dkTab(t) { DK.tab = t; const d = $('dock'); if (!d) return; d.classList.toggle('vA', t === 'A'); d.classList.toggle('vC', t === 'C'); $('dk-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); if (t === 'A') dkLista(); }
+function dkLista() {
+  const L = $('dk-lista'); if (!L) return; const vis = id => { const r = PW.m.get(id); return r && r.chip.style.display !== 'none' && PW_DEF[id]; }, usados = new Set(); let h = '';
+  const sec = (tit, ids) => { const l = ids.filter(vis); l.forEach(i => usados.add(i)); if (l.length) h += `<div class="dk-s">${tit}</div>` + l.map(i => `<button class="dk-it" data-id="${i}"><span class="i">${PW_DEF[i][0]}</span><span class="t">${PW_DEF[i][1]}</span>${PW.m.get(i).chip.classList.contains('dot') ? '<i class="pt" title="Con resultados nuevos"></i>' : ''}<span class="c">›</span></button>`).join(''); };
+  DK.sec.forEach(([t, ids]) => sec(t, ids)); sec('Otros', [...PW.m.keys()].filter(i => !usados.has(i))); L.innerHTML = h || '<div class="dk-vacio">Los análisis aparecerán aquí cuando estén listos.</div>';
+}
+function dkRefresca() { clearTimeout(DK.t); DK.t = setTimeout(() => { if (DK.tab === 'A' && !DK.cur) dkLista(); }, 60); }
+function dkAbre(id, r) {
+  dkInit(); const d = $('dock'); if (!d) return; if (DK.cur && DK.cur !== id) pwShow(DK.cur, false); d.classList.remove('off'); const el = r.el;
+  if (!el.classList.contains('dk')) { el.classList.add('dk'); $('dk-det').appendChild(el); const h = el.querySelector('.pwh'), b = document.createElement('button'); b.className = 'dk-back'; b.textContent = '← Volver'; b.onclick = () => pwShow(id, false); h.insertBefore(b, h.firstChild); }
+  DK.cur = id; dkTab('A'); $('dk-lista').style.display = 'none'; d.scrollTop = 0; setTimeout(() => { try { if (window.MM && MM.map) MM.map.invalidateSize(); } catch (_) { } }, 80);
+}
+function dkCierra() { DK.cur = null; const L = $('dk-lista'); if (L) { L.style.display = ''; dkLista(); } }
+function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
+dkInit();
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
