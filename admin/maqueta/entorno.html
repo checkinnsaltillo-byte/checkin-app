@@ -3867,7 +3867,8 @@ async function g3dInicia(S) {
     const R = window.__RAD + 2; G3D.planes = [new THREE.Plane(new THREE.Vector3(1, 0, 0), -R), new THREE.Plane(new THREE.Vector3(-1, 0, 0), -R), new THREE.Plane(new THREE.Vector3(0, 0, 1), -R), new THREE.Plane(new THREE.Vector3(0, 0, -1), -R)];
     renderer.localClippingEnabled = true;
     tiles.addEventListener('load-model', e => { e.scene.traverse(c => { if (c.isMesh && c.material) { const m0 = c.material, b = new THREE.MeshBasicMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : (m0.color || 0xcccccc), toneMapped: false }); if (m0.map) m0.map.colorSpace = THREE.SRGBColorSpace; b.clippingPlanes = G3D.planes; b.clipIntersection = true; c.material = b; c.castShadow = c.receiveShadow = false; } }); });
-    G3D.t = tiles; g3dMatriz(); scene.add(tiles.group); G3D.on = true; window.addEventListener('resize', () => { try { tiles.setResolutionFromRenderer(camera, renderer); } catch (_) { } });
+    G3D.t = tiles; g3dMatriz(); scene.add(tiles.group); G3D.on = true; try { fetch('https://api.check-inn.mx/geometrika/gasto/visita', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID }), keepalive: true }).catch(() => { }); } catch (_) { }   /* cada apertura con mapa 3D es una solicitud raíz facturable: se registra en el gasto del proyecto */
+     window.addEventListener('resize', () => { try { tiles.setResolutionFromRenderer(camera, renderer); } catch (_) { } });
   } catch (e) { G3D.err = String(e && e.message || e); console.warn('mapa 3D', e); }
 }
 function g3dTick() {
