@@ -3867,12 +3867,18 @@ async function g3dInicia(S) {
     const R = window.__RAD + 2; G3D.planes = [new THREE.Plane(new THREE.Vector3(1, 0, 0), -R), new THREE.Plane(new THREE.Vector3(-1, 0, 0), -R), new THREE.Plane(new THREE.Vector3(0, 0, 1), -R), new THREE.Plane(new THREE.Vector3(0, 0, -1), -R)];
     renderer.localClippingEnabled = true;
     tiles.addEventListener('load-model', e => { e.scene.traverse(c => { if (c.isMesh && c.material) { const m0 = c.material, b = new THREE.MeshBasicMaterial({ map: m0.map || null, color: m0.map ? 0xffffff : (m0.color || 0xcccccc), toneMapped: false }); if (m0.map) m0.map.colorSpace = THREE.SRGBColorSpace; b.clippingPlanes = G3D.planes; b.clipIntersection = true; c.material = b; c.castShadow = c.receiveShadow = false; } }); });
-    G3D.t = tiles; g3dMatriz(); scene.add(tiles.group); G3D.on = true; try { fetch('https://api.check-inn.mx/geometrika/gasto/visita', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID }), keepalive: true }).catch(() => { }); } catch (_) { }   /* cada apertura con mapa 3D es una solicitud raíz facturable: se registra en el gasto del proyecto */
+    G3D.ell = T.WGS84_ELLIPSOID; G3D.ancla = S.lat + ',' + S.lng; G3D.t = tiles; g3dMatriz(); scene.add(tiles.group); G3D.on = true; try { fetch('https://api.check-inn.mx/geometrika/gasto/visita', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID }), keepalive: true }).catch(() => { }); } catch (_) { }   /* cada apertura con mapa 3D es una solicitud raíz facturable: se registra en el gasto del proyecto */
      window.addEventListener('resize', () => { try { tiles.setResolutionFromRenderer(camera, renderer); } catch (_) { } });
   } catch (e) { G3D.err = String(e && e.message || e); console.warn('mapa 3D', e); }
 }
+// si se cambia a la maqueta de otro punto (otra ciudad), el mapa 3D se reancla a las nuevas coordenadas y al nuevo tamaño del cuadro
+function g3dReancla(lat, lng, rad) {
+  if (!G3D.t || !G3D.ell) return; const F = new THREE.Matrix4(); G3D.ell.getEastNorthUpFrame(lat * Math.PI / 180, lng * Math.PI / 180, F); F.invert(); G3D.M = new THREE.Matrix4().makeRotationX(-Math.PI / 2).multiply(F);
+  G3D.dy = 0; G3D.cal = false; G3D.nCal = 0; G3D.estable = 0; G3D.ancla = lat + ',' + lng; g3dMatriz(); const R = (rad || window.__RAD || 400) + 2; (G3D.planes || []).forEach(p => { p.constant = -R; });
+}
+G3D.reancla = g3dReancla;
 function g3dTick() {
-  const t = G3D.t; if (!t) return; t.group.visible = G3D.on; if (!G3D.on) return; t.setCamera(camera); t.update();
+  const t = G3D.t; if (!t) return; { const S0 = typeof curS !== 'undefined' ? curS : null; if (S0 && S0.lat != null && G3D.ancla && G3D.ancla !== S0.lat + ',' + S0.lng) g3dReancla(S0.lat, S0.lng, window.__RAD); } t.group.visible = G3D.on; if (!G3D.on) return; t.setCamera(camera); t.update();
   const ahora = performance.now();
   if (!G3D.cal && ahora - G3D.tCal > 1500 && G3D.nCal < 60) { G3D.tCal = ahora; G3D.nCal++; t.group.updateMatrixWorld(true); const rc = new THREE.Raycaster(new THREE.Vector3(0, 4500, 0), new THREE.Vector3(0, -1, 0)); rc.far = 9000; const h = rc.intersectObject(t.group, true)[0]; if (h && Math.abs(h.point.y) < 3800 && Math.abs(G3D.dy - h.point.y) < 6000) { if (Math.abs(h.point.y) > .6) { G3D.dy -= h.point.y; g3dMatriz(); G3D.estable = 0; } else if (++G3D.estable > 4) G3D.cal = true; }   /* solo se aceptan impactos cercanos al nivel esperado (no las teselas gruesas del planeta) */ }   // el suelo de Google en el punto de la maqueta queda a nivel 0
   if (++G3D.cuadro % 90 === 0) { const a = []; try { t.getAttributions(a); } catch (_) { } const txt = a.filter(x => x.type === 'string').map(x => x.value).join(' · '), el = $('attr'); if (el) el.textContent = 'Mapa 3D © Google' + (txt ? ' · ' + txt : ''); }
