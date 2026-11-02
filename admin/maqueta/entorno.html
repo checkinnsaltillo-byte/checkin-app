@@ -81,6 +81,7 @@
   #cap .cg{margin:3px 0 6px}#cap .cgh{display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-weight:800;font-size:12px;color:#1e293b;border-radius:8px;user-select:none}#cap .cgh:hover{background:#f1f5f9}
   #cap .cgm{flex:none}#cap .cgm .bx{display:inline-block;width:18px;height:18px;border:2px solid #cbd5e1;border-radius:6px;text-align:center;line-height:14px;font-size:12px;font-weight:900;color:transparent;box-sizing:border-box}#cap .cgm.on .bx{background:linear-gradient(135deg,var(--ac1),#4f46e5);border-color:transparent;color:#fff}#cap .cgm.part .bx{background:#c7d2fe;border-color:#818cf8;color:#3730a3}
   #cap .cgt{flex:1}#cap .cgn{font-size:10.5px;font-weight:700;color:#64748b;background:#eef2ff;border-radius:99px;padding:1px 7px}#cap .cgv{font-size:11px;color:#64748b;transition:transform .15s}#cap .cg.col .cgv{transform:rotate(-90deg)}#cap .cg.col .cgb{display:none}
+  #cap .ck.vacia{opacity:.45;font-style:italic}
   #cap .cgb{margin:1px 0 2px 9px;padding-left:8px;border-left:2px solid #e0e7ff}
   #dock .btnrow,.pwin .btnrow{gap:6px;margin-top:10px}
   #dock .btnrow>button,#dock .seg button,#trf .btnrow button,.pwin .btnrow>button,.pwin .seg button{padding:6px 11px;border-radius:99px;font-size:11.5px;font-weight:700;background:#f1f5f9;color:#334155;transition:all .16s;box-shadow:inset 0 0 0 1px #e2e8f0}
@@ -1339,6 +1340,8 @@ async function msRawSet(on) {
   finally { MSR.busy = 0; if (bt) bt.style.opacity = ''; capasSync(); }
 }
 function capaVis(k) { if (k === 'mapa3d') return !!G3D.on; if (k === 'ms_raw') return !!(MSR.g && MSR.g.visible); if (k === 'demografia') { try { return !!CITY.demo; } catch (_) { return false; } } if (k === 'maqueta') return !SOLO.on; if (/^neg_/.test(k)) return NEG.sub[k] !== false && capaVis('negocios'); if (SOLO.on && k !== 'mapa') return false; if (k === 'nombres') return !world.__nombres || world.__nombres.visible; if (k === 'lugares') return !world.__marks || world.__marks.visible; if (k === 'riesgos') return !alertG || alertG.visible; if (k === 'mapa') return mapTipo !== 'ninguno'; let v = true, f = false; world.traverse(o => { if (!f && o.userData && o.userData.cat === k) { v = o.visible; f = true; } }); return v; }
+const CAPA_ESP = new Set(['mapa3d', 'ms_raw', 'demografia', 'maqueta', 'nombres', 'lugares', 'riesgos', 'mapa', 'negocios', 'neg_noche', 'neg_dia']);
+function capaHay(k) { if (CAPA_ESP.has(k)) return true; let f = false; world.traverse(o => { if (!f && o.userData && o.userData.cat === k) f = true; }); return f; }
 function capaSet(k, v) { if (k === 'ms_raw') { msRawSet(v); return; } if (k === 'mapa3d') { const b = $('b-g3d'); if (b && v !== !!G3D.on) b.click(); return; } if (k === 'demografia') { demoSet(curS, v); return; } if (k === 'maqueta') { soloMapa(!v); return; } if (/^neg_/.test(k)) { NEG.sub[k] = v; if (NEG.upd) NEG.upd(); return; } if (k === 'nombres') { if (world.__nombres) world.__nombres.visible = v; $('b-nom').classList.toggle('on', v); } else if (k === 'lugares') { if (world.__marks) world.__marks.visible = v; $('b-poi').classList.toggle('on', v); } else if (k === 'riesgos') { if (alertG) alertG.visible = v; $('b-rg').classList.toggle('on', v); } else if (k === 'mapa') { mapOn(v); } else world.traverse(o => { if (o.userData && o.userData.cat === k) o.visible = v; }); renderer.shadowMap.needsUpdate = true; }
 const SOLO = { on: false };
 async function mapOn(v) { if (v) mapTipo = mapUlt || 'calles'; else { if (mapTipo !== 'ninguno') mapUlt = mapTipo; mapTipo = 'ninguno'; } $('b-map').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.m === mapTipo)); capasSync(); await setMapa(mapTipo); if (FR.mode > 0) await frMapa(mapTipo); capasSync(); }
@@ -1470,12 +1473,13 @@ function capGrupos(hijos, ck) {
 function capGruposInit(el) {
   el.querySelectorAll('.cg').forEach(g => {
     const ks = g.dataset.ks.split(','), h = g.querySelector('.cgh');
-    g.querySelector('.cgm').onclick = e => { e.stopPropagation(); const on = !ks.every(k => capaVis(k)); ks.forEach(k => { if (capaVis(k) !== on) capaSet(k, on); }); capasSync(); };
+    g.querySelector('.cgm').onclick = e => { e.stopPropagation(); const ex = ks.filter(capaHay), on = !ex.every(k => capaVis(k)); ex.forEach(k => { if (capaVis(k) !== on) capaSet(k, on); }); capasSync(); };
     h.onclick = () => { g.classList.toggle('col'); let col = {}; try { col = JSON.parse(localStorage.getItem('capcol') || '{}'); } catch (_) { } col[g.dataset.t] = g.classList.contains('col') ? 1 : 0; try { localStorage.setItem('capcol', JSON.stringify(col)); } catch (_) { } };
   });
 }
 function capGruposSync() {
-  document.querySelectorAll('#cap .cg').forEach(g => { const ks = g.dataset.ks.split(','), n = ks.filter(k => capaVis(k)).length; g.querySelector('.cgn').textContent = n + '/' + ks.length; const m = g.querySelector('.cgm'); m.classList.toggle('on', n === ks.length); m.classList.toggle('part', n > 0 && n < ks.length); m.querySelector('.bx').textContent = n === ks.length ? '✓' : n ? '–' : '✓'; });
+  document.querySelectorAll('#cap .ck').forEach(d => { const v = !capaHay(d.dataset.k); d.classList.toggle('vacia', v); d.title = v ? 'Sin elementos en esta zona' : ''; });
+  document.querySelectorAll('#cap .cg').forEach(g => { const ks = g.dataset.ks.split(',').filter(capaHay), n = ks.filter(k => capaVis(k)).length, tot = g.dataset.ks.split(',').length; g.querySelector('.cgn').textContent = n + '/' + ks.length + (ks.length < tot ? ' · ' + (tot - ks.length) + ' sin datos' : ''); const m = g.querySelector('.cgm'), all = ks.length > 0 && n === ks.length; m.classList.toggle('on', all); m.classList.toggle('part', n > 0 && n < ks.length); m.querySelector('.bx').textContent = all ? '✓' : n ? '–' : '✓'; });
 }
 function buildCapas() {
   const dock = $('dock'); let el = $('cap'); if (!el) { el = document.createElement('div'); el.id = 'cap'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, $('notas').nextSibling); }
