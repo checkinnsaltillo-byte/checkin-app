@@ -1061,9 +1061,16 @@ function panelRiesgos(S) {
   wrapCol(el, '🚨 Lista de riesgos', true);
 }
 // ── mapa de fondo: teselas del mapa (se descargan al abrir; no se guardan) pegadas como suelo de la maqueta
-const MAPAS = { calles: { u: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, zmax: 19, at: '© OpenStreetMap contributors', et: 'Calles' }, satelite: { u: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`, zmax: 19, at: 'Imágenes © Esri, Maxar, Earthstar Geographics', et: 'Satélite' } };
+// imagen satelital de Google (API de teselas 2D, llave de navegador restringida a Map Tiles y a los dominios de Check Inn): la misma fuente que usa el análisis; si falla, se usa Esri
+const GSAT = { s: null, p: null, K: 'AIzaSyA_-JCgn6M504YbM0xhrKtVYWdpt6q7AoY' };
+function gSatSesion() { if (GSAT.s) return Promise.resolve(GSAT.s); return GSAT.p || (GSAT.p = (async () => { try { const j = await fetch('https://tile.googleapis.com/v1/createSession?key=' + GSAT.K, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mapType: 'satellite', language: 'es-MX', region: 'MX' }) }).then(r => r.json()); if (j.session) GSAT.s = j.session; } catch (_) { } return GSAT.s; })());
+}
+const gSatUrl = (z, x, y) => GSAT.s ? `https://tile.googleapis.com/v1/2dtiles/${z}/${x}/${y}?session=${GSAT.s}&key=${GSAT.K}` : `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+gSatSesion();
+const MAPAS = { calles: { u: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, zmax: 19, at: '© OpenStreetMap contributors', et: 'Calles' }, satelite: { u: gSatUrl, zmax: 19, get at() { return GSAT.s ? 'Imágenes © Google' : 'Imágenes © Esri, Maxar, Earthstar Geographics'; }, et: 'Satélite' } };
 let mapMesh = null, curS = null; const mapCache = {};
 async function mapaTextura(S, tipo, Rov, noAj) {
+  if (tipo === 'satelite') await gSatSesion();
   const ck = tipo + '_' + (Rov || S.radio) + (noAj ? 'f' : ''); if (mapCache[ck]) return mapCache[ck]; const aj = tipo === 'calles' && !noAj ? (S.__ajR || [0, 0]) : [0, 0], M_ = MAPAS[tipo], R_ = Rov || S.radio, lat = S.lat, lng = S.lng, cosL = Math.cos(lat * Math.PI / 180);
   let z = Math.floor(Math.log2(156543.03392 * cosL * 1500 / (2 * R_))); z = Math.max(15, Math.min(M_.zmax, z)); const mpp = 156543.03392 * cosL / 2 ** z, W = 256 * 2 ** z, wx = (lng + 180) / 360 * W, wy = (1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * W, left = wx - R_ / mpp - aj[0] / mpp, top = wy - R_ / mpp + aj[1] / mpp, span = 2 * R_ / mpp, CW = span > 1100 ? 2048 : 1024, k = CW / span;
   const c = document.createElement('canvas'); c.width = c.height = CW; const g = c.getContext('2d'); g.fillStyle = '#e5e7eb'; g.fillRect(0, 0, CW, CW); const jobs = [];
@@ -2486,7 +2493,7 @@ async function odCalcula(S, soloOsm) {
 }
 // ── ciudad alrededor de la maqueta: el mapa se carga por mosaicos a demanda (solo lo que se ve y con el detalle que pide el zoom) y el árbol de orígenes se dibuja en 3D encima, sin cambiar de escena
 const CITY = { v: { zonas: true, ref: true, flechas: true, acc: true, pob: false }, anio: 'p25', hx: null, pobD: null, on: false, G: null, cin: null, S: null, C: null, src: 'zona', dir: 'all', arbol: true, d: {}, base: 'gris', saved: null, busy: 0, t: 0, u: { uPx: { value: 1 } } }, CPAL = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#a855f7', '#84cc16', '#f97316', '#3b82f6', '#ec4899'];
-const CITY_U = { gris: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/${z}/${y}/${x}`, 16], calles: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`, 19], sat: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`, 19], oscuro: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`, 16] };
+const CITY_U = { gris: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/${z}/${y}/${x}`, 16], calles: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`, 19], sat: [gSatUrl, 19], oscuro: [(z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`, 16] };
 const CG = { clip: [new THREE.Plane(new THREE.Vector3(-1, 0, 0), -200), new THREE.Plane(new THREE.Vector3(1, 0, 0), -200), new THREE.Plane(new THREE.Vector3(0, 0, -1), -200), new THREE.Plane(new THREE.Vector3(0, 0, 1), -200)], grp: null, vivos: new Map(), cache: new Map(), carga: new Set(), geo: null, ray: new THREE.Raycaster(), plano: new THREE.Plane(new THREE.Vector3(0, 1, 0), 3) };
 // metros por píxel de pantalla en el punto de mira
 const cityPx = () => 2 * camera.position.distanceTo(controls.target) * Math.tan(camera.fov * Math.PI / 360) / (renderer.domElement.clientHeight || 650);
