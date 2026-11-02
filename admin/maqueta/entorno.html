@@ -3854,10 +3854,10 @@ function peaTick(dt, t) {
 
 // ══ Mapa 3D de Google (Photorealistic 3D Tiles) de fondo: relieve, montañas y toda la ciudad alrededor de la maqueta ══
 // Se carga con la librería 3d-tiles-renderer (copia propia en vendor/) y la llave de navegador restringida a Map Tiles API; dentro del cuadro de la maqueta se recorta para no duplicar edificios.
-var G3D = { t: null, on: false, key: 'AIzaSyA_-JCgn6M504YbM0xhrKtVYWdpt6q7AoY', err: null, M: null, dy: 0, cal: false, tCal: 0, nCal: 0, planes: null, cuadro: 0 };
+var G3D = window.__g3d = { t: null, on: false, key: 'AIzaSyA_-JCgn6M504YbM0xhrKtVYWdpt6q7AoY', err: null, M: null, dy: 0, cal: false, tCal: 0, nCal: 0, planes: null, cuadro: 0 };
 function g3dMatriz() { const t = G3D.t; if (!t) return; const m = G3D.M.clone().premultiply(new THREE.Matrix4().makeTranslation(0, G3D.dy, 0)); t.group.matrixAutoUpdate = false; t.group.matrix.copy(m); t.group.matrixWorldNeedsUpdate = true; }
 async function g3dInicia(S) {
-  if (G3D.t || G3D.err || !S || S.lat == null || !window.__RAD) return;
+  G3D.llamada = (G3D.llamada || 0) + 1; if (G3D.t || G3D.err || !S || S.lat == null || !window.__RAD) { G3D.salto = [!!G3D.t, !!G3D.err, !S, S && S.lat, window.__RAD]; return; }
   try {
     const T = await import('3d-tiles'), { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'), { DRACOLoader } = await import('three/addons/loaders/DRACOLoader.js');
     const tiles = new T.TilesRenderer('https://tile.googleapis.com/v1/3dtiles/root.json'); tiles.registerPlugin(new T.GoogleCloudAuthPlugin({ apiToken: G3D.key, autoRefreshToken: true }));
