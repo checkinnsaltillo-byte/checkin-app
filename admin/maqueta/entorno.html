@@ -432,7 +432,7 @@ function build(S) {
     // base
     const soilS = M.soil.clone(); soilS.map = soilTex.clone(); soilS.map.repeat.set(RAD / 10, 1); soilS.map.needsUpdate = true; M.lotG = MT({ color: 0xaaa392, roughness: 1 });
     const TH = 3.4, base = new THREE.Mesh(new THREE.BoxGeometry(RAD * 2, TH, RAD * 2), [soilS, soilS, M.lotG, M.earth, soilS, soilS]); base.position.y = -TH / 2; base.receiveShadow = base.castShadow = true; base.userData.keep = true; world.add(base);
-    fitR = RAD * .95; camera.far = Math.max(700, RAD * 7); camera.near = Math.max(3, RAD * .015); camera.updateProjectionMatrix(); fit();
+    fitR = RAD * .95; camera.far = Math.max(700, RAD * 7); camera.near = Math.max(3, RAD * .015); window.__RAD = RAD; window.__NEAR0 = camera.near; camera.updateProjectionMatrix(); fit();
     sc.left = -RAD * 1.08; sc.right = RAD * 1.08; sc.top = RAD * 1.08; sc.bottom = -RAD * 1.08; sc.far = RAD * 5; sc.updateProjectionMatrix(); sun.position.set(RAD * .75, RAD * 1.25, -RAD * .55); sun.target.position.set(0, 0, 0); scene.add(sun.target);
     // ── calles
     const acc = () => ({ pos: [], nor: [], uv: [], idx: [] }), A = { asf: acc(), conc: acc(), curb: acc(), yel: acc(), line: acc(), wall: acc(), wh: acc(), wp: acc(), ar: acc() };
@@ -3668,6 +3668,7 @@ function tick() { const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedT
   if (zWant) { const off = camera.position.clone().sub(controls.target), d = off.length(), nd = d + (zWant - d) * .2; camera.position.copy(controls.target).add(off.multiplyScalar(nd / d)); if (Math.abs(zWant - nd) < .02) zWant = 0; }
   if (anim.alerts.length && alertG && alertG.visible) anim.alerts.forEach(a => { if (!a.g.visible) return; const sel = alertSel === a.i, dim = alertSel >= 0 && !sel, ph = (t * a.sp * (sel ? 1.6 : 1) + a.p) % 1, bl = 1 + (sel ? .14 : .07) * Math.sin(t * (sel ? 5 : 3.2) + a.p * 5), k = sel ? 1.7 : dim ? .85 : 1; a.ring.scale.setScalar(1 + ph * (sel ? 4.5 : 2.2)); a.ring.material.opacity = dim ? .06 : (1 - ph) * (sel ? .8 : .45); a.spr.scale.set(a.W * bl * k, a.H * bl * k, 1); a.spr.material.opacity = dim ? .28 : sel ? 1 : .82 + .18 * Math.sin(t * 3.2 + a.p * 5); a.spr.material.color.setHex(dim ? 0x777777 : 0xffffff); a.pole.material.opacity = dim ? .15 : sel ? 1 : .7; a.dot.material.opacity = dim ? .2 : 1; a.spr.renderOrder = sel ? 14 : 11; });
   if (anim.prop) { const a = anim.prop; a.spr.position.y = a.y0 + Math.sin(t * 2.2) * a.k * .05; }
+  if (window.__RAD && !window.__cityOn && !RT.on && FR.mode === 0) { const dc = camera.position.length(), nn = Math.max(window.__NEAR0 || 3, Math.min((dc - window.__RAD * 1.5 - 80) * .5, dc * .3)); if (Math.abs(nn - camera.near) > camera.near * .06) { camera.near = nn; camera.updateProjectionMatrix(); } }   // plano cercano dinámico: a más distancia, más precisión de profundidad (sin parpadeo en las calles)
   if (CITY.on) cityTick(dt); if (RT.on) rtTick(dt); controls.update(); if ((FR.mode > 0 || RT.on) && FR.comp) FR.comp.render(); else if (RZ.on && RZ.C && !alta) { RZ.C.render(); rzMide(); } else if (alta && composer) { bokP.uniforms.focus.value = camera.position.distanceTo(controls.target); composer.render(); } else renderer.render(scene, camera); requestAnimationFrame(tick); }
 tick();
 addEventListener('resize', () => aplicaVista(true));
