@@ -26,7 +26,8 @@
   window.gmPideClave = pide;
   window.fetch = function (u, o) {
     var url = typeof u === 'string' ? u : (u && u.url) || ''; if (!G.test(url) || X.test(url)) return f0(u, o);
-    function go() { var t = tok(), h = new Headers((o && o.headers) || (u && u.headers) || {}); if (t) h.set('x-gm-token', t); if (typeof u === 'string' || u instanceof URL) return f0(u, Object.assign({}, o || {}, { headers: h })); return f0(new Request(u, { headers: h })); }
-    return go().then(function (r) { if (r.status !== 401) return r; return r.clone().json().catch(function () { return null; }).then(function (j) { if (!(j && j.gm)) return r; return pide().then(function (ok) { return ok ? go() : r; }); }); });
+    var enviado = '';
+    function go() { var t = tok(); enviado = t;  var h = new Headers((o && o.headers) || (u && u.headers) || {}); if (t) h.set('x-gm-token', t); if (typeof u === 'string' || u instanceof URL) return f0(u, Object.assign({}, o || {}, { headers: h })); return f0(new Request(u, { headers: h })); }
+    return go().then(function (r) { if (r.status !== 401) return r; return r.clone().json().catch(function () { return null; }).then(function (j) { if (!(j && j.gm)) return r; if (tok() && tok() !== enviado) return go(); return pide().then(function (ok) { return ok ? go() : r; }); }); });
   };
 })();
