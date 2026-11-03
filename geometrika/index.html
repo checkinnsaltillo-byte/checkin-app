@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow">
 <title>GeoMetrika · Geo-Intelligence</title>
 <link rel="icon" href="geometrika-logo.png?v=2409">
-<link rel="stylesheet" href="geometrika.css?v=2410">
+<link rel="stylesheet" href="geometrika.css?v=2411">
 <style>
 html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a}
 .gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 20% 20%,#312e81,transparent 55%),radial-gradient(circle at 80% 80%,#0e7490,transparent 55%),#0b1020}
@@ -30,7 +30,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     <input type="password" id="gpPass" placeholder="Contraseña" autocomplete="current-password" autofocus>
     <p class="gp-err" id="gpErr"></p>
     <button type="button" id="gpGo">Entrar</button>
-    <div class="gp-v">v.Beta.2410 · Check Inn</div>
+    <div class="gp-v">v.Beta.2411 · Check Inn</div>
   </div>
 </div>
 <div id="geometrika-host" style="display:none"></div>
@@ -48,7 +48,7 @@ window._rsvEnsureLeaflet_ = function (cb) {
 async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function gpAbre() {
   document.getElementById("gpLogin").classList.add("hidden"); document.getElementById("geometrika-host").style.display = "";
-  const s = document.createElement("script"); s.src = "geometrika.js?v=2410"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
+  const s = document.createElement("script"); s.src = "geometrika.js?v=2411"; s.onload = () => window.geometrikaInit && window.geometrikaInit(); document.body.appendChild(s);
 }
 async function gpEntra() {
   const v = document.getElementById("gpPass").value.trim(), e = document.getElementById("gpErr"); if (!v) { e.textContent = "Captura tu contraseña."; return; }
