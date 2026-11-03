@@ -1946,7 +1946,7 @@ function dkInfo(el) {
 }
 function dkRefresca() { clearTimeout(DK.t); DK.t = setTimeout(() => { if (DK.tab === 'A' && !DK.cur) dkLista(); }, 60); }
 function dkAbre(id, r) {
-  dkInit(); const d = $('dock'); if (!d) return; if (DK.cur && DK.cur !== id) pwShow(DK.cur, false); d.classList.remove('off'); const el = r.el;
+  dkInit(); const d = $('dock'); if (!d) return; const og = DK.origenNuevo || (DK.cur ? DK.origen : null); DK.origenNuevo = null; if (DK.cur && DK.cur !== id) pwShow(DK.cur, false); DK.origen = og; d.classList.remove('off'); const el = r.el;   /* og: de dónde se llegó (p. ej. Configuración › Sobrevuelo al abrir una vista guardada) para que «Volver» regrese ahí */
   if (!el.classList.contains('dk')) { el.classList.add('dk'); $('dk-det').appendChild(el); const h = el.querySelector('.pwh'), b = document.createElement('button'); b.className = 'dk-back'; b.textContent = '← Volver'; b.onclick = () => pwShow(id, false); h.insertBefore(b, h.firstChild); const o = document.createElement('button'); o.className = 'dk-out'; o.title = 'Abrir en ventana flotante'; o.textContent = '↗'; o.onclick = () => dkSuelta(id); h.insertBefore(o, h.querySelector('.pwm')); }
   DK.cur = id; dkTab(id === 'ind' ? 'I' : 'A'); $('dk-lista').style.display = 'none'; $('dk-bus').style.display = 'none'; d.scrollTop = 0; setTimeout(() => { try { if (window.MM && MM.map) MM.map.invalidateSize(); } catch (_) { } }, 80);
 }
@@ -1954,7 +1954,8 @@ function dkSuelta(id) {   /* saca el análisis del panel y lo deja como ventana 
   const r = PW.m.get(id); if (!r || !r.el.classList.contains('dk')) return; const el = r.el; el.classList.remove('dk'); document.body.appendChild(el); const x0 = pwLeft() + 20 + (PW.n++ % 4) * 26, y0 = 72 + (PW.n % 6) * 34; el.style.left = x0 + 'px'; el.style.top = y0 + 'px'; el.style.zIndex = ++PW.z; dkCierra();
   setTimeout(() => { try { if (window.MM && MM.map) MM.map.invalidateSize(); } catch (_) { } }, 80);
 }
-function dkCierra() { DK.cur = null; if (DK.tab === 'I') dkTab('K'); const L = $('dk-lista'); if (L) { L.style.display = ''; $('dk-bus').style.display = ''; dkLista(); } }
+function dkCierra() { DK.cur = null; if (DK.tab === 'I') dkTab('K'); const L = $('dk-lista'); if (L) { L.style.display = ''; $('dk-bus').style.display = ''; dkLista(); }
+  const o = DK.origen; if (o) { DK.origen = null; dkTab(o.tab); const e = o.id && $(o.id); if (e) { e.dataset.col = '0'; e.classList.remove('col'); setTimeout(() => { try { e.scrollIntoView({ block: 'start' }); } catch (_) { } }, 60); } } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
 dkInit(); laminaInit(); dkAncho(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
@@ -3015,7 +3016,9 @@ async function visAplica(it) {
   try { if (E.tags) { Object.keys(ETQ).forEach(k => delete ETQ[k]); Object.assign(ETQ, E.tags); try { localStorage.setItem('etq', JSON.stringify(ETQ)); } catch (_) { } } } catch (_) { }
   try { const ks = Object.keys(E.capas || {}).filter(k => k !== 'mapa3d' && k !== 'mapa'); ks.sort((a, b) => (a === 'maqueta' ? -1 : 0) - (b === 'maqueta' ? -1 : 0)); for (const k of ks) { try { if (capaVis(k) !== !!E.capas[k]) capaSet(k, !!E.capas[k]); } catch (_) { } } } catch (_) { }
   try { if (E.g3d != null && !!(G3D && G3D.on) !== !!E.g3d) { const b = $('b-g3d'); if (b) await b.onclick(); } } catch (_) { }
+  try { DK.origenNuevo = { tab: DK.tab, id: 'vue' }; } catch (_) { }
   try { const abiertas = new Set((E.win || []).map(w => w.id)); PW.m.forEach((r, id) => { if (r.el.classList.contains('on') && !abiertas.has(id)) pwShow(id, false); }); (E.win || []).forEach(w => { if (!PW_DEF[w.id]) return; const r = pwMake(w.id); if (w.html && r.body && !r.body.innerHTML.trim()) r.body.innerHTML = w.html; pwShow(w.id, true); r.el.classList.toggle('min', !!w.min); if (w.l) r.el.style.left = w.l; if (w.t) r.el.style.top = w.t; }); } catch (_) { }
+  try { DK.origenNuevo = null; } catch (_) { }
   try { capasSync(); renderer.shadowMap.needsUpdate = true; } catch (_) { }
   const cam = () => { const c = E.cam; if (!c) return; camera.fov = c.fov || camera.fov; camera.updateProjectionMatrix(); camera.position.set(...c.p); controls.target.set(...c.t); zWant = 0; controls.update(); try { renderer.shadowMap.needsUpdate = true; } catch (_) { } };
   cam(); setTimeout(cam, 400); setTimeout(cam, 1200); visToast('📸 ' + it.nombre);
