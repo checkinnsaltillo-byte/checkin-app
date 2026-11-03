@@ -786,7 +786,9 @@ function build(S) {
         window.__areas = { estacionamientos: nPark, autosEnEstacionamientos: nCarP, canchas: nCan, paneles: nSol, albercas: nAlb };
       } catch (e) { console.warn('áreas', e); } }
       const carros2 = carros.filter(c => !parkA.some(q => dentro([c.x, c.y], q.g)));
-      carros2.forEach(c => { const ry = th + (c.h ? 0 : PI / 2); addBoxW(4.2, 1.1, 1.8, c.c, c.x, .6, c.y, ry, mergeC); addBoxW(2.2, .7, 1.6, c.c, c.x, 1.3, c.y, ry, mergeC); }); nAutA = carros2.length;
+      carros2.forEach((c, i) => { const ry = th + (c.h ? 0 : PI / 2);
+        if (i < 320) { const vp = vehPick(), car = mkCar(vp.tipo, new THREE.Color(c.c), vp.viejo); car.position.set(c.x, 0, -c.y); car.rotation.y = ry; car.userData.cat = 'autos'; world.add(car); }   // mismo modelo de alta calidad que los autos de calle y en movimiento (color tomado de la imagen)
+        else { addBoxW(4.2, 1.1, 1.8, c.c, c.x, .6, c.y, ry, mergeC); addBoxW(2.2, .7, 1.6, c.c, c.x, 1.3, c.y, ry, mergeC); } }); nAutA = carros2.length;
       const p2 = pool.length ? pool.filter(q => (q.f.p || 1) >= 2).length / pool.length : .3;
       for (const tipo of ['E', 'I']) { const usada = new Uint8Array(N2 * N2), okE = (r_, c_) => r_ < N2 && c_ < N2 && free[r_ * N2 + c_] && !usada[r_ * N2 + c_] && cls[r_ * N2 + c_] === tipo;
         for (let r_ = 0; r_ < N2; r_++) for (let c_ = 0; c_ < N2; c_++) { if (!okE(r_, c_)) continue; let c2 = c_; while (c2 + 1 < N2 && c2 - c_ < (tipo === 'I' ? 3 : 2) && okE(r_, c2 + 1)) c2++; let r2 = r_; const filaOk = rr2 => { for (let q = c_; q <= c2; q++) if (!okE(rr2, q)) return false; return true; }; while (r2 + 1 < N2 && r2 - r_ < (tipo === 'I' ? 3 : 2) && filaOk(r2 + 1)) r2++;
