@@ -1348,8 +1348,9 @@ async function msRawSet(on) {
 const INE = { key: '', n: 0 };
 function inegiCarga(S) {
   if (!S || S.lat == null || S.lng == null || !world) return; const W = world, key = [S.id, S.lat, S.lng, S.radio].join('|'); INE.key = key;
-  fetch(`https://api.check-inn.mx/mercado/maqueta/inegi?lat=${(+S.lat).toFixed(6)}&lng=${(+S.lng).toFixed(6)}&r=${Math.round(S.radio)}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (!j.ok || world !== W || INE.key !== key) return; inegiDibuja(W, j, +S.radio || 400); }).catch(e => console.warn('INEGI', e));
+  fetch(`https://api.check-inn.mx/mercado/maqueta/inegi?lat=${(+S.lat).toFixed(6)}&lng=${(+S.lng).toFixed(6)}&r=${Math.round(S.radio)}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (!j.ok || world !== W || INE.key !== key) return; inegiDibuja(W, j, +S.radio || 400); }).catch(e => { INE.err = String(e && e.stack || e); console.warn('INEGI', e); });
 }
+window.__ine = { INE, carga: S => inegiCarga(S) };
 function inegiDibuja(W, j, RAD) {
   const B = new Map(), CAT = {}, un = a => { const r = []; for (let i = 0; i + 1 < a.length; i += 2) r.push([a[i], a[i + 1]]); return r; }, out = q => Math.hypot(q[0], q[1]) > RAD;
   const slot = (cat, col, flat) => { const k = cat + '|' + col + '|' + (flat ? 1 : 0); let b = B.get(k); if (!b) { b = { cat, col, flat: !!flat, p: [], i: [], L: [] }; B.set(k, b); } return b; };
