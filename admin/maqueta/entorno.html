@@ -261,7 +261,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, MOB ? 1 : 2)); renderer.setSiz
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95; renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-{ const c = document.createElement('canvas'); c.width = 16; c.height = 512; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#d0d0d0'); gr.addColorStop(.5, '#c6c6c6'); gr.addColorStop(1, '#b4b4b4'); g.fillStyle = gr; g.fillRect(0, 0, 16, 512); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t; }
+{ const c = document.createElement('canvas'); c.width = 16; c.height = 512; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#c9d1d9'); gr.addColorStop(.38, '#dcd6cb'); gr.addColorStop(.62, '#e4d9c6'); gr.addColorStop(1, '#cdbfa9'); g.fillStyle = gr; g.fillRect(0, 0, 16, 512); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t; }
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 3, 700);
 const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0, 3, 0); controls.enableDamping = true; controls.dampingFactor = .06; controls.maxPolarAngle = Math.PI * .47; controls.minDistance = 14; controls.autoRotate = false; controls.autoRotateSpeed = .9; controls.enableZoom = false; controls.minDistance = 6;
 let zWant = 0; const zClamp = d => Math.max(controls.minDistance, Math.min(controls.maxDistance || 1e4, d)), zMul = k => { const d = camera.position.distanceTo(controls.target); zWant = zClamp((zWant || d) * k); };
@@ -273,9 +273,9 @@ const REGS = [{ k: 'saltillo', n: 'Saltillo', z: 'Saltillo, Ramos Arizpe y Artea
 const REGI = () => { const S = (typeof curS !== 'undefined' && curS) || null; if (!S || S.lat == null) return REGS[0]; let best = null, bd = 1e9; REGS.forEach(r => { if (S.lat < r.b[0] || S.lat > r.b[2] || S.lng < r.b[1] || S.lng > r.b[3]) return; const d = Math.hypot(S.lat - (r.b[0] + r.b[2]) / 2, (S.lng - (r.b[1] + r.b[3]) / 2) * .9); if (d < bd) { bd = d; best = r; } }); return best || REGS[0]; };
 const rgUrl = n => `data/${n}_${REGI().k}.json`;
 let fitR = 46; const fit = () => { const vf = camera.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect), d = fitR / Math.sin(Math.min(vf, hf) / 2); camera.position.copy(controls.target).addScaledVector(new THREE.Vector3(0, .5, 1.08).normalize(), d); controls.maxDistance = window.__cityOn ? 140000 : d * 2.2; controls.update(); };
-const hemi = new THREE.HemisphereLight(0xcfe2ff, 0xd9cdb8, .6); scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff3e0, 3.6); sun.position.set(40, 70, 30); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); const sc = sun.shadow.camera; sc.left = -50; sc.right = 50; sc.top = 36; sc.bottom = -36; sc.near = 10; sc.far = 220; sun.shadow.bias = -.0003; sun.shadow.normalBias = .05; sun.shadow.radius = 2.2; scene.add(sun);
-const fillL = new THREE.DirectionalLight(0xbfd4ff, .45); fillL.position.set(-50, 30, -30); scene.add(fillL);
+const hemi = new THREE.HemisphereLight(0xe9e1d2, 0xb8a68a, .6); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffe2bd, 3.6); sun.position.set(50, 58, 34); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); const sc = sun.shadow.camera; sc.left = -50; sc.right = 50; sc.top = 36; sc.bottom = -36; sc.near = 10; sc.far = 220; sun.shadow.bias = -.0003; sun.shadow.normalBias = .05; sun.shadow.radius = 2.2; scene.add(sun);
+const fillL = new THREE.DirectionalLight(0xc6d0e2, .45); fillL.position.set(-50, 30, -30); scene.add(fillL);
 
 // ───────── texturas procedurales ─────────
 const rr = rngF(31), cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
@@ -1046,11 +1046,11 @@ const sigOk = p => { const R_ = curS ? curS.radio : 200; return Math.hypot(p[0],
 // agrega un semáforo inferido (si no hay otro a menos de 25 m): lo registra para el tráfico y lo dibuja si cae dentro de la maqueta
 function sigAgrega(g) { const G = (tfSenales(), _tfSig); if (!G || G.l.some(o => o.t === 'sem' && Math.hypot(o.x - g.x, o.y - g.y) < 25)) return false; let b = null, bd = 25; G.nodes.forEach(nd => { if (nd.lg.length < 3) return; const d = Math.hypot(nd.x - g.x, nd.y - g.y); if (d < bd) { bd = d; b = nd; } }); if (b) { g.lg = b.lg; g.nx = b.x; g.ny = b.y; g.x = b.x; g.y = b.y; } if (G.l.some(o => o.t === 'sem' && Math.hypot(o.x - g.x, o.y - g.y) < 25)) return false; g.t = 'sem'; G.l.push(g); if (sigOk([g.x, g.y])) sigCabezalesDe(g, sigOk, null); movStops(); return true; }
 
-const RZ = { on: false, C: null, env: null, room: null, t0: 0, n: 0, auto: true, ei: .38, hi: .32, fi: .3, si: 4.2, ex: .8 };
-const GRADE = { uniforms: { tDiffuse: { value: null }, vig: { value: .36 }, con: { value: 1.16 }, sat: { value: 1.18 }, warm: { value: .035 } }, vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+const RZ = { on: false, C: null, env: null, room: null, t0: 0, n: 0, auto: true, ei: .5, hi: .46, fi: .22, si: 3.7, ex: .84 };
+const GRADE = { uniforms: { tDiffuse: { value: null }, vig: { value: .3 }, con: { value: 1.05 }, sat: { value: 1.04 }, warm: { value: .05 } }, vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: 'uniform sampler2D tDiffuse;uniform float vig,con,sat,warm;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 col=c.rgb;float l=dot(col,vec3(.2126,.7152,.0722));col=mix(vec3(l),col,sat);col=(col-.18)*con+.18;col+=vec3(warm,warm*.45,-warm*.6)*smoothstep(.08,.9,l);vec2 d=vUv-.5;float v=smoothstep(.82,.28,length(d*vec2(1.,.9)));col*=mix(1.-vig,1.,v);gl_FragColor=vec4(max(col,0.),c.a);}' };
 function rzEnv() {
-  if (RZ.env) return RZ.env; const sk = new Sky(); sk.scale.setScalar(4000); const u = sk.material.uniforms; u.turbidity.value = 3.2; u.rayleigh.value = 1.5; u.mieCoefficient.value = .004; u.mieDirectionalG.value = .82; u.sunPosition.value.copy(sun.position).normalize(); const sc = new THREE.Scene(); sc.add(sk); RZ.env = new THREE.PMREMGenerator(renderer).fromScene(sc, 0.02).texture; return RZ.env;
+  if (RZ.env) return RZ.env; const sk = new Sky(); sk.scale.setScalar(4000); const u = sk.material.uniforms; u.turbidity.value = 6.5; u.rayleigh.value = 1.05; u.mieCoefficient.value = .011; u.mieDirectionalG.value = .78; u.sunPosition.value.copy(sun.position).normalize(); const sc = new THREE.Scene(); sc.add(sk); RZ.env = new THREE.PMREMGenerator(renderer).fromScene(sc, 0.02).texture; return RZ.env;
 }
 function rzInit() {
   if (RZ.C) return; const c = new EffectComposer(renderer); c.setPixelRatio(Math.min(devicePixelRatio, MOB ? 1 : 1.5)); c.setSize(innerWidth, innerHeight); c.addPass(new RenderPass(scene, camera));
@@ -1058,17 +1058,18 @@ function rzInit() {
   c.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .12, .55, .96)); RZ.grade = new ShaderPass(GRADE); c.addPass(RZ.grade); c.addPass(new OutputPass()); c.addPass(new SMAAPass(innerWidth * Math.min(devicePixelRatio, 1.5), innerHeight * Math.min(devicePixelRatio, 1.5))); RZ.C = c;
 }
 const rzEnvI = k => { const seen = new Set(); scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (m && 'envMapIntensity' in m && !seen.has(m)) { seen.add(m); if (m.__ei === undefined) m.__ei = m.envMapIntensity; m.envMapIntensity = m.__ei * k; } }); }); };
+function ambFog() { scene.fog = (RZ.on && !window.__cityOn && TOD.h == null && (TOD.k === 'dia' || TOD.k === 'mediodia') && !(typeof FR !== 'undefined' && FR.mode > 0)) ? new THREE.Fog(0xddd3c1, 420, 4200) : null; }   // bruma cálida a distancia: separa la ciudad del fondo y da profundidad
 function rzSet(on, manual) {
   RZ.on = !!on; if (manual) RZ.auto = false; const b = $('b-rz'); if (b) { b.classList.toggle('on', RZ.on); b.textContent = RZ.on ? '🎬 Realismo: sí' : '🎬 Realismo: no'; }
   if (RZ.on) { rzInit(); if (!RZ.room) RZ.room = scene.environment; scene.environment = rzEnv(); rzEnvI(RZ.ei); hemi.intensity = RZ.hi; fillL.intensity = RZ.fi; sun.intensity = RZ.si; renderer.toneMappingExposure = RZ.ex; RZ.t0 = 0; RZ.n = 0; RZ.C.setSize(VIEW.w || innerWidth, innerHeight); }
   else { if (RZ.room) scene.environment = RZ.room; rzEnvI(1); hemi.intensity = .6; fillL.intensity = .45; sun.intensity = 3.6; renderer.toneMappingExposure = .95; }
   if (TOD.bg0 && TOD.k !== 'dia') todApply();
-  renderer.shadowMap.needsUpdate = true;
+  ambFog(); renderer.shadowMap.needsUpdate = true;
 }
 
 // ───────── hora del día: luz, cielo, exposición y luces nocturnas ─────────
 const TODP = {
-  dia: { n: '🌤️ Día (predeterminado)', pos: [40, 70, 30], sc: 0xfff3e0, sk: 1, hs: 0xcfe2ff, hg: 0xd9cdb8, hk: 1, fc: 0xbfd4ff, fk: 1, ex: 1, ek: 1, glow: 0, win: 0, bg: null },
+  dia: { n: '🌤️ Día (predeterminado)', pos: [50, 58, 34], sc: 0xffe2bd, sk: .98, hs: 0xe9e1d2, hg: 0xb8a68a, hk: 1.22, fc: 0xc6d0e2, fk: .62, ex: 1.03, ek: .9, glow: 0, win: 0, bg: null },
   amanecer: { n: '🌅 Amanecer', pos: [95, 17, 25], sc: 0xffb27a, sk: .8, hs: 0xffc9a8, hg: 0x8a7a8c, hk: .95, fc: 0x9bb0e8, fk: .8, ex: 1.02, ek: .6, glow: 1.2, win: .06, bg: ['#34456f', '#8f7aa8', '#ef9f9a', '#ffd2a1', '#ffe6bf'], tb: 6, rl: 2.4, ms: .8 },
   mediodia: { n: '☀️ Mediodía', pos: [10, 100, 8], sc: 0xffffff, sk: 1.15, hs: 0xdbeaff, hg: 0xd9d2c2, hk: 1.05, fc: 0xd4e2ff, fk: .9, ex: 1.03, ek: 1.05, glow: 0, win: 0, bg: ['#2f6fd0', '#5a9be6', '#9cc9f3', '#d4e9fb'], tb: 3, rl: 1.5, ms: .2 },
   atardecer: { n: '🌇 Atardecer', pos: [-90, 14, 35], sc: 0xff8a3d, sk: .85, hs: 0xffa86b, hg: 0x6b5a6a, hk: .85, fc: 0x7a86c8, fk: .7, ex: 1.02, ek: .55, glow: 1.8, win: .14, bg: ['#222b58', '#6c4a7e', '#d86a58', '#f7a05a', '#ffd08a'], tb: 7, rl: 3.2, ms: .6 },
@@ -1098,6 +1099,7 @@ function todApply() {
   sun.position.set(...p.pos).normalize().multiplyScalar(85); if (window.__MQ && window.__MQ.sunC) sun.position.add(window.__MQ.sunC); sun.color.set(p.sc); sun.intensity = B.si * p.sk; hemi.color.set(p.hs); hemi.groundColor.set(p.hg); hemi.intensity = B.hi * p.hk; fillL.color.set(p.fc); fillL.intensity = B.fi * p.fk; renderer.toneMappingExposure = B.ex * p.ex;
   if (on) scene.environment = todEnv(TOD.k) || RZ.room; else if (RZ.room) scene.environment = RZ.room; rzEnvI(B.ei * p.ek);
   if (!(typeof FR !== 'undefined' && FR.mode > 0)) { scene.background = TOD.h != null ? todHBg(TOD.h) : todBg(TOD.k); }
+  ambFog();
   if (TOD.h != null) { const d = todSol(TOD.h); if (d.y > 0) { sun.position.set(d.x, Math.max(d.y, .1), d.z).normalize().multiplyScalar(85); if (window.__MQ && window.__MQ.sunC) sun.position.add(window.__MQ.sunC); } }
   const seen = new Set(); scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach(m => { if (!m || seen.has(m) || m === M.glass || !m.emissive || m.__em0 === undefined && m.emissive.getHex() === 0) return; seen.add(m); if (m.__em0 === undefined) m.__em0 = m.emissiveIntensity; m.emissiveIntensity = m.__em0 * (1 + p.glow); }); });
   M.glass.emissive.set(0xffc27a); M.glass.emissiveIntensity = p.win;
