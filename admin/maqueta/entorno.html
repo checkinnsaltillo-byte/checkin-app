@@ -1767,7 +1767,7 @@ function capGrupos(hijos, ck) {
   let col = {}; try { col = JSON.parse(localStorage.getItem('capcol') || '{}'); } catch (_) { }
   const usados = new Set(), mapa = new Map(hijos.map(c => [c[0], c])), gr = CAPAS_GRP.map(([t, ks]) => [t, ks.filter(k => mapa.has(k)).map(k => { usados.add(k); return mapa.get(k); })]);
   const resto = hijos.filter(c => !usados.has(c[0])); if (resto.length) gr.push(['📦 Otras', resto]);
-  return gr.filter(g => g[1].length).map(([t, cs], i) => `<div class="cg${col[t] ? ' col' : ''}" data-g="${i}" data-t="${t}" data-ks="${cs.map(c => c[0]).join(',')}"><div class="cgh"><span class="cgm"><span class="bx">✓</span></span><span class="cgt">${t}</span>${ETQ_GRUPOS.has(t) ? `<span class="cgl${etqOn(t) ? ' on' : ''}" title="Mostrar u ocultar las etiquetas de este grupo">🏷️ Etiquetas<i></i></span>` : ''}<span class="cgn"></span><span class="cgv">▾</span></div><div class="cgb">${cs.map(ck).join('')}</div></div>`).join('');
+  return gr.filter(g => g[1].length).map(([t, cs], i) => `<div class="cg${col[t] ? ' col' : ''}" data-g="${i}" data-t="${t}" data-ks="${cs.map(c => c[0]).join(',')}"><div class="cgh"><span class="cgm"><span class="bx">✓</span></span><span class="cgt">${t}</span>${ETQ_GRUPOS.has(t) ? `<span class="cgl${etqOn(t) ? ' on' : ''}" title="Mostrar u ocultar los tags de este grupo">🏷️ Tags<i></i></span>` : ''}<span class="cgn"></span><span class="cgv">▾</span></div><div class="cgb">${cs.map(ck).join('')}</div></div>`).join('');
 }
 function capGruposInit(el) {
   el.querySelectorAll('.cg').forEach(g => {
