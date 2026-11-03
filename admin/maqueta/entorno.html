@@ -1531,12 +1531,14 @@ function trgLey() {
   const km = TRG.km, tot = km ? km.slice(0, 4).reduce((a, b) => a + b, 0) : 0, mn = (Date.now() - TRG.t) / 60000;
   L.innerHTML = `<div style="font-weight:700;margin-bottom:5px">🚦 Tráfico de Google</div><div style="color:${mn > 120 ? '#fbbf24' : '#94a3b8'};font-weight:600;margin:-2px 0 5px">Última descarga: ${trgFh(TRG.t)} · ${trgEdad(TRG.t)}</div>${TRG_COL.map(([n, c], i) => `<div style="display:flex;align-items:center;gap:7px;margin:2px 0"><i style="width:22px;height:6px;border-radius:3px;background:${c}"></i><span style="flex:1">${n}</span>${km ? `<span style="color:#94a3b8">${km[i].toFixed(2)} km${tot ? ' · ' + Math.round(km[i] / tot * 100) + ' %' : ''}</span>` : ''}</div>`).join('')}<div style="color:#94a3b8;font-weight:500;margin-top:5px;line-height:1.35">Se colorea la vialidad con lo que Google dibuja; las calles sin color no tienen dato. ${TRG.cfg.activo ? 'Descarga automática cada ' + TRG.cfg.cada + ' min.' : 'Descarga automática apagada.'}</div>`;
 }
-// panel de descarga automática dentro del grupo «Tráfico en vivo» de Capas
-function trgPanel() {
-  const g = [...document.querySelectorAll('#cap .cg')].find(x => /Tráfico en vivo/.test(x.dataset.t || '')); if (!g) return; let p = $('trg-ctl'); if (!p) { p = document.createElement('div'); p.id = 'trg-ctl'; p.style.cssText = 'margin:6px 0 2px 4px;padding:8px 10px;border-radius:10px;background:rgba(15,23,42,.06);font-size:11.5px;line-height:1.4;color:#334155'; g.querySelector('.cgb').appendChild(p); p.addEventListener('click', trgPanelClick); p.addEventListener('change', e => { const id = e.target.id; if (id === 'trg-cada') trgCfg({ cada: +e.target.value }); else if (id === 'trg-dur') trgCfg({ dur: e.target.value }); else if (id === 'trg-h1') trgCfg({ h1: +e.target.value }); else if (id === 'trg-h2') trgCfg({ h2: +e.target.value }); }); } trgPanelPinta();
+function trgResPinta() {
+  const el = $('trg-res'); if (!el) return; if (!TRG.s) { el.innerHTML = '<div style="font-size:12px;color:#64748b">Aún no hay lecturas guardadas para esta maqueta. Pulse «Actualizar ahora» o active la descarga automática.</div>'; return; }
+  const k = trgFrameKm(TRG.s), tot = k.reduce((a, b) => a + b, 0), cong = tot ? (k[2] + k[3]) / tot * 100 : 0, mn = (Date.now() - TRG.t) / 60000;
+  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px">${ecoTile('Última lectura', trgFh(TRG.t).split(', ')[1], trgFh(TRG.t).split(', ')[0] + ' · ' + trgEdad(TRG.t), mn > 120 ? '#b45309' : '')}${ecoTile('Vialidad con dato', tot.toFixed(2) + ' km', 'Google solo mide arterias')}${ecoTile('Lenta o detenida', cong.toFixed(0) + ' %', 'de la vialidad con dato', cong >= 25 ? '#b91c1c' : cong >= 10 ? '#b45309' : '#15803d')}</div><div style="font-size:11px;font-weight:700;margin:10px 0 3px;color:#334155">Estado de la vialidad en la última lectura</div>${TRG_COL.map(([n, c], i) => `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin:2px 0"><i style="width:11px;height:11px;border-radius:3px;background:${c}"></i><span style="width:70px;color:#475569">${n}</span><div style="flex:1;background:#f1f5f9;border-radius:4px;height:9px"><div style="width:${tot ? k[i] / tot * 100 : 0}%;height:9px;border-radius:4px;background:${c}"></div></div><b style="width:76px;text-align:right">${k[i].toFixed(2)} km</b></div>`).join('')}<div style="font-size:10.5px;color:#94a3b8;margin-top:8px;line-height:1.4">Active «Vialidad coloreada según el tráfico en vivo» en Capas › Tráfico en vivo (Google) para verla en la maqueta. Fuente: Google Maps Platform (teselas de tráfico); lo que no aparece coloreado no tiene dato de tráfico.</div>`;
 }
 const trgHL = h => { const x = h % 24, a = x === 0 ? 12 : x > 12 ? x - 12 : x; return a + (x < 12 ? ' a. m.' : ' p. m.'); }, TRG_DUR = { dia: ['Día', 1], semana: ['Semana', 7], mes: ['Mes', 30] };
-function trgPanelPinta() {
+function trgPanelPinta() { trgPanelPinta1(); trgResPinta(); }
+function trgPanelPinta1() {
   const p = $('trg-ctl'); if (!p) return; const c = TRG.cfg, dur = c.dur || 'dia', h1 = c.h1 == null ? 6 : c.h1, h2 = c.h2 == null ? 22 : c.h2, hs = h1 < h2 ? h2 - h1 : 24 - h1 + h2, tm = (TRG.n || 16) * hs * 60 / c.cada * TRG_DUR[dur][1], usd = Math.max(0, tm - 100000) * .0006, hm = (parseInt(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Monterrey' }), 10) || 0) % 24, dentro = h1 < h2 ? hm >= h1 && hm < h2 : (hm >= h1 || hm < h2);
   const st = c.activo ? `<span style="color:#15803d;font-weight:700">Activa</span>${c.ult ? ' · última ' + trgFh(c.ult).split(', ')[1] + ' (' + trgEdad(c.ult) + ')' : ''}${c.hasta ? '<br>Se suspende sola el ' + trgFh(c.hasta) : ''}${dentro ? '' : `<br><span style="color:#b45309">Fuera de horario: se reanuda a las ${trgHL(h1)}</span>`}${c.err ? `<br><span style="color:#b91c1c">Error: ${String(c.err).slice(0, 90)}</span>` : ''}` : `<span style="color:#64748b">Suspendida: no se consulta a Google ni se guarda historial</span>${c.fin ? `<br><span style="color:#b45309">${c.fin}</span>` : ''}`;
   const sel = (id, opts, v) => `<select id="${id}" style="font-size:11.5px;padding:2px 4px;border-radius:6px;border:1px solid #cbd5e1;background:#fff">${opts.map(([k, l]) => `<option value="${k}"${k === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`, hrs = (a, b) => { const o = []; for (let h = a; h <= b; h++) o.push([h, trgHL(h) + (h === 24 ? ' (medianoche)' : '')]); return o; };
@@ -1569,7 +1571,7 @@ async function trgSet(k, on) {
 }
 // al entrar: muestra la última descarga guardada (sin consultar a Google) y deja el panel listo
 async function trgRestaura(S) {
-  if (!S || S.lat == null || !S.id) return; const W = world; trgPanel();
+  if (!S || S.lat == null || !S.id) return; const W = world;
   try { const j = await trgApi('?id=' + encodeURIComponent(S.id)); if (world !== W) return; TRG.cfg = j.cfg || TRG.cfg; const sn = j.snap; TRG.aviso = '';
     if (sn && sn.png) { if (sn.ver !== (S.at || '') || Math.abs(sn.lat - S.lat) > 1e-5 || Math.abs(sn.lng - S.lng) > 1e-5 || Math.abs(sn.R - S.radio) > 1) TRG.aviso = 'Lo guardado es de otra versión de la maqueta: pulse «Actualizar ahora».'; else if (TRG.W !== world) { await trgAplica(sn); if (world !== W) return; TRG.trafico_vial = trgVial(); TRG.trafico_vial.visible = true; } }
     trgPanelPinta(); trgLey(); capasSync(); } catch (e) { console.warn('tráfico guardado', e); }
@@ -3757,6 +3759,13 @@ PW_CIERRA.afl = () => { if (AFL.on) aflSet(curS, false); };
   r.el.addEventListener('click', e => { if (e.target.classList.contains('afl-fus')) { AFL.fus = !AFL.fus; document.querySelectorAll('#pw-afl .afl-fus').forEach(b => b.textContent = 'Fusión de teselas: ' + (AFL.fus ? 'activada' : 'desactivada')); aflSync(true); } });
   pwTabs('afl', list, k => { AFL.v = k; if (AFL.on) aflDraw(CITY.S || curS); aflSync(); });
   new MutationObserver(() => { if (r.el.classList.contains('on') && !AFL.D) aflLoad().then(aflRes); }).observe(r.el, { attributes: true, attributeFilter: ['class'] }); aflSync();
+}
+// ── Ventana «Tráfico»: 1) Monitoreo del tráfico (descarga automática, historial y animación) y 2) Flujo vehicular (lo que ya había) ──
+{
+  const r = pwMake('trf'), pm = pwPane('trf'); r.chip.style.display = ''; TRG.pm = pm;
+  pm.cfg.innerHTML = '<div id="trg-ctl" style="font-size:11.5px;line-height:1.4;color:#334155"></div>'; pm.res.innerHTML = '<div id="trg-res"></div>'; const p = $('trg-ctl');
+  p.addEventListener('click', trgPanelClick); p.addEventListener('change', e => { const id = e.target.id; if (id === 'trg-cada') trgCfg({ cada: +e.target.value }); else if (id === 'trg-dur') trgCfg({ dur: e.target.value }); else if (id === 'trg-h1') trgCfg({ h1: +e.target.value }); else if (id === 'trg-h2') trgCfg({ h2: +e.target.value }); });
+  pwTabs('trf', [{ k: 'mon', l: '📡 Monitoreo del tráfico', el: pm.el }, { k: 'flujo', l: '🚗 Flujo vehicular', el: r.el.querySelector('.pws') }], () => { }); trgPanelPinta();
 }
 // ───── Actividad económica · fuente 2: Google Places (negocios a ≤ 1 km del punto, los mismos de la ficha de Alojamientos)
 const GP = { d: null, et: {}, id: '', k: '', on: false, G: null, tabs: {}, g: '', q: '', ord: 'dist', n: 40, sel: null, src: 'denue', busy: false, cache: {} };
