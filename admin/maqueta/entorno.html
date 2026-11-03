@@ -1836,6 +1836,29 @@ const TF_CL = { motorway: 'Autopista', trunk: 'Troncal', primary: 'Primaria', se
 // ── ventanitas emergentes sobre el mapa: los resultados de cada análisis salen del menú izquierdo y viven aquí (se arrastran, se minimizan y se cierran; un botón al borde del mapa las abre)
 const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Riesgos'], fr: ['🕸️', 'Accesibilidad'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Población'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Terreno'], urb: ['🏘️', 'Urbanización'], dem: ['👥', 'Demografía'], eco: ['🏪', 'Actividad económica'], afl: ['🚶', 'Afluencia'], ent: ['🏙️', 'Análisis del entorno urbano (IA)'], amb: ['🌿', 'Medio ambiente'], psl: ['☀️', 'Potencial solar'], aire: ['💨', 'Calidad del aire y polen'], arb: ['🌳', 'Cobertura arbórea'], emi: ['🏭', 'Emisiones de carbono'], ind: ['📋', 'Indicadores'], mapa: ['🗺️', 'Mapa de mis proyectos'], trf: ['🚦', 'Tráfico'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'dem', 'eco', 'afl', 'ent', 'amb', 'psl', 'aire', 'arb', 'emi', 'ind', 'mapa', 'trf'];
 function pwLeft() { const d = $('dock'); return d && !d.classList.contains('off') ? Math.round(d.getBoundingClientRect().right) + 6 : 8; }
+// ── leyendas y tablas de simbología flotantes: aparecen centradas abajo en el mapa (apiladas si hay varias) y se pueden arrastrar; la posición se recuerda por leyenda (doble clic = volver a la posición inicial)
+const LEG = { re: /^((trg|hxl|afl|gp|eco|pob|psl|air)-leg|acc-box|pob-box)$/, def: /-leg$/, pos: (() => { try { return JSON.parse(localStorage.getItem('legpos') || '{}'); } catch (_) { return {}; } })(), drag: null };
+const legGuarda = () => { try { localStorage.setItem('legpos', JSON.stringify(LEG.pos)); } catch (_) { } };
+const legTodas = () => [...document.querySelectorAll('body > [id]')].filter(e => LEG.re.test(e.id) && !e.classList.contains('dk-c'));
+function legPon(el) {
+  if (el.classList.contains('dk-c')) return; const p = LEG.pos[el.id];
+  if (p) { const w = el.offsetWidth || 300, h = el.offsetHeight || 120, l = Math.max(4, Math.min(innerWidth - w - 4, p.x * innerWidth)), t = Math.max(4, Math.min(innerHeight - h - 4, p.y * innerHeight)); el.style.cssText += `;left:${l}px;top:${t}px;right:auto;bottom:auto;transform:none`; el.dataset.mv = '1'; return; }
+  el.dataset.mv = '';
+}
+function legAcomoda() {
+  const cx = pwLeft() + (innerWidth - pwLeft()) / 2; let y = 18;
+  legTodas().forEach(el => { if (!LEG.drag || LEG.drag.el !== el) { if (el.dataset.mv === undefined) legPon(el); if (el.dataset.mv === '1') return; if (!LEG.def.test(el.id)) return; el.style.left = cx + 'px'; el.style.right = 'auto'; el.style.top = 'auto'; el.style.transform = 'translateX(-50%)'; el.style.bottom = y + 'px'; el.style.maxWidth = 'min(340px, calc(100vw - 24px))'; el.style.cursor = 'grab'; el.style.touchAction = 'none'; el.title = el.title || 'Arrastre para mover · doble clic para devolverla abajo al centro'; y += el.offsetHeight + 8; } });
+  legTodas().forEach(el => { if (el.dataset.mv === '1') { el.style.cursor = 'grab'; el.style.touchAction = 'none'; } });
+}
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest && e.target.closest('body > [id]'); if (!el || !LEG.re.test(el.id) || el.classList.contains('dk-c') || e.button > 0) return; if (e.target.closest('button,a,input,select,textarea,label,.ck,[data-nodrag]')) return;
+  const r = el.getBoundingClientRect(); e.preventDefault(); LEG.drag = { el, dx: e.clientX - r.left, dy: e.clientY - r.top, mov: false }; el.setPointerCapture && el.setPointerCapture(e.pointerId);
+});
+document.addEventListener('pointermove', e => { const d = LEG.drag; if (!d) return; const el = d.el, w = el.offsetWidth, h = el.offsetHeight; if (!d.mov && Math.hypot(e.movementX || 0, e.movementY || 0) < 0 && false) return; d.mov = true; el.style.transform = 'none'; el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.left = Math.max(4, Math.min(innerWidth - w - 4, e.clientX - d.dx)) + 'px'; el.style.top = Math.max(4, Math.min(innerHeight - h - 4, e.clientY - d.dy)) + 'px'; el.style.cursor = 'grabbing'; el.style.zIndex = 9050; el.dataset.mv = '1'; });
+document.addEventListener('pointerup', () => { const d = LEG.drag; if (!d) return; LEG.drag = null; const el = d.el; el.style.cursor = 'grab'; if (d.mov) { const r = el.getBoundingClientRect(); LEG.pos[el.id] = { x: +(r.left / innerWidth).toFixed(4), y: +(r.top / innerHeight).toFixed(4) }; legGuarda(); } });
+document.addEventListener('dblclick', e => { const el = e.target.closest && e.target.closest('body > [id]'); if (!el || !LEG.re.test(el.id) || e.target.closest('button,a,input,select,textarea')) return; delete LEG.pos[el.id]; legGuarda(); el.dataset.mv = ''; if (!LEG.def.test(el.id)) { el.style.left = el.style.top = 'auto'; el.style.right = '16px'; el.style.bottom = '18px'; el.style.transform = 'none'; } legAcomoda(); });
+try { new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes, ...m.removedNodes].some(n => n.nodeType === 1 && LEG.re.test(n.id || '')))) setTimeout(legAcomoda, 0); }).observe(document.body, { childList: true }); } catch (_) { }
+addEventListener('resize', legAcomoda); setInterval(legAcomoda, 1500);
 function pwLayout() { const b = $('pw-bar'); if (b) { const l = pwLeft(); b.style.left = l + 'px'; b.classList.toggle('ico', l + 210 > innerWidth); } }
 function pwMake(id) {
   if (PW.m.has(id)) return PW.m.get(id); const [ic, tt] = PW_DEF[id]; let bar = $('pw-bar'); if (!bar) { bar = document.createElement('div'); bar.id = 'pw-bar'; bar.style.top = '76px'; document.body.appendChild(bar); pwLayout(); }
