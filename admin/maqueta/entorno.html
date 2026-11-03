@@ -2651,7 +2651,7 @@ function capasRescata() { const bar = document.querySelector('.bar'); if (!bar) 
 function postBuild(S) {
   if (S.roads) { S.riesgos = (S.riesgos || []).filter(q => !/posible|probable|ambigu|podr[ií]a|se renta|mural/i.test((q.n || '') + ' ' + (q.k || ''))); const n = buildAlertas(S); panelRiesgos(S); $('b-rg').style.display = ''; $('b-rl').style.display = ''; $('b-rg').textContent = `🚨 Riesgos (${n})`; }
   [0, 300, 1200, 3000].forEach(ms => setTimeout(() => { renderer.shadowMap.needsUpdate = true; }, ms));
-  if (S.roads) { capasRescata(); buildCapas(); vcDock(); if (!CITY.on) rzSet(true); tfCarga(S); odCarga(S); setMapa(mapTipo); inegiCarga(S); }
+  if (S.roads) { capasRescata(); buildCapas(); try { inegiCarga(S); } catch (e) { console.warn('INEGI', e); } vcDock(); if (!CITY.on) rzSet(true); tfCarga(S); odCarga(S); setMapa(mapTipo); }
 }
 // deja los análisis en blanco para la maqueta nueva (sus datos se vuelven a pedir)
 function mqReset() {
