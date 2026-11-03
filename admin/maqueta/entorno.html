@@ -1350,7 +1350,7 @@ function inegiCarga(S) {
   if (!S || S.lat == null || S.lng == null || !world) return; const W = world, key = [S.id, S.lat, S.lng, S.radio].join('|'); if (INE.W === W && INE.key === key) return; INE.W = W; INE.key = key;
   fetch(`https://api.check-inn.mx/mercado/maqueta/inegi?lat=${(+S.lat).toFixed(6)}&lng=${(+S.lng).toFixed(6)}&r=${Math.round(S.radio)}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (!j.ok || world !== W || INE.key !== key) return; inegiDibuja(W, j, +S.radio || 400); }).catch(e => { INE.err = String(e && e.stack || e); console.warn('INEGI', e); });
 }
-window.__ine = { INE, carga: S => inegiCarga(S) };
+window.__ine = { INE, carga: S => inegiCarga(S), cam: camera, ctl: controls };
 function inegiDibuja(W, j, RAD) {
   const PI = Math.PI, B = new Map(), labs = [], EB = (window.__edB && window.__edB.builds) || [], ROADS = (window.__peaCtx && window.__peaCtx.roads) || [];
   const un = a => { const r = []; for (let i = 0; i + 1 < a.length; i += 2) r.push([a[i], a[i + 1]]); return r; }, fuera = q => Math.hypot(q[0], q[1]) > RAD;
@@ -1494,7 +1494,7 @@ function inegiDibuja(W, j, RAD) {
   B.forEach(b => { const L = b.L.slice(); if (b.p.length) { const gm = new THREE.BufferGeometry(); gm.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3)); gm.setIndex(b.i); gm.computeVertexNormals(); L.push(gm.toNonIndexed()); gm.dispose(); } if (!L.length) return;
     const mg = mergeGeometries(L, false); if (!mg) return; const mt = new THREE.MeshStandardMaterial({ color: b.col, roughness: .9, side: THREE.DoubleSide, transparent: b.alpha < 1, opacity: b.alpha, depthWrite: b.alpha >= 1, polygonOffset: b.flat, polygonOffsetFactor: b.flat ? -4 : 0, polygonOffsetUnits: b.flat ? -4 : 0 }), m = new THREE.Mesh(mg, mt); m.receiveShadow = b.flat; m.castShadow = !b.flat;
     if (!grp[b.cat]) { grp[b.cat] = new THREE.Group(); grp[b.cat].userData.cat = b.cat; W.add(grp[b.cat]); } grp[b.cat].add(m); nM++; L.forEach(g => g.dispose()); });
-  INE.G = grp; INE.labs = [];
+  INE.G = grp; INE.labs = []; INE.items = labs;
   if (labs.length) { const eg = new THREE.Group(); eg.userData.cat = 'ine_eti'; W.add(eg); const us = [], wT = Math.max(12, Math.min(26, RAD * .05)), TX = new Map(); INE.eg = eg;
     labs.sort((a, b) => a.pri - b.pri || Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y)).forEach(q => { if (us.length >= 260 || us.some(u => Math.hypot(u.x - q.x, u.y - q.y) < 13)) return; us.push(q); const k = q.t + '|' + q.col; let tx = TX.get(k); if (!tx) { const c = document.createElement('canvas'); c.width = 420; c.height = 64; const x = c.getContext('2d'); x.fillStyle = 'rgba(255,255,255,.92)'; x.beginPath(); x.roundRect(3, 6, 414, 52, 16); x.fill(); x.strokeStyle = q.col; x.lineWidth = 3; x.stroke(); x.fillStyle = '#1e293b'; x.textAlign = 'center'; x.textBaseline = 'middle'; let fs = 30; x.font = `700 ${fs}px system-ui,sans-serif`; while (x.measureText(q.t).width > 385 && fs > 13) { fs -= 2; x.font = `700 ${fs}px system-ui,sans-serif`; } x.fillText(q.t, 210, 33); tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; TX.set(k, tx); }
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, depthTest: false })); sp.renderOrder = 5; const w = wT * Math.min(1.6, .6 + q.t.length / 36); sp.scale.set(w, w * 64 / 420, 1); sp.position.set(q.x, Math.max(3, q.h), -q.y); eg.add(sp); INE.labs.push({ s: sp, cat: q.cat }); }); }
