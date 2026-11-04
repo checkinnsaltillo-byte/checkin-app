@@ -3827,7 +3827,7 @@ async function covCarga(S) {
     fetch(`https://api.check-inn.mx/mercado/maqueta/suelo?${q}`).then(r => r.json()).then(j => { if (j && j.ok && j.b64) { C.wc = u8(j.b64); C.n = j.n; } }).catch(() => { }),
     fetch(`https://api.check-inn.mx/mercado/maqueta/s2?${q}`).then(r => r.json()).then(j => { if (j && j.ok && j.nd) C.s2 = { n: j.n, nd: new Int8Array(u8(j.nd).buffer), nb: new Int8Array(u8(j.nb).buffer), scl: u8(j.scl), fecha: j.fecha, nubes: j.nubes }; }).catch(() => { })]).then(() => { if (C.s2 && C.wc && C.s2.n !== C.n) C.s2 = null; });
 }
-function covUsa(S) { const C = (S && S.__cov) || {}; COV.wc = C.wc || null; COV.s2 = C.s2 || null; COV.n = C.n || 0; COV.key = S ? [S.lat, S.lng, S.radio].join('|') : ''; }
+function covUsa(S) { window.__COV = COV; window.__covCell = covCell; const C = (S && S.__cov) || {}; COV.wc = C.wc || null; COV.s2 = C.s2 || null; COV.n = C.n || 0; COV.key = S ? [S.lat, S.lng, S.radio].join('|') : ''; }
 function covCell(x, y) {
   const n = COV.n; if (!n || !COV.wc) return null; const half = n * 5, i = Math.floor((x + half) / 10), j = Math.floor((half - y) / 10); if (i < 0 || j < 0 || i >= n || j >= n) return null; const k = j * n + i, S2 = COV.s2; let nd = null, nb = null;
   if (S2) { const cl = S2.scl[k]; if (S2.nd[k] !== -128 && ![3, 8, 9, 10, 11].includes(cl)) { nd = S2.nd[k]; nb = S2.nb[k]; } } return { wc: COV.wc[k], nd, nb };
