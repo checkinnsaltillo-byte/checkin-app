@@ -4477,12 +4477,12 @@ function cmpRes() {
 function cmpQuita() { if (CMP.g) { if (CMP.g.parent) CMP.g.parent.remove(CMP.g); CMP.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); CMP.g = null; } }
 function cmpDibuja() {
   cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(), kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c }));
-  CMP.pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, k = Math.min(10, Math.max(1, Math.hypot(x, z) / 700)), H = 38 * k, col = CMP_COL[p.rol || 'none'];
-    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(.9 * k, H, .9 * k); pole.position.set(x, H / 2, z); pole.userData.noPick = 1; G.add(pole);
-    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(4.6 * k); ball.position.set(x, H + 3 * k, z); ball.userData.noPick = 1; G.add(ball);
+  CMP.pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, k = Math.min(10, Math.max(1, Math.hypot(x, z) / 700)), H = 80 * k, col = CMP_COL[p.rol || 'none'];
+    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2 * k, H, 2 * k); pole.position.set(x, H / 2, z); pole.userData.noPick = 1; G.add(pole);
+    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(9.5 * k); ball.position.set(x, H + 6 * k, z); ball.userData.noPick = 1; G.add(ball);
     if (i < 80) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t, w = 340; while (g.measureText(tx).width > w && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
       g.fillStyle = 'rgba(15,23,42,.88)'; g.beginPath(); g.roundRect(4, 6, 376, 60, 18); g.fill(); g.lineWidth = 4; g.strokeStyle = col; g.stroke(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, 192, 38);
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.scale.set(70 * k, 70 * k * .1875, 1); sp.position.set(x, H + 15 * k, z); sp.renderOrder = 9; sp.userData.noPick = 1; G.add(sp); } });
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.scale.set(150 * k, 150 * k * .1875, 1); sp.position.set(x, H + 34 * k, z); sp.renderOrder = 9; sp.userData.noPick = 1; G.add(sp); } });
   G.userData.cmp = 1; world.add(G); CMP.g = G; try { capasSync(); } catch (_) { }
 }
 function cmpIr(p) { const S = curS; if (!S || !controls) return; const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, t = controls.target, dx = x - t.x, dz = z - t.z; camera.position.x += dx; camera.position.z += dz; t.set(x, 0, z); controls.update(); }
