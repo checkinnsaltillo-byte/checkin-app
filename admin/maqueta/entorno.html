@@ -1205,7 +1205,7 @@ function satOffAt(S, x, y) {   // desplazamiento esperado en un punto: de la hue
 }
 async function satAlinea(S) {
   if (!S || S.__mbA || S.__mbDone || !Array.isArray(S.mb) || S.mb.length < 3 || S.lat == null) return;
-  const R_ = +S.radio || 200, t = await mapaTextura(S, 'satelite', R_, true), cv = t && t.image; if (!cv || !cv.width) return;
+  const R_ = +S.radio || 200, t = await mapaTextura(S, 'satelite', R_, true), cv = t && t.image; if (!cv || !cv.width) return; window.__satCv = cv; window.__satS = S;
   const res = Math.max(.5, 2 * R_ / 2048), n = Math.ceil(2 * R_ / res), c2 = document.createElement('canvas'); c2.width = c2.height = n; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.drawImage(cv, 0, 0, n, n);
   let im; try { im = g2.getImageData(0, 0, n, n).data; } catch (_) { return; }   // si el navegador no deja leer los píxeles, no se alinea
   const Y = new Float32Array(n * n); for (let i = 0; i < n * n; i++) Y[i] = .299 * im[i * 4] + .587 * im[i * 4 + 1] + .114 * im[i * 4 + 2];
