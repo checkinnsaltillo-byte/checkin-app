@@ -4555,26 +4555,34 @@ CMP.an = { modo: 'auto', hora: 'libre', beta: 2, T: 10, vista: 'terr', hm: 'ref'
 const CMP_API = 'https://api.check-inn.mx/mercado/maqueta/competencia/', CMP_HRS = [['libre', 'Flujo libre'], ['am', '8:00'], ['md', '13:00'], ['pm', '19:00']], cmpFmtN = n => Math.round(n).toLocaleString('es-MX');
 const cmpAnCol = (f, j) => { if (f.rol === 'ref') return '#1d4ed8'; let h = (j * 137.508) % 300; if (h > 195) h += 60; return `hsl(${Math.round(h)},68%,46%)`; };
 const CMP_ISO = [[300, '#16a34a', '≤ 5 min'], [600, '#84cc16', '5–10'], [900, '#facc15', '10–15'], [1200, '#fb923c', '15–20'], [1800, '#ef4444', '20–30']], CMP_ACC = [['#475569', 'Sin oferta (desierto)'], ['#fde68a', 'Muy baja'], ['#fdba74', 'Baja'], ['#fb923c', 'Media'], ['#ef4444', 'Alta'], ['#7f1d1d', 'Saturación']];
+function cmpMapaFondo(n) {   // al abrir el análisis se enciende el mapa de fondo «Calles» (si estaba en «Sin mapa»); reintenta mientras la maqueta termina de cargar
+  n = n || 0; try { const bc = document.querySelector('#cap-base [data-b="calles"]'), of = document.querySelector('#cap-base [data-b="off"]'); if (bc && of && curS) { if (of.classList.contains('on') && !CMP.mapaAuto) { CMP.mapaAuto = true; bc.click(); } return; } } catch (_) { } if (n < 12) setTimeout(() => cmpMapaFondo(n + 1), 700);
+}
 function cmpAnQuita() { const A = CMP.an; if (A.g) { if (A.g.parent) A.g.parent.remove(A.g); A.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.g = null; A.im = null; } }
-function cmpAnDib() {   // una sola malla instanciada: un cuadrado por manzana (del área de la manzana) sobre el suelo
-  cmpAnQuita(); const A = CMP.an, d = A.d, S = curS; if (!d || !world || !S || S.lat == null || !CMP.on) return; const M = d.nz, kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz;
-  const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: .74, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }), im = new THREE.InstancedMesh(geo, mat, M), m4 = new THREE.Matrix4();
-  for (let i = 0; i < M; i++) { const s = q.sd[i] * .92; m4.makeScale(s, 1, s); m4.setPosition((q.ln[i] - S.lng) * kx, 2.2, -(q.la[i] - S.lat) * 111320); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color('#94a3b8')); }
-  im.renderOrder = 4; im.frustumCulled = false; im.userData.noPick = 1; const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.add(im); world.add(G); A.g = G; A.im = im; cmpAnPinta();
+function cmpAnDib() {   // una sola malla: el polígono real de cada manzana sobre el suelo, con color por vértice
+  cmpAnQuita(); const A = CMP.an, d = A.d, S = curS; if (!d || !world || !S || S.lat == null || !CMP.on) return; const M = d.nz, kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, pos = [], idx = [], rng = []; let vc = 0;
+  for (let i = 0; i < M; i++) {
+    const cx = (q.ln[i] - S.lng) * kx, cz = -(q.la[i] - S.lat) * 111320, P = q.pl && q.pl[i]; let pts = [];
+    if (P && P.length >= 6) for (let k = 0; k + 1 < P.length; k += 2) pts.push(new THREE.Vector2(cx + P[k] / 10, cz - P[k + 1] / 10)); else { const h = q.sd[i] / 2; pts = [new THREE.Vector2(cx - h, cz - h), new THREE.Vector2(cx + h, cz - h), new THREE.Vector2(cx + h, cz + h), new THREE.Vector2(cx - h, cz + h)]; }
+    let tri = []; try { tri = THREE.ShapeUtils.triangulateShape(pts, []); } catch (_) { } if (!tri.length) for (let k = 1; k + 1 < pts.length; k++) tri.push([0, k, k + 1]);
+    pts.forEach(v => pos.push(v.x, 2.2, v.y)); tri.forEach(t => idx.push(vc + t[0], vc + t[1], vc + t[2])); rng.push([vc, pts.length]); vc += pts.length;
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vc * 3).fill(.6), 3)); geo.setIndex(idx);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .72, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -80, polygonOffsetUnits: -80 })); mesh.renderOrder = 30; mesh.frustumCulled = false; mesh.userData.noPick = 1;
+  const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.add(mesh); world.add(G); A.g = G; A.im = mesh; A.rng = rng; cmpAnPinta();
 }
 function cmpAnPinta() {
-  const A = CMP.an, d = A.d; if (!A.im || !d) return; const q = d.mz, M = d.nz, c = new THREE.Color(), blanco = new THREE.Color('#ffffff'), cols = d.fac.map((f, j) => new THREE.Color(cmpAnCol(f, j))), m4 = new THREE.Matrix4(), S = curS, kx = 111320 * Math.cos(+S.lat * Math.PI / 180);
-  const modoIso = A.iso && (A.vista === 'traf' || A.vista === 'iso' || A.sel);
+  const A = CMP.an, d = A.d; if (!A.im || !d) return; const q = d.mz, M = d.nz, c = new THREE.Color(), blanco = new THREE.Color('#ffffff'), gris = new THREE.Color('#cbd5e1'), cols = d.fac.map((f, j) => new THREE.Color(cmpAnCol(f, j))), col = A.im.geometry.attributes.color.array;
+  const modoIso = A.iso && (A.vista === 'traf' || A.sel);
   for (let i = 0; i < M; i++) {
-    let vis = true;
-    if (modoIso) { const t = A.iso[i]; if (t < 0) { c.set('#cbd5e1'); c.lerp(blanco, .4); } else { const b = CMP_ISO.find(x => t <= x[0]); c.set(b ? b[1] : '#ef4444'); } }
-    else if (A.vista === 'terr') { if (q.own[i] < 0) { c.set('#cbd5e1'); } else { c.copy(cols[q.own[i]]); c.lerp(blanco, Math.min(.6, q.t[i] / 1200 * .6)); } }
-    else if (A.vista === 'huff') { if (q.hw[i] < 0) c.set('#cbd5e1'); else if (A.hm === 'ref') { const r = q.rp[i] / 100; c.set('#dc2626'); c.lerp(new THREE.Color('#e2e8f0'), Math.min(1, r * 2)); if (r > .5) c.lerp(new THREE.Color('#1d4ed8'), Math.min(1, (r - .5) * 2)); } else { c.copy(cols[q.hw[i]]); c.lerp(blanco, 1 - q.hp[i] / 100 * .9 - .1); } }
+    if (modoIso) { const t = A.iso[i]; if (t < 0) { c.copy(gris).lerp(blanco, .4); } else { const b = CMP_ISO.find(x => t <= x[0]); c.set(b ? b[1] : '#ef4444'); } }
+    else if (A.vista === 'terr') { if (q.own[i] < 0) c.copy(gris); else { c.copy(cols[q.own[i]]); c.lerp(blanco, Math.min(.6, q.t[i] / 1200 * .6)); } }
+    else if (A.vista === 'huff') { if (q.hw[i] < 0) c.copy(gris); else if (A.hm === 'ref') { const r = q.rp[i] / 100; c.set('#dc2626'); c.lerp(new THREE.Color('#e2e8f0'), Math.min(1, r * 2)); if (r > .5) c.lerp(new THREE.Color('#1d4ed8'), Math.min(1, (r - .5) * 2)); } else { c.copy(cols[q.hw[i]]); c.lerp(blanco, 1 - q.hp[i] / 100 * .9 - .1); } }
     else if (A.vista === 'acc') { const a = q.acc[i], k = a <= 0 ? 0 : a <= d.qs[0] ? 1 : a <= d.qs[1] ? 2 : a <= d.qs[2] ? 3 : a <= d.qs[3] ? 4 : 5; c.set(CMP_ACC[k][0]); }
     else c.set('#94a3b8');
-    A.im.setColorAt(i, c); if (!vis) { m4.makeScale(0, 0, 0); A.im.setMatrixAt(i, m4); }
+    const [v0, n] = A.rng[i]; for (let k = 0; k < n; k++) { const o = (v0 + k) * 3; col[o] = c.r; col[o + 1] = c.g; col[o + 2] = c.b; }
   }
-  A.im.instanceColor.needsUpdate = true; if (A.im.instanceMatrix) A.im.instanceMatrix.needsUpdate = true;
+  A.im.geometry.attributes.color.needsUpdate = true;
 }
 async function cmpAnIso(fid) {   // isócrona de un punto: tiempo de viaje a cada manzana
   const A = CMP.an, sq = ++A.isq; A.sel = fid; A.iso = null; cmpRes(); if (!fid) { cmpAnPinta(); return; }
@@ -4687,7 +4695,7 @@ PW_CIERRA.cmp = () => { cmpPickSet(false); cmpAnQuita(); };
     const n = e.target.closest && e.target.closest('.cmp-pt input.n'); if (n) { const p = CMP.pts.find(x => x.id === n.closest('.cmp-pt').dataset.id); if (p) { p.n = n.value.trim().slice(0, 120) || p.n; n.value = p.n; cmpSt(); cmpDibuja(); } }
   });
   r.el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.classList.contains('cmp-q')) cmpCarga().then(() => { cmpSelects(); cmpBuscaDenue(); }); else if (e.target.classList.contains('cmp-gq')) { clearTimeout(CMP.t2); cmpBuscaG(); } });
-  new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { if (!CMP.raf) CMP.raf = requestAnimationFrame(cmpTick); try { const bc = document.querySelector('#cap-base [data-b="calles"]'), of = document.querySelector('#cap-base [data-b="off"]'); if (bc && of && of.classList.contains('on')) bc.click(); } catch (_) { } cmpInicia().then(() => cmpDibuja()); cmpDibuja(); if (CMP.an.d) cmpAnDib(); } else { cmpPickSet(false); cmpQuita(); cmpAnQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { if (!CMP.raf) CMP.raf = requestAnimationFrame(cmpTick); cmpMapaFondo(); cmpInicia().then(() => cmpDibuja()); cmpDibuja(); if (CMP.an.d) cmpAnDib(); } else { cmpPickSet(false); cmpQuita(); cmpAnQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
   setInterval(() => { if (CMP.on && (!CMP.g || CMP.g.parent !== world) && curS && CMP.pts.length) cmpDibuja(); if (CMP.on && CMP.an.d && (!CMP.an.g || CMP.an.g.parent !== world)) cmpAnDib(); }, 1500); cmpRes(); cmpPuntos();
 }
 // ── Ventana «Tráfico»: 1) Monitoreo del tráfico (descarga automática, historial y animación) y 2) Flujo vehicular (lo que ya había) ──
