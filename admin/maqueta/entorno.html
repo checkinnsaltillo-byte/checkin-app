@@ -1204,7 +1204,7 @@ function satOffAt(S, x, y) {   // desplazamiento esperado en un punto: de la hue
   const v = []; for (let i = 0; i < C.length; i++) { const d = Math.hypot(C[i][0] - x, C[i][1] - y); if (d < 90) v.push([O[i][0], O[i][1], 1 / (d + 20)]); } if (!v.length) return S.__alin ? S.__alin.med : [0, 0]; const med = k => { const a = v.map(q => [q[k], q[2]]).sort((p, q) => p[0] - q[0]), tot = a.reduce((s, q) => s + q[1], 0); let c = 0; for (const q of a) { c += q[1]; if (c >= tot / 2) return q[0]; } return 0; }; return [med(0), med(1)];
 }
 async function satAlinea(S) {
-  if (!S || S.__mbA || !Array.isArray(S.mb) || S.mb.length < 3 || S.lat == null) return;
+  if (!S || S.__mbA || S.__mbDone || !Array.isArray(S.mb) || S.mb.length < 3 || S.lat == null) return;
   const R_ = +S.radio || 200, t = await mapaTextura(S, 'satelite', R_, true), cv = t && t.image; if (!cv || !cv.width) return;
   const res = Math.max(.5, 2 * R_ / 2048), n = Math.ceil(2 * R_ / res), c2 = document.createElement('canvas'); c2.width = c2.height = n; const g2 = c2.getContext('2d', { willReadFrequently: true }); g2.drawImage(cv, 0, 0, n, n);
   let im; try { im = g2.getImageData(0, 0, n, n).data; } catch (_) { return; }   // si el navegador no deja leer los píxeles, no se alinea
@@ -1227,7 +1227,7 @@ async function satAlinea(S) {
   G.forEach((g, i) => { const nb = []; fi.forEach(j => { if (j === i) return; const d = Math.hypot(cen[j][0] - cen[i][0], cen[j][1] - cen[i][1]); if (d < 90) nb.push([off[j][0], off[j][1], conf[j] / (d + 20)]); });
     const cons = nb.length >= 2 ? [med(nb, 0), med(nb, 1)] : null; if (conf[i] > 0 && (!cons || Math.hypot(off[i][0] - cons[0], off[i][1] - cons[1]) <= 5)) fin[i] = off[i]; else fin[i] = cons || gl; });
   const lim = v => Math.max(-A, Math.min(A, v)); S.__mbOff = fin.map(o => [lim(o[0]), lim(o[1])]); S.__mbC = cen; S.__mbA = S.mb.map((f, i) => f.map((v, k) => v + S.__mbOff[i][k % 2]));
-  const mx = S.__mbOff.reduce((s, o) => s + o[0], 0) / Math.max(1, G.length), my = S.__mbOff.reduce((s, o) => s + o[1], 0) / Math.max(1, G.length); let m0 = 0, m1 = 0, nm = 0, nb = 0; SCF.forEach((f, i) => { if (!f) return; const a = f(0, 0), b = f(S.__mbOff[i][0], S.__mbOff[i][1]); if (a < 0 || b < 0) return; m0 += a; m1 += b; nm++; if (b > a * 1.02) nb++; }); S.__alin = { n: G.length, fiables: fi.length, med: gl, medio: [+mx.toFixed(1), +my.toFixed(1)], res: +res.toFixed(2), bordeAntes: +(m0 / Math.max(1, nm)).toFixed(3), bordeDespues: +(m1 / Math.max(1, nm)).toFixed(3), mejoran: nb, evaluadas: nm }; window.__alin = S.__alin;
+  const mx = S.__mbOff.reduce((s, o) => s + o[0], 0) / Math.max(1, G.length), my = S.__mbOff.reduce((s, o) => s + o[1], 0) / Math.max(1, G.length); let m0 = 0, m1 = 0, nm = 0, nb = 0; SCF.forEach((f, i) => { if (!f) return; const a = f(0, 0), b = f(S.__mbOff[i][0], S.__mbOff[i][1]); if (a < 0 || b < 0) return; m0 += a; m1 += b; nm++; if (b > a * 1.02) nb++; }); S.__alin = { n: G.length, fiables: fi.length, med: gl, medio: [+mx.toFixed(1), +my.toFixed(1)], res: +res.toFixed(2), bordeAntes: +(m0 / Math.max(1, nm)).toFixed(3), bordeDespues: +(m1 / Math.max(1, nm)).toFixed(3), mejoran: nb, evaluadas: nm }; window.__alin = S.__alin; if (S.__alin.bordeDespues < S.__alin.bordeAntes * 1.03) { S.__alin.descartado = true; S.__mbA = null; S.__mbDone = true; }
 }
 async function setMapa(tipo) {
   if (window.__MQ && window.__MQ.sel.size) setTimeout(() => { try { mqMapas(); } catch (_) { } }, 0);
