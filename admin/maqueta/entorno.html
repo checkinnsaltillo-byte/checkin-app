@@ -4756,7 +4756,7 @@ function mzAnillo(O, I, y, th) {   // banda con la forma de la manzana (entre el
 }
 function mzDibuja(S) {
   mzQuita(); if (!world || !MZ.items || !MZ.items.length) return; const items = MZ.items.filter(m => m.p && m.p.length >= 6);
-  const BASE = 14, DZ = 7.5, TK = .7, SC = 2.4, SPAC = 1.45, BW = 2.6, OUT = [.92, .75, .58, .41], G = new THREE.Group(); G.userData.cat = 'manzanas';
+  const BASE = 14, DZ = 7.5, TK = .9, SC = 2.4, SPAC = 1.5, BW = 4.4, OUT = [.92, .75, .58, .41], G = new THREE.Group(); G.userData.cat = 'manzanas';
   // cantidades por peldaño y sexo; si hay demasiadas figuras se agrupan (1 figura = n personas) para no saturar la pantalla
   const cnt = items.map(m => MZ_T.map(T => { let h = 0, w = 0; T.g.forEach(g => { h += m.a[2 * g]; w += m.a[2 * g + 1]; }); return [h, w]; })); const totP = cnt.reduce((a, c) => a + c.reduce((b, q) => b + q[0] + q[1], 0), 0); MZ.n = Math.max(1, Math.ceil(totP / 16000));
   const rnd = (() => { let z = 12345; return () => (z = (z * 1664525 + 1013904223) % 4294967296) / 4294967296; })(), pick = a => a[Math.floor(rnd() * a.length)];
