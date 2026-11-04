@@ -4494,13 +4494,13 @@ function cmpSelDib() {   // pines rojos para los resultados marcados con la palo
 }
 function cmpQuitaPv() { if (CMP.gp) { cmpDisp(CMP.gp); CMP.gp = null; } }
 function cmpMarkers(G, S, pts, colf, nlab) {   // cada pin es un grupo con su poste, esfera y etiqueta; cmpEscala() lo agranda según la distancia de la cámara para que se perciba desde toda la ciudad
-  const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c }));
+  const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c, transparent: true, depthTest: false }));
   pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, H = 80, col = colf(p), pin = new THREE.Group(); pin.position.set(x, 0, z); pin.userData.pin = 1; pin.userData.noPick = 1;
-    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2.4, H, 2.4); pole.position.set(0, H / 2, 0); pole.userData.noPick = 1; pin.add(pole);
-    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(11); ball.position.set(0, H + 6, 0); ball.userData.noPick = 1; pin.add(ball);
+    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2.4, H, 2.4); pole.position.set(0, H / 2, 0); pole.userData.noPick = 1; pole.renderOrder = 90; pin.add(pole);
+    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(11); ball.position.set(0, H + 6, 0); ball.userData.noPick = 1; ball.renderOrder = 91; pin.add(ball);
     if (i < nlab) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : p.rol === 'pv' ? '🔍 ' : p.rol === 'sel' ? '📍 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t; while (g.measureText(tx).width > 340 && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
       g.fillStyle = 'rgba(15,23,42,.88)'; g.beginPath(); g.roundRect(4, 6, 376, 60, 18); g.fill(); g.lineWidth = 4; g.strokeStyle = col; g.stroke(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, 192, 38);
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.userData.bw = 150; sp.scale.set(150, 150 * .1875, 1); sp.position.set(0, H + 38, 0); sp.renderOrder = 9; sp.userData.noPick = 1; sp.userData.lab = 1; pin.add(sp); }
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.userData.bw = 150; sp.scale.set(150, 150 * .1875, 1); sp.position.set(0, H + 38, 0); sp.renderOrder = 100; sp.userData.noPick = 1; sp.userData.lab = 1; pin.add(sp); }
     G.add(pin); });
 }
 function cmpEscala() {   // tamaño aparente constante: crece con la distancia a la cámara (×1 cerca, hasta ×40 en vista de ciudad)
@@ -4551,7 +4551,7 @@ async function cmpInicia() {
   cmpRefresca(); if (!ok) { CMP.dmsg = 'No se pudo cargar el DENUE de esta ciudad.'; cmpResD(); }
 }
 // ── Competencia · resultados del enfoque A (accesibilidad por red vial): territorios, cuota de Huff, accesibilidad E2SFCA y tráfico
-CMP.an = { modo: 'auto', hora: 'libre', beta: 2, T: 10, vista: 'terr', hm: 'ref', d: null, busy: false, msg: '', sel: null, iso: null, g: null, im: null, seq: 0, isq: 0 };
+CMP.an = { ver: true, modo: 'auto', hora: 'libre', beta: 2, T: 10, vista: 'terr', hm: 'ref', d: null, busy: false, msg: '', sel: null, iso: null, g: null, im: null, seq: 0, isq: 0 };
 const CMP_API = 'https://api.check-inn.mx/mercado/maqueta/competencia/', CMP_HRS = [['libre', 'Flujo libre'], ['am', '8:00'], ['md', '13:00'], ['pm', '19:00']], cmpFmtN = n => Math.round(n).toLocaleString('es-MX');
 const CMP_PAL = ['#e6194b', '#3cb44b', '#f58231', '#911eb4', '#00a6a6', '#f032e6', '#9a6324', '#b8a400', '#800000', '#4b6b00', '#fb6f92', '#008080', '#7b61ff', '#a0522d'], cmpAnCol = (f, j) => (CMP.an.cols && CMP.an.cols[j]) || (f.rol === 'ref' ? '#1d4ed8' : CMP_PAL[j % CMP_PAL.length]);
 const CMP_ISO = [[300, '#16a34a', '≤ 5 min'], [600, '#84cc16', '5–10'], [900, '#facc15', '10–15'], [1200, '#fb923c', '15–20'], [1800, '#ef4444', '20–30']], CMP_ACC = [['#475569', 'Sin oferta (desierto)'], ['#fde68a', 'Muy baja'], ['#fdba74', 'Baja'], ['#fb923c', 'Media'], ['#ef4444', 'Alta'], ['#7f1d1d', 'Saturación']];
@@ -4576,7 +4576,7 @@ function cmpAnDib() {   // una sola malla: el polígono real de cada manzana sob
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vc * 3).fill(.6), 3)); geo.setIndex(idx);
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .72, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -80, polygonOffsetUnits: -80 })); mesh.renderOrder = 30; mesh.frustumCulled = false; mesh.userData.noPick = 1;
-  const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.add(mesh); world.add(G); A.g = G; A.im = mesh; A.rng = rng; cmpAnPinta();
+  const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.visible = A.ver; G.add(mesh); world.add(G); A.g = G; A.im = mesh; A.rng = rng; cmpAnPinta();
 }
 function cmpAnPinta() {
   const A = CMP.an, d = A.d; if (!A.im || !d) return; const q = d.mz, M = d.nz, c = new THREE.Color(), blanco = new THREE.Color('#ffffff'), gris = new THREE.Color('#cbd5e1'), cols = d.fac.map((f, j) => new THREE.Color(cmpAnCol(f, j))), col = A.im.geometry.attributes.color.array;
@@ -4608,7 +4608,8 @@ async function cmpAnaliza(calibra, desdeBoton) {
 function cmpRes() {
   const box = CMP.rb; if (!box) return; const A = CMP.an, d = A.d, bt = (k, v, t, cls) => `<button class="an-b${A[k] === v ? ' on' : ''}" data-an="${k}" data-v="${v}">${t}</button>`;
   if (!d && !A.busy && !A.msg) { box.innerHTML = '<div style="font-size:12px;color:#64748b;line-height:1.45">Pulse <b>⚔️ Analizar</b> en el paso 2. Se calculan los tiempos de viaje sobre la red vial desde cada punto hasta cada manzana del Censo y de ahí: <b>territorios</b>, <b>cuota de mercado (Huff)</b>, <b>accesibilidad</b> y <b>efecto del tráfico</b>.</div>'; return; }
-  const ctl = `<div class="an-top"><div class="an-r"><span>Modo</span>${bt('modo', 'auto', '🚗 Auto')}${bt('modo', 'pie', '🚶 A pie')}</div>`
+  const ver = `<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><span id="an-ver" role="switch" aria-checked="${A.ver}" style="cursor:pointer;flex:0 0 34px;height:18px;border-radius:9px;background:${A.ver ? '#2563eb' : '#cbd5e1'};position:relative;transition:background .15s"><i style="position:absolute;top:2px;left:${A.ver ? 18 : 2}px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"></i></span><b style="font-size:12px">🗺️ Ver en el mapa</b></div>`;
+  const ctl = ver + `<div class="an-top"><div class="an-r"><span>Modo</span>${bt('modo', 'auto', '🚗 Auto')}${bt('modo', 'pie', '🚶 A pie')}</div>`
     + (A.modo === 'auto' ? `<div class="an-r"><span>Hora</span>${CMP_HRS.map(([k, t]) => bt('hora', k, t)).join('')}</div>` : '')
     + `<div class="an-r"><span>Cobertura</span>${[5, 10, 15, 20].map(v => bt('T', v, v + ' min')).join('')}</div><div class="an-r"><span title="Sensibilidad a la distancia en el modelo de Huff: a mayor valor, el cliente prefiere más lo cercano">Huff β</span>${[1, 1.5, 2, 2.5, 3].map(v => bt('beta', v, v)).join('')}</div></div>`;
   const msg = A.busy ? `<div class="cmp-warn" style="background:#eff6ff;border-color:#93c5fd;color:#1e3a8a">${esc_(A.msg)}</div>` : A.msg ? `<div class="cmp-warn">${esc_(A.msg)}</div>` : '';
@@ -4654,6 +4655,7 @@ function cmpAnEventos(el) {
     const A = CMP.an, t = e.target; if (!t.closest) return; const b = t.closest('[data-an]');
     if (b) { const k = b.dataset.an, v = b.dataset.v; if (k === 'quitaiso') { A.sel = null; A.iso = null; cmpRes(); return cmpAnPinta(); } if (k === 'vista' || k === 'hm') { A[k] = v; if (k === 'vista') { A.sel = null; A.iso = null; if (v === 'traf' && A.d && A.d.traf) { const rf = A.d.fac.find(f => f.rol === 'ref'); if (rf) { cmpRes(); return cmpAnIso(rf.id); } } } cmpRes(); return cmpAnPinta(); }
       const val = (k === 'T' || k === 'beta') ? +v : v; if (A[k] === val) return; A[k] = val; if (k === 'hora' && A.sel && A.d) { const f = A.sel; cmpAnaliza(false).then(() => cmpAnIso(f)); return; } return cmpAnaliza(false); }
+    if (t.closest('#an-ver')) { A.ver = !A.ver; if (A.g) A.g.visible = A.ver; return cmpRes(); }
     if (t.closest('.an-cal')) return cmpAnaliza(true);
     const r = t.closest('.an-row'); if (r) { const id = r.dataset.f, p = CMP.pts.find(x => x.id === id); if (p) cmpIr(p); return cmpAnIso(A.sel === id ? null : id); }
     if (t.closest('#cmp-go')) return cmpAnaliza(false, true);
