@@ -4749,6 +4749,11 @@ function mzHumano(t, mujer) {
   if (t === 3) { const b = cyl(.014, .014, H * .52, 5); b.rotateZ(-.12); b.translate(wd * .75, H * .26, H * .08); ex.push(ns(b)); }
   const mg = a => mergeGeometries(a, false); return { legs: mg(lg), torso: mg(tr), head: mg(hd), hair: mg(hr), extra: mg(ex), H };
 }
+function mzAnillo(O, I, y, th) {   // banda con la forma de la manzana (entre el contorno exterior y el interior), de espesor th, construida directamente con cuadriláteros
+  const pos = [], n = O.length, v = (p, h) => [p[0], y + h, -p[1]], quad = (a, b, c, d) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); };
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n, o0 = O[i], o1 = O[j], i0 = I[i], i1 = I[j]; quad(v(o0, th), v(o1, th), v(i1, th), v(i0, th)); quad(v(o0, 0), v(i0, 0), v(i1, 0), v(o1, 0)); quad(v(o0, 0), v(o1, 0), v(o1, th), v(o0, th)); quad(v(i0, 0), v(i0, th), v(i1, th), v(i1, 0)); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+}
 function mzDibuja(S) {
   mzQuita(); if (!world || !MZ.items || !MZ.items.length) return; const items = MZ.items.filter(m => m.p && m.p.length >= 6);
   const BASE = 14, DZ = 7.5, TK = .7, SC = 2.4, SPAC = 1.45, BW = 2.6, OUT = [.92, .75, .58, .41], G = new THREE.Group(); G.userData.cat = 'manzanas';
@@ -4759,7 +4764,7 @@ function mzDibuja(S) {
   const V = {}, mkV = (t, w) => { const k = t + '|' + w; return V[k] || (V[k] = { geo: mzHumano(t, w === 1), L: [] }); };
   const rings = [[], [], [], []], poles = [], lineP = [], labels = [], ptsC = (p) => { const a = []; for (let q = 0; q + 1 < p.length; q += 2) a.push([p[q], p[q + 1]]); return a; };
   items.forEach((m, mi) => { const P = ptsC(m.p), cx = m.x, cy = m.y; let Rm = 0; P.forEach(q => { Rm += Math.hypot(q[0] - cx, q[1] - cy); }); Rm = Math.max(8, Rm / P.length); const bw = Math.min(BW, Rm * .22), sc = (q, f) => [cx + (q[0] - cx) * f, cy + (q[1] - cy) * f];
-    for (let t = 0; t < 4; t++) { const so = OUT[t], si = so - bw / Rm, y = BASE + t * DZ, outer = P.map(q => sc(q, so)); const sh = new THREE.Shape(outer.map(q => new THREE.Vector2(q[0], q[1]))); if (si > .06) sh.holes.push(new THREE.Path(P.map(q => sc(q, si)).reverse().map(q => new THREE.Vector2(q[0], q[1])))); let ge = new THREE.ExtrudeGeometry(sh, { depth: TK, bevelEnabled: false }); ge.rotateX(-Math.PI / 2); ge.translate(0, y, 0); rings[t].push(ge);
+    for (let t = 0; t < 4; t++) { const so = OUT[t], si = Math.max(.05, so - bw / Rm), y = BASE + t * DZ, outer = P.map(q => sc(q, so)), inner = P.map(q => sc(q, si)); rings[t].push(mzAnillo(outer, inner, y, TK));
       // personas sobre el anillo: reparto uniforme a lo largo de su línea central (1 o 2 filas)
       const mid = P.map(q => sc(q, (so + Math.max(si, .06)) / 2)); let L = 0; const seg = []; for (let k = 0; k < mid.length; k++) { const a = mid[k], b = mid[(k + 1) % mid.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]); seg.push([a, b, l]); L += l; }
       for (const sx of [0, 1]) { const tot = cnt[mi][t][sx]; if (!tot) continue; let nf = Math.round(tot / MZ.n) || 1; const cap = Math.max(2, Math.floor(L / SPAC)), rows = nf > cap ? 2 : 1, cap2 = cap * 2; if (nf > cap2) nf = cap2; const per = Math.ceil(nf / rows);
@@ -4772,7 +4777,7 @@ function mzDibuja(S) {
     const topY = BASE + 3 * DZ + TK + SC * 1.8, cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 150; const cx2 = cvs.getContext('2d'); cx2.fillStyle = 'rgba(255,255,255,.96)'; cx2.beginPath(); cx2.roundRect(4, 4, 504, 142, 22); cx2.fill(); cx2.strokeStyle = 'rgba(15,23,42,.25)'; cx2.lineWidth = 3; cx2.stroke(); cx2.fillStyle = '#0f172a'; cx2.font = '700 50px system-ui'; cx2.fillText('Manzana #' + String(m.id).slice(-3), 26, 56); cx2.font = '600 44px system-ui'; cx2.fillStyle = '#334155'; cx2.fillText('Población: ' + m.t.toLocaleString('es-MX') + ' hab' + (MZ.n > 1 ? ' · 1 fig.=' + MZ.n : ''), 26, 116);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cvs), transparent: true, depthTest: false })); sp.scale.set(24, 7, 1); sp.position.set(cx, topY + 6, -cy); sp.renderOrder = 10; G.add(sp); lineP.push(new THREE.Vector3(cx, topY + 2.6, -cy), new THREE.Vector3(cx, BASE + 3 * DZ + TK, -cy)); });
   // anillos (un malla por peldaño), postes y líneas
-  rings.forEach((lst, t) => { if (!lst.length) return; const mm = new THREE.Mesh(mergeGeometries(lst, false), new THREE.MeshStandardMaterial({ color: MZ_T[t].c, emissive: MZ_T[t].c, emissiveIntensity: .42, roughness: .55, metalness: 0 })); mm.castShadow = false; G.add(mm); });
+  rings.forEach((lst, t) => { if (!lst.length) return; const mm = new THREE.Mesh(mergeGeometries(lst, false), new THREE.MeshStandardMaterial({ color: MZ_T[t].c, emissive: MZ_T[t].c, emissiveIntensity: .42, roughness: .55, metalness: 0, side: THREE.DoubleSide })); mm.castShadow = false; G.add(mm); });
   if (poles.length) G.add(new THREE.Mesh(mergeGeometries(poles, false), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: .5, metalness: .4 })));
   if (lineP.length) G.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lineP), new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: .55 })));
   // figuras: un InstancedMesh por variante (edad × sexo) y por parte del cuerpo; color de piel, pelo, camisa y pantalón por persona
