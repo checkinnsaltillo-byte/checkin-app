@@ -1614,8 +1614,16 @@ const trgApi = (u, o) => fetch('https://api.check-inn.mx/mercado/maqueta/trafico
 const trgPost = (u, b) => trgApi(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
 function trgBorra() { ['trafico_vial', 'trafico_mapa'].forEach(k => { const g = TRG[k]; if (g) { if (g.parent) g.parent.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); TRG[k] = null; } }); }
 // deja listo el estado del servidor (imagen de la capa + estados por vialidad); si ya había capas visibles las reconstruye con lo nuevo
+// la imagen que devuelve Google trae también nombres de calles, iconos de lugares y rellenos de colores; en la maqueta solo debe verse el tráfico (verde, ámbar, rojo y rojo oscuro): se deja lo que tiene color de tráfico y forma de línea, y se borra lo demás
+function trgLimpia(cv) {
+  const W = cv.width, H = cv.height, g = cv.getContext('2d'), im = g.getImageData(0, 0, W, H), d = im.data, keep = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) { const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], a = d[i * 4 + 3]; if (a < 40) continue; const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); if (mx - mn < 60) continue; let h = mx === r ? ((gg - b) / (mx - mn) + 6) % 6 : mx === gg ? (b - r) / (mx - mn) + 2 : (r - gg) / (mx - mn) + 4; h *= 60; if ((h >= 105 && h <= 160) || (h >= 15 && h < 75) || h < 15 || h > 335) keep[i] = 1; }
+  // se descartan las manchas pequeñas (iconos, letras sueltas): solo se conservan tramos conectados de al menos 90 píxeles
+  const seen = new Uint8Array(W * H), stack = []; for (let i0 = 0; i0 < W * H; i0++) { if (!keep[i0] || seen[i0]) continue; const comp = []; stack.push(i0); seen[i0] = 1; while (stack.length) { const i = stack.pop(); comp.push(i); const x = i % W, y = (i - x) / W; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue; const j = yy * W + xx; if (keep[j] && !seen[j]) { seen[j] = 1; stack.push(j); } } } if (comp.length < 90) comp.forEach(i => { keep[i] = 0; }); }
+  for (let i = 0; i < W * H; i++) if (!keep[i]) d[i * 4 + 3] = 0; g.putImageData(im, 0, 0);
+}
 async function trgAplica(sn) {
-  const im = new Image(); await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = sn.png; }); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im, 0, 0);
+  const im = new Image(); await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = sn.png; }); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im, 0, 0); try { trgLimpia(c); } catch (e) { console.warn('limpieza del tráfico', e); }
   const vis = ['trafico_vial', 'trafico_mapa'].filter(k => TRG.W === world && TRG[k] && TRG[k].visible); trgBorra(); Object.assign(TRG, { cv: c, s: sn.s, R: sn.R, t: sn.t, n: sn.n || TRG.n, z: sn.z, ver: sn.ver, W: world, km: null });
   vis.forEach(k => { TRG[k] = k === 'trafico_vial' ? trgVial() : trgMapa(); TRG[k].visible = true; });
 }
