@@ -4389,7 +4389,7 @@ PW_CIERRA.afl = () => { if (AFL.on) aflSet(curS, false); };
   new MutationObserver(() => { if (r.el.classList.contains('on') && !AFL.D) aflLoad().then(aflRes); }).observe(r.el, { attributes: true, attributeFilter: ['class'] }); aflSync();
 }
 // ── Competencia: puntos de referencia (el negocio del cliente) y de competencia, tomados del DENUE, de Google Places, a mano sobre el mapa o mezclando las tres fuentes. Se guardan por maqueta en GCS (mercado/maqueta/competencia/<id>.json). «Analizar competencia» queda pendiente.
-const CMP = { pts: [], sv: null, saved: '', savedAt: null, src: 'denue', cat: null, sc: null, f: { s: '', ss: '', r: '', sr: '' }, res: [], tot: -1, gres: [], gmsg: '', gbusy: false, gseq: 0, sd: new Set(), sg: new Set(), sp: new Set(), gp: null, gs: null, pvId: '', ed: false, g: null, pick: false, on: false, ini: false, busy: false, msg: '', n: 0, dmsg: '' };
+const CMP = { pts: [], sv: null, saved: '', savedAt: null, src: 'denue', cat: null, sc: null, f: { s: '', ss: '', r: '', sr: '' }, res: [], tot: -1, gres: [], gmsg: '', gbusy: false, gseq: 0, sd: new Set(), sg: new Set(), sp: new Set(), gp: null, gs: null, raf: 0, pvId: '', ed: false, g: null, pick: false, on: false, ini: false, busy: false, msg: '', n: 0, dmsg: '' };
 const CMP_SRC = { maqueta: ['📍', 'Maqueta', '#0f766e'], denue: ['🏪', 'DENUE', '#2563eb'], google: ['🔎', 'Google', '#ea580c'], manual: ['✍️', 'Manual', '#7c3aed'] }, CMP_COL = { ref: '#2563eb', comp: '#dc2626', none: '#f59e0b' };
 const cmpNz = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const cmpQ = s => { const e = $('pw-cmp'); return e ? e.querySelector(s) : null; };
@@ -4489,15 +4489,20 @@ function cmpSelDib() {   // pines rojos para los resultados marcados con la palo
   if (CMP.gp && pts.some(q => q.id === CMP.pvId)) cmpQuitaPv(); if (!pts.length) return; const G = new THREE.Group(); cmpMarkers(G, S, pts.map(q => Object.assign({}, q, { rol: 'sel' })), () => '#dc2626', 40); G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.gs = G;
 }
 function cmpQuitaPv() { if (CMP.gp) { cmpDisp(CMP.gp); CMP.gp = null; } }
-function cmpMarkers(G, S, pts, colf, nlab) {
+function cmpMarkers(G, S, pts, colf, nlab) {   // cada pin es un grupo con su poste, esfera y etiqueta; cmpEscala() lo agranda según la distancia de la cámara para que se perciba desde toda la ciudad
   const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c }));
-  pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, k = Math.min(10, Math.max(1, Math.hypot(x, z) / 700)), H = 80 * k, col = colf(p);
-    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2 * k, H, 2 * k); pole.position.set(x, H / 2, z); pole.userData.noPick = 1; G.add(pole);
-    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(9.5 * k); ball.position.set(x, H + 6 * k, z); ball.userData.noPick = 1; G.add(ball);
+  pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, H = 80, col = colf(p), pin = new THREE.Group(); pin.position.set(x, 0, z); pin.userData.pin = 1; pin.userData.noPick = 1;
+    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2.4, H, 2.4); pole.position.set(0, H / 2, 0); pole.userData.noPick = 1; pin.add(pole);
+    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(11); ball.position.set(0, H + 6, 0); ball.userData.noPick = 1; pin.add(ball);
     if (i < nlab) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : p.rol === 'pv' ? '🔍 ' : p.rol === 'sel' ? '📍 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t; while (g.measureText(tx).width > 340 && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
       g.fillStyle = 'rgba(15,23,42,.88)'; g.beginPath(); g.roundRect(4, 6, 376, 60, 18); g.fill(); g.lineWidth = 4; g.strokeStyle = col; g.stroke(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, 192, 38);
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.scale.set(150 * k, 150 * k * .1875, 1); sp.position.set(x, H + 34 * k, z); sp.renderOrder = 9; sp.userData.noPick = 1; G.add(sp); } });
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.userData.bw = 150; sp.scale.set(150, 150 * .1875, 1); sp.position.set(0, H + 38, 0); sp.renderOrder = 9; sp.userData.noPick = 1; sp.userData.lab = 1; pin.add(sp); }
+    G.add(pin); });
 }
+function cmpEscala() {   // tamaño aparente constante: crece con la distancia a la cámara (×1 cerca, hasta ×40 en vista de ciudad)
+  if (!camera) return; [CMP.g, CMP.gs, CMP.gp].forEach(G => { if (!G) return; G.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(40, Math.max(1, d / 450)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(150 * ls, 150 * .1875 * ls, 1); }); }); });
+}
+function cmpTick() { if (!CMP.on) { CMP.raf = 0; return; } try { cmpEscala(); } catch (_) { } CMP.raf = requestAnimationFrame(cmpTick); }
 function cmpDibuja() {
   cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, CMP.pts, p => CMP_COL[p.rol || 'none'], 80);
   G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.g = G; try { capasSync(); } catch (_) { } cmpSelDib();
@@ -4584,7 +4589,7 @@ PW_CIERRA.cmp = () => { cmpPickSet(false); };
     const n = e.target.closest && e.target.closest('.cmp-pt input.n'); if (n) { const p = CMP.pts.find(x => x.id === n.closest('.cmp-pt').dataset.id); if (p) { p.n = n.value.trim().slice(0, 120) || p.n; n.value = p.n; cmpSt(); cmpDibuja(); } }
   });
   r.el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.classList.contains('cmp-q')) cmpCarga().then(() => { cmpSelects(); cmpBuscaDenue(); }); else if (e.target.classList.contains('cmp-gq')) { clearTimeout(CMP.t2); cmpBuscaG(); } });
-  new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { cmpInicia().then(() => cmpDibuja()); cmpDibuja(); } else { cmpPickSet(false); cmpQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { if (!CMP.raf) CMP.raf = requestAnimationFrame(cmpTick); cmpInicia().then(() => cmpDibuja()); cmpDibuja(); } else { cmpPickSet(false); cmpQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
   setInterval(() => { if (CMP.on && (!CMP.g || CMP.g.parent !== world) && curS && CMP.pts.length) cmpDibuja(); }, 1500); cmpRes(); cmpPuntos();
 }
 // ── Ventana «Tráfico»: 1) Monitoreo del tráfico (descarga automática, historial y animación) y 2) Flujo vehicular (lo que ya había) ──
