@@ -4389,7 +4389,7 @@ PW_CIERRA.afl = () => { if (AFL.on) aflSet(curS, false); };
   new MutationObserver(() => { if (r.el.classList.contains('on') && !AFL.D) aflLoad().then(aflRes); }).observe(r.el, { attributes: true, attributeFilter: ['class'] }); aflSync();
 }
 // ── Competencia: puntos de referencia (el negocio del cliente) y de competencia, tomados del DENUE, de Google Places, a mano sobre el mapa o mezclando las tres fuentes. Se guardan por maqueta en GCS (mercado/maqueta/competencia/<id>.json). «Analizar competencia» queda pendiente.
-const CMP = { pts: [], sv: null, saved: '', savedAt: null, src: 'denue', cat: null, sc: null, f: { s: '', ss: '', r: '', sr: '' }, res: [], tot: -1, gres: [], gmsg: '', gbusy: false, gseq: 0, sd: new Set(), sg: new Set(), sp: new Set(), gp: null, ed: false, g: null, pick: false, on: false, ini: false, busy: false, msg: '', n: 0, dmsg: '' };
+const CMP = { pts: [], sv: null, saved: '', savedAt: null, src: 'denue', cat: null, sc: null, f: { s: '', ss: '', r: '', sr: '' }, res: [], tot: -1, gres: [], gmsg: '', gbusy: false, gseq: 0, sd: new Set(), sg: new Set(), sp: new Set(), gp: null, gs: null, pvId: '', ed: false, g: null, pick: false, on: false, ini: false, busy: false, msg: '', n: 0, dmsg: '' };
 const CMP_SRC = { maqueta: ['📍', 'Maqueta', '#0f766e'], denue: ['🏪', 'DENUE', '#2563eb'], google: ['🔎', 'Google', '#ea580c'], manual: ['✍️', 'Manual', '#7c3aed'] }, CMP_COL = { ref: '#2563eb', comp: '#dc2626', none: '#f59e0b' };
 const cmpNz = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const cmpQ = s => { const e = $('pw-cmp'); return e ? e.querySelector(s) : null; };
@@ -4438,12 +4438,12 @@ function cmpBuscaDenue(silent) {
 }
 const cmpDenuePt = i => { const p = ECO.D.p[i]; return { id: 'd' + i, n: String(p[4] || 'Sin nombre').slice(0, 60), lat: p[0], lng: p[1], src: 'denue', rol: null, sc: String(p[5]), tp: ((CMP.sc || {}).ss || {})[String(p[5]).slice(0, 3)] || '' }; };
 function cmpResD() {
-  const box = cmpQ('.cmp-rd'); if (!box) return; const lst = box.querySelector('.cmp-lst'), sc = lst ? lst.scrollTop : 0; if (CMP.tot < 0) { box.innerHTML = CMP.dmsg ? `<div style="font-size:11.5px;color:#b45309;margin-top:4px">${esc_(CMP.dmsg)}</div>` : ''; return; }
+  const box = cmpQ('.cmp-rd'); if (!box) return; const lst = box.querySelector('.cmp-lst'), sc = lst ? lst.scrollTop : 0; if (CMP.tot < 0) { box.innerHTML = CMP.dmsg ? `<div style="font-size:11.5px;color:#b45309;margin-top:4px">${esc_(CMP.dmsg)}</div>` : ''; cmpSelDib(); return; }
   const G = ECO.D.meta.grupos, have = new Set(CMP.pts.map(p => p.id)), ns = CMP.sd.size;
   box.innerHTML = `<div style="font-size:11.5px;color:#334155;margin:4px 0"><b>${CMP.tot.toLocaleString('es-MX')}</b> establecimientos encontrados${CMP.tot > CMP.res.length ? ` · se muestran los ${CMP.res.length} más cercanos al punto de referencia` : ''}. Haga clic en uno para verlo en el mapa.</div>`
     + (CMP.res.length ? `<div class="cmp-tb"><span style="font-size:11px;color:#64748b;font-weight:700">Seleccionar</span><span class="cmp-sgm"><button class="cmp-sa${CMP.res.length && ns === CMP.res.length ? ' on' : ''}" data-k="d">Todos</button></span><button class="cmp-addsel" data-k="d"${ns ? '' : ' disabled'}>➕ Agregar seleccionados (${ns})</button></div>` : '') + `<div class="cmp-lst" style="max-height:300px;overflow:auto;border-top:1px solid #e2e8f0">`
     + CMP.res.map(r => { const p = ECO.D.p[r.i], ya = have.has('d' + r.i), on = CMP.sd.has(r.i); return `<div class="cmp-row" data-i="${r.i}"><span class="cmp-ck${on ? ' on' : ''}">${on ? '✓' : ''}</span><i style="width:9px;height:9px;border-radius:50%;flex:none;background:${G[p[2]].c}"></i><div class="nm"><b title="${esc_(p[4])}">${esc_(p[4] || 'Sin nombre')}</b><span>${esc_(cmpLab(3, String(p[5]).slice(0, 3)).replace(/^\d+ · /, ''))} · ${cmpFmtD(r.d)}</span></div><button class="cmp-add${ya ? ' ya' : ''}" data-d="${r.i}">${ya ? '✓ Agregado' : '＋ Agregar'}</button></div>`; }).join('') + '</div>';
-  const l2 = box.querySelector('.cmp-lst'); if (l2) l2.scrollTop = sc;
+  const l2 = box.querySelector('.cmp-lst'); if (l2) l2.scrollTop = sc; cmpSelDib();
 }
 const cmpGPt = g => ({ id: 'g' + g.pid, n: g.n.slice(0, 80), lat: g.lat, lng: g.lng, src: 'google', rol: null, dir: g.dir, tp: g.tp, rt: g.rt, nr: g.nr, pid: g.pid });
 async function cmpBuscaG() {
@@ -4455,7 +4455,7 @@ async function cmpBuscaG() {
 function cmpResG() {
   const box = cmpQ('.cmp-rg'); if (!box) return; const lst = box.querySelector('.cmp-lst'), sc = lst ? lst.scrollTop : 0, B = cmpBase() || curS, have = new Set(CMP.pts.map(p => p.id)), ns = CMP.sg.size;
   box.innerHTML = (CMP.gmsg ? `<div style="font-size:11.5px;color:#475569;margin:4px 0">${esc_(CMP.gmsg)}</div>` : '') + (CMP.gres.length ? `<div style="font-size:11.5px;color:#334155;margin:4px 0"><b>${CMP.gres.length}</b> lugares de Google. Haga clic en uno para verlo en el mapa.</div><div class="cmp-tb"><span style="font-size:11px;color:#64748b;font-weight:700">Seleccionar</span><span class="cmp-sgm"><button class="cmp-sa${CMP.gres.length && ns === CMP.gres.length ? ' on' : ''}" data-k="g">Todos</button></span><button class="cmp-addsel" data-k="g"${ns ? '' : ' disabled'}>➕ Agregar seleccionados (${ns})</button></div><div class="cmp-lst" style="max-height:300px;overflow:auto;border-top:1px solid #e2e8f0">` + CMP.gres.map((r, i) => { const ya = have.has('g' + r.pid), on = CMP.sg.has(i); return `<div class="cmp-row" data-g="${i}"><span class="cmp-ck${on ? ' on' : ''}">${on ? '✓' : ''}</span><div class="nm"><b title="${esc_(r.n)}">${esc_(r.n)}</b><span>${r.rt ? '⭐ ' + r.rt + ' (' + r.nr + ') · ' : ''}${esc_(r.tp)}${r.tp ? ' · ' : ''}${cmpFmtD(cmpDist(r, B))}</span><span>${esc_(r.dir)}</span></div><button class="cmp-add${ya ? ' ya' : ''}" data-g="${i}">${ya ? '✓ Agregado' : '＋ Agregar'}</button></div>`; }).join('') + '</div>' : '');
-  const l2 = box.querySelector('.cmp-lst'); if (l2) l2.scrollTop = sc;
+  const l2 = box.querySelector('.cmp-lst'); if (l2) l2.scrollTop = sc; cmpSelDib();
 }
 function cmpAdd(p) { if (CMP.pts.some(x => x.id === p.id)) return false; CMP.pts.push(p); CMP.pts.forEach(q => { q.pd = 5; }); return true; }   // al agregar puntos se reinicia la distribución homogénea de ponderadores
 function cmpQuitaPt(id) { CMP.pts = CMP.pts.filter(p => p.id !== id || p.src === 'maqueta'); }
@@ -4481,22 +4481,28 @@ function cmpSt() {
 function cmpRes() { }   // la tabla de competidores vive ahora en el paso 2 (cmpPuntos)
 // marcadores en la maqueta: poste + esfera + etiqueta (azul referencia, rojo competencia, ámbar sin clasificar)
 function cmpDisp(g) { if (g.parent) g.parent.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
-function cmpQuita() { if (CMP.g) { cmpDisp(CMP.g); CMP.g = null; } cmpQuitaPv(); }
+function cmpQuita() { if (CMP.g) { cmpDisp(CMP.g); CMP.g = null; } cmpQuitaPv(); cmpQuitaSel(); }
+function cmpQuitaSel() { if (CMP.gs) { cmpDisp(CMP.gs); CMP.gs = null; } }
+function cmpSelDib() {   // pines rojos para los resultados marcados con la palomita (aún no agregados)
+  cmpQuitaSel(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const have = new Set(CMP.pts.map(p => p.id)), pts = [];
+  if (CMP.tot >= 0) CMP.sd.forEach(i => { if (ECO.D && ECO.D.p[i]) { const q = cmpDenuePt(i); if (!have.has(q.id)) pts.push(q); } }); CMP.sg.forEach(i => { const g = CMP.gres[i]; if (g) { const q = cmpGPt(g); if (!have.has(q.id)) pts.push(q); } });
+  if (CMP.gp && pts.some(q => q.id === CMP.pvId)) cmpQuitaPv(); if (!pts.length) return; const G = new THREE.Group(); cmpMarkers(G, S, pts.map(q => Object.assign({}, q, { rol: 'sel' })), () => '#dc2626', 40); G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.gs = G;
+}
 function cmpQuitaPv() { if (CMP.gp) { cmpDisp(CMP.gp); CMP.gp = null; } }
 function cmpMarkers(G, S, pts, colf, nlab) {
   const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c }));
   pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, k = Math.min(10, Math.max(1, Math.hypot(x, z) / 700)), H = 80 * k, col = colf(p);
     const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2 * k, H, 2 * k); pole.position.set(x, H / 2, z); pole.userData.noPick = 1; G.add(pole);
     const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(9.5 * k); ball.position.set(x, H + 6 * k, z); ball.userData.noPick = 1; G.add(ball);
-    if (i < nlab) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : p.rol === 'pv' ? '🔍 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t; while (g.measureText(tx).width > 340 && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
+    if (i < nlab) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : p.rol === 'pv' ? '🔍 ' : p.rol === 'sel' ? '📍 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t; while (g.measureText(tx).width > 340 && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
       g.fillStyle = 'rgba(15,23,42,.88)'; g.beginPath(); g.roundRect(4, 6, 376, 60, 18); g.fill(); g.lineWidth = 4; g.strokeStyle = col; g.stroke(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, 192, 38);
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.scale.set(150 * k, 150 * k * .1875, 1); sp.position.set(x, H + 34 * k, z); sp.renderOrder = 9; sp.userData.noPick = 1; G.add(sp); } });
 }
 function cmpDibuja() {
   cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, CMP.pts, p => CMP_COL[p.rol || 'none'], 80);
-  G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.g = G; try { capasSync(); } catch (_) { }
+  G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.g = G; try { capasSync(); } catch (_) { } cmpSelDib();
 }
-function cmpPreview(p) { cmpQuitaPv(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, [Object.assign({}, p, { rol: 'pv' })], () => '#8b5cf6', 1); G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.gp = G; }
+function cmpPreview(p) { cmpQuitaPv(); CMP.pvId = p.id; const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, [Object.assign({}, p, { rol: 'pv' })], () => '#8b5cf6', 1); G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.gp = G; }
 function cmpVuela(t1, D) {   // vuela la cámara para mirar t1 desde la distancia D, conservando el rumbo actual
   if (!curS || !controls) return; const t0 = controls.target.clone(), c0 = camera.position.clone(), off = c0.clone().sub(t0); if (off.length() < 1) off.set(0, 1, 1); off.y = Math.max(off.y, off.length() * .45); off.setLength(D);
   const c1 = t1.clone().add(off), T = performance.now(); try { controls.autoRotate = false; } catch (_) { } if (CMP.fly) cancelAnimationFrame(CMP.fly);
