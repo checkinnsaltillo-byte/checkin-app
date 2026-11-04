@@ -4728,62 +4728,91 @@ async function mzCarga(S) {
   catch (e) { MZ.items = null; MZ.msg = 'No se pudieron cargar las manzanas: ' + e.message; } manRes(); return MZ.items;
 }
 function mzQuita() { if (MZ.g) { if (MZ.g.parent) MZ.g.parent.remove(MZ.g); MZ.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.map) o.material.map.dispose(); }); MZ.g = null; } }
-// persona de baja resolución pero con proporciones y rasgos de su edad: niño (cabeza grande, mochila), joven (mochila), adulto, adulto mayor (encorvado, bastón, pelo cano)
+// persona de baja resolución pero con proporciones y rasgos de su edad: niño (cabeza grande, mochila), joven (mochila), adulto, adulto mayor (encorvado, bastón, pelo cano). Los brazos son piezas aparte para poder saludar.
 function mzHumano(t, mujer) {
   const H = [1.15, 1.62, 1.68, 1.58][t], rh = [.1, .095, .095, .092][t], cyl = (rt, rb, h, seg = 8) => new THREE.CylinderGeometry(rt, rb, h, seg), box = (w, h, d) => new THREE.BoxGeometry(w, h, d), sph = (r, ws = 10, hs = 8, ps = 0, pl = Math.PI * 2, ts = 0, tl = Math.PI) => new THREE.SphereGeometry(r, ws, hs, ps, pl, ts, tl);
-  const legL = H * (t === 0 ? .42 : .47), torH = H * (t === 0 ? .3 : .3), hipY = legL, shY = hipY + torH, hdY = shY + (t === 0 ? .1 : .13) + rh * .6, wd = t === 0 ? .2 : mujer ? .27 : .31, hipW = mujer ? wd * 1.05 : wd * .92;
+  const legL = H * (t === 0 ? .42 : .47), torH = H * .3, hipY = legL, shY = hipY + torH, hdY = shY + (t === 0 ? .1 : .13) + rh * .6, wd = t === 0 ? .2 : mujer ? .27 : .31, hipW = mujer ? wd * 1.05 : wd * .92;
   const lean = t === 3 ? .26 : t === 0 ? .04 : 0, ns = g => g.toNonIndexed();
-  const tilt = (g) => { if (!lean) return g; g.translate(0, -hipY, 0); g.rotateX(lean); g.translate(0, hipY, 0); return g; };
-  // piernas (pantalón; las mujeres de edad adulta llevan falda hasta la rodilla)
+  const tilt = g => { if (!lean) return g; g.translate(0, -hipY, 0); g.rotateX(lean); g.translate(0, hipY, 0); return g; };
   const lg = [], lx = hipW * .26; for (const sx of [-1, 1]) { const l = cyl(H * .052, H * .04, legL, 8); l.translate(sx * lx, legL / 2, 0); lg.push(ns(l)); }
-  // torso + brazos (camisa)
-  const tr = []; { const c = cyl(wd * .5, hipW * .45, torH, 10); c.scale(1, 1, .62); c.translate(0, hipY + torH / 2, 0); tr.push(tilt(ns(c))); for (const sx of [-1, 1]) { const a = cyl(H * .035, H * .03, torH * .95, 7); a.rotateZ(sx * .08); a.translate(sx * (wd * .5 + H * .02), shY - torH * .46, 0); tr.push(tilt(ns(a))); } }
+  const tr = []; { const c = cyl(wd * .5, hipW * .45, torH, 10); c.scale(1, 1, .62); c.translate(0, hipY + torH / 2, 0); tr.push(tilt(ns(c))); }
+  const arm = sx => { const a = cyl(H * .035, H * .03, torH * .95, 7); a.translate(0, -torH * .475, 0); const g = ns(a); g.translate(sx * (wd * .5 + H * .02), shY, 0); return g; };   // el origen de cada brazo es el hombro
+  const armL = arm(-1), armR = arm(1), px = wd * .5 + H * .02;
   if (mujer && t >= 1 && t <= 2) { const f = new THREE.ConeGeometry(hipW * .62, legL * .5, 12, 1, true); f.translate(0, hipY - legL * .22, 0); lg.push(ns(f)); }
-  // cabeza (piel), cuello
   const hd = []; { const h = sph(rh); h.scale(.92, 1.08, .95); h.translate(0, hdY, 0); hd.push(tilt(ns(h))); const nk = cyl(H * .024, H * .026, H * .05, 6); nk.translate(0, shY + H * .015, 0); hd.push(tilt(ns(nk))); }
-  // cabello: casquete; mujeres con melena; adultos mayores con poco cabello
   const hr = []; { const cap = sph(rh * (t === 3 ? 1.02 : 1.08), 10, 6, 0, Math.PI * 2, 0, Math.PI * (t === 3 ? .42 : .55)); cap.scale(.94, 1.08, .98); cap.translate(0, hdY + rh * .03, -rh * .05); hr.push(tilt(ns(cap))); if (mujer && t >= 1) { const m = box(rh * 1.7, torH * (t === 3 ? .35 : .75), rh * .5); m.translate(0, hdY - torH * (t === 3 ? .18 : .37), -rh * .75); hr.push(tilt(ns(m))); } }
-  // accesorios (oscuros): zapatos, mochila (niños y jóvenes), bastón (mayores)
   const ex = []; for (const sx of [-1, 1]) { const z = box(H * .06, H * .035, H * .13); z.translate(sx * lx, H * .018, H * .025); ex.push(ns(z)); }
   if (t <= 1) { const mo = box(wd * .8, torH * .75, H * .1); mo.translate(0, hipY + torH * .55, -wd * .42); ex.push(tilt(ns(mo))); }
   if (t === 3) { const b = cyl(.014, .014, H * .52, 5); b.rotateZ(-.12); b.translate(wd * .75, H * .26, H * .08); ex.push(ns(b)); }
-  const mg = a => mergeGeometries(a, false); return { legs: mg(lg), torso: mg(tr), head: mg(hd), hair: mg(hr), extra: mg(ex), H };
+  const mg = a => mergeGeometries(a, false);
+  return { legs: mg(lg), torso: mg(tr), arms: mg([armL.clone(), armR.clone()]), armL, armR, head: mg(hd), hair: mg(hr), extra: mg(ex), H, piv: [px, shY, 0] };
+}
+const MZ_U = { uT: { value: 0 } };
+function mzTextura() {   // grano fino de plástico (relieve y rugosidad)
+  if (MZ.tex) return MZ.tex; const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), im = g.createImageData(256, 256); let z = 777; const r = () => (z = (z * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  for (let i = 0; i < 256 * 256; i++) { const v = 150 + r() * 90 + (r() < .02 ? -70 : 0); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = Math.max(0, Math.min(255, v)); im.data[i * 4 + 3] = 255; } g.putImageData(im, 0, 0);
+  g.strokeStyle = 'rgba(0,0,0,.08)'; g.lineWidth = 1; for (let k = 0; k < 60; k++) { g.beginPath(); g.moveTo(r() * 256, r() * 256); g.lineTo(r() * 256, r() * 256); g.stroke(); }   // pequeños rayones
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return MZ.tex = t;
+}
+function mzMovible(mat) {   // balanceo, cabeceo al conversar y vaivén suave de cada persona (en el sombreador; no cuesta tiempo de CPU)
+  mat.onBeforeCompile = sh => { sh.uniforms.uT = MZ_U.uT; sh.vertexShader = 'attribute float aPh;\nattribute float aMode;\nuniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n { float w = clamp((transformed.y - 0.85) / 0.8, 0.0, 1.0); transformed.y += sin(uT * 1.7 + aPh) * 0.012; transformed.x += sin(uT * 1.1 + aPh * 2.0) * 0.03 * transformed.y; if (aMode > 0.5) { transformed.z += sin(uT * 4.5 + aPh) * 0.03 * w; transformed.y += sin(uT * 4.5 + aPh) * 0.012 * w; } }'); }; mat.customProgramCacheKey = () => 'mzmov'; return mat;
 }
 function mzDibuja(S) {
   mzQuita(); if (!world || !MZ.items || !MZ.items.length) return; const items = MZ.items.filter(m => m.p && m.p.length >= 6);
-  // torre de bloques tipo «lego»: un bloque por grupo de edad apilado (niños abajo, mayores arriba), cada uno más angosto que el de abajo; la altura de cada bloque crece con el número de personas del grupo y todas las torres parten de la misma altura sobre un poste en el centroide de la manzana. Las figuras caminan sobre el escalón de cada bloque.
   const hMax = Math.max(12, ...((window.__bldLast || []).map(b => +b[3] || 0))), BASE = Math.ceil(hMax + 20), SC = 2.4, SPAC = 1.55, WS = [20, 16.2, 12.4, 8.6], G = new THREE.Group(); G.userData.cat = 'manzanas'; MZ.base = BASE; MZ.hMax = Math.round(hMax);
   const cnt = items.map(m => MZ_T.map(T => { let h = 0, w = 0; T.g.forEach(g => { h += m.a[2 * g]; w += m.a[2 * g + 1]; }); return [h, w]; })), totP = cnt.reduce((a, c) => a + c.reduce((b, q) => b + q[0] + q[1], 0), 0), maxT = Math.max(1, ...cnt.map(c => Math.max(...c.map(q => q[0] + q[1])))), kH = 22 / maxT; MZ.n = Math.max(1, Math.ceil(totP / 16000));
   const rnd = (() => { let z = 12345; return () => (z = (z * 1664525 + 1013904223) % 4294967296) / 4294967296; })(), pick = a => a[Math.floor(rnd() * a.length)];
   const SK = ['#f3d2b5', '#e8bb97', '#d9a37a', '#c68a5f', '#a86f48', '#7d4e30'], HR = [['#16110d', '#1e1712', '#2a1d14', '#3b2619', '#4a3020', '#6b4a2a'], ['#16110d', '#2a1d14', '#3b2619', '#6b4a2a', '#8a6a3a'], ['#16110d', '#1e1712', '#2a1d14', '#3b2619', '#4a3020', '#6b4a2a', '#9a7b4f'], ['#d8d8d4', '#bfbfbb', '#a8a8a6', '#e6e6e2', '#8a8a88', '#6e5a4a']], SH = ['#dc2626', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#f1f5f9', '#e11d48', '#475569', '#ea580c', '#0d9488', '#db2777'], LG = ['#1e293b', '#334155', '#1d4ed8', '#111827', '#57534e', '#78716c', '#3b4a63', '#44403c'];
-  const V = {}, mkV = (t, w) => { const k = t + '|' + w; return V[k] || (V[k] = { geo: mzHumano(t, w === 1), L: [] }); };
-  const blocks = [[], [], [], []], poles = [], lineP = [], ptsC = p => { const a = []; for (let q = 0; q + 1 < p.length; q += 2) a.push([p[q], p[q + 1]]); return a; };
+  const V = {}, WV = {}, mkV = (t, w, hs) => { const D = hs ? WV : V, k = t + '|' + w; return D[k] || (D[k] = { geo: hs && V[k] ? V[k].geo : (V[k] && V[k].geo) || mzHumano(t, w === 1), L: [] }); };
+  const blocks = [[], [], [], []], poles = [], lineP = [], caras = [], ptsC = p => { const a = []; for (let q = 0; q + 1 < p.length; q += 2) a.push([p[q], p[q + 1]]); return a; };
+  const ordMz = items.map((_, i) => i).sort((a, b) => items[b].t - items[a].t), conCara = new Set(ordMz.slice(0, 160));
   items.forEach((m, mi) => { const P = ptsC(m.p), cx = m.x, cy = m.y; let Rm = 0, best = 0, ang = 0; P.forEach((q, k) => { Rm += Math.hypot(q[0] - cx, q[1] - cy); const b = P[(k + 1) % P.length], l = Math.hypot(b[0] - q[0], b[1] - q[1]); if (l > best) { best = l; ang = Math.atan2(b[1] - q[1], b[0] - q[0]); } }); Rm = Math.max(8, Rm / P.length);
     const f = Math.max(.55, Math.min(1.25, Rm / 38)), ca = Math.cos(ang), sa = Math.sin(ang), to = (u, v) => [cx + u * ca - v * sa, cy + u * sa + v * ca], hts = cnt[mi].map(c => 3.2 + (c[0] + c[1]) * kH);
-    // personas por escalón: se dibuja una figura por persona si caben; si no, cada figura equivale a n personas (igual para toda la manzana)
     const caps = WS.map((w, t) => { const a = w * f / 2 - 1.1; return t === 3 ? Math.max(1, Math.floor((2 * a) / SPAC)) ** 2 : Math.max(4, Math.floor(8 * a / SPAC)); }); let nm = MZ.n; cnt[mi].forEach((c, t) => { nm = Math.max(nm, Math.ceil((c[0] + c[1]) / caps[t])); }); m.nfig = nm;
-    let y = BASE; for (let t = 0; t < 4; t++) { const w = WS[t] * f, h = hts[t], bx = new THREE.BoxGeometry(w, h, w); bx.rotateY(ang); bx.translate(cx, y + h / 2, -cy); blocks[t].push(bx); const yTop = y + h, a = w / 2 - 1.1, tot = cnt[mi][t][0] + cnt[mi][t][1], nf = Math.min(caps[t], Math.round(tot / nm) || (tot > 0 ? 1 : 0)); let hM = 0;
+    let y = BASE; for (let t = 0; t < 4; t++) { const w = WS[t] * f, h = hts[t], bx = new THREE.BoxGeometry(w, h, w); bx.rotateY(ang); bx.translate(cx, y + h / 2, -cy); blocks[t].push(bx); const yTop = y + h, a = w / 2 - 1.1, tot = cnt[mi][t][0] + cnt[mi][t][1], nf = Math.min(caps[t], Math.round(tot / nm) || (tot > 0 ? 1 : 0));
+      if (conCara.has(mi)) caras.push({ t, w, h, x: cx, y: cy, yc: y + h / 2, ang, tot, h0: cnt[mi][t][0], m0: cnt[mi][t][1] });
       const pos = []; if (t === 3) { const k = Math.max(1, Math.ceil(Math.sqrt(nf))); for (let i = 0; i < nf; i++) pos.push([-a + (Math.floor(i / k) + .5) * (2 * a / k), -a + ((i % k) + .5) * (2 * a / k)]); } else { const per = 8 * a; for (let i = 0; i < nf; i++) { const d = ((i + .5) / nf) * per, side = Math.floor(d / (2 * a)), r = d - side * 2 * a; pos.push(side === 0 ? [-a + r, -a] : side === 1 ? [a, -a + r] : side === 2 ? [a - r, a] : [-a, a - r]); } }
-      const fr = cnt[mi][t][0] / (tot || 1); pos.forEach((q, i) => { const sx = Math.floor((i + 1) * fr + 1e-9) > Math.floor(i * fr + 1e-9) ? 0 : 1, c2 = to(q[0], q[1]), yaw = Math.atan2(c2[0] - cx, -(c2[1] - cy)) + Math.PI + (rnd() - .5) * 1.1; mkV(t, sx).L.push([c2[0], yTop, -c2[1], yaw, t]); }); y += h; }
+      const fr = cnt[mi][t][0] / (tot || 1), wcount = { n: 0 }, P2 = pos.map(q => to(q[0], q[1])), yaw = P2.map(c2 => Math.atan2(c2[0] - cx, -(c2[1] - cy)) + (rnd() - .5) * .9), modo = new Array(pos.length).fill(0);   // miran hacia fuera de la pirámide
+      // conversaciones: algunas parejas vecinas se miran entre sí; unas pocas personas saludan al espectador
+      for (let i = 0; i + 1 < pos.length; i += 2) if (rnd() < .22) { const A = P2[i], B = P2[i + 1]; yaw[i] = Math.atan2(B[0] - A[0], -(B[1] - A[1])); yaw[i + 1] = Math.atan2(A[0] - B[0], -(A[1] - B[1])); modo[i] = modo[i + 1] = 1; }
+      pos.forEach((q, i) => { const sx = Math.floor((i + 1) * fr + 1e-9) > Math.floor(i * fr + 1e-9) ? 0 : 1, c2 = P2[i], saluda = modo[i] === 0 && pos.length >= 5 && wcount.n < 2 && rnd() < .07; if (saluda) wcount.n++; mkV(t, sx, saluda).L.push([c2[0], yTop, -c2[1], yaw[i], t, rnd() * 6.283, modo[i]]); }); y += h; }
     const pc = new THREE.CylinderGeometry(.55, .55, BASE, 10); pc.translate(cx, BASE / 2, -cy); poles.push(pc);
-    if (m.p.length >= 6) { const pts = []; for (let q = 0; q + 1 < m.p.length; q += 2) pts.push(new THREE.Vector3(m.p[q], .35, -m.p[q + 1]), new THREE.Vector3(m.p[(q + 2) % m.p.length], .35, -m.p[(q + 3) % m.p.length])); lineP.push(...pts); }
-    // rótulo oscuro con línea hasta la parte superior de la torre
+    if (m.p.length >= 6) for (let q = 0; q + 1 < m.p.length; q += 2) lineP.push(new THREE.Vector3(m.p[q], .35, -m.p[q + 1]), new THREE.Vector3(m.p[(q + 2) % m.p.length], .35, -m.p[(q + 3) % m.p.length]));
     const topY = y, cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 150; const c2d = cvs.getContext('2d'); c2d.fillStyle = 'rgba(31,41,55,.94)'; c2d.beginPath(); c2d.roundRect(4, 4, 504, 142, 22); c2d.fill(); c2d.fillStyle = '#fff'; c2d.font = '700 50px system-ui'; c2d.fillText('Manzana #' + String(m.id).slice(-3), 26, 58); c2d.font = '500 44px system-ui'; c2d.fillStyle = '#e5e7eb'; c2d.fillText('Población: ' + m.t.toLocaleString('es-MX') + ' hab' + (nm > 1 ? ' · 1 fig.=' + nm : ''), 26, 116);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cvs), transparent: true, depthTest: false })); sp.scale.set(24, 7, 1); sp.position.set(cx + 14, topY + 10, -cy); sp.renderOrder = 10; G.add(sp); lineP.push(new THREE.Vector3(cx + 4, topY + 1, -cy), new THREE.Vector3(cx + 10, topY + 7, -cy)); });
-  blocks.forEach((lst, t) => { if (!lst.length) return; const bm = new THREE.Mesh(mergeGeometries(lst, false), new THREE.MeshPhysicalMaterial({ color: new THREE.Color(MZ_T[t].c).multiplyScalar(.82), emissive: MZ_T[t].c, emissiveIntensity: .16, roughness: .34, metalness: 0, clearcoat: .8, clearcoatRoughness: .12, reflectivity: .5, envMapIntensity: .3, toneMapped: false })); bm.castShadow = bm.receiveShadow = true; G.add(bm); });
+  // bloques: plástico brillante con grano fino (relieve y rugosidad)
+  const tex = mzTextura(); blocks.forEach((lst, t) => { if (!lst.length) return; const bm = new THREE.Mesh(mergeGeometries(lst, false), new THREE.MeshPhysicalMaterial({ color: new THREE.Color(MZ_T[t].c).multiplyScalar(.82), emissive: MZ_T[t].c, emissiveIntensity: .16, roughness: .42, roughnessMap: tex, bumpMap: tex, bumpScale: 1.1, metalness: 0, clearcoat: .8, clearcoatRoughness: .14, reflectivity: .5, envMapIntensity: .3, toneMapped: false })); bm.castShadow = bm.receiveShadow = true; G.add(bm); });
+  // información en las caras de cada peldaño: grupo de edad y número de personas
+  caras.forEach(c => { const T = MZ_T[c.t], cv2 = document.createElement('canvas'); cv2.width = 512; cv2.height = 160; const g = cv2.getContext('2d'); g.textAlign = 'center'; g.fillStyle = '#fff'; g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 8; g.font = '700 54px system-ui'; g.fillText(T.n, 256, 66); g.font = '600 40px system-ui'; g.fillText(T.r + ' · ' + c.tot.toLocaleString('es-MX') + (c.tot === 1 ? ' persona' : ' personas'), 256, 122);
+    const tx = new THREE.CanvasTexture(cv2), ph = Math.min(c.h * .9, c.w * .34), pw = ph * 512 / 160, mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), ca2 = Math.cos(c.ang), sa2 = Math.sin(c.ang);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([nu, nv]) => { const nx = nu * ca2 - nv * sa2, ny = nu * sa2 + nv * ca2, pl = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(pw, c.w * .98), ph), mat); pl.position.set(c.x + nx * (c.w / 2 + .06), c.yc, -(c.y + ny * (c.w / 2 + .06))); pl.rotation.y = Math.atan2(nx, -ny); pl.renderOrder = 4; G.add(pl); }); });
   if (poles.length) { const pm = new THREE.Mesh(mergeGeometries(poles, false), new THREE.MeshStandardMaterial({ color: 0xaeb6c2, roughness: .3, metalness: .8 })); pm.castShadow = true; G.add(pm); }
   if (lineP.length) G.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lineP), new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: .55 })));
-  const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc3 = new THREE.Vector3(SC, SC, SC), pos = new THREE.Vector3(), col = new THREE.Color(), PARTS = [['legs'], ['torso'], ['head'], ['hair'], ['extra']];
-  Object.keys(V).forEach(k => { const [t, w] = k.split('|').map(Number), v = V[k], n = v.L.length; if (!n) return; const meshes = PARTS.map(([nm]) => new THREE.InstancedMesh(v.geo[nm], new THREE.MeshStandardMaterial({ roughness: .8, metalness: 0 }), n));
-    v.L.forEach((f, i) => { e.set(0, f[3], 0); q.setFromEuler(e); pos.set(f[0], f[1], f[2]); mx.compose(pos, q, sc3); const skin = pick(SK), hair = pick(HR[t]), shirt = pick(SH), legs = pick(LG); meshes.forEach((im, pi) => { im.setMatrixAt(i, mx); const nm = PARTS[pi][0]; im.setColorAt(i, col.set(nm === 'head' ? skin : nm === 'hair' ? hair : nm === 'torso' ? shirt : nm === 'legs' ? legs : '#2b2b30')); }); });
+  // figuras: un InstancedMesh por variante (edad × sexo) y parte del cuerpo; animadas en el sombreador. Las que saludan se actualizan cada cuadro para mirar a la cámara.
+  const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc3 = new THREE.Vector3(SC, SC, SC), pos = new THREE.Vector3(), col = new THREE.Color(), PARTS = ['legs', 'torso', 'arms', 'head', 'hair', 'extra'];
+  const colorDe = (nm, t, skin, hair, shirt, legs) => nm === 'head' ? skin : nm === 'hair' ? hair : (nm === 'torso' || nm === 'arms' || nm === 'armL' || nm === 'armR') ? shirt : nm === 'legs' ? legs : '#2b2b30';
+  Object.keys(V).forEach(k => { const [t, w] = k.split('|').map(Number), v = V[k], n = v.L.length; if (!n) return; const geos = PARTS.map(nm => { const g = v.geo[nm].clone(); g.setAttribute('aPh', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => f[5])), 1)); g.setAttribute('aMode', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => f[6])), 1)); return g; });
+    const meshes = geos.map(g => new THREE.InstancedMesh(g, mzMovible(new THREE.MeshStandardMaterial({ roughness: .8, metalness: 0 })), n));
+    v.L.forEach((f, i) => { e.set(0, f[3], 0); q.setFromEuler(e); pos.set(f[0], f[1], f[2]); mx.compose(pos, q, sc3); const skin = pick(SK), hair = pick(HR[t]), shirt = pick(SH), legs = pick(LG); meshes.forEach((im, pi) => { im.setMatrixAt(i, mx); im.setColorAt(i, col.set(colorDe(PARTS[pi], t, skin, hair, shirt, legs))); }); });
     meshes.forEach(im => { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; im.castShadow = true; im.receiveShadow = true; G.add(im); }); });
-  world.add(G); MZ.g = G; try { renderer.shadowMap.needsUpdate = true; } catch (_) { } try { capasSync(); } catch (_) { }
+  const WPARTS = ['legs', 'torso', 'armL', 'armR', 'head', 'hair', 'extra'], waves = [];
+  Object.keys(WV).forEach(k => { const [t, w] = k.split('|').map(Number), v = WV[k], n = v.L.length; if (!n) return; const meshes = WPARTS.map(nm => { const im = new THREE.InstancedMesh(v.geo[nm], new THREE.MeshStandardMaterial({ roughness: .8, metalness: 0 }), n); im.frustumCulled = false; im.castShadow = true; G.add(im); return im; });
+    v.L.forEach((f, i) => { const skin = pick(SK), hair = pick(HR[t]), shirt = pick(SH), legs = pick(LG); meshes.forEach((im, pi) => { im.setColorAt(i, col.set(colorDe(WPARTS[pi], t, skin, hair, shirt, legs))); }); waves.push({ meshes, i, x: f[0], y: f[1], z: f[2], ph: f[5], piv: v.geo.piv }); }); meshes.forEach(im => { if (im.instanceColor) im.instanceColor.needsUpdate = true; }); });
+  world.add(G); MZ.g = G; MZ.waves = waves; MZ.SC = SC; try { renderer.shadowMap.needsUpdate = true; } catch (_) { } try { capasSync(); } catch (_) { } if (!MZ.anim) mzAnim();
+}
+// cuadro a cuadro: tiempo del sombreador y personas que saludan (miran a la cámara y mueven el brazo)
+function mzAnim() {
+  if (!MZ.on) { MZ.anim = 0; return; } const t = performance.now() / 1000; MZ_U.uT.value = t;
+  if (MZ.waves && MZ.waves.length && MZ.g && MZ.g.parent) { const m = new THREE.Matrix4(), a = new THREE.Matrix4(), b = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(MZ.SC, MZ.SC, MZ.SC), ey = new THREE.Euler(), touched = new Set();
+    MZ.waves.forEach(w => { ey.set(0, Math.atan2(camera.position.x - w.x, camera.position.z - w.z), 0); q.setFromEuler(ey); p.set(w.x, w.y, w.z); m.compose(p, q, s); const ang = Math.PI * .86 + Math.sin(t * 7 + w.ph) * .32; a.makeTranslation(w.piv[0], w.piv[1], 0); b.makeRotationZ(ang); a.multiply(b).multiply(new THREE.Matrix4().makeTranslation(-w.piv[0], -w.piv[1], 0)); const mr = m.clone().multiply(a);
+      w.meshes.forEach((im, pi) => { im.setMatrixAt(w.i, pi === 3 ? mr : m); touched.add(im); }); }); touched.forEach(im => { im.instanceMatrix.needsUpdate = true; }); }
+  MZ.anim = requestAnimationFrame(mzAnim);
 }
 function mzFace() {   // si la maqueta se reconstruye, se vuelven a dibujar las pirámides
   if (!MZ.on) { MZ.raf = 0; return; } if (MZ.g && MZ.g.parent !== world) { MZ.g = null; if (curS) mzDibuja(curS); } MZ.raf = setTimeout(mzFace, 600);
 }
 async function mzSet(on) {
-  if (on === MZ.on) return; MZ.on = !!on; if (!on) { mzQuita(); if (MZ.raf) clearTimeout(MZ.raf); MZ.raf = 0; manSync(); try { capasSync(); } catch (_) { } return; }
+  if (on === MZ.on) return; MZ.on = !!on; if (!on) { mzQuita(); if (MZ.raf) clearTimeout(MZ.raf); MZ.raf = 0; if (MZ.anim) cancelAnimationFrame(MZ.anim); MZ.anim = 0; manSync(); try { capasSync(); } catch (_) { } return; }
   manSync(); const it = await mzCarga(curS); if (!MZ.on) return; if (!it || !it.length) { MZ.on = false; MZ.msg = it ? 'No hay manzanas con población dentro de esta maqueta.' : MZ.msg; manSync(); manRes(); return; } mzDibuja(curS); manSync(); manRes(); if (!MZ.raf) MZ.raf = setTimeout(mzFace, 600);
 }
 function manSync() { const b = $('man-map'); if (b) b.textContent = MZ.on ? '✖ Quitar del mapa' : '🗺️ Ver en el mapa'; }
