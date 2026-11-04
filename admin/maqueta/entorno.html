@@ -4500,7 +4500,7 @@ function cmpMarkers(G, S, pts, colf, nlab) {   // cada pin es un grupo con su po
     G.add(pin); });
 }
 function cmpEscala() {   // tamaño aparente constante: crece con la distancia a la cámara (×1 cerca, hasta ×40 en vista de ciudad)
-  if (!camera) return; [CMP.g, CMP.gs, CMP.gp].forEach(G => { if (!G) return; G.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(40, Math.max(1, d / 450)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(150 * ls, 150 * .1875 * ls, 1); }); }); });
+  if (!camera) return; [CMP.g, CMP.gs, CMP.gp].forEach(G => { if (!G) return; G.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(30, Math.max(1, d / 1800)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(150 * ls, 150 * .1875 * ls, 1); }); }); });
 }
 function cmpTick() { if (!CMP.on) { CMP.raf = 0; return; } try { cmpEscala(); } catch (_) { } CMP.raf = requestAnimationFrame(cmpTick); }
 function cmpDibuja() {
@@ -4589,7 +4589,7 @@ PW_CIERRA.cmp = () => { cmpPickSet(false); };
     const n = e.target.closest && e.target.closest('.cmp-pt input.n'); if (n) { const p = CMP.pts.find(x => x.id === n.closest('.cmp-pt').dataset.id); if (p) { p.n = n.value.trim().slice(0, 120) || p.n; n.value = p.n; cmpSt(); cmpDibuja(); } }
   });
   r.el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.classList.contains('cmp-q')) cmpCarga().then(() => { cmpSelects(); cmpBuscaDenue(); }); else if (e.target.classList.contains('cmp-gq')) { clearTimeout(CMP.t2); cmpBuscaG(); } });
-  new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { if (!CMP.raf) CMP.raf = requestAnimationFrame(cmpTick); cmpInicia().then(() => cmpDibuja()); cmpDibuja(); } else { cmpPickSet(false); cmpQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { if (!CMP.raf) CMP.raf = requestAnimationFrame(cmpTick); try { const bc = document.querySelector('#cap-base [data-b="calles"]'), of = document.querySelector('#cap-base [data-b="off"]'); if (bc && of && of.classList.contains('on')) bc.click(); } catch (_) { } cmpInicia().then(() => cmpDibuja()); cmpDibuja(); } else { cmpPickSet(false); cmpQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
   setInterval(() => { if (CMP.on && (!CMP.g || CMP.g.parent !== world) && curS && CMP.pts.length) cmpDibuja(); }, 1500); cmpRes(); cmpPuntos();
 }
 // ── Ventana «Tráfico»: 1) Monitoreo del tráfico (descarga automática, historial y animación) y 2) Flujo vehicular (lo que ya había) ──
