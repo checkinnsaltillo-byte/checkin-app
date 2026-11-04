@@ -4754,8 +4754,20 @@ function mzTextura() {   // grano fino de plástico (relieve y rugosidad)
   g.strokeStyle = 'rgba(0,0,0,.08)'; g.lineWidth = 1; for (let k = 0; k < 60; k++) { g.beginPath(); g.moveTo(r() * 256, r() * 256); g.lineTo(r() * 256, r() * 256); g.stroke(); }   // pequeños rayones
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return MZ.tex = t;
 }
-function mzMovible(mat) {   // balanceo, cabeceo al conversar y vaivén suave de cada persona (en el sombreador; no cuesta tiempo de CPU)
-  mat.onBeforeCompile = sh => { sh.uniforms.uT = MZ_U.uT; sh.vertexShader = 'attribute float aPh;\nattribute float aMode;\nuniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n { float w = clamp((transformed.y - 0.85) / 0.8, 0.0, 1.0); transformed.y += sin(uT * 1.7 + aPh) * 0.012; transformed.x += sin(uT * 1.1 + aPh * 2.0) * 0.03 * transformed.y; if (aMode > 0.5) { transformed.z += sin(uT * 4.5 + aPh) * 0.03 * w; transformed.y += sin(uT * 4.5 + aPh) * 0.012 * w; } }'); }; mat.customProgramCacheKey = () => 'mzmov'; return mat;
+function mzMovible(mat) {   // balanceo, cabeceo al conversar, y paso de caminata de ida y vuelta (modo 2) calculados en el sombreador
+  mat.onBeforeCompile = sh => { sh.uniforms.uT = MZ_U.uT; sh.vertexShader = 'attribute float aPh;\nattribute float aMode;\nattribute float aAmp;\nuniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+ { float w = clamp((transformed.y - 0.85) / 0.8, 0.0, 1.0);
+   if (aMode > 1.5) {
+     float om = 0.55; float c = cos(uT * om + aPh); float phi = 1.5708 * clamp(c * 3.0, -1.0, 1.0);
+     float cp = cos(phi), sp = sin(phi); float nx = transformed.x * cp + transformed.z * sp; float nz = -transformed.x * sp + transformed.z * cp; transformed.x = nx; transformed.z = nz;
+     float st = uT * 5.0 + aPh * 3.0; float walking = smoothstep(0.15, 0.6, abs(c));
+     if (transformed.y < 0.8) { transformed.z += sign(nx) * sin(st) * 0.14 * (1.0 - transformed.y / 0.8) * walking; }
+     transformed.y += abs(sin(st)) * 0.02 * walking;
+     transformed.x += aAmp * sin(uT * om + aPh);
+   } else {
+     transformed.y += sin(uT * 1.7 + aPh) * 0.012; transformed.x += sin(uT * 1.1 + aPh * 2.0) * 0.03 * transformed.y;
+     if (aMode > 0.5) { transformed.z += sin(uT * 4.5 + aPh) * 0.03 * w; transformed.y += sin(uT * 4.5 + aPh) * 0.012 * w; }
+   } }`); }; mat.customProgramCacheKey = () => 'mzmov2'; return mat;
 }
 function mzDibuja(S) {
   mzQuita(); if (!world || !MZ.items || !MZ.items.length) return; const items = MZ.items.filter(m => m.p && m.p.length >= 6);
@@ -4774,8 +4786,11 @@ function mzDibuja(S) {
       const pos = []; if (t === 3) { const k = Math.max(1, Math.ceil(Math.sqrt(nf))); for (let i = 0; i < nf; i++) pos.push([-a + (Math.floor(i / k) + .5) * (2 * a / k), -a + ((i % k) + .5) * (2 * a / k)]); } else { const per = 8 * a; for (let i = 0; i < nf; i++) { const d = ((i + .5) / nf) * per, side = Math.floor(d / (2 * a)), r = d - side * 2 * a; pos.push(side === 0 ? [-a + r, -a] : side === 1 ? [a, -a + r] : side === 2 ? [a - r, a] : [-a, a - r]); } }
       const fr = cnt[mi][t][0] / (tot || 1), wcount = { n: 0 }, P2 = pos.map(q => to(q[0], q[1])), yaw = P2.map(c2 => Math.atan2(c2[0] - cx, -(c2[1] - cy)) + (rnd() - .5) * .9), modo = new Array(pos.length).fill(0);   // miran hacia fuera de la pirámide
       // conversaciones: algunas parejas vecinas se miran entre sí; unas pocas personas saludan al espectador
-      for (let i = 0; i + 1 < pos.length; i += 2) if (rnd() < .22) { const A = P2[i], B = P2[i + 1]; yaw[i] = Math.atan2(B[0] - A[0], -(B[1] - A[1])); yaw[i + 1] = Math.atan2(A[0] - B[0], -(A[1] - B[1])); modo[i] = modo[i + 1] = 1; }
-      pos.forEach((q, i) => { const sx = Math.floor((i + 1) * fr + 1e-9) > Math.floor(i * fr + 1e-9) ? 0 : 1, c2 = P2[i], saluda = modo[i] === 0 && pos.length >= 5 && wcount.n < 2 && rnd() < .07; if (saluda) wcount.n++; mkV(t, sx, saluda).L.push([c2[0], yTop, -c2[1], yaw[i], t, rnd() * 6.283, modo[i]]); }); y += h; }
+      const salu = new Array(pos.length).fill(false);
+      for (let i = 0; i + 1 < pos.length; i += 2) if (rnd() < .22) { const A = P2[i], B = P2[i + 1]; yaw[i] = Math.atan2(B[0] - A[0], -(B[1] - A[1])); yaw[i + 1] = Math.atan2(A[0] - B[0], -(A[1] - B[1])); modo[i] = modo[i + 1] = 1; if (rnd() < .45) salu[i] = salu[i + 1] = true; }   // parejas que conversan; algunas se saludan con la mano
+      const lleno = pos.length / Math.max(1, caps[t]), hueco = pos.length ? (t === 3 ? (2 * a) / Math.max(1, Math.ceil(Math.sqrt(pos.length))) : (8 * a) / pos.length) : 0, amp = Math.min(1.3, hueco * .38);   // si hay espacio, algunos caminan de ida y vuelta
+      for (let i = 0; i < pos.length; i++) if (modo[i] === 0 && lleno < .72 && amp > .35 && i % 3 === 1 && rnd() < .6) modo[i] = 2;
+      pos.forEach((q, i) => { const sx = Math.floor((i + 1) * fr + 1e-9) > Math.floor(i * fr + 1e-9) ? 0 : 1, c2 = P2[i], saluda = (modo[i] === 0 && pos.length >= 5 && wcount.n < 2 && rnd() < .07) || salu[i]; if (saluda && !salu[i]) wcount.n++; mkV(t, sx, saluda).L.push([c2[0], yTop, -c2[1], yaw[i], t, rnd() * 6.283, modo[i], salu[i] ? 1 : 0, modo[i] === 2 ? amp : 0]); }); y += h; }
     const pc = new THREE.CylinderGeometry(.55, .55, BASE, 10); pc.translate(cx, BASE / 2, -cy); poles.push(pc);
     if (m.p.length >= 6) for (let q = 0; q + 1 < m.p.length; q += 2) lineP.push(new THREE.Vector3(m.p[q], .35, -m.p[q + 1]), new THREE.Vector3(m.p[(q + 2) % m.p.length], .35, -m.p[(q + 3) % m.p.length]));
     const topY = y, cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 150; const c2d = cvs.getContext('2d'); c2d.fillStyle = 'rgba(31,41,55,.94)'; c2d.beginPath(); c2d.roundRect(4, 4, 504, 142, 22); c2d.fill(); c2d.fillStyle = '#fff'; c2d.font = '700 50px system-ui'; c2d.fillText('Manzana #' + String(m.id).slice(-3), 26, 58); c2d.font = '500 44px system-ui'; c2d.fillStyle = '#e5e7eb'; c2d.fillText('Población: ' + m.t.toLocaleString('es-MX') + ' hab' + (nm > 1 ? ' · 1 fig.=' + nm : ''), 26, 116);
@@ -4791,20 +4806,20 @@ function mzDibuja(S) {
   // figuras: un InstancedMesh por variante (edad × sexo) y parte del cuerpo; animadas en el sombreador. Las que saludan se actualizan cada cuadro para mirar a la cámara.
   const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc3 = new THREE.Vector3(SC, SC, SC), pos = new THREE.Vector3(), col = new THREE.Color(), PARTS = ['legs', 'torso', 'arms', 'head', 'hair', 'extra'];
   const colorDe = (nm, t, skin, hair, shirt, legs) => nm === 'head' ? skin : nm === 'hair' ? hair : (nm === 'torso' || nm === 'arms' || nm === 'armL' || nm === 'armR') ? shirt : nm === 'legs' ? legs : '#2b2b30';
-  Object.keys(V).forEach(k => { const [t, w] = k.split('|').map(Number), v = V[k], n = v.L.length; if (!n) return; const geos = PARTS.map(nm => { const g = v.geo[nm].clone(); g.setAttribute('aPh', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => f[5])), 1)); g.setAttribute('aMode', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => f[6])), 1)); return g; });
+  Object.keys(V).forEach(k => { const [t, w] = k.split('|').map(Number), v = V[k], n = v.L.length; if (!n) return; const geos = PARTS.map(nm => { const g = v.geo[nm].clone(); g.setAttribute('aPh', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => f[5])), 1)); g.setAttribute('aMode', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => f[6])), 1)); g.setAttribute('aAmp', new THREE.InstancedBufferAttribute(new Float32Array(v.L.map(f => (f[8] || 0) / SC)), 1)); return g; });
     const meshes = geos.map(g => new THREE.InstancedMesh(g, mzMovible(new THREE.MeshStandardMaterial({ roughness: .8, metalness: 0 })), n));
     v.L.forEach((f, i) => { e.set(0, f[3], 0); q.setFromEuler(e); pos.set(f[0], f[1], f[2]); mx.compose(pos, q, sc3); const skin = pick(SK), hair = pick(HR[t]), shirt = pick(SH), legs = pick(LG); meshes.forEach((im, pi) => { im.setMatrixAt(i, mx); im.setColorAt(i, col.set(colorDe(PARTS[pi], t, skin, hair, shirt, legs))); }); });
     meshes.forEach(im => { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; im.castShadow = true; im.receiveShadow = true; G.add(im); }); });
   const WPARTS = ['legs', 'torso', 'armL', 'armR', 'head', 'hair', 'extra'], waves = [];
   Object.keys(WV).forEach(k => { const [t, w] = k.split('|').map(Number), v = WV[k], n = v.L.length; if (!n) return; const meshes = WPARTS.map(nm => { const im = new THREE.InstancedMesh(v.geo[nm], new THREE.MeshStandardMaterial({ roughness: .8, metalness: 0 }), n); im.frustumCulled = false; im.castShadow = true; G.add(im); return im; });
-    v.L.forEach((f, i) => { const skin = pick(SK), hair = pick(HR[t]), shirt = pick(SH), legs = pick(LG); meshes.forEach((im, pi) => { im.setColorAt(i, col.set(colorDe(WPARTS[pi], t, skin, hair, shirt, legs))); }); waves.push({ meshes, i, x: f[0], y: f[1], z: f[2], ph: f[5], piv: v.geo.piv }); }); meshes.forEach(im => { if (im.instanceColor) im.instanceColor.needsUpdate = true; }); });
+    v.L.forEach((f, i) => { const skin = pick(SK), hair = pick(HR[t]), shirt = pick(SH), legs = pick(LG); meshes.forEach((im, pi) => { im.setColorAt(i, col.set(colorDe(WPARTS[pi], t, skin, hair, shirt, legs))); }); waves.push({ meshes, i, x: f[0], y: f[1], z: f[2], ph: f[5], piv: v.geo.piv, fix: f[7] ? f[3] : null }); }); meshes.forEach(im => { if (im.instanceColor) im.instanceColor.needsUpdate = true; }); });
   world.add(G); MZ.g = G; MZ.waves = waves; MZ.SC = SC; try { renderer.shadowMap.needsUpdate = true; } catch (_) { } try { capasSync(); } catch (_) { } if (!MZ.anim) mzAnim();
 }
 // cuadro a cuadro: tiempo del sombreador y personas que saludan (miran a la cámara y mueven el brazo)
 function mzAnim() {
   if (!MZ.on) { MZ.anim = 0; return; } const t = performance.now() / 1000; MZ_U.uT.value = t;
   if (MZ.waves && MZ.waves.length && MZ.g && MZ.g.parent) { const m = new THREE.Matrix4(), a = new THREE.Matrix4(), b = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(MZ.SC, MZ.SC, MZ.SC), ey = new THREE.Euler(), touched = new Set();
-    MZ.waves.forEach(w => { ey.set(0, Math.atan2(camera.position.x - w.x, camera.position.z - w.z), 0); q.setFromEuler(ey); p.set(w.x, w.y, w.z); m.compose(p, q, s); const ang = Math.PI * .86 + Math.sin(t * 7 + w.ph) * .32; a.makeTranslation(w.piv[0], w.piv[1], 0); b.makeRotationZ(ang); a.multiply(b).multiply(new THREE.Matrix4().makeTranslation(-w.piv[0], -w.piv[1], 0)); const mr = m.clone().multiply(a);
+    MZ.waves.forEach(w => { ey.set(0, w.fix != null ? w.fix : Math.atan2(camera.position.x - w.x, camera.position.z - w.z), 0); q.setFromEuler(ey); p.set(w.x, w.y, w.z); m.compose(p, q, s); const act = w.fix != null ? Math.max(0, Math.min(1, (Math.sin(t * .6 + w.ph) - .1) * 3)) : 1, ang = act * (Math.PI * .86 + Math.sin(t * 7 + w.ph) * .32); a.makeTranslation(w.piv[0], w.piv[1], 0); b.makeRotationZ(ang); a.multiply(b).multiply(new THREE.Matrix4().makeTranslation(-w.piv[0], -w.piv[1], 0)); const mr = m.clone().multiply(a);
       w.meshes.forEach((im, pi) => { im.setMatrixAt(w.i, pi === 3 ? mr : m); touched.add(im); }); }); touched.forEach(im => { im.instanceMatrix.needsUpdate = true; }); }
   MZ.anim = requestAnimationFrame(mzAnim);
 }
