@@ -658,6 +658,7 @@ function build(S) {
     const addBox = (list, w, h, d, col, lx, ly, lz, L) => { const g = new THREE.BoxGeometry(w, h, d); const ry = Math.atan2(-L.nx, L.ny); qq.setFromAxisAngle(ey, ry); const c = new THREE.Vector3(lx, ly, lz).applyQuaternion(qq); vv.set(L.fx + c.x, c.y, -L.fy + c.z); mat4.compose(vv, qq, sc1); g.applyMatrix4(mat4); if (col) { const cc = new THREE.Color(col), n = g.attributes.position.count, ca = new Float32Array(n * 3); for (let i = 0; i < n; i++) { ca[i * 3] = cc.r; ca[i * 3 + 1] = cc.g; ca[i * 3 + 2] = cc.b; } g.setAttribute('color', new THREE.BufferAttribute(ca, 3)); } list.push(g); };
     const treeInst = [];
     lots.forEach(L => { L.det = Math.hypot(L.cx, L.cy) <= DET && L.D >= 10; });
+    window.__lotsDbg = lots.map(L => [Math.round(L.cx), Math.round(L.cy), Math.round(L.w), Math.round(L.D), L.det ? 1 : 0, L.fp ? 1 : 0, L.subj ? 1 : 0]);
     // el lote o edificio más cercano al punto del alojamiento
     let sujLot = sujRes && sujRes.subj ? sujRes : null; if (!sujLot) lots.forEach(L => { if (!sujLot || Math.hypot(L.cx, L.cy) < Math.hypot(sujLot.cx, sujLot.cy)) sujLot = L; }); const sujB = sujRes && sujRes.osm ? sujRes.osm : builds.reduce((b, x) => !b || Math.hypot(x.c[0], x.c[1]) < Math.hypot(b.c[0], b.c[1]) ? x : b, null);
     const sujEsB = sujRes && sujRes.subj ? false : sujB && (!sujLot || Math.hypot(sujB.c[0], sujB.c[1]) < Math.hypot(sujLot.cx, sujLot.cy)); if (!sujEsB && sujLot) { sujLot.det = true; sujLot.sp.sujeto = true; sujLot.sp.tipo = 'dpto2p'; sujLot.sp.w = Math.min(sujLot.sp.w, 15); }
