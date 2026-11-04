@@ -4389,7 +4389,7 @@ PW_CIERRA.afl = () => { if (AFL.on) aflSet(curS, false); };
   new MutationObserver(() => { if (r.el.classList.contains('on') && !AFL.D) aflLoad().then(aflRes); }).observe(r.el, { attributes: true, attributeFilter: ['class'] }); aflSync();
 }
 // ── Competencia: puntos de referencia (el negocio del cliente) y de competencia, tomados del DENUE, de Google Places, a mano sobre el mapa o mezclando las tres fuentes. Se guardan por maqueta en GCS (mercado/maqueta/competencia/<id>.json). «Analizar competencia» queda pendiente.
-const CMP = { pts: [], sv: null, saved: '', savedAt: null, src: 'denue', cat: null, sc: null, f: { s: '', ss: '', r: '', sr: '' }, res: [], tot: -1, gres: [], gmsg: '', gbusy: false, g: null, pick: false, on: false, ini: false, busy: false, msg: '', n: 0, dmsg: '' };
+const CMP = { pts: [], sv: null, saved: '', savedAt: null, src: 'denue', cat: null, sc: null, f: { s: '', ss: '', r: '', sr: '' }, res: [], tot: -1, gres: [], gmsg: '', gbusy: false, gseq: 0, sd: new Set(), sg: new Set(), sp: new Set(), gp: null, g: null, pick: false, on: false, ini: false, busy: false, msg: '', n: 0, dmsg: '' };
 const CMP_SRC = { maqueta: ['📍', 'Maqueta', '#0f766e'], denue: ['🏪', 'DENUE', '#2563eb'], google: ['🔎', 'Google', '#ea580c'], manual: ['✍️', 'Manual', '#7c3aed'] }, CMP_COL = { ref: '#2563eb', comp: '#dc2626', none: '#f59e0b' };
 const cmpNz = t => String(t == null ? '' : t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const cmpQ = s => { const e = $('pw-cmp'); return e ? e.querySelector(s) : null; };
@@ -4407,6 +4407,7 @@ function cmpCss() {
     + '#pw-cmp .cmp-pt{display:flex;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid #e2e8f0;font-size:11.5px}#pw-cmp .cmp-pt input.n{flex:1;min-width:0;font-size:12px;font-weight:600;border:1px solid transparent;border-radius:6px;padding:3px 5px;background:transparent}#pw-cmp .cmp-pt input.n:hover,#pw-cmp .cmp-pt input.n:focus{border-color:#cbd5e1;background:#fff}'
     + '#pw-cmp .cmp-rl{display:flex;flex:none}#pw-cmp .cmp-rl button{padding:3px 7px;font-size:10.5px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:700}#pw-cmp .cmp-rl button:first-child{border-radius:99px 0 0 99px}#pw-cmp .cmp-rl button:last-child{border-radius:0 99px 99px 0;border-left:0}#pw-cmp .cmp-rl button.ref.on{background:#2563eb;color:#fff;border-color:#2563eb}#pw-cmp .cmp-rl button.comp.on{background:#dc2626;color:#fff;border-color:#dc2626}'
     + '#pw-cmp .cmp-x{flex:none;border:0;background:transparent;color:#94a3b8;cursor:pointer;font-size:13px;padding:2px 4px}#pw-cmp .cmp-x:hover{color:#dc2626}#pw-cmp .cmp-bdg{flex:none;font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px;color:#fff}#pw-cmp .cmp-warn{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:7px 9px;font-size:11.5px;margin:0 0 8px;line-height:1.4}#pw-cmp .cmp-h{font-size:11px;font-weight:700;color:#334155;margin:12px 0 4px}';
+  st.textContent += '#pw-cmp .cmp-ck{flex:none;width:18px;height:18px;box-sizing:border-box;border:2px solid #94a3b8;border-radius:5px;background:#fff;color:#fff;font-size:12px;line-height:14px;text-align:center;cursor:pointer;font-weight:900}#pw-cmp .cmp-ck.on{background:#2563eb;border-color:#2563eb}#pw-cmp .cmp-tb{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:4px 0}#pw-cmp .cmp-row[data-i],#pw-cmp .cmp-row[data-g],#pw-cmp .cmp-row[data-id],#pw-cmp .cmp-pt{cursor:pointer}#pw-cmp .cmp-row:hover,#pw-cmp .cmp-pt:hover{background:#f1f5f9}';
   document.head.appendChild(st);
 }
 // catálogo SCIAN: sector (2 dígitos), subsector (3), rama (4) y subrama (5) con su conteo en la ciudad
@@ -4424,40 +4425,47 @@ function cmpSelects() {
   const def = [['s', 2, 'Sector', ''], ['ss', 3, 'Subsector', F.s], ['r', 4, 'Rama', F.ss || F.s], ['sr', 5, 'Subrama', F.r || F.ss || F.s]];
   box.innerHTML = def.map(([k, L, t, pre]) => { const ops = [...cat.m[L].keys()].filter(c => c.startsWith(pre)).sort(); return `<div><label>${t}</label><select data-k="${k}"><option value="">Todos</option>${ops.map(c => `<option value="${c}"${F[k] === c ? ' selected' : ''}>${esc_(cmpLab(L, c).slice(0, 70))} (${cat.m[L].get(c)})</option>`).join('')}</select></div>`; }).join('');
 }
-function cmpBuscaDenue() {
+function cmpBuscaDenue(silent) {
   const D = ECO.D, B = cmpBase() || { lat: curS.lat, lng: curS.lng }, F = CMP.f, pre = F.sr || F.r || F.ss || F.s, q = cmpNz((cmpQ('.cmp-q') || {}).value || '').trim(), words = q.split(/\s+/).filter(Boolean);
   if (!D) { CMP.dmsg = 'No se pudo cargar el DENUE de esta ciudad.'; CMP.tot = -1; cmpResD(); return; }
+  if (!words.length && !pre && silent) { CMP.tot = -1; CMP.dmsg = ''; cmpResD(); return; }
   if (!words.length && !pre) { CMP.dmsg = 'Escriba un texto o elija al menos un filtro de actividad (sector, subsector, rama o subrama).'; CMP.tot = -1; cmpResD(); return; }
   const SS = (CMP.sc || {}).ss || {}, out = [];
   for (let i = 0; i < D.p.length; i++) { const p = D.p[i], c = String(p[5]); if (pre && !c.startsWith(pre)) continue; let hitN = 0;
     if (words.length) { const nn = cmpNz(p[4]), cc = cmpNz(SS[c.slice(0, 3)] || ''); let ok = true; for (const w of words) { if (nn.includes(w)) hitN++; else if (!cc.includes(w)) { ok = false; break; } } if (!ok) continue; }
     out.push({ i, d: cmpDist({ lat: p[0], lng: p[1] }, B), h: words.length && hitN === words.length ? 0 : 1 }); }
-  out.sort((a, b) => a.h - b.h || a.d - b.d); CMP.tot = out.length; CMP.res = out.slice(0, 150); CMP.dmsg = ''; cmpResD();
+  out.sort((a, b) => a.h - b.h || a.d - b.d); CMP.tot = out.length; CMP.res = out.slice(0, 150); CMP.dmsg = ''; CMP.sd.clear(); cmpResD();
 }
 const cmpDenuePt = i => { const p = ECO.D.p[i]; return { id: 'd' + i, n: String(p[4] || 'Sin nombre').slice(0, 60), lat: p[0], lng: p[1], src: 'denue', rol: null, sc: String(p[5]), tp: ((CMP.sc || {}).ss || {})[String(p[5]).slice(0, 3)] || '' }; };
 function cmpResD() {
-  const box = cmpQ('.cmp-rd'); if (!box) return; if (CMP.tot < 0) { box.innerHTML = CMP.dmsg ? `<div style="font-size:11.5px;color:#b45309;margin-top:4px">${esc_(CMP.dmsg)}</div>` : ''; return; }
-  const G = ECO.D.meta.grupos, have = new Set(CMP.pts.map(p => p.id)), nuevos = CMP.res.filter(r => !have.has('d' + r.i)).length;
-  box.innerHTML = `<div style="font-size:11.5px;color:#334155;margin:4px 0"><b>${CMP.tot.toLocaleString('es-MX')}</b> establecimientos encontrados${CMP.tot > CMP.res.length ? ` · se muestran los ${CMP.res.length} más cercanos al punto de referencia` : ''}.</div>`
-    + (CMP.res.length ? `<button class="cmp-all" style="margin:0 0 4px">➕ Agregar los ${nuevos} mostrados que faltan</button>` : '') + `<div style="max-height:300px;overflow:auto;border-top:1px solid #e2e8f0">`
-    + CMP.res.map(r => { const p = ECO.D.p[r.i], ya = have.has('d' + r.i); return `<div class="cmp-row"><i style="width:9px;height:9px;border-radius:50%;flex:none;background:${G[p[2]].c}"></i><div class="nm"><b title="${esc_(p[4])}">${esc_(p[4] || 'Sin nombre')}</b><span>${esc_(cmpLab(3, String(p[5]).slice(0, 3)).replace(/^\d+ · /, ''))} · ${cmpFmtD(r.d)}</span></div><button class="cmp-add${ya ? ' ya' : ''}" data-d="${r.i}">${ya ? '✓ Agregado' : '＋ Agregar'}</button></div>`; }).join('') + '</div>';
+  const box = cmpQ('.cmp-rd'); if (!box) return; const lst = box.querySelector('.cmp-lst'), sc = lst ? lst.scrollTop : 0; if (CMP.tot < 0) { box.innerHTML = CMP.dmsg ? `<div style="font-size:11.5px;color:#b45309;margin-top:4px">${esc_(CMP.dmsg)}</div>` : ''; return; }
+  const G = ECO.D.meta.grupos, have = new Set(CMP.pts.map(p => p.id)), ns = CMP.sd.size;
+  box.innerHTML = `<div style="font-size:11.5px;color:#334155;margin:4px 0"><b>${CMP.tot.toLocaleString('es-MX')}</b> establecimientos encontrados${CMP.tot > CMP.res.length ? ` · se muestran los ${CMP.res.length} más cercanos al punto de referencia` : ''}. Haga clic en uno para verlo en el mapa.</div>`
+    + (CMP.res.length ? `<div class="cmp-tb"><button class="cmp-sa" data-k="d">Seleccionar todos</button><button class="cmp-sn" data-k="d">Ninguno</button><button class="cmp-addsel" data-k="d"${ns ? '' : ' disabled'}>➕ Agregar seleccionados (${ns})</button></div>` : '') + `<div class="cmp-lst" style="max-height:300px;overflow:auto;border-top:1px solid #e2e8f0">`
+    + CMP.res.map(r => { const p = ECO.D.p[r.i], ya = have.has('d' + r.i), on = CMP.sd.has(r.i); return `<div class="cmp-row" data-i="${r.i}"><span class="cmp-ck${on ? ' on' : ''}">${on ? '✓' : ''}</span><i style="width:9px;height:9px;border-radius:50%;flex:none;background:${G[p[2]].c}"></i><div class="nm"><b title="${esc_(p[4])}">${esc_(p[4] || 'Sin nombre')}</b><span>${esc_(cmpLab(3, String(p[5]).slice(0, 3)).replace(/^\d+ · /, ''))} · ${cmpFmtD(r.d)}</span></div><button class="cmp-add${ya ? ' ya' : ''}" data-d="${r.i}">${ya ? '✓ Agregado' : '＋ Agregar'}</button></div>`; }).join('') + '</div>';
+  const l2 = box.querySelector('.cmp-lst'); if (l2) l2.scrollTop = sc;
 }
+const cmpGPt = g => ({ id: 'g' + g.pid, n: g.n.slice(0, 80), lat: g.lat, lng: g.lng, src: 'google', rol: null, dir: g.dir, tp: g.tp, rt: g.rt, nr: g.nr, pid: g.pid });
 async function cmpBuscaG() {
-  const q = ((cmpQ('.cmp-gq') || {}).value || '').trim(); if (q.length < 2 || CMP.gbusy) return; const B = cmpBase() || curS; CMP.gbusy = true; CMP.gmsg = '⏳ Buscando en Google…'; CMP.gres = []; cmpResG();
-  try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/places-buscar?q=${encodeURIComponent(q)}&lat=${B.lat}&lng=${B.lng}`).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); CMP.gres = j.r || []; CMP.gmsg = CMP.gres.length ? '' : 'Google no encontró lugares con ese texto.'; } catch (e) { CMP.gmsg = 'No se pudo buscar: ' + e.message; }
-  CMP.gbusy = false; cmpResG();
+  const q = ((cmpQ('.cmp-gq') || {}).value || '').trim(), my = ++CMP.gseq, B = cmpBase() || curS; CMP.sg.clear();
+  if (q.length < 3) { CMP.gres = []; CMP.gmsg = ''; cmpResG(); return; } CMP.gmsg = '⏳ Buscando en Google…'; CMP.gres = []; cmpResG();
+  try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/places-buscar?q=${encodeURIComponent(q)}&lat=${B.lat}&lng=${B.lng}`).then(r => r.json()); if (my !== CMP.gseq) return; if (!j.ok) throw new Error(j.error || 'Error'); CMP.gres = j.r || []; CMP.gmsg = CMP.gres.length ? '' : 'Google no encontró lugares con ese texto.'; } catch (e) { if (my !== CMP.gseq) return; CMP.gmsg = 'No se pudo buscar: ' + e.message; }
+  cmpResG();
 }
 function cmpResG() {
-  const box = cmpQ('.cmp-rg'); if (!box) return; const B = cmpBase() || curS, have = new Set(CMP.pts.map(p => p.id));
-  box.innerHTML = (CMP.gmsg ? `<div style="font-size:11.5px;color:#475569;margin:4px 0">${esc_(CMP.gmsg)}</div>` : '') + (CMP.gres.length ? `<div style="font-size:11.5px;color:#334155;margin:4px 0"><b>${CMP.gres.length}</b> lugares de Google.</div><div style="max-height:300px;overflow:auto;border-top:1px solid #e2e8f0">` + CMP.gres.map((r, i) => { const ya = have.has('g' + r.pid); return `<div class="cmp-row"><div class="nm"><b title="${esc_(r.n)}">${esc_(r.n)}</b><span>${r.rt ? '⭐ ' + r.rt + ' (' + r.nr + ') · ' : ''}${esc_(r.tp)}${r.tp ? ' · ' : ''}${cmpFmtD(cmpDist(r, B))}</span><span>${esc_(r.dir)}</span></div><button class="cmp-add${ya ? ' ya' : ''}" data-g="${i}">${ya ? '✓ Agregado' : '＋ Agregar'}</button></div>`; }).join('') + '</div>' : '');
+  const box = cmpQ('.cmp-rg'); if (!box) return; const lst = box.querySelector('.cmp-lst'), sc = lst ? lst.scrollTop : 0, B = cmpBase() || curS, have = new Set(CMP.pts.map(p => p.id)), ns = CMP.sg.size;
+  box.innerHTML = (CMP.gmsg ? `<div style="font-size:11.5px;color:#475569;margin:4px 0">${esc_(CMP.gmsg)}</div>` : '') + (CMP.gres.length ? `<div style="font-size:11.5px;color:#334155;margin:4px 0"><b>${CMP.gres.length}</b> lugares de Google. Haga clic en uno para verlo en el mapa.</div><div class="cmp-tb"><button class="cmp-sa" data-k="g">Seleccionar todos</button><button class="cmp-sn" data-k="g">Ninguno</button><button class="cmp-addsel" data-k="g"${ns ? '' : ' disabled'}>➕ Agregar seleccionados (${ns})</button></div><div class="cmp-lst" style="max-height:300px;overflow:auto;border-top:1px solid #e2e8f0">` + CMP.gres.map((r, i) => { const ya = have.has('g' + r.pid), on = CMP.sg.has(i); return `<div class="cmp-row" data-g="${i}"><span class="cmp-ck${on ? ' on' : ''}">${on ? '✓' : ''}</span><div class="nm"><b title="${esc_(r.n)}">${esc_(r.n)}</b><span>${r.rt ? '⭐ ' + r.rt + ' (' + r.nr + ') · ' : ''}${esc_(r.tp)}${r.tp ? ' · ' : ''}${cmpFmtD(cmpDist(r, B))}</span><span>${esc_(r.dir)}</span></div><button class="cmp-add${ya ? ' ya' : ''}" data-g="${i}">${ya ? '✓ Agregado' : '＋ Agregar'}</button></div>`; }).join('') + '</div>' : '');
+  const l2 = box.querySelector('.cmp-lst'); if (l2) l2.scrollTop = sc;
 }
 function cmpAdd(p) { if (CMP.pts.some(x => x.id === p.id)) return false; CMP.pts.push(p); return true; }
 function cmpQuitaPt(id) { CMP.pts = CMP.pts.filter(p => p.id !== id || p.src === 'maqueta'); }
 function cmpPuntos() {
-  const box = cmpQ('.cmp-pts'); if (!box) return; const n0 = cmpSinRol(), ord = p => (p.rol ? (p.rol === 'ref' ? 1 : 2) : 0), L = CMP.pts.map((p, i) => [p, i]).sort((a, b) => ord(a[0]) - ord(b[0]) || a[1] - b[1]).map(x => x[0]), nr = CMP.pts.filter(p => p.rol === 'ref').length, nc = CMP.pts.filter(p => p.rol === 'comp').length;
+  const box = cmpQ('.cmp-pts'); if (!box) return; CMP.sp.forEach(id => { if (!CMP.pts.some(p => p.id === id)) CMP.sp.delete(id); }); const n0 = cmpSinRol(), ord = p => (p.rol ? (p.rol === 'ref' ? 1 : 2) : 0), L = CMP.pts.map((p, i) => [p, i]).sort((a, b) => ord(a[0]) - ord(b[0]) || a[1] - b[1]).map(x => x[0]), nr = CMP.pts.filter(p => p.rol === 'ref').length, nc = CMP.pts.filter(p => p.rol === 'comp').length, ns = CMP.sp.size;
   box.innerHTML = `<div class="cmp-h" style="margin-top:14px">📌 Puntos del análisis (${CMP.pts.length}) <span style="font-weight:600;color:#64748b">· ${nr} referencia · ${nc} competencia</span></div>`
     + (n0 ? `<div class="cmp-warn">⚠️ <b>${n0}</b> punto${n0 > 1 ? 's' : ''} sin clasificar. Indique para cada uno si es un <b>punto de interés/referencia</b> (el negocio del cliente) o <b>competencia</b>.<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="cmp-bulk" data-r="comp">Todos los nuevos: competencia</button><button class="cmp-bulk" data-r="ref">Todos los nuevos: referencia</button></div></div>` : '')
-    + L.map(p => { const s = CMP_SRC[p.src] || CMP_SRC.manual; return `<div class="cmp-pt" data-id="${esc_(p.id)}"><i style="width:10px;height:10px;border-radius:50%;flex:none;background:${CMP_COL[p.rol || 'none']}"></i><input class="n" value="${esc_(p.n)}" maxlength="120" title="Haga clic para cambiar el nombre"><span class="cmp-bdg" style="background:${s[2]}" title="${s[1]}">${s[0]}</span><span class="cmp-rl"><button class="ref${p.rol === 'ref' ? ' on' : ''}" data-r="ref" title="Punto de interés / referencia del cliente">🎯 Ref.</button><button class="comp${p.rol === 'comp' ? ' on' : ''}" data-r="comp" title="Competencia">🏁 Comp.</button></span><button class="cmp-ir" title="Ir al punto en el mapa" style="border:0;background:transparent;cursor:pointer">🧭</button>${p.src === 'maqueta' ? '' : '<button class="cmp-x" title="Quitar">✕</button>'}</div>`; }).join('')
+    + `<div class="cmp-tb"><button class="cmp-ps-all">Todos</button><button class="cmp-ps-none">Ninguno</button><span style="font-size:11px;color:#64748b">${ns} seleccionado${ns === 1 ? '' : 's'}</span></div>`
+    + (ns ? `<div class="cmp-tb"><button class="cmp-ps-rol" data-r="ref">🎯 Marcar referencia</button><button class="cmp-ps-rol" data-r="comp">🏁 Marcar competencia</button><button class="cmp-ps-del">🗑 Borrar seleccionados</button></div>` : '')
+    + L.map(p => { const s = CMP_SRC[p.src] || CMP_SRC.manual, on = CMP.sp.has(p.id); return `<div class="cmp-pt" data-id="${esc_(p.id)}"><span class="cmp-ck${on ? ' on' : ''}">${on ? '✓' : ''}</span><i style="width:10px;height:10px;border-radius:50%;flex:none;background:${CMP_COL[p.rol || 'none']}"></i><input class="n" value="${esc_(p.n)}" maxlength="120" title="Haga clic para cambiar el nombre"><span class="cmp-bdg" style="background:${s[2]}" title="${s[1]}">${s[0]}</span><span class="cmp-rl"><button class="ref${p.rol === 'ref' ? ' on' : ''}" data-r="ref" title="Punto de interés / referencia del cliente">🎯 Ref.</button><button class="comp${p.rol === 'comp' ? ' on' : ''}" data-r="comp" title="Competencia">🏁 Comp.</button></span><button class="cmp-ir" title="Ir al punto en el mapa" style="border:0;background:transparent;cursor:pointer">🧭</button>${p.src === 'maqueta' ? '' : '<button class="cmp-x" title="Quitar">✕</button>'}</div>`; }).join('')
     + `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="cmp-save">💾 Guardar puntos</button><span class="cmp-st" style="font-size:11px;color:#64748b"></span></div>`;
   cmpSt();
 }
@@ -4474,18 +4482,28 @@ function cmpRes() {
     + `<div style="margin-top:12px"><button class="cmp-an">⚔️ Analizar competencia</button><div style="font-size:10.5px;color:#94a3b8;margin-top:4px">Próximamente.</div></div>`;
 }
 // marcadores en la maqueta: poste + esfera + etiqueta (azul referencia, rojo competencia, ámbar sin clasificar)
-function cmpQuita() { if (CMP.g) { if (CMP.g.parent) CMP.g.parent.remove(CMP.g); CMP.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); CMP.g = null; } }
-function cmpDibuja() {
-  cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(), kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c }));
-  CMP.pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, k = Math.min(10, Math.max(1, Math.hypot(x, z) / 700)), H = 80 * k, col = CMP_COL[p.rol || 'none'];
+function cmpDisp(g) { if (g.parent) g.parent.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+function cmpQuita() { if (CMP.g) { cmpDisp(CMP.g); CMP.g = null; } cmpQuitaPv(); }
+function cmpQuitaPv() { if (CMP.gp) { cmpDisp(CMP.gp); CMP.gp = null; } }
+function cmpMarkers(G, S, pts, colf, nlab) {
+  const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c }));
+  pts.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, k = Math.min(10, Math.max(1, Math.hypot(x, z) / 700)), H = 80 * k, col = colf(p);
     const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2 * k, H, 2 * k); pole.position.set(x, H / 2, z); pole.userData.noPick = 1; G.add(pole);
     const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(9.5 * k); ball.position.set(x, H + 6 * k, z); ball.userData.noPick = 1; G.add(ball);
-    if (i < 80) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t, w = 340; while (g.measureText(tx).width > w && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
+    if (i < nlab) { const c = document.createElement('canvas'); c.width = 384; c.height = 72; const g = c.getContext('2d'), t = (p.rol === 'ref' ? '🎯 ' : p.rol === 'comp' ? '🏁 ' : p.rol === 'pv' ? '🔍 ' : '❔ ') + p.n; g.font = '700 30px Inter,sans-serif'; let tx = t; while (g.measureText(tx).width > 340 && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
       g.fillStyle = 'rgba(15,23,42,.88)'; g.beginPath(); g.roundRect(4, 6, 376, 60, 18); g.fill(); g.lineWidth = 4; g.strokeStyle = col; g.stroke(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, 192, 38);
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.scale.set(150 * k, 150 * k * .1875, 1); sp.position.set(x, H + 34 * k, z); sp.renderOrder = 9; sp.userData.noPick = 1; G.add(sp); } });
+}
+function cmpDibuja() {
+  cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, CMP.pts, p => CMP_COL[p.rol || 'none'], 80);
   G.userData.cmp = 1; world.add(G); CMP.g = G; try { capasSync(); } catch (_) { }
 }
-function cmpIr(p) { const S = curS; if (!S || !controls) return; const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, t = controls.target, dx = x - t.x, dz = z - t.z; camera.position.x += dx; camera.position.z += dz; t.set(x, 0, z); controls.update(); }
+function cmpPreview(p) { cmpQuitaPv(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, [Object.assign({}, p, { rol: 'pv' })], () => '#8b5cf6', 1); G.userData.cmp = 1; world.add(G); CMP.gp = G; }
+function cmpIr(p) {   // vuela la cámara hasta el punto y se acerca a ~380 m
+  const S = curS; if (!S || !controls) return; const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, t0 = controls.target.clone(), c0 = camera.position.clone(), off = c0.clone().sub(t0);
+  if (off.length() < 1) off.set(0, 1, 1); off.y = Math.max(off.y, off.length() * .45); off.setLength(380); const t1 = new THREE.Vector3(x, 0, z), c1 = t1.clone().add(off), T = performance.now(); try { controls.autoRotate = false; } catch (_) { } if (CMP.fly) cancelAnimationFrame(CMP.fly);
+  const paso = () => { const k = Math.min(1, (performance.now() - T) / 700), e = k * k * (3 - 2 * k); camera.position.lerpVectors(c0, c1, e); controls.target.lerpVectors(t0, t1, e); controls.update(); CMP.fly = k < 1 ? requestAnimationFrame(paso) : 0; }; CMP.fly = requestAnimationFrame(paso);
+}
 function cmpRefresca(dib) { cmpPuntos(); cmpResD(); cmpResG(); cmpRes(); if (dib !== false) cmpDibuja(); }
 // colocar puntos a mano: clic sobre la maqueta (Esc termina)
 function cmpPickSet(on) {
@@ -4517,30 +4535,41 @@ PW_CIERRA.cmp = () => { cmpPickSet(false); };
 {
   const r = pwMake('cmp'); pwCfg('cmp'); cmpCss();
   r.cfg.innerHTML = '<div class="cmp-seg"><button data-s="denue" class="on">🏪 DENUE</button><button data-s="google">🔎 Google</button><button data-s="manual">✍️ Manual</button></div>'
-    + '<div class="cmp-pn" data-s="denue"><input class="cmp-in cmp-q" placeholder="Buscar por nombre o actividad (ej. cafetería, farmacia, Oxxo)…"><div class="cmp-g2 cmp-sel"></div><div style="display:flex;gap:6px"><button class="cmp-bd">🔎 Buscar en el DENUE</button><button class="cmp-lim">Limpiar filtros</button></div><div class="cmp-rd"></div></div>'
-    + '<div class="cmp-pn" data-s="google" style="display:none"><input class="cmp-in cmp-gq" placeholder="Buscar en Google (ej. gimnasio, restaurante de sushi, Soriana)…"><button class="cmp-bg">🔎 Buscar en Google</button><div class="cmp-rg"></div></div>'
+    + '<div class="cmp-pn" data-s="denue"><input class="cmp-in cmp-q" placeholder="Escriba para buscar por nombre o actividad (ej. cafetería, farmacia, Oxxo)…"><div class="cmp-g2 cmp-sel"></div><div style="display:flex;gap:6px"><button class="cmp-bd">🔎 Buscar en el DENUE</button><button class="cmp-lim">Limpiar filtros</button></div><div class="cmp-rd"></div></div>'
+    + '<div class="cmp-pn" data-s="google" style="display:none"><input class="cmp-in cmp-gq" placeholder="Escriba para buscar en Google (ej. gimnasio, restaurante de sushi, Soriana)…"><button class="cmp-bg">🔎 Buscar en Google</button><div class="cmp-rg"></div></div>'
     + '<div class="cmp-pn" data-s="manual" style="display:none"><div style="font-size:11.5px;color:#475569;margin-bottom:6px;line-height:1.4">Escriba un nombre (opcional) y haga clic en la maqueta para colocar el punto. Puede colocar varios; Esc termina.</div><input class="cmp-in cmp-mn" placeholder="Nombre del punto (ej. Terreno de la esquina)" maxlength="80"><button class="cmp-pick">📍 Colocar punto en el mapa</button></div>'
     + '<div class="cmp-pts"></div>';
   r.el.addEventListener('click', e => {
     const t = e.target; if (!t.closest) return; const sg = t.closest('.cmp-seg button');
     if (sg) { CMP.src = sg.dataset.s; r.el.querySelectorAll('.cmp-seg button').forEach(b => b.classList.toggle('on', b === sg)); r.el.querySelectorAll('.cmp-pn').forEach(p => p.style.display = p.dataset.s === CMP.src ? '' : 'none'); if (CMP.src !== 'manual') cmpPickSet(false); return; }
     if (t.closest('.cmp-bd')) return cmpCarga().then(() => { cmpSelects(); cmpBuscaDenue(); });
-    if (t.closest('.cmp-lim')) { CMP.f = { s: '', ss: '', r: '', sr: '' }; const q = cmpQ('.cmp-q'); if (q) q.value = ''; CMP.tot = -1; CMP.dmsg = ''; cmpSelects(); cmpResD(); return; }
+    if (t.closest('.cmp-lim')) { CMP.f = { s: '', ss: '', r: '', sr: '' }; const q = cmpQ('.cmp-q'); if (q) q.value = ''; CMP.tot = -1; CMP.dmsg = ''; CMP.sd.clear(); cmpQuitaPv(); cmpSelects(); cmpResD(); return; }
     if (t.closest('.cmp-bg')) return cmpBuscaG();
     if (t.closest('.cmp-pick')) return cmpPickSet(!CMP.pick);
+    const sa = t.closest('.cmp-sa'), sn = t.closest('.cmp-sn'), as = t.closest('.cmp-addsel');
+    if (sa || sn) { const k = (sa || sn).dataset.k, S_ = k === 'd' ? CMP.sd : CMP.sg; S_.clear(); if (sa) { if (k === 'd') CMP.res.forEach(x => S_.add(x.i)); else CMP.gres.forEach((_, i) => S_.add(i)); } return k === 'd' ? cmpResD() : cmpResG(); }
+    if (as) { if (as.dataset.k === 'd') { CMP.sd.forEach(i => cmpAdd(cmpDenuePt(i))); CMP.sd.clear(); } else { CMP.sg.forEach(i => cmpAdd(cmpGPt(CMP.gres[i]))); CMP.sg.clear(); } return cmpRefresca(); }
+    if (t.closest('.cmp-ps-all')) { CMP.pts.forEach(p => CMP.sp.add(p.id)); return cmpPuntos(); }
+    if (t.closest('.cmp-ps-none')) { CMP.sp.clear(); return cmpPuntos(); }
+    if (t.closest('.cmp-ps-del')) { CMP.pts = CMP.pts.filter(p => !CMP.sp.has(p.id) || p.src === 'maqueta'); CMP.sp.clear(); return cmpRefresca(); }
+    const pr = t.closest('.cmp-ps-rol'); if (pr) { CMP.pts.forEach(p => { if (CMP.sp.has(p.id)) p.rol = pr.dataset.r; }); return cmpRefresca(false), cmpDibuja(); }
     if (t.closest('.cmp-all')) { CMP.res.forEach(x => cmpAdd(cmpDenuePt(x.i))); return cmpRefresca(); }
     const ad = t.closest('.cmp-add');
-    if (ad) { if (ad.dataset.d != null) { const i = +ad.dataset.d, id = 'd' + i; if (CMP.pts.some(p => p.id === id)) cmpQuitaPt(id); else cmpAdd(cmpDenuePt(i)); } else { const g = CMP.gres[+ad.dataset.g], id = 'g' + g.pid; if (CMP.pts.some(p => p.id === id)) cmpQuitaPt(id); else cmpAdd({ id, n: g.n.slice(0, 80), lat: g.lat, lng: g.lng, src: 'google', rol: null, dir: g.dir, tp: g.tp, rt: g.rt, nr: g.nr, pid: g.pid }); } const ya = CMP.pts.some(p => p.id === (ad.dataset.d != null ? 'd' + ad.dataset.d : 'g' + CMP.gres[+ad.dataset.g].pid)); ad.classList.toggle('ya', ya); ad.textContent = ya ? '✓ Agregado' : '＋ Agregar'; cmpPuntos(); cmpRes(); cmpDibuja(); return; }
+    if (ad) { if (ad.dataset.d != null) { const i = +ad.dataset.d, id = 'd' + i; if (CMP.pts.some(p => p.id === id)) cmpQuitaPt(id); else cmpAdd(cmpDenuePt(i)); } else { const g = CMP.gres[+ad.dataset.g], id = 'g' + g.pid; if (CMP.pts.some(p => p.id === id)) cmpQuitaPt(id); else cmpAdd(cmpGPt(g)); } const ya = CMP.pts.some(p => p.id === (ad.dataset.d != null ? 'd' + ad.dataset.d : 'g' + CMP.gres[+ad.dataset.g].pid)); ad.classList.toggle('ya', ya); ad.textContent = ya ? '✓ Agregado' : '＋ Agregar'; cmpPuntos(); cmpRes(); cmpDibuja(); return; }
     const bk = t.closest('.cmp-bulk'); if (bk) { CMP.pts.forEach(p => { if (!p.rol) p.rol = bk.dataset.r; }); return cmpRefresca(); }
+    const ck = t.closest('.cmp-ck');
+    if (ck) { const rw = ck.closest('.cmp-row, .cmp-pt'), tg = (S_, k) => { if (S_.has(k)) S_.delete(k); else S_.add(k); }; if (rw.dataset.i != null) { tg(CMP.sd, +rw.dataset.i); return cmpResD(); } if (rw.dataset.g != null) { tg(CMP.sg, +rw.dataset.g); return cmpResG(); } tg(CMP.sp, rw.dataset.id); return cmpPuntos(); }
+    const rr = t.closest('.cmp-row[data-i], .cmp-row[data-g]'); if (rr) { const p = rr.dataset.i != null ? cmpDenuePt(+rr.dataset.i) : cmpGPt(CMP.gres[+rr.dataset.g]); cmpPreview(p); return cmpIr(p); }
     const row = t.closest('.cmp-pt, .cmp-row[data-id]'), pt = row && CMP.pts.find(p => p.id === row.dataset.id);
-    if (pt) { const rl = t.closest('.cmp-rl button'); if (rl) { pt.rol = pt.rol === rl.dataset.r ? null : rl.dataset.r; return cmpRefresca(); } if (t.closest('.cmp-x')) { cmpQuitaPt(pt.id); return cmpRefresca(); } if (t.closest('.cmp-ir')) return cmpIr(pt); }
+    if (pt) { const rl = t.closest('.cmp-rl button'); if (rl) { pt.rol = pt.rol === rl.dataset.r ? null : rl.dataset.r; return cmpRefresca(); } if (t.closest('.cmp-x')) { CMP.sp.delete(pt.id); cmpQuitaPt(pt.id); return cmpRefresca(); } if (t.closest('.cmp-ir') || !t.closest('input,button')) return cmpIr(pt); }
     if (t.closest('.cmp-save')) return cmpGuarda();
   });
+  r.el.addEventListener('input', e => { const c = e.target.classList; if (!c) return; if (c.contains('cmp-q')) { clearTimeout(CMP.t1); CMP.t1 = setTimeout(() => cmpCarga().then(() => cmpBuscaDenue(true)), 300); } else if (c.contains('cmp-gq')) { clearTimeout(CMP.t2); CMP.t2 = setTimeout(cmpBuscaG, 600); } });
   r.el.addEventListener('change', e => {
-    const s = e.target.closest && e.target.closest('.cmp-sel select'); if (s) { const k = s.dataset.k, F = CMP.f; F[k] = s.value; const ord = ['s', 'ss', 'r', 'sr']; for (let i = ord.indexOf(k) + 1; i < 4; i++) if (F[ord[i]] && !F[ord[i]].startsWith(s.value)) F[ord[i]] = ''; return cmpSelects(); }
+    const s = e.target.closest && e.target.closest('.cmp-sel select'); if (s) { const k = s.dataset.k, F = CMP.f; F[k] = s.value; const ord = ['s', 'ss', 'r', 'sr']; for (let i = ord.indexOf(k) + 1; i < 4; i++) if (F[ord[i]] && !F[ord[i]].startsWith(s.value)) F[ord[i]] = ''; cmpSelects(); return cmpBuscaDenue(true); }
     const n = e.target.closest && e.target.closest('.cmp-pt input.n'); if (n) { const p = CMP.pts.find(x => x.id === n.closest('.cmp-pt').dataset.id); if (p) { p.n = n.value.trim().slice(0, 120) || p.n; n.value = p.n; cmpSt(); cmpDibuja(); } }
   });
-  r.el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.classList.contains('cmp-q')) cmpCarga().then(() => { cmpSelects(); cmpBuscaDenue(); }); else if (e.target.classList.contains('cmp-gq')) cmpBuscaG(); });
+  r.el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.classList.contains('cmp-q')) cmpCarga().then(() => { cmpSelects(); cmpBuscaDenue(); }); else if (e.target.classList.contains('cmp-gq')) { clearTimeout(CMP.t2); cmpBuscaG(); } });
   new MutationObserver(() => { const on = r.el.classList.contains('on'); if (on === CMP.on) return; CMP.on = on; if (on) { cmpInicia().then(() => cmpDibuja()); cmpDibuja(); } else { cmpPickSet(false); cmpQuita(); } }).observe(r.el, { attributes: true, attributeFilter: ['class'] });
   setInterval(() => { if (CMP.on && (!CMP.g || CMP.g.parent !== world) && curS && CMP.pts.length) cmpDibuja(); }, 1500); cmpRes(); cmpPuntos();
 }
