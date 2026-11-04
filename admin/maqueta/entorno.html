@@ -4501,7 +4501,7 @@ function cmpDibuja() {
 function cmpPreview(p) { cmpQuitaPv(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, [Object.assign({}, p, { rol: 'pv' })], () => '#8b5cf6', 1); G.userData.cmp = 1; world.add(G); CMP.gp = G; }
 function cmpIr(p) {   // vuela la cámara hasta el punto y se acerca a ~380 m
   const S = curS; if (!S || !controls) return; const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, t0 = controls.target.clone(), c0 = camera.position.clone(), off = c0.clone().sub(t0);
-  if (off.length() < 1) off.set(0, 1, 1); off.y = Math.max(off.y, off.length() * .45); off.setLength(380); const t1 = new THREE.Vector3(x, 0, z), c1 = t1.clone().add(off), T = performance.now(); try { controls.autoRotate = false; } catch (_) { } if (CMP.fly) cancelAnimationFrame(CMP.fly);
+  if (off.length() < 1) off.set(0, 1, 1); off.y = Math.max(off.y, off.length() * .45); off.setLength(430); const t1 = new THREE.Vector3(x, 45, z), c1 = t1.clone().add(off), T = performance.now(); try { controls.autoRotate = false; } catch (_) { } if (CMP.fly) cancelAnimationFrame(CMP.fly);
   const paso = () => { const k = Math.min(1, (performance.now() - T) / 700), e = k * k * (3 - 2 * k); camera.position.lerpVectors(c0, c1, e); controls.target.lerpVectors(t0, t1, e); controls.update(); CMP.fly = k < 1 ? requestAnimationFrame(paso) : 0; }; CMP.fly = requestAnimationFrame(paso);
 }
 function cmpRefresca(dib) { cmpPuntos(); cmpResD(); cmpResG(); cmpRes(); if (dib !== false) cmpDibuja(); }
