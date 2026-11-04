@@ -2087,15 +2087,17 @@ function hlMascara(pts) {   // textura de 1024 px que cubre la maqueta: blanco =
 }
 function hlLimpia() {
   HL.pts = null; { const col = $('lg-col'); if (col) { col.classList.remove('hl-on'); col.querySelectorAll('.hl-sel').forEach(e => e.classList.remove('hl-sel')); } } HL.row = null;
-  HL.saved.forEach(q => { try { if (q.sp) { q.sp.scale.copy(q.s0); q.sp.material.opacity = q.o; q.sp.material.transparent = q.t; q.sp.material.color.copy(q.c); q.sp.material.needsUpdate = true; return; } q.m.color.copy(q.c); if (q.t != null) { q.m.opacity = q.o; q.m.transparent = q.t; } q.m.needsUpdate = true; } catch (_) { } }); HL.saved = []; if (HL.g) { if (HL.g.parent) HL.g.parent.remove(HL.g); HL.g = null; } if (HL.bar) { HL.bar.remove(); HL.bar = null; } HL.key = ''; if (HL.anim) { cancelAnimationFrame(HL.anim); HL.anim = 0; }
+  HL.saved.forEach(q => { try { if (q.sp) { q.sp.scale.copy(q.s0); q.sp.material.opacity = q.o; q.sp.material.transparent = q.t; q.sp.material.color.copy(q.c); q.sp.material.needsUpdate = true; return; } q.m.color.copy(q.c); if (q.t != null) { q.m.opacity = q.o; q.m.transparent = q.t; } } catch (_) { } }); HL.saved = []; if (HL.g) { if (HL.g.parent) HL.g.parent.remove(HL.g); HL.g = null; } if (HL.bar) { HL.bar.remove(); HL.bar = null; } HL.key = ''; if (HL.anim) { cancelAnimationFrame(HL.anim); HL.anim = 0; }
 }
 function hlAplica(titulo, pts, color) {
   hlLimpia(); if (!pts || !pts.length || !world) return false; const col = new THREE.Color(color || '#facc15');
-  HL.pts = pts; HL.rm = pts.length > 60 ? 11 : 8;   // el mapa NO se oscurece: solo se marcan los elementos seleccionados
+  HL.pts = pts; HL.rm = pts.length > 60 ? 11 : 8;
+  // el resto del mapa se sombrea solo un poco (sin recompilar materiales: solo se multiplica el color, que se actualiza al instante)
+  { const seen = new Set(); world.traverse(o => { if (!o.isMesh || o.userData.hlKeep) return; (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (!m || !m.color || seen.has(m) || m.isShaderMaterial) return; seen.add(m); const k = o.userData.cat; if (k && /^(cobertura|ndvi)$/.test(k)) return; HL.saved.push({ m, c: m.color.clone() }); m.color.multiplyScalar(.62); }); }); }
   // etiquetas y pines (sprites): todas se oscurecen salvo las que están sobre la selección, que se agrandan
   { const roots = [world]; try { if (typeof alertG !== 'undefined' && alertG && !alertG.parent) roots.push(alertG); } catch (_) { } const wp = new THREE.Vector3(), ptsC = pts.length > 1500 ? pts.filter((_, i) => i % Math.ceil(pts.length / 1500) === 0) : pts, vistos = new Set();
     roots.forEach(rt => rt.traverse(o => { if (!o.isSprite || vistos.has(o) || !o.material) return; vistos.add(o); o.getWorldPosition(wp); const sel = ptsC.some(p => Math.hypot(p.x - wp.x, -p.y - wp.z) < 3); HL.saved.push({ sp: o, s0: o.scale.clone(), o: o.material.opacity, t: o.material.transparent, c: o.material.color.clone() });
-      if (sel) { o.scale.multiplyScalar(1.4); o.renderOrder = Math.max(o.renderOrder, 12); } })); }
+      if (sel) { o.scale.multiplyScalar(1.4); o.renderOrder = Math.max(o.renderOrder, 12); } else { o.material.transparent = true; o.material.opacity = o.material.opacity * .6; } })); }
   const n = Math.min(pts.length, 500), st = pts.length / n, P = []; for (let i = 0; i < n; i++) P.push(pts[Math.floor(i * st)]);
   const g = new THREE.Group(); g.userData.hlKeep = 1; g.userData.noPick = 1; const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .85, toneMapped: false, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), mat2 = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .22, toneMapped: false, depthTest: false, depthWrite: false });
   const ring = new THREE.InstancedMesh(new THREE.RingGeometry(2.6, 3.8, 28), mat, P.length), beam = new THREE.InstancedMesh(new THREE.CylinderGeometry(.35, .35, 46, 8), mat2, P.length), mx = new THREE.Matrix4(), q0 = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), sc = new THREE.Vector3(1, 1, 1);
