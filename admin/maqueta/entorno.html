@@ -4105,6 +4105,7 @@ function colConstruye(S) {
   if (COL.g && COL.g.parent) COL.g.parent.remove(COL.g); COL.g = grp; COL.key = key; world.add(grp); try { capasSync(); } catch (_) { }
 }
 const ECO = { rad: 30000, v: 'dbscan', g: 3, eps: 200, minp: 6, bw: 300, hx: 300, hmin: 5, fus: true, D: null, G: null, on: false, tabs: {}, stat: {}, cl: null, prevBase: null, op: 1 };
+const DT = { on: false, g: null, raf: 0, msg: '', st: null, mz: null };
 const ECO_V = [['dbscan', '🔵 Conglomerados (DBSCAN)'], ['hull', '🫧 Envolvente cóncava'], ['kde', '🔥 Densidad (KDE)'], ['hex', '⬡ Fusión de teselas']];
 async function ecoLoad() { colLoad(); if (!ECO.D) { try { ECO.D = await fetch(rgUrl('denue')).then(r => r.json()); } catch (_) { ECO.D = null; } } return ECO.D; }
 function ecoGround(on) { world.children.forEach(o => { if (o.userData.keep && o.geometry && o.geometry.type === 'BoxGeometry') { if (on) { if (o.userData._ev === undefined) o.userData._ev = o.visible; o.visible = false; } else if (o.userData._ev !== undefined) { o.visible = o.userData._ev; delete o.userData._ev; } } }); if (mapMesh && mapMesh.material && mapMesh.material.color) mapMesh.material.color.set(on ? 0x3a3a3a : (window.__tema === 'osc' ? 0x6a6a6a : 0xa8a8a8)); if (mapMesh) mapMesh.visible = !on; if (on && !SOLO.on) { ECO.hid = true; soloMapa(true); } else if (!on && ECO.hid) { ECO.hid = false; if (SOLO.on) soloMapa(false); } setTimeout(() => { if (mapMesh) mapMesh.visible = !ECO.on; }, 900); }
@@ -4864,7 +4865,6 @@ function manInit(p) {
   p.cfg.querySelector('#man-map').onclick = () => mzSet(!MZ.on); manRes();
 }
 // ───── Establecimientos DENUE por manzana: torre recta tipo «barra apilada». Cada sub-barra es un giro económico (ícono, nombre y número de establecimientos); la altura crece con el conteo. Misma altura de arranque y poste que la pirámide de edad.
-const DT = { on: false, g: null, raf: 0, msg: '', st: null, mz: null };
 const DT_IC = ['🛍️', '📦', '🍽️', '🏦', '💼', '🏥', '🎓', '🏭', '🚌', '🔧'], DT_NM = ['Comercio al por menor', 'Comercio al por mayor', 'Restaurantes y hospedaje', 'Servicios financieros', 'Profesionales e inmobiliarios', 'Salud y asistencia social', 'Educación y esparcimiento', 'Industria y construcción', 'Transporte e información', 'Otros servicios'];
 const dtCol = k => (ECO.D && ECO.D.meta && ECO.D.meta.grupos && ECO.D.meta.grupos[k] && ECO.D.meta.grupos[k].c) || '#94a3b8';
 function dtCuenta(S) {   // asigna cada establecimiento a su manzana (punto en polígono)
