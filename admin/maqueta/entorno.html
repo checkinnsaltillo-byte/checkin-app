@@ -4553,10 +4553,17 @@ async function cmpInicia() {
 // ── Competencia · resultados del enfoque A (accesibilidad por red vial): territorios, cuota de Huff, accesibilidad E2SFCA y tráfico
 CMP.an = { modo: 'auto', hora: 'libre', beta: 2, T: 10, vista: 'terr', hm: 'ref', d: null, busy: false, msg: '', sel: null, iso: null, g: null, im: null, seq: 0, isq: 0 };
 const CMP_API = 'https://api.check-inn.mx/mercado/maqueta/competencia/', CMP_HRS = [['libre', 'Flujo libre'], ['am', '8:00'], ['md', '13:00'], ['pm', '19:00']], cmpFmtN = n => Math.round(n).toLocaleString('es-MX');
-const cmpAnCol = (f, j) => { if (f.rol === 'ref') return '#1d4ed8'; let h = (j * 137.508) % 300; if (h > 195) h += 60; return `hsl(${Math.round(h)},68%,46%)`; };
+const CMP_PAL = ['#e6194b', '#3cb44b', '#f58231', '#911eb4', '#00a6a6', '#f032e6', '#9a6324', '#b8a400', '#800000', '#4b6b00', '#fb6f92', '#008080', '#7b61ff', '#a0522d'], cmpAnCol = (f, j) => (CMP.an.cols && CMP.an.cols[j]) || (f.rol === 'ref' ? '#1d4ed8' : CMP_PAL[j % CMP_PAL.length]);
 const CMP_ISO = [[300, '#16a34a', '≤ 5 min'], [600, '#84cc16', '5–10'], [900, '#facc15', '10–15'], [1200, '#fb923c', '15–20'], [1800, '#ef4444', '20–30']], CMP_ACC = [['#475569', 'Sin oferta (desierto)'], ['#fde68a', 'Muy baja'], ['#fdba74', 'Baja'], ['#fb923c', 'Media'], ['#ef4444', 'Alta'], ['#7f1d1d', 'Saturación']];
 function cmpMapaFondo(n) {   // al abrir el análisis se enciende el mapa de fondo «Calles» (si estaba en «Sin mapa»); reintenta mientras la maqueta termina de cargar
   n = n || 0; try { const bc = document.querySelector('#cap-base [data-b="calles"]'), of = document.querySelector('#cap-base [data-b="off"]'); if (bc && of && curS) { if (of.classList.contains('on') && !CMP.mapaAuto) { CMP.mapaAuto = true; bc.click(); } return; } } catch (_) { } if (n < 12) setTimeout(() => cmpMapaFondo(n + 1), 700);
+}
+function cmpAnColorea(d) {   // colores distintos para territorios vecinos (coloreado voraz sobre el grafo de vecindad) y marca de las manzanas de frontera
+  const A = CMP.an, q = d.mz, M = d.nz, F = d.fac.length, kx = 111320 * Math.cos(q.la[0] * Math.PI / 180), cell = 300, g = new Map(), adj = Array.from({ length: F }, () => new Set()), bord = new Uint8Array(M), X = i => q.ln[i] * kx, Y = i => q.la[i] * 111320;
+  for (let i = 0; i < M; i++) { const k = Math.floor(X(i) / cell) + '_' + Math.floor(Y(i) / cell); let l = g.get(k); if (!l) g.set(k, l = []); l.push(i); }
+  for (let i = 0; i < M; i++) { if (q.own[i] < 0) continue; const ci = Math.floor(X(i) / cell), cj = Math.floor(Y(i) / cell); for (let a = ci - 1; a <= ci + 1; a++) for (let b = cj - 1; b <= cj + 1; b++) for (const j of g.get(a + '_' + b) || []) { if (j === i || q.own[j] < 0 || q.own[j] === q.own[i]) continue; if (Math.hypot(X(i) - X(j), Y(i) - Y(j)) < 280) { adj[q.own[i]].add(q.own[j]); bord[i] = 1; } } }
+  const cols = new Array(F), usado = new Array(F).fill(-1); d.fac.map((f, j) => j).sort((a, b) => d.fac[b].pop - d.fac[a].pop).forEach(j => { if (d.fac[j].rol === 'ref') { cols[j] = '#1d4ed8'; return; } const u = new Set(); adj[j].forEach(k => { if (usado[k] >= 0) u.add(usado[k]); }); let c = 0; while (c < CMP_PAL.length && u.has(c)) c++; if (c >= CMP_PAL.length) c = j % CMP_PAL.length; usado[j] = c; cols[j] = CMP_PAL[c]; });
+  A.cols = cols; A.bord = bord;
 }
 function cmpAnQuita() { const A = CMP.an; if (A.g) { if (A.g.parent) A.g.parent.remove(A.g); A.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.g = null; A.im = null; } }
 function cmpAnDib() {   // una sola malla: el polígono real de cada manzana sobre el suelo, con color por vértice
@@ -4576,7 +4583,7 @@ function cmpAnPinta() {
   const modoIso = A.iso && (A.vista === 'traf' || A.sel);
   for (let i = 0; i < M; i++) {
     if (modoIso) { const t = A.iso[i]; if (t < 0) { c.copy(gris).lerp(blanco, .4); } else { const b = CMP_ISO.find(x => t <= x[0]); c.set(b ? b[1] : '#ef4444'); } }
-    else if (A.vista === 'terr') { if (q.own[i] < 0) c.copy(gris); else { c.copy(cols[q.own[i]]); c.lerp(blanco, Math.min(.6, q.t[i] / 1200 * .6)); } }
+    else if (A.vista === 'terr') { if (q.own[i] < 0) c.copy(gris); else { c.copy(cols[q.own[i]]); c.lerp(blanco, Math.min(.4, q.t[i] / 1200 * .4)); if (A.bord && A.bord[i]) c.multiplyScalar(.55); } }
     else if (A.vista === 'huff') { if (q.hw[i] < 0) c.copy(gris); else if (A.hm === 'ref') { const r = q.rp[i] / 100; c.set('#dc2626'); c.lerp(new THREE.Color('#e2e8f0'), Math.min(1, r * 2)); if (r > .5) c.lerp(new THREE.Color('#1d4ed8'), Math.min(1, (r - .5) * 2)); } else { c.copy(cols[q.hw[i]]); c.lerp(blanco, 1 - q.hp[i] / 100 * .9 - .1); } }
     else if (A.vista === 'acc') { const a = q.acc[i], k = a <= 0 ? 0 : a <= d.qs[0] ? 1 : a <= d.qs[1] ? 2 : a <= d.qs[2] ? 3 : a <= d.qs[3] ? 4 : 5; c.set(CMP_ACC[k][0]); }
     else c.set('#94a3b8');
@@ -4594,7 +4601,7 @@ async function cmpAnaliza(calibra, desdeBoton) {
   if (!CMP.pts.some(p => p.rol === 'ref') || !CMP.pts.some(p => p.rol === 'comp')) { A.msg = 'Marque al menos un punto de referencia y un competidor.'; cmpRes(); return; }
   if (cmpDirty()) { await cmpGuarda(); if (cmpDirty()) return; }
   const sq = ++A.seq; A.busy = true; A.msg = (A.modo === 'auto' && (A.hora !== 'libre' || calibra)) ? '⏳ Calculando sobre la red vial y calibrando con Google Routes (la primera vez tarda ~30 s)…' : '⏳ Calculando tiempos de viaje sobre la red vial…'; cmpRes(); if (desdeBoton) { const e = CMP.rb && CMP.rb.querySelector('.an-top'); if (e) e.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, calibra: !!calibra }) }).then(r => r.json()); if (sq !== A.seq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.d = j; A.iso = null; A.sel = null; A.msg = ''; cmpAnDib(); }
+  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, calibra: !!calibra }) }).then(r => r.json()); if (sq !== A.seq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.d = j; A.iso = null; A.sel = null; A.msg = ''; cmpAnColorea(j); cmpAnDib(); }
   catch (e) { A.msg = 'No se pudo analizar: ' + e.message; }
   A.busy = false; cmpRes();
 }
