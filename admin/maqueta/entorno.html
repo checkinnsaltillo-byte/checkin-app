@@ -1988,7 +1988,7 @@ function pwMake(id) {
   el.querySelector('.pwx').onclick = () => pwShow(id, false); el.querySelector('.pwm').onclick = () => el.classList.toggle('min'); chip.onclick = () => pwShow(id, !el.classList.contains('on'));
   el.addEventListener('pointerdown', () => { el.style.zIndex = ++PW.z; });
   const h = el.querySelector('.pwh'); let dg = null; h.addEventListener('pointerdown', ev => { if (ev.target.closest('button')) return; const rc = el.getBoundingClientRect(); dg = { dx: ev.clientX - rc.left, dy: ev.clientY - rc.top }; h.setPointerCapture(ev.pointerId); });
-  h.addEventListener('pointermove', ev => { if (!dg) return; el.style.left = Math.max(0, Math.min(innerWidth - 80, ev.clientX - dg.dx)) + 'px'; el.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dg.dy)) + 'px'; }); h.addEventListener('pointerup', () => { dg = null; });
+  h.addEventListener('pointermove', ev => { if (!dg) return; const z = uiZ(); el.style.left = Math.max(0, Math.min(innerWidth - 80, ev.clientX - dg.dx)) / z + 'px'; el.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dg.dy)) / z + 'px'; }); h.addEventListener('pointerup', () => { dg = null; });
   PW.m.set(id, r); return r;
 }
 const PW_CIERRA = {};   // al cerrar la ventana de un análisis se retiran sus elementos del mapa y vuelve la maqueta
@@ -2036,6 +2036,24 @@ ${dest.length ? `<h2 class="t">Lo más importante</h2>${resumen}<div class="kp">
 <div class="ft"><span>GeoMetrika · Check Inn · documento generado ${fecha}</span><span>Fuentes públicas y servicios de terceros; cada indicador detalla su método en la maqueta.</span></div></div></body></html>`;
     w.document.open(); w.document.write(html); w.document.close();
   } catch (e) { try { w.document.body.textContent = 'No se pudo generar la lámina: ' + e.message; } catch (_) { } } finally { LAM.busy = 0; if (bt) bt.textContent = '📄 Generar lámina del proyecto'; }
+}
+// ── Pantalla grande: reduce proporcionalmente textos, cajas, ventanas y leyendas de la interfaz (--ui, 0.4–1) para que quepan varias a la vez
+const uiZ = () => { const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')); return v > 0 ? v : 1; };
+{ const st = document.createElement('style'); st.textContent = ':root{--ui:1}html.ui-s #dock{zoom:var(--ui);max-height:calc(100vh / var(--ui))}html.ui-s #dock-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s #dock-tg.off{left:0}html.ui-s #dk-rs{left:calc(var(--dkw,404px) * var(--ui) - 4px)}html.ui-s .pwin{zoom:var(--ui)}html.ui-s .legc>*{zoom:var(--ui)}html.ui-s #map-ctl{zoom:var(--ui)}html.ui-s #ent-pop,html.ui-s #gp-pop,html.ui-s #psl-pop,html.ui-s #cr-pop{zoom:var(--ui)}#dk-ui{display:none;order:-1;padding:14px;margin:0 2px;border-radius:14px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(15,23,42,.06);pointer-events:auto}#dock.vC>#dk-ui{display:block}#dk-ui h4{margin:0 0 4px;font:800 13px system-ui;color:#0f172a}#dk-ui p{margin:0 0 9px;font:500 11.5px/1.4 system-ui;color:#64748b}#dk-ui .uib{display:flex;flex-wrap:wrap;gap:6px}#dk-ui .uib button{border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:9px;padding:6px 10px;font:700 11.5px system-ui;cursor:pointer}#dk-ui .uib button.on{background:#4f46e5;border-color:#4f46e5;color:#fff}#dk-ui input[type=range]{width:100%;margin-top:9px}'; document.head.appendChild(st); }
+function uiAplica(v, guarda) {
+  v = Math.max(.4, Math.min(1, +v || 1)); document.documentElement.style.setProperty('--ui', String(v)); document.documentElement.classList.toggle('ui-s', v < .995); if (guarda !== false) { try { localStorage.setItem('uiScale', String(v)); } catch (_) { } }
+  document.querySelectorAll('#dk-ui .uib button').forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.v - v) < .01)); const r = document.querySelector('#dk-ui input[type=range]'); if (r) r.value = Math.round(v * 100); const lb = document.getElementById('dk-ui-v'); if (lb) lb.textContent = Math.round(v * 100) + ' %';
+  try { legAcomoda(); } catch (_) { } try { dkAncho(); } catch (_) { } uiSprites(); try { dispatchEvent(new Event('resize')); } catch (_) { }
+}
+function uiSprites() {   // rótulos y pines dibujados en el mapa (sprites): se reducen con la misma proporción
+  if (typeof world === 'undefined' || !world) return; const z = uiZ(), roots = [world]; try { if (typeof alertG !== 'undefined' && alertG) roots.push(alertG); } catch (_) { }
+  roots.forEach(rt => rt.traverse(o => { if (!o.isSprite) return; if (!o.userData.__s0) o.userData.__s0 = o.scale.clone(); const b = o.userData.__s0; o.scale.set(b.x * z, b.y * z, b.z); }));
+}
+function uiInit() {
+  const d = $('dock'); if (!d || $('dk-ui')) return; const s = document.createElement('div'); s.id = 'dk-ui';
+  s.innerHTML = '<h4>🖥️ Pantalla grande</h4><p>Reduce proporcionalmente los textos, cajas, ventanas, leyendas y rótulos del mapa para que no se vean enormes en un monitor grande y quepan varios a la vez.</p><div class="uib"><button data-v="1">Normal 100 %</button><button data-v="0.85">Grande 85 %</button><button data-v="0.7">Muy grande 70 %</button><button data-v="0.55">Pantalla enorme 55 %</button></div><input type="range" min="40" max="100" step="5" value="100"><div style="font:600 11px system-ui;color:#64748b;margin-top:3px">Tamaño de la interfaz: <b id="dk-ui-v">100 %</b></div>';
+  d.appendChild(s); s.querySelectorAll('.uib button').forEach(b => b.onclick = () => uiAplica(+b.dataset.v)); s.querySelector('input[type=range]').oninput = e => uiAplica(+e.target.value / 100);
+  let v = 1; try { v = parseFloat(localStorage.getItem('uiScale')) || 1; } catch (_) { } uiAplica(v, false); setInterval(() => { if (uiZ() < .995) uiSprites(); }, 3000);
 }
 function laminaInit() { const d = $('dock'); if (!d || $('dk-rep')) return; const s = document.createElement('div'); s.id = 'dk-rep'; s.innerHTML = '<h4>Documento</h4><p>Genera una lámina visual con los resultados más importantes del proyecto, lista para imprimir o guardar en PDF.</p><button id="dk-lam" type="button">📄 Generar lámina del proyecto</button>'; d.appendChild(s); $('dk-lam').onclick = laminaGenera; }
 
@@ -2101,7 +2119,7 @@ function dkCierra() { DK.cur = null; if (DK.tab === 'I') dkTab('K'); const L = $
   const o = DK.origen; if (o) { DK.origen = null; dkTab(o.tab); const e = o.id && $(o.id); if (e) { e.dataset.col = '0'; e.classList.remove('col'); setTimeout(() => { try { e.scrollIntoView({ block: 'start' }); } catch (_) { } }, 60); } } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
-dkInit(); laminaInit(); dkAncho(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
+dkInit(); laminaInit(); uiInit(); dkAncho(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
