@@ -4899,8 +4899,8 @@ function prbCss() { if ($('prb-css')) return; const st = document.createElement(
     if (t.closest('#prb-del')) { PRB.on = false; prbQuita(); prbGuarda(); prbPanel(); try { renderOnce && renderOnce(); } catch (_) { } } });
   r.el.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.k) return; PRB[i.dataset.k] = +i.value; const b = i.nextElementSibling; if (b) b.textContent = i.value + (i.dataset.k === 'rot' ? '°' : ' m'); if (i.dataset.k === 'rot' && PRB.g) { PRB.g.rotation.y = PRB.rot * Math.PI / 180; try { renderOnce && renderOnce(); } catch (_) { } } });
   r.el.addEventListener('change', e => { const i = e.target; if (!i.dataset || !i.dataset.k) return; if (i.dataset.k !== 'rot') prbDib(); prbGuarda(); });
-  try { const s = JSON.parse(localStorage.getItem('prb_' + ID) || 'null'); if (s && s.on) { Object.assign(PRB, s); setTimeout(() => { prbDib(); prbPanel(); }, 2500); } } catch (_) { }
-  setInterval(() => { if (PRB.on && PRB.g && world && PRB.g.parent !== world) { PRB.g = null; prbDib(); } }, 1500);
+  try { const s = JSON.parse(localStorage.getItem('prb_' + ID) || 'null'); if (s && s.on) { Object.assign(PRB, s); prbPanel(); } } catch (_) { }
+  setInterval(() => { if (PRB.on && world && curS && (!PRB.g || PRB.g.parent !== world)) { PRB.g = null; prbDib(); prbPanel(); } }, 1500);
 }
 {
   const r = pwMake('cmp'); pwCfg('cmp'); cmpCss();
