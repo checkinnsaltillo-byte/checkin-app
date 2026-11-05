@@ -2015,7 +2015,7 @@ function capGruposSync() {
   document.querySelectorAll('#cap .cg').forEach(g => { const ks = g.dataset.ks.split(',').filter(capaHay), n = ks.filter(k => capaVis(k)).length, tot = g.dataset.ks.split(',').length; g.querySelector('.cgn').textContent = n + '/' + ks.length + (ks.length < tot ? ' · ' + (tot - ks.length) + ' s/d' : ''); const m = g.querySelector('.cgm'), all = ks.length > 0 && n === ks.length; m.classList.toggle('on', all); m.classList.toggle('part', n > 0 && n < ks.length); m.querySelector('.bx').textContent = all ? '✓' : n ? '–' : '✓'; });
 }
 function buildCapas() {
-  const dock = $('dock'); let el = $('cap'); if (!el) { el = document.createElement('div'); el.id = 'cap'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, $('notas').nextSibling); }
+  const dock = $('dock'); let el = $('cap'); if (el && el.parentNode !== dock && $('notas')) dock.insertBefore(el, $('notas').nextSibling); if (!el) { el = document.createElement('div'); el.id = 'cap'; el.style.cssText = 'background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px;font-size:12px;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.14)'; dock.insertBefore(el, $('notas').nextSibling); }
   const ck = ([k, t]) => `<div class="ck on" data-k="${k}"${/^neg_/.test(k) ? ' style="margin-left:22px"' : ''}><span class="bx">✓</span>${t}</div>`, hijos = CAPAS.filter(c => c[0] !== 'maqueta' && c[0] !== 'mapa' && c[0] !== 'mapa3d' && !CAPAS_AN.some(a => a[0] === c[0]));
   el.innerHTML = ck(['maqueta', '🏙️ Maqueta 3D']) + `<div class="sub" id="cap-m">${capGrupos(hijos, ck)}</div>` + ck(['mapa3d', '🌐 Modelo 3D de Google']) + '<div style="font:800 11px system-ui;letter-spacing:.04em;text-transform:uppercase;color:#64748b;margin:10px 0 2px">🗺️ Mapa de fondo</div>' + ck(['mapa', '🗺️ Mapa de fondo de maqueta']) + '<div class="sub" id="cap-bg"><div class="btnrow" id="cap-btns"></div></div>' + '<div style="margin:8px 0 2px;padding-left:2px;font-weight:600">🏙️ Mapa de fondo de contexto</div><div class="sub" id="cap-ctx"><div class="seg" id="cap-base" style="margin:0 0 4px" title="Mapa de fondo de la ciudad cuando hay varias maquetas"><b>🏙️</b>' + [['off', 'Sin mapa'], ['gris', 'Gris'], ['calles', 'Calles'], ['sat', 'Satélite'], ['oscuro', 'Oscuro']].map(([k, t]) => `<button data-b="${k}"${(CITY.on ? CITY.base : 'off') === k ? ' class="on"' : ''}>${t}</button>`).join('') + '</div></div><div id="cap-oculto" style="display:none"></div>'; delete el.dataset.col;
   { const nin = $('b-map').querySelector('[data-m="ninguno"]'); if (nin) nin.remove(); }
@@ -2027,7 +2027,7 @@ function buildCapas() {
   { let an = $('capa-an'); if (!an) { an = document.createElement('div'); an.id = 'capa-an'; an.style.cssText = el.style.cssText; } dock.insertBefore(an, el.nextSibling); an.innerHTML = CAPAS_AN.map(ck).join(''); delete an.dataset.col; wrapCol(an, '📊 Capas de análisis', false); an.querySelectorAll('.ck[data-k]').forEach(d => d.onclick = () => { capaSet(d.dataset.k, !capaVis(d.dataset.k)); capasSync(); }); capasSync(); }
   const rg = $('rgp'); dock.insertBefore(rg, fm.nextSibling); rg.style.display = 'block';
   let tl = $('tools'); if (!tl) { tl = document.createElement('div'); tl.id = 'tools'; tl.style.cssText = el.style.cssText; dock.appendChild(tl); } tl.innerHTML = '<div class="btnrow" id="tool-btns" style="margin-top:0"></div>'; delete tl.dataset.col;
-  const tb = tl.querySelector('#tool-btns'); ['t-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const b = $(id); b.style.display = ''; tb.appendChild(b); }); temaSeg(tl); wrapCol(tl, '🛠️ Herramientas', false);
+  const tb = tl.querySelector('#tool-btns'); ['t-hora', 't-hh', 'b-rz', 'b-q', 'b-glb', 'b-rec'].forEach(id => { const b = $(id); b.style.display = ''; tb.appendChild(b); }); temaSeg(tl); wrapCol(tl, '🛠️ Herramientas', false); try { capPnSync(); } catch (_) { }
 }
 setInterval(() => { if (document.getElementById('cap')) capasSync(); }, 1000);
 const clock = new THREE.Clock();
@@ -2364,10 +2364,10 @@ function dkAncho() {   /* arrastrar el borde derecho del menú para cambiar su a
   + ':is(#dock,.pwin) .pwtabs[style*="display: none"],:is(#dock,.pwin) .seg[style*="display: none"]{display:none!important}'
   + ':is(#dock,.pwin) .pwtabs{padding:0!important}:is(#dock,.pwin) .pwtabs>button.on{color:#2563eb!important;border-bottom-color:#2563eb!important}'
   ; document.head.appendChild(st); }
-function dkSub() {   // pestaña Capas: «Proyectos · Capas · Análisis» en una sola línea; solo se ve la tarjeta elegida
+function dkSub() {   // pestaña Capas del menú: «Proyectos · Análisis» (y «Capas» solo cuando esa sección no vive en su panel lateral)
   const d = $('dock'), tb = $('dk-tabs'); if (!d || !tb) return; let el = $('dk-sub'); if (!el) { el = document.createElement('div'); el.id = 'dk-sub'; tb.after(el); el.onclick = e => { const b = e.target.closest('.dk-sb'); if (!b) return; DK.subK = b.dataset.sk; dkSub(); }; }
-  const sk = ['pdi', 'cap', 'capa-an'].includes(DK.subK) ? DK.subK : 'cap'; d.dataset.sk = sk;
-  el.innerHTML = `<div class="dk-sn">${[['pdi', 'Proyectos', 'Mis proyectos'], ['cap', 'Capas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']].map(([k, t, tt]) => `<button class="dk-sb${k === sk ? ' on' : ''}" data-sk="${k}" title="${tt}"><i class="rd"></i>${t}</button>`).join('')}</div>`;
+  const ancho = matchMedia('(min-width:761px)').matches, op = ancho ? [['pdi', 'Proyectos', 'Mis proyectos'], ['capa-an', 'Análisis', 'Capas de análisis']] : [['pdi', 'Proyectos', 'Mis proyectos'], ['cap', 'Capas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']], sk = op.some(o => o[0] === DK.subK) ? DK.subK : (ancho ? 'pdi' : 'cap'); d.dataset.sk = sk;
+  el.innerHTML = `<div class="dk-sn">${op.map(([k, t, tt]) => `<button class="dk-sb${k === sk ? ' on' : ''}" data-sk="${k}" title="${tt}"><i class="rd"></i>${t}</button>`).join('')}</div>`;
 }
 function dkTab(t) { DK.tab = t; const d = $('dock'); if (!d) return; if (t === 'K') dkSub(); d.classList.toggle('vK', t === 'K'); d.classList.toggle('vA', t === 'A' || t === 'I'); d.classList.toggle('vC', t === 'C'); $('dk-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); if (t === 'A') dkLista(); }
 function dkLista() {
@@ -6298,6 +6298,30 @@ function g3dTick() {
   const ahora = performance.now();
   if (!G3D.cal && ahora - G3D.tCal > 1500 && G3D.nCal < 60) { G3D.tCal = ahora; G3D.nCal++; t.group.updateMatrixWorld(true); const rc = new THREE.Raycaster(new THREE.Vector3(0, 4500, 0), new THREE.Vector3(0, -1, 0)); rc.far = 9000; const h = rc.intersectObject(t.group, true)[0]; if (h && Math.abs(h.point.y) < 3800 && Math.abs(G3D.dy - h.point.y) < 6000) { if (Math.abs(h.point.y) > .6) { G3D.dy -= h.point.y; g3dMatriz(); G3D.estable = 0; } else if (++G3D.estable > 4) G3D.cal = true; }   /* solo se aceptan impactos cercanos al nivel esperado (no las teselas gruesas del planeta) */ }   // el suelo de Google en el punto de la maqueta queda a nivel 0
   if (++G3D.cuadro % 90 === 0) { const a = []; try { t.getAttributions(a); } catch (_) { } const txt = a.filter(x => x.type === 'string').map(x => x.value).join(' · '), el = $('attr'); if (el) el.textContent = 'Mapa 3D © Google' + (txt ? ' · ' + txt : ''); }
+}
+
+// ── Panel lateral «Capas»: pestaña girada sobre «Menú»; guarda la sección Capas del menú y se abre junto a él
+{
+  const st = document.createElement('style'); st.id = 'cap-pn-css'; st.textContent = ''
+    + '@media (min-width:761px){#dock-tg{top:116px!important}#cap-tg{display:flex}}#cap-tg{display:none}'
+    + '#cap-tg{position:fixed;left:var(--dkw,404px);top:18px;z-index:5;width:28px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:11px 0;border:0;border-radius:0 12px 12px 0;background:linear-gradient(180deg,#1e293b,#0f172a);color:#cbd5e1;cursor:pointer;box-shadow:6px 4px 18px rgba(2,6,23,.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s,color .2s}'
+    + '#cap-tg.off{left:0}#cap-tg:hover{background:linear-gradient(180deg,#6366f1,#4f46e5);color:#fff}#cap-tg b{font:700 14px/1 system-ui}#cap-tg .tg-t{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px/1 system-ui;letter-spacing:.09em;white-space:nowrap}'
+    + 'html:not(.tema-osc) #cap-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) #cap-tg:hover{color:#0f172a}html:not(.tema-osc) #cap-tg.on{color:#2563eb}'
+    + '#cap-pn{position:fixed;top:0;bottom:0;left:calc(var(--dkw,404px) + 28px);width:340px;max-width:60vw;z-index:4;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid rgba(15,23,42,.1);box-shadow:8px 0 30px rgba(15,23,42,.2);transition:left .35s cubic-bezier(.2,.8,.2,1)}#cap-pn.on{display:flex}#cap-pn.off{left:28px}'
+    + '#cap-pn .cap-b{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:10px 8px 8px}#cap-pn #cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden;margin:0}#cap-pn #cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}'
+    + 'html.ui-s #cap-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s #cap-tg.off{left:0}html.ui-s #cap-pn{left:calc(var(--dkw,404px) * var(--ui) + 28px)}html.ui-s #cap-pn.off{left:28px}'
+    + '@media (max-width:760px){#cap-pn,#cap-tg{display:none!important}}'; document.head.appendChild(st);
+  const tg = document.createElement('button'); tg.id = 'cap-tg'; tg.type = 'button'; const pn = document.createElement('div'); pn.id = 'cap-pn'; pn.innerHTML = '<div class="cap-b"></div>'; document.body.append(tg, pn);
+  let ab = true; try { ab = localStorage.getItem('cappn') === '1'; } catch (_) { }
+  const pinta = () => { tg.classList.toggle('on', ab); pn.classList.toggle('on', ab); tg.title = ab ? 'Ocultar las capas' : 'Mostrar las capas'; tg.innerHTML = '<b>' + (ab ? '‹' : '›') + '</b><span class="tg-t">Capas</span>'; };
+  tg.onclick = () => { ab = !ab; try { localStorage.setItem('cappn', ab ? '1' : '0'); } catch (_) { } pinta(); window.dispatchEvent(new Event('resize')); }; pinta();
+  window.capPnSync = () => {
+    const dock = $('dock'), cap = $('cap'), b = pn.querySelector('.cap-b'), dtg = $('dock-tg'), ancho = matchMedia('(min-width:761px)').matches;
+    if (dtg) { const off = dtg.classList.contains('off'); tg.classList.toggle('off', off); pn.classList.toggle('off', off); }
+    if (!cap || !dock) return; if (ancho) { if (cap.parentNode !== b) b.appendChild(cap); } else if (cap.parentNode === b && $('notas')) dock.insertBefore(cap, $('notas').nextSibling);
+    try { dkSub(); } catch (_) { }
+  };
+  setInterval(() => { try { capPnSync(); } catch (_) { } }, 700); addEventListener('resize', () => { try { capPnSync(); } catch (_) { } });
 }
 </script>
 <script>
