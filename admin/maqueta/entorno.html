@@ -6408,7 +6408,7 @@ function g3dTick() {
 function splitCierra() { const f = $('spl-fr'), x = $('spl-x'); if (f) f.remove(); if (x) x.remove(); SPL.id = null; SPL.ready = false; SPL.sent = {}; window.__split = false; aplicaVista(false); try { mqRender(); } catch (_) { } }
 function splitToggle(id) {
   if (SPL.id === id) { splitCierra(); return; } if (innerWidth < 900) return; splitCierra(); SPL.id = id; window.__split = true;
-  const u = new URLSearchParams(location.search); u.set('id', id); u.set('split', '1'); const f = document.createElement('iframe'); f.id = 'spl-fr'; f.src = location.pathname + '?' + u; document.body.appendChild(f);
+  const u = new URLSearchParams(location.search); u.set('id', id); u.set('split', '1'); u.set('_', Date.now()); const f = document.createElement('iframe'); f.id = 'spl-fr'; f.src = location.pathname + '?' + u; document.body.appendChild(f);
   const x = document.createElement('button'); x.id = 'spl-x'; x.textContent = '✕ Cerrar vista dividida'; x.onclick = splitCierra; document.body.appendChild(x); aplicaVista(false); try { mqRender(); } catch (_) { }
 }
 /* resultados de los análisis fuera del menú, en una ventana sobre el mapa (en ambas mitades) */
