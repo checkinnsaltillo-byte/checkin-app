@@ -2232,6 +2232,13 @@ function legXSync() {
 }
 addEventListener('resize', legAcomoda); setInterval(() => { try { legXSync(); } catch (_) { } legAcomoda(); }, 1500);
 function pwLayout() { const b = $('pw-bar'); if (b) { const l = pwLeft(); b.style.left = l + 'px'; b.classList.toggle('ico', l + 210 > innerWidth); } }
+function pwColInit() {   // «Configuración» y «Resultados» de TODAS las pestañas de cada ventana se contraen y despliegan; se recuerda por ventana, pestaña y sección
+  let S0 = null; document.querySelectorAll('.pwin .pwsec>.pwk').forEach(k => { if (k.__col) return; k.__col = 1; if (S0 === null) { try { S0 = JSON.parse(localStorage.getItem('pwcol') || '{}'); } catch (_) { S0 = {}; } }
+    const sec = k.parentElement, win = k.closest('.pwin'), wid = win.id.replace(/^pw-/, ''), pane = sec.parentElement, pi = [...win.children].filter(e => e.classList.contains('pws')).indexOf(pane), key = (sec.classList.contains('cfg') ? 'cfg' : 'res') + ':' + pi;
+    k.tabIndex = 0; k.setAttribute('role', 'button'); if (S0[wid] && S0[wid][key]) sec.classList.add('col'); k.setAttribute('aria-expanded', String(!sec.classList.contains('col')));
+    const tg = () => { const c = sec.classList.toggle('col'); k.setAttribute('aria-expanded', String(!c)); try { const A = JSON.parse(localStorage.getItem('pwcol') || '{}'); (A[wid] = A[wid] || {})[key] = c; localStorage.setItem('pwcol', JSON.stringify(A)); } catch (_) { } };
+    k.addEventListener('click', tg); k.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tg(); } }); });
+}
 function pwMake(id) {
   if (PW.m.has(id)) return PW.m.get(id); const [ic, tt] = PW_DEF[id]; let bar = $('pw-bar'); if (!bar) { bar = document.createElement('div'); bar.id = 'pw-bar'; bar.style.top = '76px'; document.body.appendChild(bar); pwLayout(); }
   const el = document.createElement('div'); el.className = 'pwin'; el.id = 'pw-' + id; el.innerHTML = `<div class="pwh"><span class="pwt">${ic} ${tt}</span><button class="pwm" title="Minimizar">–</button><button class="pwx" title="Cerrar">✕</button></div><div class="pws"><div class="pwsec cfg"><div class="pwk">⚙️ Configuración</div><div class="pwb pwcfg"></div></div><div class="pwsec"><div class="pwk">📊 Resultados</div><div class="pwb pwres"></div></div></div>`; document.body.appendChild(el);
@@ -2241,9 +2248,7 @@ function pwMake(id) {
   el.addEventListener('pointerdown', () => { el.style.zIndex = ++PW.z; });
   const h = el.querySelector('.pwh'); let dg = null; h.addEventListener('pointerdown', ev => { if (ev.target.closest('button')) return; const rc = el.getBoundingClientRect(); dg = { dx: ev.clientX - rc.left, dy: ev.clientY - rc.top }; h.setPointerCapture(ev.pointerId); });
   h.addEventListener('pointermove', ev => { if (!dg) return; const z = uiZ(); el.style.left = Math.max(0, Math.min(innerWidth - 80, ev.clientX - dg.dx)) / z + 'px'; el.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dg.dy)) / z + 'px'; }); h.addEventListener('pointerup', () => { dg = null; });
-  { let S0 = {}; try { S0 = JSON.parse(localStorage.getItem('pwcol') || '{}')[id] || {}; } catch (_) { }   // «Configuración» y «Resultados» se pueden contraer; se recuerda por ventana
-    el.querySelectorAll('.pwsec>.pwk').forEach(k => { const sec = k.parentElement, key = sec.classList.contains('cfg') ? 'cfg' : 'res'; k.tabIndex = 0; k.setAttribute('role', 'button'); if (S0[key]) sec.classList.add('col'); k.setAttribute('aria-expanded', String(!sec.classList.contains('col')));
-      const tg = () => { const c = sec.classList.toggle('col'); k.setAttribute('aria-expanded', String(!c)); try { const A = JSON.parse(localStorage.getItem('pwcol') || '{}'); (A[id] = A[id] || {})[key] = c; localStorage.setItem('pwcol', JSON.stringify(A)); } catch (_) { } }; k.addEventListener('click', tg); k.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tg(); } }); }); }
+  pwColInit();
   PW.m.set(id, r); return r;
 }
 const PW_CIERRA = {};   // al cerrar la ventana de un análisis se retiran sus elementos del mapa y vuelve la maqueta
@@ -2412,7 +2417,7 @@ function dkCierra() { DK.cur = null; if (DK.tab === 'I') dkTab('K'); const L = $
   const o = DK.origen; if (o) { DK.origen = null; dkTab(o.tab); const e = o.id && $(o.id); if (e) { e.dataset.col = '0'; e.classList.remove('col'); setTimeout(() => { try { e.scrollIntoView({ block: 'start' }); } catch (_) { } }, 60); } } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on) dkAbre(id, r); r.el.classList.toggle('on', on); if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
 const pwToggle = id => pwShow(id, !pwMake(id).el.classList.contains('on'));
-dkInit(); laminaInit(); uiInit(); dkAncho(); try { dkClasifica(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
+dkInit(); laminaInit(); uiInit(); dkAncho(); try { dkClasifica(); pwColInit(); let dkT = 0; new MutationObserver(() => { if (!dkT) dkT = setTimeout(() => { dkT = 0; dkClasifica(); pwColInit(); }, 150); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /^((hxl|pob|eco|gp|psl|air)-leg|pob-box|acc-box)$/.test(n.id || '')) dkInfo(n); }))).observe(document.body, { childList: true }); } catch (_) { }
 function pwBody(id) { const r = pwMake(id); r.chip.style.display = ''; return r.body; }
 function pwSet(id, html) { const r = pwMake(id); r.chip.style.display = ''; r.body.innerHTML = html; if (!r.el.classList.contains('on')) r.chip.classList.add('dot'); }
 // secciones que ya existen en el menú y se mudan completas (o solo su parte de resultados) a su ventanita
