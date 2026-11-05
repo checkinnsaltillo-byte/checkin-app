@@ -4840,7 +4840,7 @@ function prbDib() {
 }
 function prbGuarda() { try { localStorage.setItem('prb_' + ID, JSON.stringify({ on: PRB.on, x: PRB.x, z: PRB.z, rot: PRB.rot, w: PRB.w, d: PRB.d, ver: PRB.ver })); } catch (_) { } }
 function prbVuela() {   // la cámara se coloca frente a la fachada, un poco elevada, mirando el edificio
-  if (!PRB.on || !camera || !controls) return; const t1 = new THREE.Vector3(PRB.x, 2.5, PRB.z), a = (PRB.rot + 24) * Math.PI / 180, D = Math.max(34, PRB.w * 2.3), c1 = new THREE.Vector3(PRB.x + Math.sin(a) * D, D * .38, PRB.z + Math.cos(a) * D);
+  if (!PRB.on || !camera || !controls) return; const t1 = new THREE.Vector3(PRB.x, 2.5, PRB.z), a = (PRB.rot + 24) * Math.PI / 180, D = Math.max(50, PRB.w * 3.4), c1 = new THREE.Vector3(PRB.x + Math.sin(a) * D, D * .34, PRB.z + Math.cos(a) * D);
   const t0 = controls.target.clone(), c0 = camera.position.clone(), T = performance.now(); try { controls.autoRotate = false; } catch (_) { } if (CMP.fly) cancelAnimationFrame(CMP.fly);
   const paso = () => { const k = Math.min(1, (performance.now() - T) / 900), e = k * k * (3 - 2 * k); camera.position.lerpVectors(c0, c1, e); controls.target.lerpVectors(t0, t1, e); controls.update(); CMP.fly = k < 1 ? requestAnimationFrame(paso) : 0; }; CMP.fly = requestAnimationFrame(paso);
 }
