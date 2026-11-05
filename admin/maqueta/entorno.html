@@ -4839,21 +4839,53 @@ function prbDib() {
   prbQuita(); if (!world || !PRB.on) return; const G = prbBuild(PRB.w, PRB.d); G.position.set(PRB.x, 0, PRB.z); G.rotation.y = PRB.rot * Math.PI / 180; G.userData.keep = true; G.userData.prb = 1; G.visible = PRB.ver; world.add(G); PRB.g = G; try { capasSync(); } catch (_) { } try { renderOnce && renderOnce(); } catch (_) { }
 }
 function prbGuarda() { try { localStorage.setItem('prb_' + ID, JSON.stringify({ on: PRB.on, x: PRB.x, z: PRB.z, rot: PRB.rot, w: PRB.w, d: PRB.d, ver: PRB.ver })); } catch (_) { } }
-function prbVuela() { if (!PRB.on) return; const v = new THREE.Vector3(PRB.x, 3, PRB.z), a = (PRB.rot + 28) * Math.PI / 180, D = Math.max(30, PRB.w * 2.1); cmpVuela(v, D); try { const c0 = camera.position.clone(), off = new THREE.Vector3(Math.sin(a) * D * .8, D * .42, Math.cos(a) * D * .8); setTimeout(() => { camera.position.copy(v.clone().add(off)); controls.target.copy(v); controls.update(); }, 760); } catch (_) { } }
+function prbVuela() {   // la cámara se coloca frente a la fachada, un poco elevada, mirando el edificio
+  if (!PRB.on || !camera || !controls) return; const t1 = new THREE.Vector3(PRB.x, 2.5, PRB.z), a = (PRB.rot + 24) * Math.PI / 180, D = Math.max(34, PRB.w * 2.3), c1 = new THREE.Vector3(PRB.x + Math.sin(a) * D, D * .38, PRB.z + Math.cos(a) * D);
+  const t0 = controls.target.clone(), c0 = camera.position.clone(), T = performance.now(); try { controls.autoRotate = false; } catch (_) { } if (CMP.fly) cancelAnimationFrame(CMP.fly);
+  const paso = () => { const k = Math.min(1, (performance.now() - T) / 900), e = k * k * (3 - 2 * k); camera.position.lerpVectors(c0, c1, e); controls.target.lerpVectors(t0, t1, e); controls.update(); CMP.fly = k < 1 ? requestAnimationFrame(paso) : 0; }; CMP.fly = requestAnimationFrame(paso);
+}
+// ocupación del terreno: se rasteriza lo que ya hay (edificios, calles, banquetas, estacionamientos) para hallar un lote libre y orientar el frente hacia la calle
+const PRB_R = 220, PRB_C = 2, PRB_N = PRB_R * 2 / PRB_C;
+function prbOcupa() {
+  const occ = new Uint8Array(PRB_N * PRB_N), st = new Uint8Array(PRB_N * PRB_N); world.updateMatrixWorld(true); const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), ci = x => Math.floor((x + PRB_R) / PRB_C);
+  const catDe = o => { for (let k = 0; o && k < 4; k++, o = o.parent) if (o.userData && o.userData.cat) return o.userData.cat; return ''; };
+  world.traverse(o => { if (!o.isMesh || o.userData.prb || !o.geometry || !o.geometry.attributes.position) return; const cat = catDe(o), ed = /^edificios|^estacionamientos|^negocios$/.test(cat) && cat !== 'negocios', ca = cat === 'calles', bq = cat === 'banquetas'; if (!ed && !ca && !bq) return;
+    const P = o.geometry.attributes.position, ix = o.geometry.index, M = o.matrixWorld, n = ix ? ix.count : P.count;
+    for (let t = 0; t < n; t += 3) { const i0 = ix ? ix.getX(t) : t, i1 = ix ? ix.getX(t + 1) : t + 1, i2 = ix ? ix.getX(t + 2) : t + 2; a.fromBufferAttribute(P, i0).applyMatrix4(M); b.fromBufferAttribute(P, i1).applyMatrix4(M); c.fromBufferAttribute(P, i2).applyMatrix4(M);
+      if (ed && Math.max(a.y, b.y, c.y) < 1.2) continue; const x0 = Math.min(a.x, b.x, c.x), x1 = Math.max(a.x, b.x, c.x), z0 = Math.min(a.z, b.z, c.z), z1 = Math.max(a.z, b.z, c.z); if (x1 < -PRB_R || x0 > PRB_R || z1 < -PRB_R || z0 > PRB_R) continue;
+      const cx0 = Math.max(0, ci(x0)), cx1 = Math.min(PRB_N - 1, ci(x1)), cz0 = Math.max(0, ci(z0)), cz1 = Math.min(PRB_N - 1, ci(z1)), arr = ca ? st : occ, ex = ed;
+      if (cx1 - cx0 > 40 || cz1 - cz0 > 40) { if (ex) { for (let zz = cz0; zz <= cz1; zz++) for (let xx = cx0; xx <= cx1; xx++) occ[zz * PRB_N + xx] = 1; } continue; }
+      const d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z);
+      for (let zz = cz0; zz <= cz1; zz++) for (let xx = cx0; xx <= cx1; xx++) { if (ex) { arr[zz * PRB_N + xx] = 1; continue; } if (Math.abs(d) < 1e-9) { arr[zz * PRB_N + xx] = 1; continue; } const px = -PRB_R + (xx + .5) * PRB_C, pz = -PRB_R + (zz + .5) * PRB_C, l1 = ((b.z - c.z) * (px - c.x) + (c.x - b.x) * (pz - c.z)) / d, l2 = ((c.z - a.z) * (px - c.x) + (a.x - c.x) * (pz - c.z)) / d; if (l1 >= -.05 && l2 >= -.05 && 1 - l1 - l2 >= -.05) arr[zz * PRB_N + xx] = 1; } } });
+  return { occ, st };
+}
+function prbCalleDir(K, x, z, R) {   // dirección hacia la calle más cercana (null si no hay en R metros)
+  const g = (px, pz) => { const i = Math.floor((px + PRB_R) / PRB_C), j = Math.floor((pz + PRB_R) / PRB_C); return i >= 0 && j >= 0 && i < PRB_N && j < PRB_N && K.st[j * PRB_N + i]; };
+  for (let r = 2; r <= R; r += 2) for (let k = 0; k < 24; k++) { const th = k * Math.PI / 12, dx = Math.sin(th), dz = Math.cos(th); if (g(x + dx * r, z + dz * r)) return [dx, dz]; } return null;
+}
+function prbLibre(K, x, z, th, W, D) {
+  const hw = (W + 4) / 2, hd = (D + 3) / 2, s = Math.sin(th), c = Math.cos(th);
+  for (let u = -hw; u <= hw; u += 2) for (let v = -hd + 1.5; v <= hd + 1.5; v += 2) { const wx = x + u * c + v * s, wz = z - u * s + v * c, i = Math.floor((wx + PRB_R) / PRB_C), j = Math.floor((wz + PRB_R) / PRB_C); if (i < 0 || j < 0 || i >= PRB_N || j >= PRB_N) return false; if (K.occ[j * PRB_N + i] || K.st[j * PRB_N + i]) return false; } return true;
+}
+function prbBusca() {   // lote libre más cercano al pin, con el frente hacia la calle
+  const K = prbOcupa(); let mej = null;
+  for (const exigeCalle of [true, false]) { for (let r = 0; r <= PRB_R - 40 && !mej; r += 3) { const n = r === 0 ? 1 : Math.max(8, Math.round(2 * Math.PI * r / 3)); for (let k = 0; k < n && !mej; k++) { const an = k / n * 2 * Math.PI, x = r * Math.sin(an), z = r * Math.cos(an), cd = prbCalleDir(K, x, z, 36); if (exigeCalle && !cd) continue; const rot = cd ? Math.round(Math.atan2(cd[0], cd[1]) * 36 / Math.PI) * 5 : 0, th = rot * Math.PI / 180; if (prbLibre(K, x, z, th, PRB.w, PRB.d)) mej = { x, z, rot: (rot + 360) % 360 }; } } if (mej) break; }
+  return mej;
+}
 function prbPick(on) {
   const cv = renderer.domElement, b = $('prb-pick'); if (PRB.pick === on) return; PRB.pick = on; if (b) { b.textContent = on ? '⏹ Terminar (Esc)' : '🖱️ Colocar con un clic'; b.classList.toggle('on', on); }
   if (PRB.pickOff) { PRB.pickOff(); PRB.pickOff = null; } if (!on) { cv.style.cursor = ''; return; } cv.style.cursor = 'crosshair'; const ray = new THREE.Raycaster(), nd = new THREE.Vector2(); let dn = null;
   const dw = ev => { dn = [ev.clientX, ev.clientY]; }, esc = ev => { if (ev.key === 'Escape') prbPick(false); };
   const up = ev => { if (!dn || Math.hypot(ev.clientX - dn[0], ev.clientY - dn[1]) > 5) return; const rc = cv.getBoundingClientRect(); nd.set((ev.clientX - rc.left) / rc.width * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(nd, camera);
     let pt = null; const hs = ray.intersectObjects(world.children, true).filter(h => h.object.visible && !h.object.isSprite && !h.object.isLine && h.object.type === 'Mesh' && !h.object.userData.noPick && !(h.object.parent && h.object.parent.userData && h.object.parent.userData.prb)); if (hs.length) pt = hs[0].point; if (!pt) { pt = new THREE.Vector3(); if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), pt)) pt = null; }
-    if (!pt) return; ev.stopPropagation(); ev.preventDefault(); PRB.x = pt.x; PRB.z = pt.z; PRB.on = true; PRB.ver = true; prbDib(); prbGuarda(); prbPanel(); prbPick(false); };
+    if (!pt) return; ev.stopPropagation(); ev.preventDefault(); PRB.x = pt.x; PRB.z = pt.z; try { const cd = prbCalleDir(prbOcupa(), pt.x, pt.z, 40); if (cd) PRB.rot = (Math.round(Math.atan2(cd[0], cd[1]) * 36 / Math.PI) * 5 + 360) % 360; } catch (_) { } PRB.on = true; PRB.ver = true; prbDib(); prbGuarda(); prbPanel(); prbPick(false); prbVuela(); };
   cv.addEventListener('pointerdown', dw, true); cv.addEventListener('pointerup', up, true); addEventListener('keydown', esc, true); PRB.pickOff = () => { cv.removeEventListener('pointerdown', dw, true); cv.removeEventListener('pointerup', up, true); removeEventListener('keydown', esc, true); };
 }
 function prbPanel() {
   const r = PW.m.get('prb'); if (!r) return; const sl = (k, t, mn, mx, st, u) => '<div class="prb-r"><span>' + t + '</span><input type="range" data-k="' + k + '" min="' + mn + '" max="' + mx + '" step="' + st + '" value="' + PRB[k] + '"><b>' + PRB[k] + u + '</b></div>';
   r.body.innerHTML = '<div class="prb-sw" id="prb-ver"><span class="prb-bx' + (PRB.ver && PRB.on ? ' on' : '') + '">' + (PRB.ver && PRB.on ? '✓' : '') + '</span><b>Ver en el mapa</b></div>'
-    + '<div class="prb-bt"><button id="prb-pin">📍 Colocar en el pin</button><button id="prb-pick">🖱️ Colocar con un clic</button><button id="prb-go">🎥 Ir a verlo</button><button id="prb-del">🗑️ Quitar</button></div>'
-    + (PRB.on ? sl('rot', 'Giro', 0, 359, 1, '°') + sl('w', 'Ancho', 11, 26, .5, ' m') + sl('d', 'Fondo', 9, 22, .5, ' m') : '<div class="prb-n">Pulse «Colocar en el pin» o «Colocar con un clic» para ver la tienda en la maqueta.</div>')
+    + '<div class="prb-bt"><button id="prb-pin">🔎 Buscar lote libre</button><button id="prb-pick">🖱️ Colocar con un clic</button><button id="prb-go">🎥 Ir a verlo</button><button id="prb-del">🗑️ Quitar</button></div>'
+    + (PRB.on ? sl('rot', 'Giro', 0, 359, 1, '°') + sl('w', 'Ancho', 11, 26, .5, ' m') + sl('d', 'Fondo', 9, 22, .5, ' m') : '<div class="prb-n">Pulse «Buscar lote libre» (cerca del pin, con el frente hacia la calle) o «Colocar con un clic» para ver la tienda en la maqueta.</div>')
     + '<div class="prb-n">Modelo procedural de una tienda de conveniencia con la imagen OXXO: frente de cristal con puerta doble, franja amarilla, parapeto rojo con paneles, letrero luminoso, dos tótems, aires acondicionados en azotea, tuberías y puerta trasera. Las medidas son referenciales (15 × 13 m, 5.5 m de alto).</div>';
 }
 function prbCss() { if ($('prb-css')) return; const st = document.createElement('style'); st.id = 'prb-css'; st.textContent = '#pw-prb .prb-sw{display:flex;align-items:center;gap:9px;cursor:pointer;padding:8px 10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;margin-bottom:8px;font-size:13px}#pw-prb .prb-bx{width:18px;height:18px;border:2px solid #475569;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;color:#fff;font-weight:800}#pw-prb .prb-bx.on{background:#16a34a;border-color:#16a34a}#pw-prb .prb-bt{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}#pw-prb .prb-bt button{padding:8px 6px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}#pw-prb .prb-bt button.on{background:#0f172a;color:#fff}#pw-prb .prb-r{display:grid;grid-template-columns:48px 1fr 54px;gap:8px;align-items:center;font-size:12px;margin:6px 0}#pw-prb .prb-r input{width:100%}#pw-prb .prb-n{font-size:11.5px;color:#475569;line-height:1.45;margin-top:8px}'; document.head.appendChild(st); }
@@ -4861,7 +4893,7 @@ function prbCss() { if ($('prb-css')) return; const st = document.createElement(
   const r = pwMake('prb'); prbCss(); prbPanel();
   r.el.addEventListener('click', e => { const t = e.target; if (!t.closest) return;
     if (t.closest('#prb-ver')) { if (!PRB.on) return; PRB.ver = !PRB.ver; if (PRB.g) PRB.g.visible = PRB.ver; prbGuarda(); prbPanel(); try { renderOnce && renderOnce(); } catch (_) { } return; }
-    if (t.closest('#prb-pin')) { PRB.x = 0; PRB.z = 0; PRB.on = true; PRB.ver = true; prbDib(); prbGuarda(); prbPanel(); return prbVuela(); }
+    if (t.closest('#prb-pin')) { const m = prbBusca(); if (!m) return visToast('No encontré un lote libre en 180 m; use «Colocar con un clic»', true); PRB.x = m.x; PRB.z = m.z; PRB.rot = m.rot; PRB.on = true; PRB.ver = true; prbDib(); prbGuarda(); prbPanel(); return prbVuela(); }
     if (t.closest('#prb-pick')) return prbPick(!PRB.pick);
     if (t.closest('#prb-go')) return prbVuela();
     if (t.closest('#prb-del')) { PRB.on = false; prbQuita(); prbGuarda(); prbPanel(); try { renderOnce && renderOnce(); } catch (_) { } } });
