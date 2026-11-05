@@ -6303,7 +6303,7 @@ function g3dTick() {
 // ── Panel lateral «Capas»: pestaña girada sobre «Menú»; guarda la sección Capas del menú y se abre junto a él
 {
   const st = document.createElement('style'); st.id = 'cap-pn-css'; st.textContent = ''
-    + '@media (min-width:761px){#dock-tg{top:116px!important}#cap-tg{display:flex}}#cap-tg{display:none}'
+    + '#cap-tg{display:none}@media (min-width:761px){#dock-tg{top:116px!important}#cap-tg{display:flex}}'
     + '#cap-tg{position:fixed;left:var(--dkw,404px);top:18px;z-index:5;width:28px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:11px 0;border:0;border-radius:0 12px 12px 0;background:linear-gradient(180deg,#1e293b,#0f172a);color:#cbd5e1;cursor:pointer;box-shadow:6px 4px 18px rgba(2,6,23,.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s,color .2s}'
     + '#cap-tg.off{left:0}#cap-tg:hover{background:linear-gradient(180deg,#6366f1,#4f46e5);color:#fff}#cap-tg b{font:700 14px/1 system-ui}#cap-tg .tg-t{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px/1 system-ui;letter-spacing:.09em;white-space:nowrap}'
     + 'html:not(.tema-osc) #cap-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) #cap-tg:hover{color:#0f172a}html:not(.tema-osc) #cap-tg.on{color:#2563eb}'
