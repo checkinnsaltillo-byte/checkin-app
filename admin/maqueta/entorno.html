@@ -2335,6 +2335,11 @@ function dkAncho() {   /* arrastrar el borde derecho del menú para cambiar su a
   + ':is(#dock,.pwin) .seg>button::before{content:"";flex:none;width:13px;height:13px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:50%;background:#fff}'
   + ':is(#dock,.pwin) .seg>button:hover{color:#0f172a!important}:is(#dock,.pwin) .seg>button.on{color:#0f172a!important;background:none!important;box-shadow:none!important;font-weight:600!important}'
   + ':is(#dock,.pwin) .seg>button.on::before{border-color:#2563eb;background:radial-gradient(circle,#2563eb 0 3.5px,#fff 4px)}'
+  + ':is(#dock,.pwin) button[data-k=tg][data-mv]{background:linear-gradient(135deg,#0f172a,#1e293b)!important;border:1px solid #0f172a!important;color:#f8fafc!important;box-shadow:0 1px 2px rgba(15,23,42,.35),0 8px 16px -10px rgba(15,23,42,.8)!important}'
+  + ':is(#dock,.pwin) button[data-k=tg][data-mv]:hover{background:linear-gradient(135deg,#1e293b,#334155)!important;border-color:#334155!important}'
+  + ':is(#dock,.pwin) button[data-k=tg][data-mv]::after{background-color:#475569!important;box-shadow:none!important}'
+  + ':is(#dock,.pwin) button[data-k=tg][data-mv].on,:is(#dock,.pwin) button[data-k=tg][data-mv][data-s="1"]{background:linear-gradient(135deg,#0f172a,#14281f)!important;border-color:#10b981!important;color:#fff!important}'
+  + ':is(#dock,.pwin) button[data-k=tg][data-mv].on::after,:is(#dock,.pwin) button[data-k=tg][data-mv][data-s="1"]::after{background-color:#22c55e!important}'
   + ':is(#dock,.pwin) .pwtabs{padding:0!important}:is(#dock,.pwin) .pwtabs>button.on{color:#2563eb!important;border-bottom-color:#2563eb!important}'
   ; document.head.appendChild(st); }
 function dkSub() {   // pestaña Capas: «Proyectos · Capas · Análisis» en una sola línea; solo se ve la tarjeta elegida
@@ -2368,7 +2373,7 @@ function dkClasifica(root) {
   /* estado «encendido»: por clase .on, por el fondo oscuro que le pone el código o por el texto («Quitar del mapa», «…: activas») */
   document.querySelectorAll('#dock button[data-k],.pwin button[data-k]').forEach(b => {
     const k = b.dataset.k, st = b.getAttribute('style') || '', t = (b.textContent || '').trim().replace(/^[^\wÁ-ú]+/, '');
-    if (k === 'tg') { const on = b.classList.contains('on') || /^(Quitar|Ocultar|Detener|Apagar)\b/i.test(t) || /:\s*(activ\w+|sí|encendid\w+)$/i.test(t); if ((b.dataset.s === '1') !== on) b.dataset.s = on ? '1' : '0'; }
+    if (k === 'tg') { const on = b.classList.contains('on') || /^(Quitar|Ocultar|Detener|Apagar)\b/i.test(t) || /:\s*(activ\w+|sí|encendid\w+)$/i.test(t); if ((b.dataset.s === '1') !== on) b.dataset.s = on ? '1' : '0'; const mv = /(en el mapa|del mapa|mapa de calor|sobre la maqueta|^(Ver|Quitar) mapa\b)/i.test(t); if (mv && !b.dataset.mv) b.dataset.mv = '1'; else if (!mv && b.dataset.mv) delete b.dataset.mv; }
     else if ((k === 'seg' || k === 'chip') && /background/.test(st)) { const on = /background:\s*(#0f172a|#111\b|rgb\(15, ?23, ?42\))/i.test(st); if (b.classList.contains('on') !== on) b.classList.toggle('on', on); }
   });
 }
@@ -4903,7 +4908,7 @@ function cmpAnSel(k, v) {
 function cmpRes() {
   const box = CMP.rb; if (!box) return; const A = CMP.an, d = A.d, bt = (k, v, t, cls) => `<button class="an-b${A[k] === v ? ' on' : ''}" data-an="${k}" data-v="${v}">${t}</button>`;
   if (!d && !A.busy && !A.msg) { box.innerHTML = '<div style="font-size:12px;color:#64748b;line-height:1.45">Pulse <b>⚔️ Analizar</b> en el paso 2. Se calculan los tiempos de viaje sobre la red vial desde cada punto hasta cada manzana del Censo y de ahí: <b>territorios</b>, <b>cuota de mercado (Huff)</b>, <b>accesibilidad</b> y <b>efecto del tráfico</b>.</div>'; return; }
-  const ver = `<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px"><span id="an-ver" role="switch" aria-checked="${A.ver}" style="cursor:pointer;flex:0 0 34px;height:18px;border-radius:9px;background:${A.ver ? '#2563eb' : '#cbd5e1'};position:relative;transition:background .15s"><i style="position:absolute;top:2px;left:${A.ver ? 18 : 2}px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"></i></span><b style="font-size:12px">🗺️ Ver en el mapa</b></div>`;
+  const ver = `<button id="an-ver" class="${A.ver ? 'on' : ''}" data-k="tg" data-mv="1" data-s="${A.ver ? 1 : 0}" style="margin:0 0 10px">🗺️ Ver en el mapa</button>`;
   const ctl = ver + `<div class="an-pr">${cmpSel('modo', 'Modo', [['auto', '🚗 En auto'], ['pie', '🚶 A pie']], A.modo)}${A.modo === 'auto' ? cmpSel('hora', 'Hora', CMP_HRS.map(([k, t]) => [k, k === 'libre' ? 'Flujo libre' : t]), A.hora) : ''}${cmpSel('T', 'Cobertura', [5, 10, 15, 20].map(v => [v, v + ' minutos']), A.T)}${cmpSel('beta', 'Huff β', [1, 1.5, 2, 2.5, 3].map(v => [v, v]), A.beta, 'Sensibilidad a la distancia en el modelo de Huff: a mayor valor, el cliente prefiere más lo cercano')}</div>`;
   const msg = A.busy ? `<div class="cmp-warn" style="background:#eff6ff;border-color:#93c5fd;color:#1e3a8a">${esc_(A.msg)}</div>` : A.msg ? `<div class="cmp-warn">${esc_(A.msg)}</div>` : '';
   if (!d) { box.innerHTML = ctl + msg; cmpUiFmt(box); return; }
