@@ -4549,8 +4549,14 @@ function cmpEscala() {   // tamaño aparente constante: crece con la distancia a
   if (!camera) return; [CMP.g, CMP.gs, CMP.gp, CMP.an && CMP.an.gm].forEach(G => { if (!G) return; G.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(30, Math.max(1, d / 1800)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(150 * ls, 150 * .1875 * ls, 1); }); }); });
 }
 function cmpTick() { if (!CMP.on) { CMP.raf = 0; return; } try { cmpEscala(); } catch (_) { } CMP.raf = requestAnimationFrame(cmpTick); }
+function cmpPinOn() { const A = CMP.an; return !!(A && A.d && A.g && A.g.parent && A.ver && ((A.vista === 'terr' && A.dm === 'pt' && !(A.sel && A.iso)) || (A.vista === 'huff' && A.hm !== 'ref'))); }
+const cmpPinKey = () => { const A = CMP.an; return cmpPinOn() ? [A.vista, A.dm, A.hm, A.d.nz, A.d.fac.length].join('|') : ''; };
+function cmpPinCol(p) {   // en «Territorios › Por punto» (y en las vistas de Cuota por punto) cada pin lleva el mismo color que su territorio
+  try { if (cmpPinOn()) { const d = CMP.an.d, j = d.fac.findIndex(f => f.id === p.id); if (j >= 0) return cmpAnCol(d.fac[j], j); } } catch (_) { } return CMP_COL[p.rol || 'none'];
+}
+function cmpPinSync() { try { if ((CMP.pinKey || '') !== cmpPinKey() && CMP.on) cmpDibuja(); } catch (_) { } }
 function cmpDibuja() {
-  cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, CMP.pts, p => CMP_COL[p.rol || 'none'], 80);
+  cmpQuita(); const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); CMP.pinKey = cmpPinKey(); cmpMarkers(G, S, CMP.pts, cmpPinCol, 80);
   G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.g = G; try { capasSync(); } catch (_) { } cmpSelDib();
 }
 function cmpPreview(p) { cmpQuitaPv(); CMP.pvId = p.id; const S = curS; if (!CMP.on || !world || !S || S.lat == null) return; const G = new THREE.Group(); cmpMarkers(G, S, [Object.assign({}, p, { rol: 'pv' })], () => '#8b5cf6', 1); G.userData.cmp = 1; G.userData.keep = true; world.add(G); CMP.gp = G; }
@@ -4671,7 +4677,7 @@ function cmpAyuda(r) {
   const abre = on => { p.style.display = on ? '' : 'none'; b.classList.toggle('on', on); if (on) { p.scrollIntoView({ block: 'start' }); } };
   b.addEventListener('click', e => { e.stopPropagation(); abre(p.style.display === 'none'); }); b.addEventListener('pointerdown', e => e.stopPropagation()); p.querySelector('.mt-x').addEventListener('click', () => abre(false));
 }
-function cmpAnQuita() { const A = CMP.an; cmpAnBarrasEv(false); if (A.g) { if (A.g.parent) A.g.parent.remove(A.g); A.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.g = null; A.im = null; A.gov = null; A.gb = null; A.bm = null; } if (A.gm) { if (A.gm.parent) A.gm.parent.remove(A.gm); A.gm = null; } }
+function cmpAnQuita() { const A = CMP.an; cmpAnBarrasEv(false); setTimeout(cmpPinSync, 0); if (A.g) { if (A.g.parent) A.g.parent.remove(A.g); A.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.g = null; A.im = null; A.gov = null; A.gb = null; A.bm = null; } if (A.gm) { if (A.gm.parent) A.gm.parent.remove(A.gm); A.gm = null; } }
 function cmpAnDib() {   // una sola malla: el polígono real de cada manzana sobre el suelo, con color por vértice
   cmpAnQuita(); const A = CMP.an, d = A.d, S = curS; if (!d || !world || !S || S.lat == null || !CMP.on) return; const M = d.nz, kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, pos = [], idx = [], rng = [], irg = []; let vc = 0;
   for (let i = 0; i < M; i++) {
@@ -4698,7 +4704,7 @@ function cmpAnPinta() {
     else c.set('#94a3b8');
     const [v0, n] = A.rng[i]; for (let k = 0; k < n; k++) { const o = (v0 + k) * 3; col[o] = c.r; col[o + 1] = c.g; col[o + 2] = c.b; }
   }
-  A.im.geometry.attributes.color.needsUpdate = true; try { cmpAnBarras(); cmpAnOv(); } catch (e) { console.warn('extras', e); }
+  A.im.geometry.attributes.color.needsUpdate = true; try { cmpAnBarras(); cmpAnOv(); } catch (e) { console.warn('extras', e); } cmpPinSync();
 }
 async function cmpAnIsoT(fid, hora) {   // tiempo (s) del punto a cada manzana a esa hora, con caché
   const A = CMP.an, k = A.modo + '|' + fid + '|' + hora; if (A.isoC[k]) return A.isoC[k];
@@ -4881,7 +4887,7 @@ function cmpRes() {
     let ovl = ''; if (A.ov && A.isoOv) { const c0 = pw(A.isoOv.libre); ovl = `<div class="an-leg">${H4.map(h => { const c = pw(A.isoOv[h]); return `<span><i style="background:${CMP_HC[h][0]}"></i>${CMP_HC[h][1]}<small>${cmpFmtN(c)} hab.${h !== 'libre' && c0 ? ' · ' + Math.round((c - c0) / c0 * 100) + ' %' : ''}</small></span>`; }).join('')}</div><div class="an-h" style="margin:0 0 4px">Cada color es lo que el punto alcanza en ≤ ${d.params.T} min a esa hora (capas al 40 % de opacidad): donde se ven menos capas, el tráfico recorta el alcance.</div>`; }
     iso = `<div class="an-leg"><b style="font-size:11px">Isócrona de «${esc_((d.fac.find(f => f.id === A.sel) || {}).n || '')}»</b>${A.ov && A.isoOv ? '' : CMP_ISO.map(c => `<span><i style="background:${c[1]}"></i>${c[2]}</span>`).join('')}<button class="an-x" data-an="quitaiso">✕ Quitar</button></div>${sl}${ovl}`; }
   const nota = `<div class="an-nt">Red: ${cmpFmtN(d.nVias)} vías OpenStreetMap (radio ${d.R} m) · población: Censo 2020 por manzana${d.sinRedPop ? ` · ${cmpFmtN(d.sinRedPop)} hab. sin acceso a la red quedaron fuera` : ''}${d.cal && d.cal.calibrado ? ' · velocidades calibradas con Google Routes' : ' · velocidades por tipo de vía sin calibrar'}.</div>`;
-  box.innerHTML = ctl + msg + resum + `<div class="an-tabs">${tabs}</div>` + iso + `<div class="an-body">${cuerpo}</div>` + cmpAnResumen(d) + nota;
+  box.innerHTML = ctl + msg + resum + `<div class="an-tabs">${tabs}</div>` + iso + `<div class="an-body">${cuerpo}</div>` + cmpAnResumen(d) + nota; cmpPinSync();
 }
 // eventos de resultados
 function cmpAnEventos(el) {
