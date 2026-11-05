@@ -6314,6 +6314,13 @@ function g3dTick() {
     + '#cap-pn[data-sk="cap"] #capa-an,#cap-pn[data-sk="capa-an"] #cap{display:none!important}'
     + '@media (min-width:761px){#dock>#tt{position:sticky}}#dk-gear{display:none;position:absolute;top:12px;right:14px;z-index:4;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid rgba(15,23,42,.1);border-radius:9px;background:#fff;color:#475569;font-size:15px;cursor:pointer;padding:0}#dk-gear:hover{background:#eef2ff}#dk-gear.on{background:#2563eb;color:#fff;border-color:#2563eb}@media (min-width:761px){#dk-gear{display:flex}}'
     + 'html.ui-s .lft-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s .lft-tg.off{left:0}html.ui-s #cap-pn,html.ui-s #pry-pn{width:calc(var(--dkw,404px) * var(--ui))}'
+    + 'body>#tt{position:fixed;top:0;left:0;width:var(--dkw,404px);max-width:92vw;margin:0;box-sizing:border-box;z-index:6;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s}body>#tt.off{transform:translateX(-102%);opacity:0;pointer-events:none}'
+    + '@media (min-width:761px){#dock{padding-top:var(--tth,150px)!important}#cap-pn,#pry-pn{padding-top:var(--tth,150px)}}html.ui-s body>#tt{width:calc(var(--dkw,404px) * var(--ui));zoom:var(--ui)}'
+    + '#dk-det #pw-ind .dk-back,#pw-ind .dk-back{display:none!important}'
+    + '.dk-sn{display:flex;flex-wrap:nowrap;gap:0;padding:0;margin:0 0 4px;border-bottom:1px solid #e2e8f0;overflow-x:auto;scrollbar-width:none}.dk-sn::-webkit-scrollbar{display:none}'
+    + '.dk-sn .dk-sb{flex:1 1 auto;justify-content:center;padding:10px 8px 9px;margin-bottom:-1px;border-bottom:2px solid transparent;color:#64748b;font:600 12px/1.2 system-ui,sans-serif;white-space:nowrap;align-items:baseline;gap:5px}.dk-sn .dk-sb:hover{color:#0f172a}.dk-sn .dk-sb.on{color:#2563eb;border-bottom-color:#2563eb;font-weight:600}.dk-sn .dk-sb .rd{display:none}'
+    + 'html.tema-osc .dk-sn{border-bottom-color:rgba(148,163,184,.25)}html.tema-osc .dk-sn .dk-sb.on{color:#93c5fd;border-bottom-color:#93c5fd}'
+    + '#cap-pn .dk-sn{padding:0 12px}#dk-lista .dk-sn{padding:0}'
     + '@media (max-width:760px){#cap-pn,#pry-pn,.lft-tg,#dk-gear{display:none!important}}'; document.head.appendChild(st);
   const mk = (id, txt) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'lft-tg'; b.dataset.t = txt; return b; };
   const ptg = mk('pry-tg', 'Proyectos'), ctg = mk('cap-tg', 'Capas'), itg = mk('ind-tg', 'Indicadores'), pn = document.createElement('div'), pp = document.createElement('div'); pn.id = 'cap-pn'; pn.innerHTML = '<div class="cap-t">Capas</div><div id="cap-sub"></div><div class="cap-b"></div>'; pp.id = 'pry-pn'; pp.innerHTML = '<div class="cap-t">Proyectos</div><div class="cap-b"></div>'; document.body.append(ptg, ctg, itg, pn, pp);
@@ -6331,6 +6338,8 @@ function g3dTick() {
     flecha(ptg, 'Proyectos', verP); flecha(ctg, 'Capas', verC); flecha(itg, 'Indicadores', verI); if (ancho) flecha(dtg, 'Análisis', verA); else if (dtg.__h) { dtg.innerHTML = '<b>' + (oculta ? '›' : '‹') + '</b><span class="tg-t">Menú</span>'; dtg.__h = null; dtg.title = 'Ocultar o mostrar el menú'; }
     const sh = subHtml(); if (pn.__sh !== sh) { $('cap-sub').innerHTML = sh; pn.__sh = sh; }
     if (ancho) { const y1 = 18, y2 = y1 + ptg.offsetHeight + 8, y3 = y2 + ctg.offsetHeight + 8, y4 = y3 + itg.offsetHeight + 8; ptg.style.top = y1 + 'px'; ctg.style.top = y2 + 'px'; itg.style.top = y3 + 'px'; dtg.style.setProperty('top', y4 + 'px', 'important'); } else dtg.style.removeProperty('top');
+    if (tt) { if (ancho && tt.parentNode !== document.body) document.body.appendChild(tt); else if (!ancho && tt.parentNode === document.body) dock.insertBefore(tt, dock.firstChild); tt.classList.toggle('off', oculta); const h = tt.offsetHeight; if (h && Math.abs(h - (capPnSync.__h || 0)) > 1) { capPnSync.__h = h; document.documentElement.style.setProperty('--tth', h + 'px'); } }
+    if (ancho && vista === 'ind' && !oculta && DK.tab === 'I' && DK.cur !== 'ind') clickTab('I');   // Indicadores siempre abre directo: si se cerró su ventana, se vuelve a abrir
     if (gear) gear.classList.toggle('on', DK.tab === 'C');
     [['pdi', pp.querySelector('.cap-b')], ['cap', b], ['capa-an', b]].forEach(([id, dest]) => { const e = $(id); if (!e) return; if (ancho) { if (e.parentNode !== dest) dest.appendChild(e); } else if (e.parentNode === dest && $('notas')) dock.insertBefore(e, $('notas').nextSibling); });
   };
