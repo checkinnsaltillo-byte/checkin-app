@@ -5019,6 +5019,16 @@ function prbCss() { if ($('prb-css')) return; const st = document.createElement(
   try { const s = JSON.parse(localStorage.getItem('prb_' + ID) || 'null'); if (s && s.on) { Object.assign(PRB, s); prbPanel(); } } catch (_) { }
   setInterval(() => { if (PRB.on && world && curS && (!PRB.g || PRB.g.parent !== world)) { PRB.g = null; prbDib(); prbPanel(); } }, 1500);
   setInterval(() => { try { prbFrSync(); } catch (e) { console.warn('prbFr', e); } }, 1500);
+  // doble clic sobre un punto de la maqueta: la cámara se acerca y se centra ahí (como Google Maps); con Shift se aleja
+  { const cv = renderer.domElement, ray = new THREE.Raycaster(), nd = new THREE.Vector2(); let anim = 0;
+    cv.addEventListener('dblclick', ev => {
+      if (PRB.pick || (typeof CMP !== 'undefined' && CMP.pick)) return; const rc = cv.getBoundingClientRect(); nd.set((ev.clientX - rc.left) / rc.width * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(nd, camera);
+      let pt = null; const hs = ray.intersectObjects(world.children, true).filter(h => h.object.visible && h.object.type === 'Mesh' && !h.object.isSprite && !h.object.userData.noPick && !h.object.userData.hlKeep && h.object.material && h.object.material.visible !== false && !(h.object.material.opacity < .3)); if (hs.length) pt = hs[0].point.clone(); if (!pt) { pt = new THREE.Vector3(); if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), pt)) return; }
+      const R = (window.__curS && +window.__curS.radio) || 400; if (Math.abs(pt.x) > R * 1.6 || Math.abs(pt.z) > R * 1.6) return; ev.preventDefault();
+      const off = camera.position.clone().sub(controls.target), d0 = off.length(), d1 = Math.max(controls.minDistance || 14, Math.min(controls.maxDistance || 1e4, ev.shiftKey ? d0 * 2 : d0 * .45)), t0 = controls.target.clone(), p0 = camera.position.clone(), t1 = pt.clone(), p1 = pt.clone().addScaledVector(off.normalize(), d1), T = performance.now();
+      try { controls.autoRotate = false; $('b-rot').classList.remove('on'); } catch (_) { } if (typeof CMP !== 'undefined' && CMP.fly) { cancelAnimationFrame(CMP.fly); CMP.fly = 0; } if (anim) cancelAnimationFrame(anim); try { zWant = 0; } catch (_) { }
+      const paso = now => { const k = Math.min(1, (now - T) / 650), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; controls.target.lerpVectors(t0, t1, e); camera.position.lerpVectors(p0, p1, e); controls.update(); anim = k < 1 ? requestAnimationFrame(paso) : 0; }; anim = requestAnimationFrame(paso);
+    }); }
 }
 {
   const r = pwMake('cmp'); pwCfg('cmp'); cmpCss();
