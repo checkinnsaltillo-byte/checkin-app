@@ -6300,28 +6300,37 @@ function g3dTick() {
   if (++G3D.cuadro % 90 === 0) { const a = []; try { t.getAttributions(a); } catch (_) { } const txt = a.filter(x => x.type === 'string').map(x => x.value).join(' · '), el = $('attr'); if (el) el.textContent = 'Mapa 3D © Google' + (txt ? ' · ' + txt : ''); }
 }
 
-// ── Panel lateral «Capas»: pestaña girada sobre «Menú»; guarda la sección Capas del menú y se abre junto a él
+// ── Columna izquierda compartida: «Capas» y «Menú» ocupan la MISMA columna (se ve uno u otro); pulsar la pestaña activa oculta la columna
 {
   const st = document.createElement('style'); st.id = 'cap-pn-css'; st.textContent = ''
     + '#cap-tg{display:none}@media (min-width:761px){#dock-tg{top:116px!important}#cap-tg{display:flex}}'
     + '#cap-tg{position:fixed;left:var(--dkw,404px);top:18px;z-index:5;width:28px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:11px 0;border:0;border-radius:0 12px 12px 0;background:linear-gradient(180deg,#1e293b,#0f172a);color:#cbd5e1;cursor:pointer;box-shadow:6px 4px 18px rgba(2,6,23,.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s,color .2s}'
     + '#cap-tg.off{left:0}#cap-tg:hover{background:linear-gradient(180deg,#6366f1,#4f46e5);color:#fff}#cap-tg b{font:700 14px/1 system-ui}#cap-tg .tg-t{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px/1 system-ui;letter-spacing:.09em;white-space:nowrap}'
-    + 'html:not(.tema-osc) #cap-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) #cap-tg:hover{color:#0f172a}html:not(.tema-osc) #cap-tg.on{color:#2563eb}'
-    + '#cap-pn{position:fixed;top:0;bottom:0;left:calc(var(--dkw,404px) + 28px);width:340px;max-width:60vw;z-index:4;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid rgba(15,23,42,.1);box-shadow:8px 0 30px rgba(15,23,42,.2);transition:left .35s cubic-bezier(.2,.8,.2,1)}#cap-pn.on{display:flex}#cap-pn.off{left:28px}'
-    + '#cap-pn .cap-b{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:10px 8px 8px}#cap-pn #cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden;margin:0}#cap-pn #cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}'
-    + 'html.ui-s #cap-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s #cap-tg.off{left:0}html.ui-s #cap-pn{left:calc(var(--dkw,404px) * var(--ui) + 28px)}html.ui-s #cap-pn.off{left:28px}'
+    + 'html:not(.tema-osc) #cap-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) #cap-tg:hover{color:#0f172a}html:not(.tema-osc) #cap-tg.on,html:not(.tema-osc) #dock-tg.on{color:#2563eb}'
+    + '#cap-pn{position:fixed;top:0;bottom:0;left:0;width:var(--dkw,404px);max-width:92vw;z-index:4;display:flex;flex-direction:column;box-sizing:border-box;background:linear-gradient(180deg,#f8fafc,#eef2ff);border-right:1px solid rgba(15,23,42,.1);box-shadow:10px 0 44px rgba(2,6,23,.3);transform:translateX(-102%);opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s}#cap-pn.on{transform:none;opacity:1;pointer-events:auto}'
+    + 'html.tema-osc #cap-pn{background:linear-gradient(180deg,rgba(8,13,26,.98),rgba(15,23,42,.97) 60%,rgba(10,16,32,.98));border-right:1px solid rgba(148,163,184,.18)}'
+    + '#cap-pn .cap-t{flex:none;padding:16px 18px 8px;font:800 11px system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#334155}html.tema-osc #cap-pn .cap-t{color:#cbd5e1}'
+    + '#cap-pn .cap-b{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:4px 12px 12px}#cap-pn #cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden;margin:0}#cap-pn #cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}'
+    + 'html.ui-s #cap-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s #cap-tg.off{left:0}html.ui-s #cap-pn{width:calc(var(--dkw,404px) * var(--ui))}'
     + '@media (max-width:760px){#cap-pn,#cap-tg{display:none!important}}'; document.head.appendChild(st);
-  const tg = document.createElement('button'); tg.id = 'cap-tg'; tg.type = 'button'; const pn = document.createElement('div'); pn.id = 'cap-pn'; pn.innerHTML = '<div class="cap-b"></div>'; document.body.append(tg, pn);
-  let ab = true; try { ab = localStorage.getItem('cappn') === '1'; } catch (_) { }
-  const pinta = () => { tg.classList.toggle('on', ab); pn.classList.toggle('on', ab); tg.title = ab ? 'Ocultar las capas' : 'Mostrar las capas'; tg.innerHTML = '<b>' + (ab ? '‹' : '›') + '</b><span class="tg-t">Capas</span>'; };
-  tg.onclick = () => { ab = !ab; try { localStorage.setItem('cappn', ab ? '1' : '0'); } catch (_) { } pinta(); window.dispatchEvent(new Event('resize')); }; pinta();
+  const tg = document.createElement('button'); tg.id = 'cap-tg'; tg.type = 'button'; const pn = document.createElement('div'); pn.id = 'cap-pn'; pn.innerHTML = '<div class="cap-t">Capas del mapa</div><div class="cap-b"></div>'; document.body.append(tg, pn);
+  let vista = 'menu'; try { vista = localStorage.getItem('leftview') === 'capas' ? 'capas' : 'menu'; } catch (_) { }
+  const guarda = () => { try { localStorage.setItem('leftview', vista); } catch (_) { } };
   window.capPnSync = () => {
-    const dock = $('dock'), cap = $('cap'), b = pn.querySelector('.cap-b'), dtg = $('dock-tg'), ancho = matchMedia('(min-width:761px)').matches;
-    if (dtg) { const off = dtg.classList.contains('off'); tg.classList.toggle('off', off); pn.classList.toggle('off', off); }
-    if (!cap || !dock) return; if (ancho) { if (cap.parentNode !== b) b.appendChild(cap); } else if (cap.parentNode === b && $('notas')) dock.insertBefore(cap, $('notas').nextSibling);
+    const dock = $('dock'), cap = $('cap'), b = pn.querySelector('.cap-b'), dtg = $('dock-tg'), ancho = matchMedia('(min-width:761px)').matches; if (!dock || !dtg) return;
+    const oculta = dock.classList.contains('off'), vc = ancho && vista === 'capas', verC = vc && !oculta, verM = !vc && !oculta;
+    tg.classList.toggle('off', oculta); pn.classList.toggle('on', verC); tg.classList.toggle('on', verC); dtg.classList.toggle('on', verM);
+    const h1 = '<b>' + (verC ? '‹' : '›') + '</b><span class="tg-t">Capas</span>'; if (tg.__h !== h1) { tg.innerHTML = h1; tg.__h = h1; } tg.title = verC ? 'Ocultar la columna' : 'Mostrar las capas';
+    const bd = dtg.querySelector('b'); if (bd) bd.textContent = verM ? '‹' : '›'; dtg.title = verM ? 'Ocultar la columna' : 'Mostrar el menú';
+    if (!cap) return; if (ancho) { if (cap.parentNode !== b) b.appendChild(cap); } else if (cap.parentNode === b && $('notas')) dock.insertBefore(cap, $('notas').nextSibling);
     try { dkSub(); } catch (_) { }
   };
-  setInterval(() => { try { capPnSync(); } catch (_) { } }, 700); addEventListener('resize', () => { try { capPnSync(); } catch (_) { } });
+  const dtg0 = $('dock-tg'), dock0 = $('dock'); let paso = false;
+  const ocultar = () => { if (dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; };   // reutiliza el interruptor del menú para deslizar la columna
+  const mostrar = () => { if (!dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; };
+  tg.onclick = () => { const oculta = dock0.classList.contains('off'); if (!oculta && vista === 'capas') { ocultar(); } else { vista = 'capas'; guarda(); mostrar(); } capPnSync(); window.dispatchEvent(new Event('resize')); };
+  if (dtg0) dtg0.addEventListener('click', e => { if (paso) return; const oculta = dock0.classList.contains('off'); if (!oculta && vista === 'capas') { e.stopImmediatePropagation(); e.preventDefault(); vista = 'menu'; guarda(); capPnSync(); } else if (oculta) { vista = 'menu'; guarda(); } setTimeout(capPnSync, 0); }, true);
+  capPnSync(); setInterval(() => { try { capPnSync(); } catch (_) { } }, 700); addEventListener('resize', () => { try { capPnSync(); } catch (_) { } });
 }
 </script>
 <script>
