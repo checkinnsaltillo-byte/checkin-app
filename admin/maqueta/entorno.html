@@ -6334,7 +6334,7 @@ function g3dTick() {
     if (gear) gear.classList.toggle('on', DK.tab === 'C');
     ['pdi', 'cap', 'capa-an'].forEach(id => { const e = $(id); if (!e) return; if (ancho) { if (e.parentNode !== b) b.appendChild(e); } else if (e.parentNode === b && $('notas')) dock.insertBefore(e, $('notas').nextSibling); });
   };
-  let paso = false; const ocultar = () => { if (dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; }, mostrar = () => { if (!dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; };
+  let paso = false; const desliza = off => { dock0.classList.toggle('off', off); dtg0.classList.toggle('off', off); }, ocultar = () => desliza(true), mostrar = () => desliza(false);   // misma acción que el interruptor original del menú, sin simular un clic dentro de otro clic
   const clickTab = t => { const b = document.querySelector('#dk-tabs button[data-t="' + t + '"]'); if (b) b.click(); };
   const aplicaDock = x => { if (x === 'ind') { if (DK.tab !== 'I' || DK.cur !== 'ind') clickTab('I'); } else if (x === 'analisis') { if (DK.tab !== 'A') clickTab('A'); } };
   const pulsa = x => { const oculta = dock0.classList.contains('off'); if (!oculta && vista === x) ocultar(); else { vista = x; guarda(); mostrar(); aplicaDock(x); } capPnSync(); window.dispatchEvent(new Event('resize')); };
