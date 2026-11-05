@@ -2366,7 +2366,7 @@ function dkAncho() {   /* arrastrar el borde derecho del menú para cambiar su a
   ; document.head.appendChild(st); }
 function dkSub() {   // pestaña Capas del menú: «Proyectos · Análisis» (y «Capas» solo cuando esa sección no vive en su panel lateral)
   const d = $('dock'), tb = $('dk-tabs'); if (!d || !tb) return; let el = $('dk-sub'); if (!el) { el = document.createElement('div'); el.id = 'dk-sub'; tb.after(el); el.onclick = e => { const b = e.target.closest('.dk-sb'); if (!b) return; DK.subK = b.dataset.sk; dkSub(); }; }
-  const ancho = matchMedia('(min-width:761px)').matches, op = ancho ? [['pdi', 'Proyectos', 'Mis proyectos'], ['capa-an', 'Análisis', 'Capas de análisis']] : [['pdi', 'Proyectos', 'Mis proyectos'], ['cap', 'Capas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']], sk = op.some(o => o[0] === DK.subK) ? DK.subK : (ancho ? 'pdi' : 'cap'); d.dataset.sk = sk;
+  const ancho = matchMedia('(min-width:761px)').matches, op = ancho ? [['pdi', 'Proyectos', 'Mis proyectos'], ['capa-an', 'Análisis', 'Capas de análisis']] : [['pdi', 'Proyectos', 'Mis proyectos'], ['cap', 'Básicas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']], sk = op.some(o => o[0] === DK.subK) ? DK.subK : (ancho ? 'pdi' : 'cap'); d.dataset.sk = sk;
   el.innerHTML = `<div class="dk-sn">${op.map(([k, t, tt]) => `<button class="dk-sb${k === sk ? ' on' : ''}" data-sk="${k}" title="${tt}"><i class="rd"></i>${t}</button>`).join('')}</div>`;
 }
 function dkTab(t) { DK.tab = t; const d = $('dock'); if (!d) return; if (t === 'K') dkSub(); d.classList.toggle('vK', t === 'K'); d.classList.toggle('vA', t === 'A' || t === 'I'); d.classList.toggle('vC', t === 'C'); $('dk-tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); if (t === 'A') dkLista(); }
@@ -6329,7 +6329,7 @@ function g3dTick() {
   let gear = null; if (tt) { gear = document.createElement('button'); gear.id = 'dk-gear'; gear.type = 'button'; gear.title = 'Configuración'; gear.textContent = '⚙️'; tt.appendChild(gear); }
   let vista = 'analisis', sk = 'cap'; try { const v = localStorage.getItem('leftview'); vista = v === 'proyectos' || v === 'capas' || v === 'ind' ? v : 'analisis'; } catch (_) { }
   const guarda = () => { try { localStorage.setItem('leftview', vista); } catch (_) { } };
-  const subHtml = () => `<div class="dk-sn">${[['cap', 'Capas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']].map(([k, t, tt2]) => `<button class="dk-sb${k === sk ? ' on' : ''}" data-sk="${k}" title="${tt2}"><i class="rd"></i>${t}</button>`).join('')}</div>`;
+  const subHtml = () => `<div class="dk-sn">${[['cap', 'Básicas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']].map(([k, t, tt2]) => `<button class="dk-sb${k === sk ? ' on' : ''}" data-sk="${k}" title="${tt2}"><i class="rd"></i>${t}</button>`).join('')}</div>`;
   $('cap-sub').onclick = e => { const b = e.target.closest('.dk-sb'); if (!b) return; sk = b.dataset.sk; capPnSync(); };
   const flecha = (b, nom, ver) => { const h = '<b>' + (ver ? '‹' : '›') + '</b><span class="tg-t">' + nom + '</span>'; if (b.__h !== h) { b.innerHTML = h; b.__h = h; } b.title = ver ? 'Ocultar la columna' : 'Mostrar ' + nom.toLowerCase(); };
   window.capPnSync = () => {
