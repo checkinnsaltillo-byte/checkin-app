@@ -592,9 +592,9 @@ function build(S) {
       const via = roads.filter(r => !/^(footway|path|steps|pedestrian|track|corridor|bridleway)$/.test(r.h || '')), arP = g => { let a = 0; for (let i = 0, j = g.length - 1; i < g.length; j = i++) a += g[j][0] * g[i][1] - g[i][0] * g[j][1]; return Math.abs(a) / 2; };
       (S.neg || []).forEach(n => { const t = tFr(n.n); if (!t || n.x == null || FR.some(f => Math.hypot(f.x - n.x, f.y - n.y) < 20)) return; FR.push({ t, id: n.id, n: n.n, x: n.x, y: n.y, w: t === 's7' ? 14 : 15, d: t === 's7' ? 12 : 13, rot: 0, skip: false }); });
       FR.forEach(f => { let best = null, bd = 1e9; via.forEach(r => { for (let i = 1; i < r.g.length; i++) { const a = r.g[i - 1], b = r.g[i], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1; let t = ((f.x - a[0]) * dx + (f.y - a[1]) * dy) / l2; t = Math.max(0, Math.min(1, t)); const px = a[0] + dx * t, py = a[1] + dy * t, d = Math.hypot(f.x - px, f.y - py) - r.wd / 2; if (d < bd) { bd = d; best = { px, py, dx, dy, l: Math.sqrt(l2), wd: r.wd, dc: d + r.wd / 2 }; } } });
-        if (best && bd < 70) { let nx = -best.dy / best.l, ny = best.dx / best.l; if (nx * (best.px - f.x) + ny * (best.py - f.y) < 0) { nx = -nx; ny = -ny; } f.rot = Math.atan2(nx, -ny); const need = f.d / 2 + 1.5 + best.wd / 2 + 1.85; let sh = 0; if (best.dc < need) { sh = Math.min(need - best.dc, 14); f.x -= nx * sh; f.y -= ny * sh; } f.dcn = best.dc + sh; f.rw = best.wd / 2; f.tx = best.dx / best.l; f.ty = best.dy / best.l; }
+        if (best && bd < 70) { let nx = -best.dy / best.l, ny = best.dx / best.l; if (nx * (best.px - f.x) + ny * (best.py - f.y) < 0) { nx = -nx; ny = -ny; } f.rot = Math.atan2(nx, -ny); const need = f.d / 2 + 8.3 + best.wd / 2 + 1.85; let sh = 0; if (best.dc < need) { sh = Math.min(need - best.dc, 14); f.x -= nx * sh; f.y -= ny * sh; } f.dcn = best.dc + sh; f.rw = best.wd / 2; f.tx = best.dx / best.l; f.ty = best.dy / best.l; }
         const big = builds.find(b => Math.hypot(b.c[0] - f.x, b.c[1] - f.y) < b.r + 2 && dentro([f.x, f.y], b.g) && (b.area || b.__A || arP(b.g)) > 2500); if (big) { f.skip = true; return; }
-        const c = Math.cos(f.rot), sn = Math.sin(f.rot), W2 = f.w / 2 + 1.2, D0 = -f.d / 2 - 1.2, D1 = Math.min(45, Math.max(f.d / 2 + 4.8, f.dcn != null ? f.dcn - f.rw + .5 : 0)); let u0 = -W2, u1 = W2, v0 = D0;
+        const c = Math.cos(f.rot), sn = Math.sin(f.rot), W2 = f.w / 2 + 1.2, D0 = -f.d / 2 - 1.2, D1 = Math.min(45, Math.max(f.d / 2 + 8.4, f.dcn != null ? f.dcn - f.rw + .5 : 0)); let u0 = -W2, u1 = W2, v0 = D0;
         if (f.tx != null) { let b2 = null, bd2 = 30; via.forEach(r => { for (let i = 1; i < r.g.length; i++) { const a = r.g[i - 1], b = r.g[i], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, l = Math.sqrt(l2); if (Math.abs(f.tx * dy / l - f.ty * dx / l) < .5) continue; let t = ((f.x - a[0]) * dx + (f.y - a[1]) * dy) / l2; t = Math.max(0, Math.min(1, t)); const px = a[0] + dx * t, py = a[1] + dy * t, pu = (px - f.x) * c + (py - f.y) * sn, pv = (px - f.x) * sn - (py - f.y) * c, d = (Math.abs(pu) >= Math.abs(pv) ? Math.abs(pu) - f.w / 2 : Math.abs(pv) - f.d / 2) - r.wd / 2; if (d < bd2) { bd2 = d; b2 = { pu, pv, rw: r.wd / 2 }; } } });   // criterio: la otra calle a menos de 30 m del borde de la tienda
           if (b2) { f.esq = true; const ex = Math.abs(b2.pu) - b2.rw; if (Math.abs(b2.pu) >= Math.abs(b2.pv) - f.d / 2 && ex > W2) { if (b2.pu > 0) u1 = Math.min(45, ex); else u0 = -Math.min(45, ex); } else if (b2.pv < -f.d / 2) v0 = Math.max(-45, b2.pv + b2.rw); } }
         f.poly = [[u0, v0], [u1, v0], [u1, D1], [u0, D1]].map(([u, v]) => [f.x + u * c + v * sn, f.y + u * sn - v * c]); FRZ.push({ g: f.poly }); });
@@ -4812,6 +4812,19 @@ function prbTex() {
   T.prod = prbCv(256, 128, (g, w, h) => { g.fillStyle = '#f3f1ec'; g.fillRect(0, 0, w, h); const cs = ['#e63a2e', '#f2b705', '#2f80ed', '#27ae60', '#f2994a', '#9b51e0', '#ffffff', '#eb5757']; for (let r = 0; r < 4; r++) { g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(0, r * 32 + 29, w, 3); for (let i = 0; i < 16; i++) { g.fillStyle = cs[(Math.random() * cs.length) | 0]; const bw = 9 + Math.random() * 7, bh = 15 + Math.random() * 11; g.fillRect(i * 16 + 1, r * 32 + 29 - bh, bw, bh); } } });
   T.prod.wrapS = T.prod.wrapT = THREE.RepeatWrapping; return PRB.tx = T;
 }
+// estacionamiento frente a la tienda: cajones con líneas, topes, un cajón accesible y un par de autos
+function prbParking(O, W, D) {
+  const n = Math.max(3, Math.floor((W + 2) / 2.7)), sw = 2.7, lw = n * sw, v0 = D / 2 + 1.8, dp = 5, zc = v0 + dp / 2, y = .24, mk = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .9 }, o || {}));
+  const bx = (w, h, d, m, x, yy, z, sh) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, yy, z); o.castShadow = !!sh; o.receiveShadow = true; O.add(o); return o; };
+  const asf = mk(0x4a4d52), ln = mk(0xf2f2ee), tp = mk(0xb9b9b1);
+  bx(lw + .6, .06, dp + .4, asf, 0, .21, zc);
+  for (let i = 0; i <= n; i++) bx(.1, .02, dp - .2, ln, -lw / 2 + i * sw, y, zc);
+  bx(lw, .02, .1, ln, 0, y, v0 + dp - .15);
+  for (let i = 0; i < n; i++) bx(1.2, .12, .2, tp, -lw / 2 + (i + .5) * sw, .3, v0 + .55);
+  { const ia = Math.min(1, n - 1); bx(1.3, .02, 1.3, mk(0x1d5fd1), -lw / 2 + (ia + .5) * sw, y + .005, zc); bx(.7, .021, .12, ln, -lw / 2 + (ia + .5) * sw, y + .01, zc); bx(.12, .021, .7, ln, -lw / 2 + (ia + .5) * sw, y + .01, zc); }
+  const cols = [0xb3261e, 0xe8e8e4, 0x1f3a5f, 0x4b5563, 0x7a5c3a], carro = (i, x) => { const g = new THREE.Group(); g.position.set(x, 0, zc + .1); O.add(g); const c = cols[i % cols.length]; bx(1.8, .6, 4.2, mk(c, { roughness: .45, metalness: .3 }), 0, .72, 0, 1).parent === g || g.add(O.children.pop()); const cab = bx(1.55, .5, 2.1, mk(0x20262e, { roughness: .2, metalness: .5 }), 0, 1.25, -.1, 1); g.add(O.children.pop()); [[-.85, 1.3], [.85, 1.3], [-.85, -1.3], [.85, -1.3]].forEach(([wx, wz]) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .24, 12), mk(0x111111)); w.rotation.z = Math.PI / 2; w.position.set(wx, .38, wz); w.castShadow = true; g.add(w); }); };
+  [0, 3, 5].filter(k => k < n && k !== Math.min(1, n - 1)).slice(0, 2).forEach((k, i) => carro(k + i, -lw / 2 + (k + .5) * sw));
+}
 function prbBuildO(W, D) {
   const T = prbTex(), O = new THREE.Group(), L = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .85, metalness: 0 }, o || {}));
   const conc = (rx, ry) => { const t = T.conc.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: .92 }); };
@@ -4861,6 +4874,7 @@ function prbBuildO(W, D) {
   for (let k = 0; k < 5; k++) bx(.05, .03, 1.5, L(0x4c5255), Wh + .2, Y0 + .26 + k * .08, dz, O, false);
   for (const [dz2, r] of [[-F + .7, .09], [-F + 1.1, .07]]) cy(r, Hw + .4, L(0x9aa0a3, { metalness: .5, roughness: .5 }), Wh + .13, Y0 + (Hw + .4) / 2, dz2, O, 10);
   bx(.15, .6, .45, L(0x8d9396, { metalness: .5 }), Wh + .09, Y0 + 2.2, -F + 1.9, O); bx(.14, .45, .3, L(0x8d9396, { metalness: .5 }), Wh + .09, Y0 + 1.6, -F + 2.5, O); bx(.1, .12, .3, L(0xffffff, { emissive: 0xfff2d0, emissiveIntensity: .8 }), Wh + .1, Y0 + 3.0, dz + 1.3, O, false);
+  prbParking(O, W, D);
   return O;
 }
 // ── Variante 7-Eleven
@@ -4912,6 +4926,7 @@ function prbBuild7(W, D) {
   const dz = -F + 3.4; bx(.14, 2.2, 1.1, L(0xa7abad, { metalness: .5, roughness: .5 }), Wh + .08, Y0 + 1.15, dz, O); bx(.08, .1, .12, L(0x222), Wh + .17, Y0 + 1.05, dz + .35, O, false); bx(.12, .4, .3, L(0x8d9396), Wh + .08, Y0 + 1.5, dz + 1.1, O, false); bx(.12, .3, .3, L(0x8d9396), Wh + .08, Y0 + 1.8, dz + 1.6, O, false);
   cy(.14, Hw + .3, L(0xa4a9ac, { metalness: .5 }), Wh + .17, Y0 + (Hw + .3) / 2, -F + 1.0, O, 10); cy(.1, Hw, L(0xa4a9ac, { metalness: .5 }), Wh + .17, Y0 + Hw / 2, -F + 1.5, O, 10); cy(.1, 3.4, L(0xa4a9ac, { metalness: .5 }), Wh + .17, Y0 + 2.4, -F + 2.2, O, 10).rotation.z = 0; { const h = cy(.1, 3, L(0xa4a9ac, { metalness: .5 }), Wh + .1 + 1.4, Y0 + 3.9, -F + 2.2, O, 10); h.rotation.z = Math.PI / 2; }
   { const g = new THREE.Group(); g.position.set(Wh + 1.9, .2, -F + 2.4); O.add(g); bx(1.8, 1.25, 1.1, L(0x3a3f43, { roughness: .6, metalness: .3 }), 0, .65, 0, g); const lid = bx(1.85, .08, 1.15, L(0x2a2e31), 0, 1.33, 0, g); lid.rotation.x = .05; }
+  prbParking(O, W, D);
   return O;
 }
 function prbBuild(W, D) { return PRB.t === 's7' ? prbBuild7(W, D) : prbBuildO(W, D); }
@@ -4953,8 +4968,8 @@ function prbCalleDir(K, x, z, R) {   // dirección hacia la calle más cercana (
   for (let r = 2; r <= R; r += 2) for (let k = 0; k < 24; k++) { const th = k * Math.PI / 12, dx = Math.sin(th), dz = Math.cos(th); if (g(x + dx * r, z + dz * r)) return [dx, dz]; } return null;
 }
 function prbLibre(K, x, z, th, W, D) {
-  const hw = (W + 4) / 2, hd = (D + 3) / 2, s = Math.sin(th), c = Math.cos(th);
-  for (let u = -hw; u <= hw; u += 2) for (let v = -hd + 1.5; v <= hd + 1.5; v += 2) { const wx = x + u * c + v * s, wz = z - u * s + v * c, i = Math.floor((wx + PRB_R) / PRB_C), j = Math.floor((wz + PRB_R) / PRB_C); if (i < 0 || j < 0 || i >= PRB_N || j >= PRB_N) return false; if (K.occ[j * PRB_N + i] || K.st[j * PRB_N + i]) return false; } return true;
+  const hw = (W + 4) / 2, s = Math.sin(th), c = Math.cos(th);
+  for (let u = -hw; u <= hw; u += 2) for (let v = -D / 2 - 1.5; v <= D / 2 + 8.5; v += 2) { const wx = x + u * c + v * s, wz = z - u * s + v * c, i = Math.floor((wx + PRB_R) / PRB_C), j = Math.floor((wz + PRB_R) / PRB_C); if (i < 0 || j < 0 || i >= PRB_N || j >= PRB_N) return false; if (K.occ[j * PRB_N + i] || K.st[j * PRB_N + i]) return false; } return true;
 }
 function prbBusca() {   // lote libre más cercano al pin, con el frente hacia la calle
   const K = prbOcupa(); let mej = null;
@@ -4967,10 +4982,10 @@ function prbGhostDib() {
   prbGhostQuita(); if (!world) return; const W = PRB.w, D = PRB.d, G = new THREE.Group(); G.userData.prb = 1; G.userData.noPick = 1; G.userData.keep = true; G.visible = !!PRB.hp;
   const mk = (geo, o) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial(Object.assign({ color: 0x22c55e, transparent: true, depthWrite: false }, o))); m.userData.noPick = 1; G.add(m); return m; };
   const f = mk(new THREE.PlaneGeometry(W, D), { opacity: .45, depthTest: false }); f.rotation.x = -Math.PI / 2; f.position.y = .5; f.renderOrder = 95; G.userData.f = f;
-  const pad = mk(new THREE.PlaneGeometry(W + 5, D + 4.2), { opacity: .16, depthTest: false }); pad.rotation.x = -Math.PI / 2; pad.position.set(0, .45, 1.6); pad.renderOrder = 94;
+  const pad = mk(new THREE.PlaneGeometry(W + 5, D + 9), { opacity: .16, depthTest: false }); pad.rotation.x = -Math.PI / 2; pad.position.set(0, .45, 4); pad.renderOrder = 94;
   const vol = mk(new THREE.BoxGeometry(W, 5.5, D), { opacity: .13 }); vol.position.y = 2.75; vol.renderOrder = 93;
   const ln = (a, y, z0, w, d, c) => { const pts = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(q => new THREE.Vector3(q[0], y, q[1] + z0)), l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: c, depthTest: false, transparent: true })); l.renderOrder = 96; l.userData.noPick = 1; G.add(l); return l; };
-  G.userData.l1 = ln(0, .55, 0, W, D, 0xffffff); G.userData.l2 = ln(0, .5, 1.6, W + 5, D + 4.2, 0xbbf7d0);
+  G.userData.l1 = ln(0, .55, 0, W, D, 0xffffff); G.userData.l2 = ln(0, .5, 4, W + 5, D + 9, 0xbbf7d0);
   const sh = new THREE.Shape(); sh.moveTo(0, 1.4); sh.lineTo(1.6, -.4); sh.lineTo(.5, -.4); sh.lineTo(.5, -1.8); sh.lineTo(-.5, -1.8); sh.lineTo(-.5, -.4); sh.lineTo(-1.6, -.4); sh.closePath();
   const ar = mk(new THREE.ShapeGeometry(sh), { color: 0xffffff, opacity: .9, depthTest: false, side: THREE.DoubleSide }); ar.rotation.x = -Math.PI / 2; ar.rotation.z = Math.PI; ar.position.set(0, .6, D / 2 + 2.6); ar.renderOrder = 97;
   world.add(G); PRB.gh = G; prbGhostPon();
