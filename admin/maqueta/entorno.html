@@ -2108,6 +2108,7 @@ function hlMascara(pts) {   // textura de 1024 px que cubre la maqueta: blanco =
   const t = new THREE.CanvasTexture(cv); t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; if (HL.u.hlMask.value) HL.u.hlMask.value.dispose(); HL.u.hlMask.value = t; HL.u.hlHalf.value = half; HL.rm = rm;
 }
 function hlLimpia(volver) {
+  try { if (volver !== false && CMP.an.hlSet) { CMP.an.hlSet = null; cmpAnPinta(); } } catch (_) { }
   HL.pts = null; { const col = $('lg-col'); if (col) { col.classList.remove('hl-on'); col.querySelectorAll('.hl-sel').forEach(e => e.classList.remove('hl-sel')); } } HL.row = null;
   HL.saved.forEach(q => { try { if (q.sp) { q.sp.scale.copy(q.s0); q.sp.material.opacity = q.o; q.sp.material.transparent = q.t; q.sp.material.color.copy(q.c); q.sp.material.needsUpdate = true; if (q.v != null) q.sp.visible = q.v; return; } q.m.color.copy(q.c); if (q.r != null) q.m.roughness = q.r; if (q.e != null) q.m.envMapIntensity = q.e; if (q.mt != null) q.m.metalness = q.mt; if (q.t != null) { q.m.opacity = q.o; q.m.transparent = q.t; } } catch (_) { } }); HL.saved = []; if (HL.g) { if (HL.g.parent) HL.g.parent.remove(HL.g); HL.g = null; } if (HL.bar) { HL.bar.remove(); HL.bar = null; } HL.key = ''; if (HL.anim) { cancelAnimationFrame(HL.anim); HL.anim = 0; }
   if (volver !== false && HL.home && camera && controls) { const H0 = HL.home, T0 = controls.target.clone(), P0 = camera.position.clone(), t0 = performance.now(); HL.home = null; const paso = now => { const k = Math.min(1, (now - t0) / 900), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; controls.target.lerpVectors(T0, H0.t, e); camera.position.lerpVectors(P0, H0.p, e); controls.update(); HL.anim = k < 1 ? requestAnimationFrame(paso) : 0; }; HL.anim = requestAnimationFrame(paso); } else if (volver !== false) HL.home = null;   // al quitar el resalte la cámara regresa a la vista general que había antes
@@ -4695,7 +4696,7 @@ function cmpAnDib() {   // una sola malla: el polígono real de cada manzana sob
     pts.forEach(v => pos.push(v.x, 2.2, v.y)); const i0 = idx.length; tri.forEach(t => idx.push(vc + t[0], vc + t[1], vc + t[2])); irg.push([i0, idx.length - i0]); rng.push([vc, pts.length]); vc += pts.length;
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vc * 3).fill(.6), 3)); geo.setIndex(idx);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .72, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -80, polygonOffsetUnits: -80 })); mesh.renderOrder = 30; mesh.frustumCulled = false; mesh.userData.noPick = 1;
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .72, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -80, polygonOffsetUnits: -80 })); mesh.renderOrder = 30; mesh.frustumCulled = false; mesh.userData.noPick = 1; mesh.userData.hlKeep = 1;
   const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.visible = A.ver; G.add(mesh); world.add(G); A.g = G; A.im = mesh; A.rng = rng; A.irg = irg; cmpAnPinta();
 }
 function cmpAnPinta() {
@@ -4710,6 +4711,7 @@ function cmpAnPinta() {
     else if (A.vista === 'huff') { if (A.hm === 'bars') c.set('#e5e7eb'); else if (q.hw[i] < 0) c.copy(gris); else if (A.hm === 'ref') { const r = q.rp[i] / 100; c.set('#dc2626'); c.lerp(new THREE.Color('#e2e8f0'), Math.min(1, r * 2)); if (r > .5) c.lerp(new THREE.Color('#1d4ed8'), Math.min(1, (r - .5) * 2)); } else { c.copy(cols[q.hw[i]]); c.lerp(blanco, 1 - q.hp[i] / 100 * .9 - .1); } }
     else if (A.vista === 'acc') { const a = q.acc[i], k = a <= 0 ? 0 : a <= d.qs[0] ? 1 : a <= d.qs[1] ? 2 : a <= d.qs[2] ? 3 : a <= d.qs[3] ? 4 : 5; c.set(CMP_ACC[k][0]); }
     else c.set('#94a3b8');
+    if (A.hlSet && !A.hlSet[i]) { const l = .299 * c.r + .587 * c.g + .114 * c.b; c.setRGB(l * .45 + .38, l * .45 + .38, l * .45 + .38); }
     const [v0, n] = A.rng[i]; for (let k = 0; k < n; k++) { const o = (v0 + k) * 3; col[o] = c.r; col[o + 1] = c.g; col[o + 2] = c.b; }
   }
   A.im.geometry.attributes.color.needsUpdate = true; try { cmpAnBarras(); cmpAnOv(); } catch (e) { console.warn('extras', e); } cmpPinSync();
@@ -4731,7 +4733,7 @@ function cmpAnOv() {   // las isócronas de las 4 horas, una sobre otra con tran
   if (!on || A.gov) return;
   const lim = A.T * 60, base = A.im.geometry, idx = base.index.array, G = new THREE.Group(); G.__k = k; G.userData.noPick = 1;
   ['libre', 'am', 'md', 'pm'].forEach((h, n) => { const t = A.isoOv[h]; if (!t) return; const ids = []; for (let i = 0; i < t.length; i++) if (t[i] >= 0 && t[i] <= lim) { const [s0, c] = A.irg[i]; for (let z = 0; z < c; z++) ids.push(idx[s0 + z]); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', base.attributes.position); g.setIndex(new THREE.Uint32BufferAttribute(ids, 1)); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: CMP_HC[h][0], transparent: true, opacity: .4, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -90 - n * 2, polygonOffsetUnits: -90 - n * 2 })); m.renderOrder = 31 + n; m.frustumCulled = false; m.userData.noPick = 1; G.add(m); });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', base.attributes.position); g.setIndex(new THREE.Uint32BufferAttribute(ids, 1)); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: CMP_HC[h][0], transparent: true, opacity: .4, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -90 - n * 2, polygonOffsetUnits: -90 - n * 2 })); m.renderOrder = 31 + n; m.frustumCulled = false; m.userData.noPick = 1; m.userData.hlKeep = 1; G.add(m); });
   A.g.add(G); A.gov = G;
 }
 function cmpAnBarrasEv(on) {   // clic en una barra: muestra el reparto de esa manzana
@@ -4748,7 +4750,7 @@ function cmpAnBarras() {   // barras apiladas: cada manzana es una columna (altu
     for (let z = 0; z < KP; z++) { const j = q.pj[i * KP + z], pr = q.pp[i * KP + z]; if (j < 0 || !pr) break; sum += pr; const hs = h * pr / 100; items.push({ i, cx, cz, y, hs, w, c: cols[j] }); y += hs; } if (sum < 99) items.push({ i, cx, cz, y, hs: h * (100 - sum) / 100, w, c: gris }); }
   const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), items.length), m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), qt = new THREE.Quaternion(), map = new Int32Array(items.length);
   items.forEach((it, k) => { ps.set(it.cx, it.y + it.hs / 2 + 2.3, it.cz); sc.set(it.w, Math.max(.3, it.hs - .15), it.w); m4.compose(ps, qt, sc); im.setMatrixAt(k, m4); im.setColorAt(k, it.c); map[k] = it.i; });
-  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; im.userData.noPick = 1; im.renderOrder = 35; const G = new THREE.Group(); G.userData.noPick = 1; G.__d = d; G.add(im); A.g.add(G); A.gb = G; A.bm = im; A.bmap = map;
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; im.userData.noPick = 1; im.userData.hlKeep = 1; im.renderOrder = 35; const G = new THREE.Group(); G.userData.noPick = 1; G.__d = d; G.add(im); A.g.add(G); A.gb = G; A.bm = im; A.bmap = map;
 }
 // ── simulación de un punto nuevo (Huff): se calcula en el servidor sin consultar a Google y se compara contra el análisis base
 function cmpAnLegHtml(ti) {   // leyenda de la vista activa de Competencia (la misma simbología del panel, en la columna de Leyendas)
@@ -4769,8 +4771,11 @@ function cmpAnLegHtml(ti) {   // leyenda de la vista activa de Competencia (la m
   if (A.vista === 'acc') { const cls = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < d.nz; i++) { const a = q.acc[i]; cls[a <= 0 ? 0 : a <= d.qs[0] ? 1 : a <= d.qs[1] ? 2 : a <= d.qs[2] ? 3 : a <= d.qs[3] ? 4 : 5] += q.pop[i]; } return ti('🎯', 'Competencia · accesibilidad') + CMP_ACC.map((c, k) => legSw(c[0], c[1] + ' · ' + pc(cls[k], tot) + ' %', 'sq')).join('') + legNota(`Oferta por cada 10 mil habitantes que la manzana alcanza a ≤ ${T} min (E2SFCA).`); }
   return ti('🚦', 'Competencia · tráfico') + ['libre', 'am', 'md', 'pm'].map(h => legSw(CMP_HC[h][0], CMP_HC[h][1], 'sq')).join('') + legNota('Alcance de cada punto a flujo libre y a cada hora (8:00, 13:00, 19:00). Elija un punto de la lista del panel para ver su isócrona.');
 }
-function cmpLegPts(lab) {   // elementos de una fila de la leyenda de Competencia: territorio de un punto o manzanas de esa clase
-  const A = CMP.an, d = A.d, S = curS; if (!d || !S) return []; const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, P = i => ({ x: (q.ln[i] - S.lng) * kx, y: (q.la[i] - S.lat) * 111320 }), out = [], ok = f => { for (let i = 0; i < d.nz; i++) if (f(i)) out.push(P(i)); return out; }, st = l => lab.indexOf(l) === 0;
+function cmpLegPts(lab) {   // marca en el mapa de Competencia las manzanas de la fila (el resto se ve en gris claro)
+  const A = CMP.an; if (A.d) A.hlSet = new Uint8Array(A.d.nz); const r = cmpLegPts0(lab); if (!r.length) A.hlSet = null; else cmpAnPinta(); return r;
+}
+function cmpLegPts0(lab) {   // elementos de una fila de la leyenda de Competencia: territorio de un punto o manzanas de esa clase
+  const A = CMP.an, d = A.d, S = curS; if (!d || !S) return []; const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, P = i => ({ x: (q.ln[i] - S.lng) * kx, y: (q.la[i] - S.lat) * 111320 }), out = [], ok = f => { for (let i = 0; i < d.nz; i++) if (f(i)) { out.push(P(i)); A.hlSet[i] = 1; } return out; }, st = l => lab.indexOf(l) === 0;
   if (A.sel && A.iso) { const k = CMP_ISO.findIndex(c => st(c[2])); if (k >= 0) { const lo = k ? CMP_ISO[k - 1][0] : -1; return ok(i => A.iso[i] >= 0 && A.iso[i] > lo && A.iso[i] <= CMP_ISO[k][0]); } return []; }
   const fi = d.fac.findIndex(f => st(String(f.n).replace(/[<>&"]/g, '') + ' · ')); if (fi >= 0) return ok(i => (A.vista === 'huff' ? q.hw[i] : q.own[i]) === fi);
   if (A.vista === 'terr' && A.dm === 'disp') { const k = st('Claramente de la referencia') ? 0 : st('Disputada') ? 1 : st('Claramente de competidores') ? 2 : st('Sin acceso') ? 3 : -1; if (k < 0) return []; const ds = cmpAnDisp(d, A.mg); return ok(i => ds.k[i] === k); }
@@ -4810,7 +4815,7 @@ async function cmpAnaliza(calibra, desdeBoton) {
   if (!CMP.pts.some(p => p.rol === 'ref') || !CMP.pts.some(p => p.rol === 'comp')) { A.msg = 'Marque al menos un punto de referencia y un competidor.'; cmpRes(); return; }
   if (cmpDirty()) { await cmpGuarda(); if (cmpDirty()) return; }
   const sq = ++A.seq; A.busy = true; A.msg = (A.modo === 'auto' && (A.hora !== 'libre' || calibra)) ? '⏳ Calculando sobre la red vial y calibrando con Google Routes (la primera vez tarda ~30 s)…' : '⏳ Calculando tiempos de viaje sobre la red vial…'; cmpRes(); if (desdeBoton) { const e = CMP.rb && CMP.rb.querySelector('.an-top'); if (e) e.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, calibra: !!calibra }) }).then(r => r.json()); if (sq !== A.seq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.d = j; A.iso = null; A.sel = null; A.isoOv = null; A.isoC = {}; A.isoH = A.modo === 'auto' ? A.hora : 'libre'; A.mzSel = null; A.sim.d = null; A.sim.msg = ''; A.msg = ''; cmpAnColorea(j); cmpAnDib(); if (A.sim.pt) cmpAnSimMarker(); }
+  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, calibra: !!calibra }) }).then(r => r.json()); if (sq !== A.seq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.d = j; A.hlSet = null; A.iso = null; A.sel = null; A.isoOv = null; A.isoC = {}; A.isoH = A.modo === 'auto' ? A.hora : 'libre'; A.mzSel = null; A.sim.d = null; A.sim.msg = ''; A.msg = ''; cmpAnColorea(j); cmpAnDib(); if (A.sim.pt) cmpAnSimMarker(); }
   catch (e) { A.msg = 'No se pudo analizar: ' + e.message; }
   A.busy = false; cmpRes();
 }
@@ -4904,7 +4909,7 @@ function cmpAnEventos(el) {
   el.addEventListener('change', e => { const t = e.target, A = CMP.an; if (t && t.dataset && t.dataset.sl === 'isoh' && A.sel) { A.isoH = H4[+t.value] || 'libre'; cmpAnIso(A.sel); } });
   el.addEventListener('click', e => {
     const A = CMP.an, t = e.target; if (!t.closest) return; const b = t.closest('[data-an]');
-    if (b) { const k = b.dataset.an, v = b.dataset.v; if (k === 'quitaiso') { A.sel = null; A.iso = null; cmpRes(); return cmpAnPinta(); } if (k === 'dm' || k === 'mg' || k === 'mn') { A[k] = k === 'mg' ? +v : v; cmpRes(); return cmpAnPinta(); }
+    if (b) { const k = b.dataset.an, v = b.dataset.v; if (A.hlSet) { try { hlLimpia(); } catch (_) { } } if (k === 'quitaiso') { A.sel = null; A.iso = null; cmpRes(); return cmpAnPinta(); } if (k === 'dm' || k === 'mg' || k === 'mn') { A[k] = k === 'mg' ? +v : v; cmpRes(); return cmpAnPinta(); }
       if (k === 'ov') { A.ov = !A.ov; if (A.sel) return cmpAnIso(A.sel); visToast('Elija un punto de la lista para superponer sus horas'); return cmpRes(); }
       if (k === 'smode') { A.sim.mover = v === 'mov'; if (A.sim.pt) cmpAnSim(); else cmpRes(); return; } if (k === 'spd') { A.sim.pd = +v; if (A.sim.pt) cmpAnSim(); else cmpRes(); return; }
       if (k === 'vista' || k === 'hm') { A[k] = v; A.mzSel = null; if (k === 'vista') { A.sel = null; A.iso = null; if (v === 'traf' && A.d && A.d.traf) { const rf = A.d.fac.find(f => f.rol === 'ref'); if (rf) { cmpRes(); return cmpAnIso(rf.id); } } } cmpRes(); return cmpAnPinta(); }
