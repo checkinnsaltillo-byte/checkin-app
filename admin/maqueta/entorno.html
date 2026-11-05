@@ -2030,7 +2030,7 @@ const TF_DIAS = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6
 const TF_CL = { motorway: 'Autopista', trunk: 'Troncal', primary: 'Primaria', secondary: 'Secundaria', tertiary: 'Terciaria', motorway_link: 'Enlace', trunk_link: 'Enlace', primary_link: 'Enlace', secondary_link: 'Enlace', tertiary_link: 'Enlace', unclassified: 'Sin clasificar', residential: 'Residencial', living_street: 'Calle compartida', service: 'Servicio' };
 // ── origen del tráfico frente a la propiedad: estimación por modelo (gravedad + red vial + tiempos de Google), no es una medición
 // ── ventanitas emergentes sobre el mapa: los resultados de cada análisis salen del menú izquierdo y viven aquí (se arrastran, se minimizan y se cierran; un botón al borde del mapa las abre)
-const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Riesgos'], fr: ['🕸️', 'Accesibilidad'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Población'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Terreno'], urb: ['🏘️', 'Urbanización'], dem: ['👥', 'Demografía'], eco: ['🏪', 'Actividad económica'], afl: ['🚶', 'Afluencia'], cmp: ['🥊', 'Competencia'], ent: ['🏙️', 'Análisis del entorno urbano (IA)'], amb: ['🌿', 'Medio ambiente'], psl: ['☀️', 'Potencial solar'], aire: ['💨', 'Calidad del aire y polen'], arb: ['🌳', 'Cobertura arbórea'], emi: ['🏭', 'Emisiones de carbono'], ind: ['📋', 'Indicadores'], mapa: ['🗺️', 'Mapa de mis proyectos'], trf: ['🚦', 'Tráfico'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'dem', 'eco', 'afl', 'cmp', 'ent', 'amb', 'psl', 'aire', 'arb', 'emi', 'ind', 'mapa', 'trf'];
+const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Riesgos'], fr: ['🕸️', 'Accesibilidad'], od: ['🧭', 'Origen/Destino vehicular'], cov: ['📡', 'Población'], sol: ['🌦️', 'Meteorología'], inu: ['🌊', 'Lluvia e inundación'], geo: ['⛰️', 'Terreno'], urb: ['🏘️', 'Urbanización'], dem: ['👥', 'Demografía'], eco: ['🏪', 'Actividad económica'], afl: ['🚶', 'Afluencia'], cmp: ['🥊', 'Competencia'], ent: ['🏙️', 'Análisis del entorno urbano (IA)'], amb: ['🌿', 'Medio ambiente'], psl: ['☀️', 'Potencial solar'], aire: ['💨', 'Calidad del aire y polen'], arb: ['🌳', 'Cobertura arbórea'], emi: ['🏭', 'Emisiones de carbono'], ind: ['📋', 'Indicadores'], mapa: ['🗺️', 'Mapa de mis proyectos'], trf: ['🚦', 'Tráfico'], prb: ['🏗️', 'Edificio de prueba'] }, PW_ORD = ['rgp', 'fr', 'od', 'cov', 'sol', 'geo', 'urb', 'dem', 'eco', 'afl', 'cmp', 'ent', 'amb', 'psl', 'aire', 'arb', 'emi', 'ind', 'mapa', 'trf', 'prb'];
 function pwLeft() { const d = $('dock'); return d && !d.classList.contains('off') ? Math.round(d.getBoundingClientRect().right) + 6 : 8; }
 // ── leyendas y tablas de simbología flotantes: aparecen centradas abajo en el mapa (apiladas si hay varias) y se pueden arrastrar; la posición se recuerda por leyenda (doble clic = volver a la posición inicial)
 const LEG = { re: /^((trg|hxl|afl|gp|eco|pob|psl|air)-leg|leg-[a-z0-9]+|acc-box|pob-box)$/, def: /(-leg$|^leg-)/, col: (() => { try { return JSON.parse(localStorage.getItem('legcol') || '{}'); } catch (_) { return {}; } })(), noClick: 0, pos: (() => { try { return JSON.parse(localStorage.getItem('legpos') || '{}'); } catch (_) { return {}; } })(), drag: null };
@@ -2203,7 +2203,7 @@ function pwMake(id) {
 }
 const PW_CIERRA = {};   // al cerrar la ventana de un análisis se retiran sus elementos del mapa y vuelve la maqueta
 /* ── menú izquierdo con 2 pestañas */
-var DK = { cur: null, tab: 'K', t: 0, sec: [['🛡️ Riesgos y movilidad', ['rgp', 'fr', 'od', 'trf']], ['👥 Población y economía', ['cov', 'dem', 'eco', 'afl', 'cmp']], ['🌿 Territorio y ambiente', ['geo', 'urb', 'sol', 'inu', 'amb', 'psl', 'aire', 'arb', 'emi']], ['🏙️ Entorno urbano', ['ent', 'mapa']], ['📋 Síntesis', ['ind']]] };
+var DK = { cur: null, tab: 'K', t: 0, sec: [['🛡️ Riesgos y movilidad', ['rgp', 'fr', 'od', 'trf']], ['👥 Población y economía', ['cov', 'dem', 'eco', 'afl', 'cmp']], ['🌿 Territorio y ambiente', ['geo', 'urb', 'sol', 'inu', 'amb', 'psl', 'aire', 'arb', 'emi']], ['🏙️ Entorno urbano', ['ent', 'mapa', 'prb']], ['📋 Síntesis', ['ind']]] };
 // ── Lámina del proyecto: documento visual (cartel) con los resultados más importantes, listo para imprimir o guardar como PDF ──
 const LAM = { busy: 0 };
 function laminaCaptura() { try { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', .88); } catch (_) { return ''; } }
@@ -4765,6 +4765,111 @@ function cmpAnEventos(el) {
   });
 }
 PW_CIERRA.cmp = () => { cmpPickSet(false); cmpAnQuita(); };
+// ── Edificio de prueba (tienda de conveniencia tipo OXXO): modelo 3D procedural que se coloca sobre la maqueta
+const PRB = { on: false, g: null, x: 0, z: 0, rot: 0, w: 15, d: 13, ver: true, pick: false, pickOff: null, tx: null };
+function prbCv(w, h, f) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); f(g, w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
+function prbTex() {
+  if (PRB.tx) return PRB.tx; const T = {};
+  T.conc = prbCv(256, 256, (g, w, h) => { g.fillStyle = '#b4b5b2'; g.fillRect(0, 0, w, h); for (let i = 0; i < 2600; i++) { const v = 150 + Math.random() * 70; g.fillStyle = 'rgba(' + v + ',' + v + ',' + (v - 3) + ',' + (Math.random() * .35) + ')'; g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 3, 1 + Math.random() * 3); } for (let i = 0; i < 26; i++) { g.fillStyle = 'rgba(90,90,86,' + (Math.random() * .08) + ')'; g.fillRect(Math.random() * w, 0, 2 + Math.random() * 14, h); } g.strokeStyle = 'rgba(70,70,66,.35)'; g.lineWidth = 2; g.strokeRect(0, 0, w, h); });
+  T.conc.wrapS = T.conc.wrapT = THREE.RepeatWrapping;
+  T.panel = prbCv(256, 128, (g, w, h) => { const cs = ['#e0261c', '#cf2218']; for (let i = 0; i < 2; i++) { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, i ? '#d3231a' : '#e5291f'); gr.addColorStop(1, i ? '#b81d15' : '#cc2218'); g.fillStyle = gr; g.fillRect(i * w / 2, 0, w / 2, h); g.fillStyle = 'rgba(60,0,0,.55)'; g.fillRect(i * w / 2, 0, 3, h); } g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(0, 0, w, 2); });
+  T.panel.wrapS = T.panel.wrapT = THREE.RepeatWrapping;
+  const logo = (g, x, y, w, h) => { g.fillStyle = '#e1251b'; g.beginPath(); g.roundRect(x, y, w, h, h * .12); g.fill(); g.fillStyle = '#fff'; g.font = '900 italic ' + (h * .62) + 'px "Arial Black",Inter,Arial,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = h * .035; g.strokeStyle = '#fff'; const cx = x + w / 2, cy = y + h * .53; g.fillText('OXXO', cx, cy); g.strokeText('OXXO', cx, cy); g.fillStyle = '#e1251b'; for (const k of [-.1, .1]) { g.save(); g.translate(cx + w * k, cy); g.rotate(-.04); g.fillRect(-w * .01, -h * .02, w * .02, h * .04); g.restore(); } };
+  T.sign = prbCv(1024, 440, (g, w, h) => { g.fillStyle = '#fdc400'; g.beginPath(); g.roundRect(8, 8, w - 16, 120, 40); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.roundRect(8, 100, w - 16, h - 108, 30); g.fill(); logo(g, 30, 118, w - 60, h - 150); g.fillStyle = '#fdc400'; g.fillRect(8, 100, w - 16, 28); g.fillStyle = '#e1251b'; g.beginPath(); g.roundRect(30, 118, w - 60, 8, 3); g.fill(); });
+  T.tot = prbCv(256, 1024, (g, w, h) => { g.fillStyle = '#d8231a'; g.fillRect(0, 0, w, h); g.fillStyle = '#fdc400'; g.beginPath(); g.roundRect(14, 22, w - 28, 62, 22); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.roundRect(14, 76, w - 28, 120, 16); g.fill(); logo(g, 24, 84, w - 48, 104);
+    g.fillStyle = '#fff'; g.beginPath(); g.roundRect(22, 230, w - 44, 700, 10); g.fill(); const gr = g.createLinearGradient(0, 230, 0, 930); gr.addColorStop(0, '#fff6e3'); gr.addColorStop(1, '#f1d9b0'); g.fillStyle = gr; g.fillRect(30, 238, w - 60, 684);
+    g.fillStyle = '#6b3d1f'; g.beginPath(); g.moveTo(70, 400); g.lineTo(186, 400); g.lineTo(172, 640); g.quadraticCurveTo(128, 668, 84, 640); g.closePath(); g.fill(); g.fillStyle = '#e8d3b0'; g.fillRect(64, 380, 128, 28); g.fillStyle = '#c98e52'; g.fillRect(78, 410, 100, 40); g.strokeStyle = '#fff'; g.lineWidth = 7; g.beginPath(); g.moveTo(122, 380); g.lineTo(136, 330); g.stroke();
+    g.fillStyle = '#f5b82e'; for (let i = 0; i < 10; i++) { g.save(); g.translate(60 + i * 14, 740); g.rotate((i - 5) * .12); g.fillRect(0, 0, 11, 86); g.restore(); } g.fillStyle = '#d8231a'; g.fillRect(48, 800, 160, 70); g.fillStyle = '#fdc400'; g.fillRect(48, 800, 160, 14); });
+  T.prod = prbCv(256, 128, (g, w, h) => { g.fillStyle = '#f3f1ec'; g.fillRect(0, 0, w, h); const cs = ['#e63a2e', '#f2b705', '#2f80ed', '#27ae60', '#f2994a', '#9b51e0', '#ffffff', '#eb5757']; for (let r = 0; r < 4; r++) { g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(0, r * 32 + 29, w, 3); for (let i = 0; i < 16; i++) { g.fillStyle = cs[(Math.random() * cs.length) | 0]; const bw = 9 + Math.random() * 7, bh = 15 + Math.random() * 11; g.fillRect(i * 16 + 1, r * 32 + 29 - bh, bw, bh); } } });
+  T.prod.wrapS = T.prod.wrapT = THREE.RepeatWrapping; return PRB.tx = T;
+}
+function prbBuild(W, D) {
+  const T = prbTex(), O = new THREE.Group(), L = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .85, metalness: 0 }, o || {}));
+  const conc = (rx, ry) => { const t = T.conc.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: .92 }); };
+  const RED = 0xdc2419, YEL = 0xfdc400, ALU = 0x1a1d20;
+  const bx = (w, h, d, m, x, y, z, p, sh = true) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = sh; o.receiveShadow = true; (p || O).add(o); return o; };
+  const cy = (r, h, m, x, y, z, p, seg = 12) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m); o.position.set(x, y, z); o.castShadow = true; (p || O).add(o); return o; };
+  const Hw = 4.5, Y0 = .22, F = D / 2, Wh = W / 2, gl = new THREE.MeshPhysicalMaterial({ color: 0xa9c9d8, roughness: .04, metalness: .15, transparent: true, opacity: .26, depthWrite: false, side: THREE.DoubleSide }), al = L(ALU, { roughness: .45, metalness: .6 });
+  // banqueta y plataforma
+  bx(W + 5, .2, D + 4.2, conc((W + 5) / 3, (D + 4.2) / 3), 0, .1, 1.6, O, false); bx(W + .3, .22, D + .3, L(0x7b7d7b), 0, .31, 0, O, false);
+  // muros
+  const mc = [conc(D / 3, 1.4), conc(D / 3, 1.4), conc(W / 3, .3), conc(W / 3, .3), conc(W / 3, 1.4), conc(W / 3, 1.4)];
+  bx(W, Hw, .36, mc[4], 0, Y0 + Hw / 2, -F + .18, O); bx(.36, Hw, D, mc[0], Wh - .18, Y0 + Hw / 2, 0, O); bx(.36, Hw, D, mc[0], -Wh + .18, Y0 + Hw / 2, 0, O);
+  bx(W, .32, D, L(0x9a9b98), 0, Y0 + Hw - .02, 0, O); // losa
+  // parapeto de concreto del techo y azotea
+  const pH = .75, py = Y0 + Hw + pH / 2 - .02; bx(W + .1, pH, .3, conc(W / 3, .3), 0, py, -F + .1, O); bx(.3, pH, D, conc(D / 3, .3), Wh - .1, py, 0, O); bx(.3, pH, D, conc(D / 3, .3), -Wh + .1, py, 0, O);
+  bx(W, .02, D - .6, L(0xb8b9b5, { roughness: .95 }), 0, Y0 + Hw + .15, 0, O, false); bx(4.4, 1.2, 1.9, conc(1.5, .5), Wh - 3.2, Y0 + Hw + .75, -F + 2.2, O);
+  [[-.4, -F + 2.8], [1.2, -F + 2.8]].forEach(([x, z]) => { bx(1.35, 1.05, 1.1, L(0xc4c8ca, { metalness: .5, roughness: .5 }), x, Y0 + Hw + .75, z, O); const f = cy(.5, .06, L(0x222628), x, Y0 + Hw + 1.3, z, O, 20); for (let k = 0; k < 3; k++) { const r = new THREE.Mesh(new THREE.TorusGeometry(.14 + k * .13, .012, 4, 18), L(0x8d9498)); r.rotation.x = Math.PI / 2; r.position.set(x, Y0 + Hw + 1.34, z); O.add(r); } for (let k = 0; k < 4; k++) { const b = bx(.04, .02, .98, L(0x777e82), x, Y0 + Hw + 1.34, z, O, false); b.rotation.y = k * Math.PI / 4; } });
+  cy(.2, .5, L(0x9ea3a6, { metalness: .6 }), -W * .3, Y0 + Hw + .45, -1.5, O); cy(.28, .22, L(0x8b9094, { metalness: .6 }), -W * .3, Y0 + Hw + .75, -1.5, O); cy(.14, .4, L(0x9ea3a6, { metalness: .6 }), -W * .2, Y0 + Hw + .4, 1.5, O);
+  // piso interior, plafón, vitrinas
+  bx(W - .8, .04, D - .4, L(0xe9e6df, { roughness: .35 }), 0, Y0 + .02, -.2, O, false); bx(W - .8, .1, D - .4, L(0xf4f1ea, { emissive: 0xfff2d8, emissiveIntensity: .55 }), 0, Y0 + Hw - .22, -.2, O, false);
+  const prod = (rx) => { const t = T.prod.clone(); t.needsUpdate = true; t.repeat.set(rx, 1); return new THREE.MeshStandardMaterial({ map: t, roughness: .6 }); }, wh = L(0xf2f2f0);
+  for (let i = 0; i < 5; i++) { const x = -Wh + 2.9 + i * ((W - 5.6) / 4); bx(.55, 1.65, D * .46, [prod(2), prod(2), wh, wh, wh, wh], x, Y0 + .85, -F * .35, O); }
+  bx(W - 1.2, 2.2, .7, [L(0xdfe9ef), L(0xdfe9ef), L(0xdfe9ef), L(0xdfe9ef), new THREE.MeshStandardMaterial({ map: (() => { const t = T.prod.clone(); t.needsUpdate = true; t.repeat.set(4, 1); return t; })(), emissive: 0x9fd0ff, emissiveIntensity: .2 }), wh], 0, Y0 + 1.1, -F + .75, O); bx(3.4, 1.05, .8, L(0xdc2419), -Wh + 3.2, Y0 + .53, F - 3.2, O); bx(3.5, .08, .9, L(0x333333), -Wh + 3.2, Y0 + 1.08, F - 3.2, O);
+  // frente: columnas de concreto
+  const cw = 1.1, Fz = F, cm = conc(.4, 1.4); [-1, 1].forEach(s => bx(cw, Hw, .55, cm, s * (Wh - cw / 2 - .05), Y0 + Hw / 2, Fz - .1, O));
+  const gw = W - 2 * cw - .1, gh = 2.95, gy = Y0 + .62 + gh / 2; bx(gw, .62, .5, conc(gw / 3, .3), 0, Y0 + .31, Fz - .08, O); bx(gw, Hw - gh - .62, .5, conc(gw / 3, .3), 0, Y0 + .62 + gh + (Hw - gh - .62) / 2, Fz - .08, O);
+  const dw = 3.2; [-1, 1].forEach(s => bx(.42, gh, .5, cm, s * (dw / 2 + .21), gy, Fz - .08, O));
+  // cristales con perfiles de aluminio
+  const gA = (x0, x1, z) => { const n = Math.max(1, Math.round((x1 - x0) / 2.2)), pw = (x1 - x0) / n; for (let i = 0; i < n; i++) { const cx = x0 + pw * (i + .5); const p = new THREE.Mesh(new THREE.PlaneGeometry(pw - .06, gh - .06), gl); p.position.set(cx, gy, z); p.renderOrder = 3; O.add(p); [-1, 1].forEach(s => bx(.07, gh, .1, al, cx + s * pw / 2, gy, z, O, false)); bx(.06, gh, .08, al, cx, gy, z, O, false); bx(pw, .07, .1, al, cx, Y0 + .62 + gh * .62, z, O, false); bx(pw, .09, .12, al, cx, Y0 + .62 + .04, z, O, false); bx(pw, .09, .12, al, cx, Y0 + .62 + gh - .04, z, O, false); } };
+  gA(-gw / 2, -dw / 2 - .42, Fz + .1); gA(dw / 2 + .42, gw / 2, Fz + .1);
+  for (const s of [-1, 1]) { const x = s * dw / 4; const p = new THREE.Mesh(new THREE.PlaneGeometry(dw / 2 - .1, 2.6), gl); p.position.set(x, Y0 + .1 + 1.3, Fz + .1); p.renderOrder = 3; O.add(p); bx(dw / 2, .09, .12, al, x, Y0 + .08, Fz + .1, O, false); bx(dw / 2, .09, .12, al, x, Y0 + 2.72, Fz + .1, O, false); bx(.08, 2.65, .12, al, x - s * dw / 4 + s * .02, Y0 + 1.4, Fz + .1, O, false); bx(.08, 2.65, .12, al, x + s * dw / 4, Y0 + 1.4, Fz + .1, O, false); bx(.55, .07, .12, L(0xc62d22, { metalness: .4 }), x - s * .35, Y0 + 1.05, Fz + .17, O, false); bx(.5, .5, .1, al, x, Y0 + .3, Fz + .1, O, false); }
+  bx(dw, gh - 2.8 + .25, .5, conc(1, .2), 0, Y0 + 2.85 + (gh - 2.8) / 2 + .02, Fz - .08, O, false);
+  // franjas: amarilla y roja (cubren el frente y se envuelven a los costados)
+  const yw = W + .5, yh = .78, yy = Y0 + 3.55 + yh / 2, ym = L(YEL, { roughness: .45 }); bx(yw, yh, .5, ym, 0, yy, Fz + .1, O); bx(.5, yh, D + .1, ym, Wh + .1, yy, -.05, O); bx(.5, yh, D + .1, ym, -Wh - .1, yy, -.05, O);
+  const rh = 1.5, ry = Y0 + 3.55 + yh + rh / 2 + .05, rtF = () => { const m = new THREE.MeshStandardMaterial({ map: T.panel.clone(), roughness: .5, metalness: .1 }); m.map.needsUpdate = true; return m; };
+  const rF = rtF(); rF.map.repeat.set(Math.round(yw / 1.3) / 2, 1); bx(yw, rh, .7, rF, 0, ry, Fz + .2, O);
+  const sdL = 6.2, rS = rtF(); rS.map.repeat.set(Math.round(sdL / 1.3) / 2, 1); [-1, 1].forEach(s => bx(.7, rh, sdL, rS, s * (Wh + .15), ry, Fz - sdL / 2 + .45, O));
+  [-1, 1].forEach(s => bx(.12, rh + .1, .74, L(0x8e130c), s * (Wh + .15), ry, Fz + .2, O, false)); bx(yw + .1, .09, .76, L(0xf1c9c4, { roughness: .4 }), 0, ry + rh / 2 + .01, Fz + .2, O, false);
+  [[1], [-1]].forEach(([s]) => bx(.25, 1.0, D * .46, L(0xdc2419), s * (Wh + .02), Y0 + .5, -F * .45, O, false).visible = s > 0);
+  // letrero principal
+  const sg = bx(4.9, 2.2, .52, L(0x9a9c9a, { roughness: .8 }), -1.7, Y0 + 5.1, Fz + .62, O); const sf = new THREE.Mesh(new THREE.PlaneGeometry(4.55, 1.95), new THREE.MeshStandardMaterial({ map: T.sign, emissive: 0xffffff, emissiveMap: T.sign, emissiveIntensity: .35, roughness: .5 })); sf.position.set(-1.7, Y0 + 5.1, Fz + .885); O.add(sf);
+  // tótems
+  const tot = (x, z, ry) => { const g = new THREE.Group(); g.position.set(x, .2, z); g.rotation.y = ry; O.add(g); bx(1.3, .35, .7, L(0x80827f), 0, .17, 0, g); const f = new THREE.MeshStandardMaterial({ map: T.tot, emissive: 0xffffff, emissiveMap: T.tot, emissiveIntensity: .28, roughness: .5 }), rd = L(0xd8231a); const b = bx(1.0, 4.0, .34, [rd, rd, rd, rd, f, rd], 0, .35 + 2, 0, g); return g; };
+  tot(-Wh - 1.7, Fz + 1.3, .25); tot(Wh + 1.4, Fz + 1.5, -.15);
+  // trasera / costado derecho: puerta, rejillas, tuberías y cajas
+  const dz = -F + 3.6; bx(.14, 2.3, 1.9, L(0x9aa0a3, { metalness: .6, roughness: .45 }), Wh + .08, Y0 + 1.2, dz, O); bx(.05, 2.1, .04, L(0x6b7174), Wh + .17, Y0 + 1.2, dz, O, false); bx(.2, .5, 1.6, L(0x7f8689, { metalness: .6 }), Wh + .08, Y0 + .45, dz, O, false); bx(.08, .1, .12, L(0x222), Wh + .18, Y0 + 1.1, dz + .1, O, false);
+  for (let k = 0; k < 5; k++) bx(.05, .03, 1.5, L(0x4c5255), Wh + .2, Y0 + .26 + k * .08, dz, O, false);
+  for (const [dz2, r] of [[-F + .7, .09], [-F + 1.1, .07]]) cy(r, Hw + .4, L(0x9aa0a3, { metalness: .5, roughness: .5 }), Wh + .13, Y0 + (Hw + .4) / 2, dz2, O, 10);
+  bx(.15, .6, .45, L(0x8d9396, { metalness: .5 }), Wh + .09, Y0 + 2.2, -F + 1.9, O); bx(.14, .45, .3, L(0x8d9396, { metalness: .5 }), Wh + .09, Y0 + 1.6, -F + 2.5, O); bx(.1, .12, .3, L(0xffffff, { emissive: 0xfff2d0, emissiveIntensity: .8 }), Wh + .1, Y0 + 3.0, dz + 1.3, O, false);
+  return O;
+}
+function prbQuita() { if (PRB.g) { if (PRB.g.parent) PRB.g.parent.remove(PRB.g); PRB.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); PRB.g = null; } }
+function prbDib() {
+  prbQuita(); if (!world || !PRB.on) return; const G = prbBuild(PRB.w, PRB.d); G.position.set(PRB.x, 0, PRB.z); G.rotation.y = PRB.rot * Math.PI / 180; G.userData.keep = true; G.userData.prb = 1; G.visible = PRB.ver; world.add(G); PRB.g = G; try { capasSync(); } catch (_) { } try { renderOnce && renderOnce(); } catch (_) { }
+}
+function prbGuarda() { try { localStorage.setItem('prb_' + ID, JSON.stringify({ on: PRB.on, x: PRB.x, z: PRB.z, rot: PRB.rot, w: PRB.w, d: PRB.d, ver: PRB.ver })); } catch (_) { } }
+function prbVuela() { if (!PRB.on) return; const v = new THREE.Vector3(PRB.x, 3, PRB.z), a = (PRB.rot + 28) * Math.PI / 180, D = Math.max(30, PRB.w * 2.1); cmpVuela(v, D); try { const c0 = camera.position.clone(), off = new THREE.Vector3(Math.sin(a) * D * .8, D * .42, Math.cos(a) * D * .8); setTimeout(() => { camera.position.copy(v.clone().add(off)); controls.target.copy(v); controls.update(); }, 760); } catch (_) { } }
+function prbPick(on) {
+  const cv = renderer.domElement, b = $('prb-pick'); if (PRB.pick === on) return; PRB.pick = on; if (b) { b.textContent = on ? '⏹ Terminar (Esc)' : '🖱️ Colocar con un clic'; b.classList.toggle('on', on); }
+  if (PRB.pickOff) { PRB.pickOff(); PRB.pickOff = null; } if (!on) { cv.style.cursor = ''; return; } cv.style.cursor = 'crosshair'; const ray = new THREE.Raycaster(), nd = new THREE.Vector2(); let dn = null;
+  const dw = ev => { dn = [ev.clientX, ev.clientY]; }, esc = ev => { if (ev.key === 'Escape') prbPick(false); };
+  const up = ev => { if (!dn || Math.hypot(ev.clientX - dn[0], ev.clientY - dn[1]) > 5) return; const rc = cv.getBoundingClientRect(); nd.set((ev.clientX - rc.left) / rc.width * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(nd, camera);
+    let pt = null; const hs = ray.intersectObjects(world.children, true).filter(h => h.object.visible && !h.object.isSprite && !h.object.isLine && h.object.type === 'Mesh' && !h.object.userData.noPick && !(h.object.parent && h.object.parent.userData && h.object.parent.userData.prb)); if (hs.length) pt = hs[0].point; if (!pt) { pt = new THREE.Vector3(); if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), pt)) pt = null; }
+    if (!pt) return; ev.stopPropagation(); ev.preventDefault(); PRB.x = pt.x; PRB.z = pt.z; PRB.on = true; PRB.ver = true; prbDib(); prbGuarda(); prbPanel(); prbPick(false); };
+  cv.addEventListener('pointerdown', dw, true); cv.addEventListener('pointerup', up, true); addEventListener('keydown', esc, true); PRB.pickOff = () => { cv.removeEventListener('pointerdown', dw, true); cv.removeEventListener('pointerup', up, true); removeEventListener('keydown', esc, true); };
+}
+function prbPanel() {
+  const r = PW.m.get('prb'); if (!r) return; const sl = (k, t, mn, mx, st, u) => '<div class="prb-r"><span>' + t + '</span><input type="range" data-k="' + k + '" min="' + mn + '" max="' + mx + '" step="' + st + '" value="' + PRB[k] + '"><b>' + PRB[k] + u + '</b></div>';
+  r.body.innerHTML = '<div class="prb-sw" id="prb-ver"><span class="prb-bx' + (PRB.ver && PRB.on ? ' on' : '') + '">' + (PRB.ver && PRB.on ? '✓' : '') + '</span><b>Ver en el mapa</b></div>'
+    + '<div class="prb-bt"><button id="prb-pin">📍 Colocar en el pin</button><button id="prb-pick">🖱️ Colocar con un clic</button><button id="prb-go">🎥 Ir a verlo</button><button id="prb-del">🗑️ Quitar</button></div>'
+    + (PRB.on ? sl('rot', 'Giro', 0, 359, 1, '°') + sl('w', 'Ancho', 11, 26, .5, ' m') + sl('d', 'Fondo', 9, 22, .5, ' m') : '<div class="prb-n">Pulse «Colocar en el pin» o «Colocar con un clic» para ver la tienda en la maqueta.</div>')
+    + '<div class="prb-n">Modelo procedural de una tienda de conveniencia con la imagen OXXO: frente de cristal con puerta doble, franja amarilla, parapeto rojo con paneles, letrero luminoso, dos tótems, aires acondicionados en azotea, tuberías y puerta trasera. Las medidas son referenciales (15 × 13 m, 5.5 m de alto).</div>';
+}
+function prbCss() { if ($('prb-css')) return; const st = document.createElement('style'); st.id = 'prb-css'; st.textContent = '#pw-prb .prb-sw{display:flex;align-items:center;gap:9px;cursor:pointer;padding:8px 10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;margin-bottom:8px;font-size:13px}#pw-prb .prb-bx{width:18px;height:18px;border:2px solid #475569;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;color:#fff;font-weight:800}#pw-prb .prb-bx.on{background:#16a34a;border-color:#16a34a}#pw-prb .prb-bt{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}#pw-prb .prb-bt button{padding:8px 6px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}#pw-prb .prb-bt button.on{background:#0f172a;color:#fff}#pw-prb .prb-r{display:grid;grid-template-columns:48px 1fr 54px;gap:8px;align-items:center;font-size:12px;margin:6px 0}#pw-prb .prb-r input{width:100%}#pw-prb .prb-n{font-size:11.5px;color:#475569;line-height:1.45;margin-top:8px}'; document.head.appendChild(st); }
+{
+  const r = pwMake('prb'); prbCss(); prbPanel();
+  r.el.addEventListener('click', e => { const t = e.target; if (!t.closest) return;
+    if (t.closest('#prb-ver')) { if (!PRB.on) return; PRB.ver = !PRB.ver; if (PRB.g) PRB.g.visible = PRB.ver; prbGuarda(); prbPanel(); try { renderOnce && renderOnce(); } catch (_) { } return; }
+    if (t.closest('#prb-pin')) { PRB.x = 0; PRB.z = 0; PRB.on = true; PRB.ver = true; prbDib(); prbGuarda(); prbPanel(); return prbVuela(); }
+    if (t.closest('#prb-pick')) return prbPick(!PRB.pick);
+    if (t.closest('#prb-go')) return prbVuela();
+    if (t.closest('#prb-del')) { PRB.on = false; prbQuita(); prbGuarda(); prbPanel(); try { renderOnce && renderOnce(); } catch (_) { } } });
+  r.el.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.k) return; PRB[i.dataset.k] = +i.value; const b = i.nextElementSibling; if (b) b.textContent = i.value + (i.dataset.k === 'rot' ? '°' : ' m'); if (i.dataset.k === 'rot' && PRB.g) { PRB.g.rotation.y = PRB.rot * Math.PI / 180; try { renderOnce && renderOnce(); } catch (_) { } } });
+  r.el.addEventListener('change', e => { const i = e.target; if (!i.dataset || !i.dataset.k) return; if (i.dataset.k !== 'rot') prbDib(); prbGuarda(); });
+  try { const s = JSON.parse(localStorage.getItem('prb_' + ID) || 'null'); if (s && s.on) { Object.assign(PRB, s); setTimeout(() => { prbDib(); prbPanel(); }, 2500); } } catch (_) { }
+  setInterval(() => { if (PRB.on && PRB.g && world && PRB.g.parent !== world) { PRB.g = null; prbDib(); } }, 1500);
+}
 {
   const r = pwMake('cmp'); pwCfg('cmp'); cmpCss();
   r.cfg.innerHTML = '<div class="cmp-step"><div class="cmp-sh"><i>1</i>Selección de puntos</div></div><div class="cmp-seg"><button data-s="denue" class="on">🏪 DENUE</button><button data-s="google">🔎 Google</button><button data-s="manual">✍️ Manual</button></div>'
