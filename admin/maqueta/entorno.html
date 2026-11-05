@@ -2072,7 +2072,7 @@ function legFlota(el) {   // leyenda sacada de la columna: tarjeta sobre el mapa
 }
 function legAcomoda() {
   const col = legCol(); legTodas().forEach(el => { if (LEG.def.test(el.id)) { if (LEG.flo[el.id]) legFlota(el); else col.appendChild(el); } });
-  [...col.children].forEach(el => { el.classList.add('legc'); el.classList.toggle('leg-an', LEG_AN.test(el.id)); el.classList.toggle('legcol', !!LEG.col[el.id]); legBtns(el); const bc = el.querySelector('.legb-c'); if (bc) bc.textContent = LEG.col[el.id] ? '▸' : '▾'; const k = LEG_ORDEN.indexOf(el.id); el.style.order = k < 0 ? 50 : k; });
+  [...col.children].forEach(el => { el.classList.add('legc'); el.classList.toggle('leg-an', LEG_AN.test(el.id)); el.classList.toggle('legcol', !!LEG.col[el.id]); legBtns(el); const bc = el.querySelector('.legb-c'); if (bc) bc.textContent = LEG.col[el.id] ? '▸' : '▾'; const k = LEG_ORDEN.indexOf(el.id); el.style.order = LEG_AN.test(el.id) ? -20 + Math.max(0, k) : k < 0 ? 50 : k; });   // las leyendas de los mapas de Análisis van arriba
   legColEstado();
 }
 document.addEventListener('pointerdown', e => {
