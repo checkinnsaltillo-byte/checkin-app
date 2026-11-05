@@ -6431,7 +6431,7 @@ if (!SPLH) {
     const inp = /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName); if ((tp === 'click') === inp) return; const ru = splRuta(w, el); if (!ru) return;
     splSend({ t: 'spl-ev', pw: w.id.replace(/^pw-/, ''), ru, tp, v: el.value, c: el.checked });
   }, true));
-  document.addEventListener('click', e => { if (!SPL.id || !SPL.ready || !e.isTrusted) return; const el = e.target, c = el.closest && el.closest('.legc'); if (!c || !c.id) return; const ru = splRuta(c, el); if (ru) splSend({ t: 'spl-leg', id: c.id, ru }); }, true);
+  document.addEventListener('click', e => { if (!SPL.id || !SPL.ready || !e.isTrusted) return; const el = e.target, c = el.closest && el.closest('.legc'); if (!c || !c.id) return; const row = el.closest('[data-lr]'); if (row) { splSend({ t: 'spl-leg', id: c.id, lr: row.dataset.lr }); return; } const ru = splRuta(c, el); if (ru) splSend({ t: 'spl-leg', id: c.id, ru }); }, true);
   setInterval(() => { if (!SPL.id || !SPL.ready) return; const cur = DK.cur === 'mapa' ? null : (DK.cur || null); if (SPL.cur !== cur) { SPL.cur = cur; splSend({ t: 'spl-open', id: cur }); } }, 400);
   setInterval(() => { if (!SPL.id || !SPL.ready) return; const f = $('spl-fr'); if (!f || !f.contentWindow) return; const c = {}, d = {}; let n = 0; CAPAS.forEach(([k]) => { if (k === 'mapa3d' || k === 'mapa') return; try { if (capaHay(k) || k === 'maqueta') c[k] = !!capaVis(k); } catch (_) { } }); for (const k in c) if (SPL.sent[k] !== c[k]) { d[k] = c[k]; n++; } if (n) { SPL.sent = c; f.contentWindow.postMessage({ t: 'spl-capas', c: d }, location.origin); } }, 800);
 } else {
@@ -6439,7 +6439,7 @@ if (!SPLH) {
   addEventListener('message', ev => {
     if (ev.origin !== location.origin || !ev.data) return; const m = ev.data;
     if (m.t === 'spl-open') { try { if (DK.cur && DK.cur !== m.id) pwShow(DK.cur, false); if (m.id) pwShow(m.id, true); } catch (_) { } }
-    else if (m.t === 'spl-leg') { try { let el = $(m.id); for (const i of m.ru) el = el && el.children[i]; if (el) el.click(); } catch (_) { } }
+    else if (m.t === 'spl-leg') { try { let el = $(m.id); if (m.lr != null) el = el && [...el.querySelectorAll('[data-lr]')].find(r => r.dataset.lr === m.lr); else for (const i of m.ru) el = el && el.children[i]; if (el) el.click(); } catch (_) { } }
     else if (m.t === 'spl-ev') { try { const r = PW.m.get(m.pw); if (!r) { pwShow(m.pw, true); } else if (!r.el.classList.contains('on')) pwShow(m.pw, true); let el = PW.m.get(m.pw).el; for (const i of m.ru) { el = el && el.children[i]; } if (!el) return; if (m.tp === 'click') el.click(); else { if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!m.c; else el.value = m.v; el.dispatchEvent(new Event(m.tp, { bubbles: true })); } } catch (_) { } }
   });
   { const nm = document.createElement('div'); nm.id = 'spl-nm'; document.body.appendChild(nm); setInterval(() => { const S = solS(); if (S) { const t = '◫ ' + String(S.tit || S.titulo || '').replace(/\s*·\s*radio.*$/, ''); if (nm.textContent !== t) nm.textContent = t; } }, 1000); }
