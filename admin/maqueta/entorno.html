@@ -6300,36 +6300,48 @@ function g3dTick() {
   if (++G3D.cuadro % 90 === 0) { const a = []; try { t.getAttributions(a); } catch (_) { } const txt = a.filter(x => x.type === 'string').map(x => x.value).join(' · '), el = $('attr'); if (el) el.textContent = 'Mapa 3D © Google' + (txt ? ' · ' + txt : ''); }
 }
 
-// ── Columna izquierda compartida: «Capas» y «Menú» ocupan la MISMA columna (se ve uno u otro); pulsar la pestaña activa oculta la columna
+// ── Columna izquierda compartida: «Capas», «Indicadores» y «Análisis» ocupan la MISMA columna (se ve una u otra); pulsar la pestaña activa oculta la columna
 {
   const st = document.createElement('style'); st.id = 'cap-pn-css'; st.textContent = ''
-    + '#cap-tg{display:none}@media (min-width:761px){#dock-tg{top:116px!important}#cap-tg{display:flex}}'
-    + '#cap-tg{position:fixed;left:var(--dkw,404px);top:18px;z-index:5;width:28px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:11px 0;border:0;border-radius:0 12px 12px 0;background:linear-gradient(180deg,#1e293b,#0f172a);color:#cbd5e1;cursor:pointer;box-shadow:6px 4px 18px rgba(2,6,23,.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s,color .2s}'
-    + '#cap-tg.off{left:0}#cap-tg:hover{background:linear-gradient(180deg,#6366f1,#4f46e5);color:#fff}#cap-tg b{font:700 14px/1 system-ui}#cap-tg .tg-t{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px/1 system-ui;letter-spacing:.09em;white-space:nowrap}'
-    + 'html:not(.tema-osc) #cap-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) #cap-tg:hover{color:#0f172a}html:not(.tema-osc) #cap-tg.on,html:not(.tema-osc) #dock-tg.on{color:#2563eb}'
+    + '.lft-tg{display:none}@media (min-width:761px){.lft-tg{display:flex}#dk-tabs,#dk-sub{display:none!important}}'
+    + '.lft-tg{position:fixed;left:var(--dkw,404px);top:18px;z-index:5;width:28px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:11px 0;border:0;border-radius:0 12px 12px 0;background:linear-gradient(180deg,#1e293b,#0f172a);color:#cbd5e1;cursor:pointer;box-shadow:6px 4px 18px rgba(2,6,23,.35);transition:left .35s cubic-bezier(.2,.8,.2,1),background .2s,color .2s}'
+    + '.lft-tg.off{left:0}.lft-tg:hover{background:linear-gradient(180deg,#6366f1,#4f46e5);color:#fff}.lft-tg b{font:700 14px/1 system-ui}.lft-tg .tg-t{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px/1 system-ui;letter-spacing:.09em;white-space:nowrap}'
+    + 'html:not(.tema-osc) .lft-tg{background:linear-gradient(180deg,#f8fafc,#eef2ff);color:#475569;box-shadow:6px 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08);border-left:0}html:not(.tema-osc) .lft-tg:hover{color:#0f172a}html:not(.tema-osc) .lft-tg.on,html:not(.tema-osc) #dock-tg.on{color:#2563eb}'
     + '#cap-pn{position:fixed;top:0;bottom:0;left:0;width:var(--dkw,404px);max-width:92vw;z-index:4;display:flex;flex-direction:column;box-sizing:border-box;background:linear-gradient(180deg,#f8fafc,#eef2ff);border-right:1px solid rgba(15,23,42,.1);box-shadow:10px 0 44px rgba(2,6,23,.3);transform:translateX(-102%);opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .25s}#cap-pn.on{transform:none;opacity:1;pointer-events:auto}'
     + 'html.tema-osc #cap-pn{background:linear-gradient(180deg,rgba(8,13,26,.98),rgba(15,23,42,.97) 60%,rgba(10,16,32,.98));border-right:1px solid rgba(148,163,184,.18)}'
-    + '#cap-pn .cap-t{flex:none;padding:16px 18px 8px;font:800 11px system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#334155}html.tema-osc #cap-pn .cap-t{color:#cbd5e1}'
-    + '#cap-pn .cap-b{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:4px 12px 12px}#cap-pn #cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden;margin:0}#cap-pn #cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}'
-    + 'html.ui-s #cap-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s #cap-tg.off{left:0}html.ui-s #cap-pn{width:calc(var(--dkw,404px) * var(--ui))}'
-    + '@media (max-width:760px){#cap-pn,#cap-tg{display:none!important}}'; document.head.appendChild(st);
-  const tg = document.createElement('button'); tg.id = 'cap-tg'; tg.type = 'button'; const pn = document.createElement('div'); pn.id = 'cap-pn'; pn.innerHTML = '<div class="cap-t">Capas del mapa</div><div class="cap-b"></div>'; document.body.append(tg, pn);
-  let vista = 'menu'; try { vista = localStorage.getItem('leftview') === 'capas' ? 'capas' : 'menu'; } catch (_) { }
+    + '#cap-pn .cap-t{flex:none;padding:16px 18px 2px;font:800 11px system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#334155}html.tema-osc #cap-pn .cap-t{color:#cbd5e1}#cap-pn .dk-sn{padding:8px 18px 4px}html.tema-osc #cap-pn .dk-sb{color:#94a3b8}html.tema-osc #cap-pn .dk-sb.on{color:#f1f5f9}'
+    + '#cap-pn .cap-b{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:4px 12px 12px}#cap-pn #cap{flex:1 1 auto;min-height:0;display:flex!important;flex-direction:column;overflow:hidden;margin:0}#cap-pn #cap .db{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}#cap-pn #pdi,#cap-pn #capa-an{flex:0 0 auto;margin:0 0 8px}'
+    + '#cap-pn[data-sk="pdi"] #cap,#cap-pn[data-sk="pdi"] #capa-an,#cap-pn[data-sk="cap"] #pdi,#cap-pn[data-sk="cap"] #capa-an,#cap-pn[data-sk="capa-an"] #pdi,#cap-pn[data-sk="capa-an"] #cap{display:none!important}'
+    + '@media (min-width:761px){#dock>#tt{position:sticky}}#dk-gear{display:none;position:absolute;top:12px;right:14px;z-index:4;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid rgba(15,23,42,.1);border-radius:9px;background:#fff;color:#475569;font-size:15px;cursor:pointer;padding:0}#dk-gear:hover{background:#eef2ff}#dk-gear.on{background:#2563eb;color:#fff;border-color:#2563eb}@media (min-width:761px){#dk-gear{display:flex}}'
+    + 'html.ui-s .lft-tg{left:calc(var(--dkw,404px) * var(--ui))}html.ui-s .lft-tg.off{left:0}html.ui-s #cap-pn{width:calc(var(--dkw,404px) * var(--ui))}'
+    + '@media (max-width:760px){#cap-pn,.lft-tg,#dk-gear{display:none!important}}'; document.head.appendChild(st);
+  const mk = (id, txt) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'lft-tg'; b.dataset.t = txt; return b; };
+  const ctg = mk('cap-tg', 'Capas'), itg = mk('ind-tg', 'Indicadores'), pn = document.createElement('div'); pn.id = 'cap-pn'; pn.innerHTML = '<div class="cap-t">Capas</div><div id="cap-sub"></div><div class="cap-b"></div>'; document.body.append(ctg, itg, pn);
+  const dtg0 = $('dock-tg'), dock0 = $('dock'), tt = $('tt'); 
+  let gear = null; if (tt) { gear = document.createElement('button'); gear.id = 'dk-gear'; gear.type = 'button'; gear.title = 'Configuración'; gear.textContent = '⚙️'; tt.appendChild(gear); }
+  let vista = 'analisis', sk = 'cap'; try { const v = localStorage.getItem('leftview'); vista = v === 'capas' || v === 'ind' ? v : 'analisis'; } catch (_) { }
   const guarda = () => { try { localStorage.setItem('leftview', vista); } catch (_) { } };
+  const subHtml = () => `<div class="dk-sn">${[['pdi', 'Proyectos', 'Mis proyectos'], ['cap', 'Capas', 'Capas del mapa'], ['capa-an', 'Análisis', 'Capas de análisis']].map(([k, t, tt2]) => `<button class="dk-sb${k === sk ? ' on' : ''}" data-sk="${k}" title="${tt2}"><i class="rd"></i>${t}</button>`).join('')}</div>`;
+  $('cap-sub').onclick = e => { const b = e.target.closest('.dk-sb'); if (!b) return; sk = b.dataset.sk; capPnSync(); };
+  const flecha = (b, nom, ver) => { const h = '<b>' + (ver ? '‹' : '›') + '</b><span class="tg-t">' + nom + '</span>'; if (b.__h !== h) { b.innerHTML = h; b.__h = h; } b.title = ver ? 'Ocultar la columna' : 'Mostrar ' + nom.toLowerCase(); };
   window.capPnSync = () => {
-    const dock = $('dock'), cap = $('cap'), b = pn.querySelector('.cap-b'), dtg = $('dock-tg'), ancho = matchMedia('(min-width:761px)').matches; if (!dock || !dtg) return;
-    const oculta = dock.classList.contains('off'), vc = ancho && vista === 'capas', verC = vc && !oculta, verM = !vc && !oculta;
-    tg.classList.toggle('off', oculta); pn.classList.toggle('on', verC); tg.classList.toggle('on', verC); dtg.classList.toggle('on', verM);
-    const h1 = '<b>' + (verC ? '‹' : '›') + '</b><span class="tg-t">Capas</span>'; if (tg.__h !== h1) { tg.innerHTML = h1; tg.__h = h1; } tg.title = verC ? 'Ocultar la columna' : 'Mostrar las capas';
-    const bd = dtg.querySelector('b'); if (bd) bd.textContent = verM ? '‹' : '›'; dtg.title = verM ? 'Ocultar la columna' : 'Mostrar el menú';
-    if (!cap) return; if (ancho) { if (cap.parentNode !== b) b.appendChild(cap); } else if (cap.parentNode === b && $('notas')) dock.insertBefore(cap, $('notas').nextSibling);
-    try { dkSub(); } catch (_) { }
+    const dock = dock0, dtg = dtg0, b = pn.querySelector('.cap-b'), ancho = matchMedia('(min-width:761px)').matches; if (!dock || !dtg) return;
+    const oculta = dock.classList.contains('off'), verC = ancho && vista === 'capas' && !oculta, verI = ancho && vista === 'ind' && !oculta, verA = !(ancho && vista !== 'analisis') && !oculta && ancho;
+    [ctg, itg].forEach(t => t.classList.toggle('off', oculta)); pn.classList.toggle('on', verC); ctg.classList.toggle('on', verC); itg.classList.toggle('on', verI); dtg.classList.toggle('on', verA); pn.dataset.sk = sk;
+    flecha(ctg, 'Capas', verC); flecha(itg, 'Indicadores', verI); if (ancho) flecha(dtg, 'Análisis', verA); else if (dtg.__h) { dtg.innerHTML = '<b>' + (oculta ? '›' : '‹') + '</b><span class="tg-t">Menú</span>'; dtg.__h = null; dtg.title = 'Ocultar o mostrar el menú'; }
+    const sh = subHtml(); if (pn.__sh !== sh) { $('cap-sub').innerHTML = sh; pn.__sh = sh; }
+    if (ancho) { const y1 = 18, y2 = y1 + ctg.offsetHeight + 8, y3 = y2 + itg.offsetHeight + 8; ctg.style.top = y1 + 'px'; itg.style.top = y2 + 'px'; dtg.style.setProperty('top', y3 + 'px', 'important'); } else dtg.style.removeProperty('top');
+    if (gear) gear.classList.toggle('on', DK.tab === 'C');
+    ['pdi', 'cap', 'capa-an'].forEach(id => { const e = $(id); if (!e) return; if (ancho) { if (e.parentNode !== b) b.appendChild(e); } else if (e.parentNode === b && $('notas')) dock.insertBefore(e, $('notas').nextSibling); });
   };
-  const dtg0 = $('dock-tg'), dock0 = $('dock'); let paso = false;
-  const ocultar = () => { if (dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; };   // reutiliza el interruptor del menú para deslizar la columna
-  const mostrar = () => { if (!dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; };
-  tg.onclick = () => { const oculta = dock0.classList.contains('off'); if (!oculta && vista === 'capas') { ocultar(); } else { vista = 'capas'; guarda(); mostrar(); } capPnSync(); window.dispatchEvent(new Event('resize')); };
-  if (dtg0) dtg0.addEventListener('click', e => { if (paso) return; const oculta = dock0.classList.contains('off'); if (!oculta && vista === 'capas') { e.stopImmediatePropagation(); e.preventDefault(); vista = 'menu'; guarda(); capPnSync(); } else if (oculta) { vista = 'menu'; guarda(); } setTimeout(capPnSync, 0); }, true);
+  let paso = false; const ocultar = () => { if (dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; }, mostrar = () => { if (!dock0.classList.contains('off')) return; paso = true; dtg0.click(); paso = false; };
+  const clickTab = t => { const b = document.querySelector('#dk-tabs button[data-t="' + t + '"]'); if (b) b.click(); };
+  const aplicaDock = x => { if (x === 'ind') { if (DK.tab !== 'I' || DK.cur !== 'ind') clickTab('I'); } else if (x === 'analisis') { if (DK.tab !== 'A') clickTab('A'); } };
+  const pulsa = x => { const oculta = dock0.classList.contains('off'); if (!oculta && vista === x) ocultar(); else { vista = x; guarda(); mostrar(); aplicaDock(x); } capPnSync(); window.dispatchEvent(new Event('resize')); };
+  ctg.onclick = () => pulsa('capas'); itg.onclick = () => pulsa('ind');
+  if (dtg0) dtg0.addEventListener('click', e => { if (paso || !matchMedia('(min-width:761px)').matches) return; e.stopImmediatePropagation(); e.preventDefault(); pulsa('analisis'); }, true);
+  if (gear) gear.onclick = () => { if (DK.tab === 'C') { vista = 'analisis'; clickTab('A'); } else { vista = 'analisis'; guarda(); mostrar(); clickTab('C'); } capPnSync(); };
+  setTimeout(() => { if (matchMedia('(min-width:761px)').matches) aplicaDock(vista === 'ind' ? 'ind' : 'analisis'); capPnSync(); }, 600);
   capPnSync(); setInterval(() => { try { capPnSync(); } catch (_) { } }, 700); addEventListener('resize', () => { try { capPnSync(); } catch (_) { } });
 }
 </script>
