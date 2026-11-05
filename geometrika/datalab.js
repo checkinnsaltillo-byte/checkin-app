@@ -48,11 +48,11 @@
         <aside class="dl-side" id="dlSide" aria-label="Menú de Data Lab">
           <div class="dl-side-t">Menú</div>
           <button class="dl-nav on" type="button" data-sec="fuentes" title="Fuente de datos"><span class="ic">🗄️</span><span class="tx">Fuente de datos</span><span class="bd">${tot}</span></button>
-          <button class="dl-nav" type="button" data-sec="indicadores" title="Indicadores"><span class="ic">📊</span><span class="tx">Indicadores</span><span class="bd">${INDS.length}</span></button>
+          <button class="dl-nav" type="button" data-sec="indicadores" title="Indicadores"><span class="ic">📊</span><span class="tx">Indicadores</span><span class="bd">${INDS_ALL().length}</span></button>
           <div class="dl-side-f">Data Lab · Check Inn</div>
         </aside>
         <main class="dl-main" id="dlMain"><div class="dl-wrap" id="dlWrap"></div></main>
-      </div></div>`;
+      </div><div class="dl-ov" id="dlOv"></div><aside class="dl-dr" id="dlDr" aria-hidden="true" aria-label="Crear indicador"></aside></div>`;
     const app = $("#dlApp", host);
     if (innerWidth < 900 || ls.get("dl_side", "on") === "off") app.classList.add("dl-off");   // en celular siempre inicia cerrado
     $("#dlBurger", host).onclick = () => { app.classList.toggle("dl-off"); if (innerWidth >= 900) ls.set("dl_side", app.classList.contains("dl-off") ? "off" : "on"); };
@@ -80,7 +80,7 @@
           ${opciones("a", "Costo / acceso", ["Gratuita", "De pago", "Propia"], S.a)}
           ${opciones("cat", "Categoría", CATS.map(c => [c.k, c.n]), S.cat)}
           ${opciones("m", "Método", ["Descarga masiva", "API en vivo", "Interna"], S.m)}
-          ${opciones("e", "Estado", ["Activa", "Parcial", "Respaldo", "Pendiente"], S.e)}
+          ${opciones("e", "Estado", ["Activa", "Parcial", "Respaldo", "Pendiente", ...(F.some(f => f.e === "Propuesto") ? ["Propuesto", "Borrador"] : [])], S.e)}
           ${opciones("ind", "Indicador", uniq(f => f.ind || []), S.ind)}
           <button class="dl-ghost" type="button" data-a="limpiar"${hayFiltros() ? "" : " disabled style=\"opacity:.45;cursor:default\""}>Limpiar</button>
           <button class="dl-ghost pr" type="button" data-a="abrir">Expandir todo</button>
@@ -164,15 +164,16 @@
     if (/propio|propia|supuesto|usuario|configurable|ficha|detecci|selector/i.test(s)) add("Cálculo propio o del usuario"); if (/pendiente/i.test(s)) add("Pendiente");
     if (!o.length) add("Otra"); return o; };
   const TCLS = { "Dato duro": "dd", "Dato calculado": "dc", "Índice": "ix", "Valoración cualitativa": "vl", "Valoración cuantitativa": "vl", "Dato inferido": "di" };
-  CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => {
+  const prep = (i, c, e) => {
     i._c = c; i._e = e; const fam = []; (i.vars.length ? i.vars.map(v => v.f) : [i.f]).forEach(f => FAM(f).forEach(x => { if (!fam.includes(x)) fam.push(x); })); i._fam = fam;
-    i._h = norm([i.n, i.d, i.u, i.m, i.f, i.tipo, e.n, c.n, i.vars.map(v => [v.n, v.d, v.f, v.u, v.tr.map(t => t.n + " " + t.d).join(" ")].join(" ")).join(" ")].join(" "));
-    i._pend = /pendiente/i.test(i.f) && !i.vars.length; })));
+    i._h = norm([i.n, i.d, i.u, i.m, i.f, i.tipo, e.n, c.n, i._meta ? [i._meta.objetivo, i._meta.res, i._meta.periodicidad, i._meta.instrucciones, i._meta.responsable].join(" ") : "", i.vars.map(v => [v.n, v.d, v.f, v.u, (v.tr || []).map(t => t.n + " " + t.d).join(" ")].join(" ")).join(" ")].join(" "));
+    i._pend = /pendiente/i.test(i.f) && !i.vars.length; };
+  CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => prep(i, c, e))));
   const INDS_ALL = () => CATI.flatMap(c => c.an.flatMap(e => e.ind));
-  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", aC: new Set(CATI.map(c => c.k || c.id)), aE: new Set(), filas: new Set() };
-  const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam);
+  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", aC: new Set(CATI.map(c => c.k || c.id)), aE: new Set(), filas: new Set() };
+  const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org);
   function pasaI(i) {
-    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false;
+    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && i._nuevo) return false;
     if (S2.q) { const ws = norm(S2.q).split(/\s+/).filter(Boolean); if (!ws.every(w => i._h.includes(w))) return false; } return true;
   }
   function indicadores() {
@@ -181,7 +182,7 @@
     const tipos = [...new Set(A.map(i => i.tipo))], fams = [...new Set(A.flatMap(i => i._fam))].sort((a, b) => a.localeCompare(b, "es"));
     const enfs = CATI.filter(c => !S2.cat || c.id === S2.cat).flatMap(c => c.an.map(e => [e.id, e.ico + " " + e.n]));
     $("#dlWrap", host).innerHTML = `
-      <div class="dl-h"><div><h1>Indicadores</h1><p>Catálogo de los indicadores que calcula Geo Lab: qué mide cada uno, en qué unidades, cómo se calcula (metodología y fórmula), con qué variables y de qué fuente salen. Es solo un catálogo: aquí no hay datos de ningún proyecto. Toca una fila para ver el detalle.</p></div><span class="dl-up">Generado desde Geo Lab</span></div>
+      <div class="dl-h"><div><h1>Indicadores</h1><p>Catálogo de los indicadores que calcula Geo Lab: qué mide cada uno, en qué unidades, cómo se calcula (metodología y fórmula), con qué variables y de qué fuente salen. Es solo un catálogo: aquí no hay datos de ningún proyecto. Toca una fila para ver el detalle.</p></div><div class="dl-hr"><span class="dl-up">Generado desde Geo Lab</span><button class="dl-new" type="button" id="dlNuevo">＋ Crear Indicador</button></div></div>
       <div class="dl-kpis">${kp(CATI.length, "Categorías", "#4f46e5")}${kp(nE, "Enfoques de análisis", "#0891b2")}${kp(A.length, "Indicadores", "#7c3aed")}${kp(nV, "Variables", "#059669")}${kp(nT, "Transformaciones", "#b45309")}</div>
       <div class="dl-fl" id="dlFl">
         <div class="dl-fr">
@@ -190,6 +191,7 @@
           ${opcionesI("enf", "Enfoque", enfs, S2.enf)}
           ${opcionesI("tipo", "Tipo de dato", tipos, S2.tipo)}
           ${opcionesI("fam", "Fuente", fams, S2.fam)}
+          ${opcionesI("org", "Origen", [["geo", "Geo Lab"], ["dl", "Creados en Data Lab"]], S2.org)}
           <button class="dl-ghost" type="button" data-ia="limpiar"${hayI() ? "" : " disabled style=\"opacity:.45;cursor:default\""}>Limpiar</button>
           <button class="dl-ghost pr" type="button" data-ia="abrir">Expandir todo</button>
           <button class="dl-ghost pr" type="button" data-ia="cerrar">Contraer todo</button>
@@ -205,7 +207,7 @@
   }
   function listaI() {
     const dest = $("#dlLista2", host); if (!dest) return; const forzar = hayI(), A = INDS_ALL(), vis = A.filter(pasaI);
-    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
+    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
     $("#dlRs2", host).innerHTML = `Mostrando <b>${vis.length}</b> de ${A.length} indicadores ${tg.join("")}`;
     if (!vis.length) { dest.innerHTML = `<div class="dl-empty"><b>No hay indicadores con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-ia="limpiar">Limpiar filtros</button></div>`; return; }
     dest.innerHTML = CATI.map(c => {
@@ -219,14 +221,14 @@
   }
   function filaI(i) {
     const k = i._e.id + ":" + i.id, ab = S2.filas.has(k), fam = i._fam.map(f => `<button type="button" class="dl-c${S2.fam === f ? " on" : ""}" data-ifam="${esc(f)}" title="Filtrar por esta fuente">${esc(f)}</button>`).join("");
-    const vars = i.vars.map(v => `<tr><td data-l="Variable"><b>${esc(v.n)}</b></td><td data-l="Unidades">${esc(v.u)}</td><td data-l="Qué es">${esc(v.d)}</td><td data-l="Fuente">${esc(v.f)}</td><td data-l="Transformaciones">${v.tr.length ? `<details class="dl-tr"><summary>${v.tr.length} ${v.tr.length === 1 ? "transformación" : "transformaciones"}</summary>${v.tr.map(t => `<div class="dl-trx"><b>${esc(t.n)}</b><p>${esc(t.d)}</p><code>${esc(t.f)}</code></div>`).join("")}</details>` : `<span class="dl-mut">Dato directo de la fuente</span>`}</td></tr>`).join("");
+    const vars = i.vars.map(v => `<tr><td data-l="Variable"><b>${esc(v.n)}</b></td><td data-l="Unidades">${esc(v.u)}</td><td data-l="Qué es">${esc(v.d)}</td><td data-l="Fuente">${esc(v.f)}${v.cob ? `<div class="dl-mut">Cobertura: ${esc(v.cob)}</div>` : ""}${v.disponible === false ? `<div><span class="dl-b Parcial">Dato por conseguir</span></div>` : ""}${v.nota ? `<div class="dl-mut">${esc(v.nota)}</div>` : ""}</td><td data-l="Transformaciones">${v.tr.length ? `<details class="dl-tr"><summary>${v.tr.length} ${v.tr.length === 1 ? "transformación" : "transformaciones"}</summary>${v.tr.map(t => `<div class="dl-trx"><b>${esc(t.n)}</b><p>${esc(t.d)}</p><code>${esc(t.f)}</code></div>`).join("")}</details>` : `<span class="dl-mut">Dato directo de la fuente</span>`}</td></tr>`).join("");
     return `<tr class="dl-r${ab ? " open" : ""}" data-ir="${esc(k)}" tabindex="0" aria-expanded="${ab}">
-      <td data-l="Indicador"><div class="dl-nm"><i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : "Disponible"}"></i><b>${esc(i.n)}</b></div></td>
+      <td data-l="Indicador"><div class="dl-nm"><i class="dot${i._pend ? " Pendiente" : ""}${i._nuevo ? " " + i._meta.estado : ""}" title="${i._nuevo ? "Estado: " + i._meta.estado : i._pend ? "Pendiente de construir" : "Disponible"}"></i><b>${esc(i.n)}</b>${i._nuevo ? `<span class="dl-new-b">Nuevo · ${esc(i._meta.estado)}</span>` : ""}</div></td>
       <td data-l="Tipo"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span></td>
       <td data-l="Qué mide" class="dl-ob">${esc(i.d)}</td><td data-l="Unidades">${esc(i.u)}</td>
       <td data-l="Variables"><span class="dl-gn">${i.vars.length}</span></td>
       <td data-l="Fuentes"><div class="dl-ch">${fam}</div></td><td class="dl-xc">${ICON.chevS}</td></tr>${ab ? `<tr class="dl-d"><td colspan="7"><div class="in one">
-        <div><span>Metodología</span><p>${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>
+        <div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${i._meta ? metaCreado(i._meta) : ""}
         <div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">Todavía no tiene variables: se construirá más adelante.</p>`}</div>
       </div></td></tr>` : ""}`;
   }
@@ -234,7 +236,9 @@
   function cambiaI(k, v) { S2[k] = v; if (k === "cat" && S2.enf && !(CATI.find(c => c.id === v) || { an: [] }).an.some(e => e.id === S2.enf) && v) S2.enf = ""; indicadores(); }
   function clicI(e) {
     const t = e.target, x = t.closest("[data-ix]"); if (x) { S2[x.dataset.ix] = ""; indicadores(); return; }
-    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => { S2.aE.add(en.id); en.ind.forEach(i => S2.filas.add(en.id + ":" + i.id)); }); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); S2.filas.clear(); listaI(); } return; }
+    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => { S2.aE.add(en.id); en.ind.forEach(i => S2.filas.add(en.id + ":" + i.id)); }); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); S2.filas.clear(); listaI(); } return; }
+    const del = t.closest("[data-dl-del]"); if (del) { eliminaCreado(del.dataset.dlDel); return; }
+    const est = t.closest("[data-dl-est]"); if (est) { cambiaEstado(est.dataset.dlEst, est.dataset.v); return; }
     const f = t.closest("[data-ifam]"); if (f) { S2.fam = S2.fam === f.dataset.ifam ? "" : f.dataset.ifam; indicadores(); return; }
     const tg = (attr, set, id) => { const g = t.closest("[" + attr + "]"); if (!g) return false; const sec2 = g.closest(".dl-g"); if (hayI()) sec2.classList.toggle("open"); else { if (set.has(id(g))) set.delete(id(g)); else set.add(id(g)); sec2.classList.toggle("open", set.has(id(g))); } g.setAttribute("aria-expanded", sec2.classList.contains("open")); return true; };
     if (tg("data-ie", S2.aE, g => g.dataset.ie)) return; if (tg("data-ic", S2.aC, g => g.dataset.ic)) return;
@@ -244,6 +248,170 @@
   function alternaI(k) { if (S2.filas.has(k)) S2.filas.delete(k); else S2.filas.add(k); const y = $("#dlMain", host).scrollTop; listaI(); $("#dlMain", host).scrollTop = y; const r = [...host.querySelectorAll("tr[data-ir]")].find(q => q.dataset.ir === k); if (r) r.focus({ preventScroll: true }); }
   document.addEventListener("keydown", e => { if (!host || sec !== "indicadores" || !host.contains(document.activeElement)) return; const r = document.activeElement.closest && document.activeElement.closest("tr[data-ir]"); if (r && (e.key === "Enter" || e.key === " ") && document.activeElement === r) { e.preventDefault(); alternaI(r.dataset.ir); } });
 
+
+  /* ═══ Crear indicador con ayuda de IA (panel lateral derecho) ═══ */
+  const API = "https://api.check-inn.mx", RES_TXT = { punto: "Punto / coordenada", zona: "Zona", ciudad: "Ciudad" };
+  const PERIODOS = ["Tiempo real", "Diaria", "Semanal", "Mensual", "Trimestral", "Anual", "Bajo demanda"], TIPOS = ["Dato duro", "Dato calculado", "Índice", "Valoración cualitativa", "Valoración cuantitativa", "Dato inferido"];
+  const token = () => { try { return (JSON.parse(localStorage.getItem("gmTok") || "null") || {}).token || ""; } catch (_) { return ""; } };
+  async function api(ruta, cuerpo, metodo) {
+    const r = await fetch(API + ruta, { method: metodo || (cuerpo ? "POST" : "GET"), headers: Object.assign({ "x-gm-token": token() }, cuerpo ? { "Content-Type": "application/json" } : {}), body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    let j = {}; try { j = await r.json(); } catch (_) { }
+    if (r.status === 401) throw new Error("Tu sesión expiró. Cierra sesión y vuelve a entrar.");
+    if (!r.ok || j.ok === false) throw new Error(j.error || ("Error " + r.status)); return j;
+  }
+  const toast = (m, ms) => { let t = $("#dlToast", host); if (!t) { t = document.createElement("div"); t.id = "dlToast"; t.className = "dl-toast"; $("#dlApp", host).appendChild(t); } t.textContent = m; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), ms || 4200); };
+  let CRE = [];
+  const REAL = () => INDS_ALL().filter(i => !i._nuevo);
+  function mezcla() {   // vuelve a armar el catálogo: Geo Lab + indicadores creados (también aparecen en «Fuente de datos»)
+    CATI.forEach(c => { c.an.forEach(e => { e.ind = e.ind.filter(i => !i._nuevo); }); c.an = c.an.filter(e => !e._dl); });
+    for (let k = F.length - 1; k >= 0; k--) if (F[k]._creado) F.splice(k, 1); for (let k = CATS.length - 1; k >= 0; k--) if (CATS[k].k === "creados") CATS.splice(k, 1);
+    CRE.forEach(it => {
+      const c = CATI.find(x => x.id === it.cat); if (!c) return; let e = c.an.find(x => x.id === it.enf);
+      if (!e) { e = { id: it.enf, ico: "✨", n: it.enfNuevo || it.enf, d: "Enfoque creado en Data Lab", ind: [], _dl: true }; c.an.push(e); }
+      const i = { id: it.id, n: it.n, tipo: it.tipo, d: it.d || it.objetivo, u: it.u, m: it.m, f: it.f || "—", vars: (it.vars || []).map(v => Object.assign({}, v, { tr: [] })), _nuevo: true, _meta: it }; prep(i, c, e); e.ind.push(i);
+    });
+    if (CRE.length) {
+      CATS.push({ k: "creados", n: "Indicadores creados en Data Lab", ic: "✨", d: "Indicadores propios definidos con ayuda de la IA; se calculan con las demás fuentes" });
+      CRE.forEach(it => { const f = { id: "dl-" + it.id, cat: "creados", _creado: true, n: it.n, p: "Data Lab · cálculo propio", t: "Privada", a: "Propia", m: "Interna", e: it.estado === "Propuesto" ? "Propuesto" : "Borrador", ob: it.objetivo, ind: [it.n],
+        cob: (RES_TXT[it.res] || it.res) + " · " + it.u, act: it.periodicidad, alm: "Cloud Storage · datalab/indicadores.json", lic: "Propio de Check Inn", url: "", nota: "Se calcula con: " + ((it.vars || []).map(v => v.n).join("; ") || "—") + (it.faltantes && it.faltantes.length ? ". Datos por conseguir: " + it.faltantes.join("; ") : "") }; f._h = hay(f); F.push(f); });
+    }
+    const bd = host && host.querySelectorAll(".dl-nav .bd"); if (bd && bd.length > 1) { bd[0].textContent = F.length; bd[1].textContent = INDS_ALL().length; }
+  }
+  async function cargaCreados() { try { const j = await api("/geometrika/datalab/indicadores"); CRE = j.items || []; mezcla(); return true; } catch (e) { return false; } }
+  function metaCreado(m) {
+    const li = (t, a) => a && a.length ? `<div><span>${t}</span><ul class="dl-ul">${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+    const det = (t, v) => v ? `<div><span>${t}</span><p>${esc(v)}</p></div>` : "";
+    return `${det("Objetivo de negocio", m.objetivo)}${det("Resolución", RES_TXT[m.res] || m.res)}${det("Periodicidad de cálculo", m.periodicidad)}${det("Estado", m.estado)}${det("Responsable", m.responsable)}${det("Dificultad estimada", m.dificultad)}${det("Creado", new Date(m.creado).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }))}
+      ${li("Pasos de cálculo", m.pasos)}${li("Supuestos", m.supuestos)}${li("Limitaciones", m.limitaciones)}${li("Datos por conseguir", m.faltantes)}${det("Instrucciones originales", m.instrucciones)}
+      <div class="wide dl-acc"><button class="dl-ghost pr" type="button" data-dl-est="${esc(m.id)}" data-v="${m.estado === "Propuesto" ? "Borrador" : "Propuesto"}">${m.estado === "Propuesto" ? "Regresar a borrador" : "Marcar como propuesto"}</button><button class="dl-ghost pr dl-danger" type="button" data-dl-del="${esc(m.id)}">Eliminar indicador</button></div>`;
+  }
+  async function eliminaCreado(id) { const it = CRE.find(x => x.id === id); if (!it || !confirm("¿Eliminar el indicador «" + it.n + "»? También saldrá de Fuente de datos.")) return; try { await api("/geometrika/datalab/indicadores/eliminar", { id }); CRE = CRE.filter(x => x.id !== id); S2.filas.forEach(k => { if (k.endsWith(":" + id)) S2.filas.delete(k); }); mezcla(); indicadores(); toast("Indicador eliminado."); } catch (e) { toast("No se pudo eliminar: " + e.message); } }
+  async function cambiaEstado(id, estado) { try { await api("/geometrika/datalab/indicadores/estado", { id, estado }); const it = CRE.find(x => x.id === id); if (it) it.estado = estado; mezcla(); listaI(); toast("Estado actualizado: " + estado + "."); } catch (e) { toast("No se pudo actualizar: " + e.message); } }
+
+  // catálogo para elegir (indicadores, variables y fuentes) con su metadata
+  const FUENTE_DE = f => { const s = String(f || ""), ids = []; const add = (...a) => a.forEach(x => { if (!ids.includes(x)) ids.push(x); });
+    if (/censo/i.test(s)) add("censo"); if (/denue/i.test(s)) add("denue"); if (/eic/i.test(s)) add("eic"); if (/inegi/i.test(s) && !ids.length) add("censo");
+    if (/open-?meteo|era5/i.test(s)) add("meteo"); if (/google routes/i.test(s)) add("g-routes"); if (/google places/i.test(s)) add("g-places"); if (/solar|air quality|weather|pollen/i.test(s) && /google/i.test(s)) add("g-env"); if (/street view/i.test(s)) add("g-sv");
+    if (/osm|openstreetmap|red de calles/i.test(s)) add("osm"); if (/terrarium|relieve/i.test(s)) add("terrain"); if (/ghsl/i.test(s)) add("ghsl-s", "ghsl-h"); if (/worldcover/i.test(s)) add("worldcover"); if (/\bia\b/i.test(s)) add("claude");
+    return ids.map(id => F.find(x => x.id === id)).filter(Boolean); };
+  const cobDe = f => { const L = FUENTE_DE(f); return L.length ? L.map(x => x.cob).slice(0, 2).join(" · ") : (/propio|usuario|supuesto|configurable|ficha|detecci|selector/i.test(f) ? "Depende del proyecto" : "—"); };
+  let VCAT = null;
+  const catalogoVars = () => { if (VCAT) return VCAT; const m = new Map(); REAL().forEach(i => i.vars.forEach(v => { const k = [v.n, v.u, v.f].join("|"); const x = m.get(k) || { n: v.n, u: v.u, d: v.d, f: v.f, cob: cobDe(v.f), en: [] }; x.en.push(i.n); m.set(k, x); })); return VCAT = [...m.values()]; };
+  const W = { abierto: false, paso: 1, res: "", texto: "", sel: new Map(), tab: "ind", q: "", props: null, ent: "", adv: [], prop: null, f: {}, cargando: false, error: "", guardando: false };
+  const EJEMPLOS = ["Qué tan caminable es la zona: cuántos servicios básicos hay a 10 minutos a pie de un punto.", "Índice de atractivo turístico de una zona combinando atracciones, hospedaje existente y accesibilidad.", "Potencial de demanda de renta a mediano plazo por zona según población joven, universidades y empleo."];
+  const clave = (t, n) => t + "|" + n;
+  const items = () => {
+    const q = norm(W.q), ok = h => !q || q.split(/\s+/).every(w => norm(h).includes(w));
+    if (W.tab === "ind") return REAL().filter(i => ok([i.n, i.d, i.u, i._e.n, i._c.n, i._fam.join(" ")].join(" "))).map(i => ({ t: "Indicador", n: i.n, u: i.u, f: i._fam.join(", "), cob: cobDe(i.vars.map(v => v.f).join(" ")), sub: i._e.n + " · " + i.tipo, d: i.d }));
+    if (W.tab === "var") return catalogoVars().filter(v => ok([v.n, v.d, v.f, v.u, v.en.join(" ")].join(" "))).map(v => ({ t: "Variable", n: v.n, u: v.u, f: v.f, cob: v.cob, sub: "Usada en: " + [...new Set(v.en)].slice(0, 2).join(", ") + (new Set(v.en).size > 2 ? "…" : ""), d: v.d }));
+    return F.filter(f => !f._creado && ok([f.n, f.p, f.ob, f.cob, f.t, f.a, (f.ind || []).join(" ")].join(" "))).map(f => ({ t: "Fuente", n: f.n, u: "", f: f.p + " · " + f.t + " · " + f.a, cob: f.cob, sub: f.m + " · " + f.e, d: f.ob }));
+  };
+  function pintaDr() {
+    const dr = $("#dlDr", host); if (!dr) return; dr.classList.toggle("on", W.abierto); $("#dlOv", host).classList.toggle("on", W.abierto); dr.setAttribute("aria-hidden", W.abierto ? "false" : "true"); if (!W.abierto) return;
+    const pasos = ["Describir", "Metodologías", "Ficha"], st = pasos.map((t, k) => `<li class="${W.paso === k + 1 ? "on" : W.paso > k + 1 ? "ok" : ""}"><i>${W.paso > k + 1 ? "✓" : k + 1}</i><span>${t}</span></li>`).join("");
+    const cuerpo = W.paso === 1 ? paso1() : W.paso === 2 ? paso2() : paso3();
+    dr.innerHTML = `<header class="dl-dh"><div><b>Crear indicador</b><span>Descríbelo con tus palabras y la IA propone cómo calcularlo</span></div><button class="dl-x" type="button" data-dr="cerrar" aria-label="Cerrar">✕</button></header><ol class="dl-st">${st}</ol><div class="dl-db" id="dlDb">${cuerpo.body}</div><footer class="dl-df">${cuerpo.foot}</footer>`;
+  }
+  function paso1() {
+    const rs = [["punto", "📍", "Punto / coordenada", "Un lugar exacto (latitud y longitud)"], ["zona", "🗺️", "Zona", "Un área alrededor de un punto o un polígono"], ["ciudad", "🏙️", "Ciudad", "Toda la ciudad o su área metropolitana"]];
+    const lst = items(), nSel = W.sel.size, tabs = [["ind", "Indicadores", REAL().length], ["var", "Variables", catalogoVars().length], ["fte", "Fuentes de datos", F.filter(f => !f._creado).length]];
+    const ready = W.res && W.texto.trim().length >= 12;
+    return { body: `
+      <section class="dl-sec"><h3>1 · Nivel de resolución <em>obligatorio</em></h3><div class="dl-rs3">${rs.map(([k, ic, t, d]) => `<button type="button" class="dl-rc${W.res === k ? " on" : ""}" data-res="${k}" role="radio" aria-checked="${W.res === k}"><span class="ic">${ic}</span><b>${t}</b><small>${d}</small></button>`).join("")}</div></section>
+      <section class="dl-sec"><h3>2 · ¿Qué quieres medir? <em>obligatorio</em></h3><textarea id="dlTx" rows="5" maxlength="3000" placeholder="Escribe con texto corriente, por ejemplo: «Quiero saber qué tan bien conectada está una propiedad con servicios y transporte, para decidir si conviene rentarla a viajeros de negocios»">${esc(W.texto)}</textarea>
+        <div class="dl-tc"><span id="dlTn">${W.texto.length} / 3000</span></div><div class="dl-ej"><small>Ejemplos (toca para usar):</small>${EJEMPLOS.map((e, k) => `<button type="button" class="dl-c" data-ej="${k}">${esc(e.slice(0, 62))}…</button>`).join("")}</div></section>
+      <section class="dl-sec"><h3>3 · Datos disponibles <em>opcional · elige los que quieras que use la IA</em></h3>
+        <div class="dl-tabs" role="tablist">${tabs.map(([k, t, n]) => `<button type="button" role="tab" class="dl-tab${W.tab === k ? " on" : ""}" data-tab="${k}">${t} <i>${n}</i></button>`).join("")}</div>
+        <div class="dl-q dl-q2">${ICON.lupa}<input id="dlCq" type="search" placeholder="Buscar en el catálogo…" value="${esc(W.q)}" autocomplete="off"></div>
+        ${nSel ? `<div class="dl-selr">${[...W.sel.values()].map(x => `<span class="dl-tag">${esc(x.n)}<button type="button" data-unsel="${esc(clave(x.t, x.n))}" aria-label="Quitar">✕</button></span>`).join("")}</div>` : ""}
+        <div class="dl-cat" id="dlCat">${lst.length ? lst.slice(0, 120).map(x => pick(x)).join("") : `<div class="dl-mut" style="padding:16px;text-align:center">Sin resultados.</div>`}${lst.length > 120 ? `<div class="dl-mut" style="padding:8px;text-align:center">Mostrando 120 de ${lst.length}: afina la búsqueda.</div>` : ""}</div></section>`,
+      foot: `<span class="dl-mut">${nSel ? nSel + " elemento" + (nSel > 1 ? "s" : "") + " seleccionado" + (nSel > 1 ? "s" : "") : "Sin elementos seleccionados"}</span><button class="dl-new" type="button" data-dr="proponer"${ready ? "" : " disabled"}>Proponer metodologías →</button>` };
+  }
+  const pick = x => { const on = W.sel.has(clave(x.t, x.n)); return `<div class="dl-pk${on ? " on" : ""}" role="checkbox" aria-checked="${on}" tabindex="0" data-pk="${esc(clave(x.t, x.n))}"><span class="dl-ck">${on ? "✓" : ""}</span><div class="pb"><b>${esc(x.n)}</b><small>${esc(x.sub)}</small><div class="mt">${x.u ? `<span><u>Unidades</u> ${esc(x.u)}</span>` : ""}<span><u>Fuente</u> ${esc(x.f || "—")}</span><span><u>Cobertura</u> ${esc(x.cob || "—")}</span></div></div></div>`; };
+  function paso2() {
+    if (W.cargando) return { body: `<div class="dl-load"><div class="sp"></div><b>La IA está analizando tu indicador…</b><p>Revisa el catálogo disponible y arma entre 2 y 3 metodologías. Suele tardar de 20 a 60 segundos.</p></div>`, foot: `<span class="dl-mut">Espera un momento…</span>` };
+    if (W.error) return { body: `<div class="dl-err"><b>No se pudieron generar las propuestas</b><p>${esc(W.error)}</p></div>`, foot: `<button class="dl-ghost pr" type="button" data-dr="atras">← Cambiar instrucciones</button><button class="dl-new" type="button" data-dr="proponer">Reintentar</button>` };
+    const P = W.props || [];
+    const li = (t, a) => a && a.length ? `<div class="dl-pd"><span>${t}</span><ul class="dl-ul">${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+    return { body: `${W.ent ? `<div class="dl-ent"><span>Lo que entendí</span><p>${esc(W.ent)}</p>${W.adv.length ? `<ul class="dl-ul">${W.adv.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}</div>` : ""}
+      <div class="dl-props">${P.map(p => `<article class="dl-pp${W.prop === p.id ? " on" : ""}" data-pp="${p.id}"><button type="button" class="dl-ph" data-prop="${p.id}"><span class="dl-rd">${W.prop === p.id ? "●" : ""}</span><span class="t"><b>${esc(p.titulo)}</b><small>${esc(p.resumen)}</small></span><span class="bs">${p.recomendada ? `<span class="dl-b Activa">Recomendada</span>` : ""}<span class="dl-b ${p.dificultad === "Alta" ? "Privada" : p.dificultad === "Baja" ? "Gratuita" : "Parcial"}">Dificultad ${esc(p.dificultad)}</span></span></button>
+        <details class="dl-pdt"${W.prop === p.id ? " open" : ""}><summary>Ver detalle de la metodología</summary>
+          <div class="dl-pd"><span>Indicador propuesto</span><p><b>${esc(p.nombre)}</b> · ${esc(p.unidades)} · ${esc(p.tipo)} · ${esc(p.periodicidad)}</p></div>${p.descripcion ? `<div class="dl-pd"><span>Qué mide</span><p>${esc(p.descripcion)}</p></div>` : ""}
+          ${li("Pasos de cálculo", p.pasos)}${p.formula ? `<div class="dl-pd"><span>Fórmula</span><code class="dl-code">${esc(p.formula)}</code></div>` : ""}
+          ${p.variables.length ? `<div class="dl-pd"><span>Variables que usa</span>${p.variables.map(v => `<div class="dl-pv2"><b>${esc(v.n)}</b>${v.en_catalogo ? `<span class="dl-b Activa">En el catálogo</span>` : `<span class="dl-b Parcial">Nueva</span>`}${v.disponible ? "" : `<span class="dl-b Privada">Dato por conseguir</span>`}<small>${[v.unidades && "Unidades: " + v.unidades, v.fuente && "Fuente: " + v.fuente, v.cobertura && "Cobertura: " + v.cobertura, v.nota].filter(Boolean).map(esc).join(" · ")}</small></div>`).join("")}</div>` : ""}
+          ${li("Supuestos", p.supuestos)}${li("Limitaciones", p.limitaciones)}${li("Datos por conseguir", p.faltantes)}</details></article>`).join("")}</div>`,
+      foot: `<button class="dl-ghost pr" type="button" data-dr="atras">← Cambiar instrucciones</button><button class="dl-new" type="button" data-dr="elegir"${W.prop ? "" : " disabled"}>Usar esta metodología →</button>` };
+  }
+  function paso3() {
+    const f = W.f, cats = CATI.filter(c => !c._dl), enfs = (CATI.find(c => c.id === f.cat) || { an: [] }).an.filter(e => !e._dl);
+    const opt = (L, v) => L.map(o => { const a = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(a[0])}"${a[0] === v ? " selected" : ""}>${esc(a[1])}</option>`; }).join("");
+    const fld = (id, t, inner, ayuda) => `<label class="dl-fld"><span>${t}</span>${inner}${ayuda ? `<small>${ayuda}</small>` : ""}</label>`;
+    return { body: `<div class="dl-fm">
+      <div class="dl-sec"><h3>Identificación</h3>
+        ${fld("n", "Nombre del indicador *", `<input data-ff="n" type="text" maxlength="120" value="${esc(f.n)}" placeholder="Ej. Índice de caminabilidad a servicios">`)}
+        ${fld("d", "Qué mide", `<textarea data-ff="d" rows="2" maxlength="600">${esc(f.d)}</textarea>`)}
+        <div class="dl-g2">${fld("u", "Unidades *", `<input data-ff="u" type="text" maxlength="60" value="${esc(f.u)}" placeholder="Ej. puntos 0-100, %, min">`)}${fld("tipo", "Tipo de dato", `<select data-ff="tipo">${opt(TIPOS, f.tipo)}</select>`)}</div></div>
+      <div class="dl-sec"><h3>Cálculo y negocio</h3>
+        <div class="dl-g2">${fld("res", "Resolución / representación *", `<select data-ff="res">${opt([["punto", "Punto / coordenada"], ["zona", "Zona"], ["ciudad", "Ciudad"]], f.res)}</select>`)}${fld("periodicidad", "Periodicidad de cálculo *", `<select data-ff="periodicidad">${opt(PERIODOS, f.periodicidad)}</select>`)}</div>
+        ${fld("objetivo", "Objetivo de negocio al que está alineado *", `<textarea data-ff="objetivo" rows="2" maxlength="500" placeholder="¿Qué decisión ayuda a tomar?">${esc(f.objetivo)}</textarea>`, "Ej.: elegir ubicaciones · fijar precios · medir riesgo · demanda y marketing · operación")}
+        ${fld("m", "Metodología *", `<textarea data-ff="m" rows="7" maxlength="3000">${esc(f.m)}</textarea>`, "Puedes ajustar el texto que propuso la IA.")}
+        ${fld("f", "Fórmula", `<input data-ff="f" type="text" maxlength="700" value="${esc(f.f)}">`)}</div>
+      <div class="dl-sec"><h3>Dónde aparecerá en el catálogo</h3>
+        <div class="dl-g2">${fld("cat", "Categoría *", `<select data-ff="cat">${opt(cats.map(c => [c.id, c.ico + " " + c.n]), f.cat)}</select>`)}${fld("enf", "Enfoque *", `<select data-ff="enf">${opt([...enfs.map(e => [e.id, e.ico + " " + e.n]), ["__nuevo", "＋ Crear un enfoque nuevo"]], f.enf)}</select>`)}</div>
+        ${f.enf === "__nuevo" ? fld("enfNuevo", "Nombre del enfoque nuevo *", `<input data-ff="enfNuevo" type="text" maxlength="80" value="${esc(f.enfNuevo || "")}" placeholder="Ej. Conectividad urbana">`) : ""}
+        <div class="dl-g2">${fld("estado", "Estado inicial", `<select data-ff="estado">${opt(["Borrador", "Propuesto"], f.estado)}</select>`, "Borrador: aún en revisión · Propuesto: listo para aprobarse")}${fld("responsable", "Responsable (opcional)", `<input data-ff="responsable" type="text" maxlength="80" value="${esc(f.responsable || "")}">`)}</div></div>
+      <div class="dl-sec"><h3>Variables que usa (${(f.vars || []).length})</h3>${(f.vars || []).length ? (f.vars || []).map((v, k) => `<div class="dl-pv2"><b>${esc(v.n)}</b>${v.en_catalogo ? `<span class="dl-b Activa">En el catálogo</span>` : `<span class="dl-b Parcial">Nueva</span>`}${v.disponible === false ? `<span class="dl-b Privada">Dato por conseguir</span>` : ""}<button type="button" class="dl-x s" data-qv="${k}" aria-label="Quitar variable">✕</button><small>${[v.u && "Unidades: " + v.u, v.f && "Fuente: " + v.f, v.cob && "Cobertura: " + v.cob, v.nota].filter(Boolean).map(esc).join(" · ")}</small></div>`).join("") : `<div class="dl-mut">Sin variables.</div>`}</div>
+      ${W.error ? `<div class="dl-err"><p>${esc(W.error)}</p></div>` : ""}</div>`,
+      foot: `<button class="dl-ghost pr" type="button" data-dr="atras2">← Volver a metodologías</button><button class="dl-new" type="button" data-dr="guardar"${W.guardando ? " disabled" : ""}>${W.guardando ? "Guardando…" : "Guardar indicador"}</button>` };
+  }
+  function abreCrear() { W.abierto = true; pintaDr(); setTimeout(() => { const t = $("#dlTx", host); if (t && !W.texto) t.focus(); }, 280); }
+  function cierraCrear() { if (W.cargando) return; W.abierto = false; pintaDr(); }
+  async function proponer() {
+    W.paso = 2; W.cargando = true; W.error = ""; W.props = null; W.prop = null; pintaDr();
+    try {
+      const j = await api("/geometrika/datalab/indicadores/proponer", { texto: W.texto, resolucion: W.res, seleccion: [...W.sel.values()].map(x => ({ tipo: x.t, n: x.n, u: x.u, f: x.f, cob: x.cob })), catalogo: { fuentes: F.filter(f => !f._creado).map(f => ({ n: f.n, p: f.p, t: f.t, a: f.a, cob: f.cob, act: f.act })), variables: catalogoVars().map(v => ({ n: v.n, u: v.u, f: v.f, cob: v.cob })), indicadores: INDS_ALL().map(i => ({ n: i.n, u: i.u })) } });
+      W.props = j.propuestas; W.ent = j.entendimiento; W.adv = j.advertencias || []; const r = W.props.find(p => p.recomendada); W.prop = r ? r.id : null;
+    } catch (e) { W.error = e.message; }
+    W.cargando = false; pintaDr();
+  }
+  function elegir() {
+    const p = (W.props || []).find(x => x.id === W.prop); if (!p) return; const cats = CATI.filter(c => !c._dl);
+    W.f = { n: p.nombre, d: p.descripcion, u: p.unidades, tipo: p.tipo, res: W.res, periodicidad: p.periodicidad, objetivo: p.objetivo, m: [p.resumen, ...p.pasos.map((x, k) => (k + 1) + ". " + x)].filter(Boolean).join("\n"), f: p.formula, cat: cats[0].id, enf: cats[0].an.filter(e => !e._dl)[0].id, enfNuevo: "", estado: "Borrador", responsable: "",
+      vars: p.variables.map(v => ({ n: v.n, u: v.unidades, f: v.fuente, cob: v.cobertura, d: "", disponible: v.disponible, nota: v.nota, en_catalogo: v.en_catalogo })), pasos: p.pasos, supuestos: p.supuestos, limitaciones: p.limitaciones, faltantes: p.faltantes, dificultad: p.dificultad, titulo: p.titulo };
+    W.error = ""; W.paso = 3; pintaDr(); $("#dlDb", host).scrollTop = 0;
+  }
+  async function guardar() {
+    const f = W.f; W.error = ""; W.guardando = true; pintaDr();
+    try {
+      const j = await api("/geometrika/datalab/indicadores", { n: f.n, d: f.d, u: f.u, tipo: f.tipo, res: f.res, periodicidad: f.periodicidad, objetivo: f.objetivo, m: f.m, f: f.f, cat: f.cat, enf: f.enf, enfNuevo: f.enfNuevo, estado: f.estado, responsable: f.responsable, vars: f.vars, pasos: f.pasos, supuestos: f.supuestos, limitaciones: f.limitaciones, faltantes: f.faltantes, dificultad: f.dificultad, instrucciones: W.texto, metodologiaTitulo: f.titulo });
+      CRE.push(j.item); mezcla(); W.guardando = false; Object.assign(W, { abierto: false, paso: 1, res: "", texto: "", sel: new Map(), q: "", props: null, prop: null, f: {}, error: "" }); pintaDr();
+      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.filas.add(j.item.enf + ":" + j.item.id); indicadores();
+      setTimeout(() => { const r = host.querySelector(`tr[data-ir="${j.item.enf}:${j.item.id}"]`); if (r) r.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
+      toast("Indicador creado: " + j.item.n + ". Ya aparece en Indicadores y en Fuente de datos.", 6000);
+    } catch (e) { W.guardando = false; W.error = e.message; pintaDr(); const b = $("#dlDb", host); if (b) b.scrollTop = b.scrollHeight; }
+  }
+  function eventosDr(host0) {
+    const dr = $("#dlDr", host0);
+    host0.addEventListener("click", e => { if (e.target.closest("#dlNuevo")) { abreCrear(); return; } if (e.target.id === "dlOv") cierraCrear(); });
+    dr.addEventListener("click", e => {
+      const t = e.target, a = t.closest("[data-dr]"); if (a && !a.disabled) { const k = a.dataset.dr; if (k === "cerrar") cierraCrear(); else if (k === "proponer") proponer(); else if (k === "atras") { W.paso = 1; W.error = ""; pintaDr(); } else if (k === "elegir") elegir(); else if (k === "atras2") { W.paso = 2; W.error = ""; pintaDr(); } else if (k === "guardar") guardar(); return; }
+      const rs = t.closest("[data-res]"); if (rs) { W.res = rs.dataset.res; pintaDr(); return; }
+      const ej = t.closest("[data-ej]"); if (ej) { W.texto = EJEMPLOS[+ej.dataset.ej]; pintaDr(); return; }
+      const tb = t.closest("[data-tab]"); if (tb) { W.tab = tb.dataset.tab; W.q = ""; pintaDr(); return; }
+      const pk = t.closest("[data-pk]"); if (pk) { const k = pk.dataset.pk; if (W.sel.has(k)) W.sel.delete(k); else { const [tp, ...n] = k.split("|"), nm = n.join("|"), x = items().find(i => i.t === tp && i.n === nm); if (x) W.sel.set(k, x); } const y = $("#dlDb", host0).scrollTop, cy = $("#dlCat", host0) ? $("#dlCat", host0).scrollTop : 0; pintaDr(); $("#dlDb", host0).scrollTop = y; if ($("#dlCat", host0)) $("#dlCat", host0).scrollTop = cy; return; }
+      const us = t.closest("[data-unsel]"); if (us) { W.sel.delete(us.dataset.unsel); pintaDr(); return; }
+      const pr = t.closest("[data-prop]"); if (pr) { W.prop = pr.dataset.prop; pintaDr(); return; }
+      const qv = t.closest("[data-qv]"); if (qv) { W.f.vars.splice(+qv.dataset.qv, 1); pintaDr(); return; }
+    });
+    dr.addEventListener("input", e => {
+      if (e.target.id === "dlTx") { W.texto = e.target.value; const n = $("#dlTn", host0); if (n) n.textContent = W.texto.length + " / 3000"; const b = $('[data-dr="proponer"]', host0); if (b) b.disabled = !(W.res && W.texto.trim().length >= 12); return; }
+      if (e.target.id === "dlCq") { W.q = e.target.value; clearTimeout(eventosDr.t); eventosDr.t = setTimeout(() => { const c = $("#dlCat", host0); if (c) { const lst = items(); c.innerHTML = lst.length ? lst.slice(0, 120).map(x => pick(x)).join("") : `<div class="dl-mut" style="padding:16px;text-align:center">Sin resultados.</div>`; } }, 120); return; }
+      const f = e.target.dataset && e.target.dataset.ff; if (f) W.f[f] = e.target.value;
+    });
+    dr.addEventListener("change", e => { const f = e.target.dataset && e.target.dataset.ff; if (!f) return; W.f[f] = e.target.value; if (f === "cat") { const c = CATI.find(x => x.id === e.target.value); W.f.enf = c.an.filter(x => !x._dl)[0].id; pintaDr(); } else if (f === "enf") pintaDr(); });
+    dr.addEventListener("keydown", e => { const pk = e.target.closest && e.target.closest("[data-pk]"); if (pk && (e.key === " " || e.key === "Enter")) { e.preventDefault(); pk.click(); } });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && W.abierto) cierraCrear(); });
+  }
   let sec = "fuentes";
   function ir(s) {
     if (s !== "fuentes" && s !== "indicadores") s = "fuentes"; sec = s; host.querySelectorAll(".dl-nav").forEach(n => n.classList.toggle("on", n.dataset.sec === s));
@@ -252,6 +420,7 @@
 
   window.datalabInit = function () {
     host = document.getElementById("datalab-host"); if (!host || host.dataset.listo) return; host.dataset.listo = "1";
-    shell(); ir(location.hash === "#indicadores" ? "indicadores" : "fuentes");
+    shell(); eventosDr(host); ir(location.hash === "#indicadores" ? "indicadores" : "fuentes");
+    cargaCreados().then(ok => { if (ok && CRE.length) { if (sec === "indicadores") indicadores(); else fuentes(); } });
   };
 })();
