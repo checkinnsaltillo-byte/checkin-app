@@ -6415,7 +6415,7 @@ function splitToggle(id) {
 function splPopRestaura() { if (SPL.sec && SPL.home) SPL.home.appendChild(SPL.sec); SPL.sec = null; SPL.home = null; SPL.rid = null; const p = $('spl-rp'); if (p) p.style.display = 'none'; }
 function splPopSync() {
   if (!(window.__split || SPLH)) { if (SPL.sec) splPopRestaura(); return; }
-  const id = DK.cur, r = id && id !== 'ind' && PW.m.get(id), sec = r && r.body && r.body.closest('.pwsec');
+  const id = DK.cur, r = id && id !== 'ind' && id !== 'mapa' && PW.m.get(id), sec = r && r.body && r.body.closest('.pwsec');
   if (!r || !sec || !r.el.classList.contains('on')) { if (SPL.sec) splPopRestaura(); return; }
   let p = $('spl-rp'); if (!p) { p = document.createElement('div'); p.id = 'spl-rp'; p.innerHTML = '<div class="spl-h"></div><div class="spl-b"></div>'; document.body.appendChild(p); }
   if (SPL.rid !== id || sec.parentNode !== p.querySelector('.spl-b')) { if (SPL.sec && SPL.sec !== sec) splPopRestaura(); SPL.rid = id; SPL.sec = sec; SPL.home = r.el.querySelector('.pws'); p.querySelector('.spl-b').appendChild(sec); }
@@ -6431,7 +6431,7 @@ if (!SPLH) {
     const inp = /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName); if ((tp === 'click') === inp) return; const ru = splRuta(w, el); if (!ru) return;
     splSend({ t: 'spl-ev', pw: w.id.replace(/^pw-/, ''), ru, tp, v: el.value, c: el.checked });
   }, true));
-  setInterval(() => { if (!SPL.id || !SPL.ready) return; const cur = DK.cur || null; if (SPL.cur !== cur) { SPL.cur = cur; splSend({ t: 'spl-open', id: cur }); } }, 400);
+  setInterval(() => { if (!SPL.id || !SPL.ready) return; const cur = DK.cur === 'mapa' ? null : (DK.cur || null); if (SPL.cur !== cur) { SPL.cur = cur; splSend({ t: 'spl-open', id: cur }); } }, 400);
   setInterval(() => { if (!SPL.id || !SPL.ready) return; const f = $('spl-fr'); if (!f || !f.contentWindow) return; const c = {}, d = {}; let n = 0; CAPAS.forEach(([k]) => { if (k === 'mapa3d' || k === 'mapa') return; try { if (capaHay(k) || k === 'maqueta') c[k] = !!capaVis(k); } catch (_) { } }); for (const k in c) if (SPL.sent[k] !== c[k]) { d[k] = c[k]; n++; } if (n) { SPL.sent = c; f.contentWindow.postMessage({ t: 'spl-capas', c: d }, location.origin); } }, 800);
 } else {
   const want = {}, tries = {}; addEventListener('message', ev => { if (ev.origin === location.origin && ev.data && ev.data.t === 'spl-capas') Object.assign(want, ev.data.c); });
