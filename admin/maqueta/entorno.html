@@ -4427,8 +4427,14 @@ const cmpFmtD = m => m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(m < 10
 const cmpBase = () => { const S = curS; return S && S.lat != null ? { id: 'ref0', n: String(S.tit || S.titulo || 'Punto de la maqueta').replace(/\s*·\s*radio.*$/, '').slice(0, 80), lat: +S.lat, lng: +S.lng, src: 'maqueta', rol: 'ref' } : null; };
 const cmpPd = p => Math.max(1, Math.min(10, Math.round(+p.pd) || 5)), cmpSnap = () => CMP.pts.map(p => [p.id, p.n, p.lat, p.lng, p.rol, p.rol === 'comp' ? cmpPd(p) : null]), cmpDirty = () => JSON.stringify(cmpSnap()) !== CMP.saved;
 const cmpSinRol = () => CMP.pts.filter(p => !p.rol).length;
+function cmpCss2() {
+  if ($('cmp-css2')) return; const st = document.createElement('style'); st.id = 'cmp-css2';
+  st.textContent = '#pw-cmp .an-sl{display:flex;align-items:center;gap:8px;margin:6px 0 0;font-size:12px}#pw-cmp .an-sl input{flex:1;min-width:0}#pw-cmp .an-sl b{min-width:42px;text-align:right}#pw-cmp .an-slt{display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin:0 50px 4px 46px}'
+    + '#pw-cmp .an-sim{border:1px solid #c4b5fd;background:#f5f3ff;border-radius:10px;padding:8px;margin:8px 0}#pw-cmp .an-sh{font-weight:800;font-size:12.5px;color:#5b21b6;margin-bottom:4px}#pw-cmp .an-simr{border-top:1px solid #ddd6fe;margin-top:6px;padding-top:6px}'
+    + '#pw-cmp .an-sr{display:grid;grid-template-columns:1fr auto auto;gap:8px;font-size:11.5px;padding:3px 0;border-top:1px solid #ddd6fe}#pw-cmp .an-mz{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;margin:6px 0;font-size:11.5px;background:#fff;line-height:1.7}#pw-cmp .an-mz span{display:inline-flex;align-items:center;gap:4px;margin-right:10px}#pw-cmp .an-mz i{width:10px;height:10px;border-radius:2px;display:inline-block}'; document.head.appendChild(st);
+}
 function cmpCss() {
-  if ($('cmp-css')) return; const st = document.createElement('style'); st.id = 'cmp-css';
+  cmpCss2(); if ($('cmp-css')) return; const st = document.createElement('style'); st.id = 'cmp-css';
   st.textContent = '#pw-cmp .cmp-seg{display:flex;gap:4px;margin:0 0 8px}#pw-cmp .cmp-seg button{flex:1;padding:6px 4px;font-size:12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}#pw-cmp .cmp-seg button.on{background:#0f172a;color:#fff;border-color:#0f172a}'
     + '#pw-cmp .cmp-in{width:100%;box-sizing:border-box;font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;margin:0 0 6px}#pw-cmp .cmp-g2{display:grid;grid-template-columns:1fr 1fr;gap:6px}#pw-cmp .cmp-g2 label{font-size:10.5px;color:#64748b;font-weight:700;display:block}#pw-cmp .cmp-g2 select{width:100%;font-size:11.5px;padding:4px 6px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;margin:2px 0 6px}'
     + '#pw-cmp .cmp-row{display:flex;align-items:center;gap:6px;padding:5px 2px;border-bottom:1px solid #e2e8f0;font-size:11.5px}#pw-cmp .cmp-row .nm{flex:1;min-width:0}#pw-cmp .cmp-row .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#pw-cmp .cmp-row .nm span{display:block;color:#64748b;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
@@ -4538,7 +4544,7 @@ function cmpMarkers(G, S, pts, colf, nlab) {   // cada pin es un grupo con su po
     G.add(pin); });
 }
 function cmpEscala() {   // tamaño aparente constante: crece con la distancia a la cámara (×1 cerca, hasta ×40 en vista de ciudad)
-  if (!camera) return; [CMP.g, CMP.gs, CMP.gp].forEach(G => { if (!G) return; G.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(30, Math.max(1, d / 1800)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(150 * ls, 150 * .1875 * ls, 1); }); }); });
+  if (!camera) return; [CMP.g, CMP.gs, CMP.gp, CMP.an && CMP.an.gm].forEach(G => { if (!G) return; G.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(30, Math.max(1, d / 1800)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(150 * ls, 150 * .1875 * ls, 1); }); }); });
 }
 function cmpTick() { if (!CMP.on) { CMP.raf = 0; return; } try { cmpEscala(); } catch (_) { } CMP.raf = requestAnimationFrame(cmpTick); }
 function cmpDibuja() {
@@ -4585,10 +4591,10 @@ async function cmpInicia() {
   cmpRefresca(); if (!ok) { CMP.dmsg = 'No se pudo cargar el DENUE de esta ciudad.'; cmpResD(); }
 }
 // ── Competencia · resultados del enfoque A (accesibilidad por red vial): territorios, cuota de Huff, accesibilidad E2SFCA y tráfico
-CMP.an = { dm: 'pt', mg: 60, ver: true, modo: 'auto', hora: 'libre', beta: 2, T: 10, vista: 'terr', hm: 'ref', d: null, busy: false, msg: '', sel: null, iso: null, g: null, im: null, seq: 0, isq: 0 };
+CMP.an = { dm: 'pt', mg: 60, ver: true, modo: 'auto', hora: 'libre', beta: 2, T: 10, vista: 'terr', hm: 'ref', d: null, busy: false, msg: '', sel: null, iso: null, g: null, im: null, seq: 0, isq: 0, mn: 'all', isoH: 'libre', ov: false, isoC: {}, isoOv: null, gov: null, gb: null, bm: null, mzSel: null, gm: null, sim: { mover: false, pd: 5, pt: null, d: null, busy: false, msg: '', pick: false } };
 const CMP_API = 'https://api.check-inn.mx/mercado/maqueta/competencia/', CMP_HRS = [['libre', 'Flujo libre'], ['am', '8:00'], ['md', '13:00'], ['pm', '19:00']], cmpFmtN = n => Math.round(n).toLocaleString('es-MX');
 const CMP_PAL = ['#e6194b', '#3cb44b', '#f58231', '#911eb4', '#00a6a6', '#f032e6', '#9a6324', '#b8a400', '#800000', '#4b6b00', '#fb6f92', '#008080', '#7b61ff', '#a0522d', '#d946ef', '#65a30d', '#ea580c', '#be123c', '#0d9488', '#a16207', '#9333ea', '#16a34a', '#db2777', '#78716c', '#ca8a04', '#c026d3'], cmpAnCol = (f, j) => (CMP.an.cols && CMP.an.cols[j]) || (f.rol === 'ref' ? '#1d4ed8' : CMP_PAL[j % CMP_PAL.length]);
-const CMP_ISO = [[300, '#16a34a', '≤ 5 min'], [600, '#84cc16', '5–10'], [900, '#facc15', '10–15'], [1200, '#fb923c', '15–20'], [1800, '#ef4444', '20–30']], CMP_ACC = [['#475569', 'Sin oferta (desierto)'], ['#fde68a', 'Muy baja'], ['#fdba74', 'Baja'], ['#fb923c', 'Media'], ['#ef4444', 'Alta'], ['#7f1d1d', 'Saturación']];
+const CMP_MINC = [[2, '#16a34a', '≤ 2 min'], [4, '#84cc16', '2–4'], [6, '#facc15', '4–6'], [8, '#fb923c', '6–8'], [10, '#ef4444', '8–10'], [15, '#b91c1c', '10–15'], [1e9, '#7f1d1d', '> 15 min']], CMP_HC = { libre: ['#64748b', 'Libre'], am: ['#f59e0b', '8:00'], md: ['#84cc16', '13:00'], pm: ['#ef4444', '19:00'] }, CMP_ISO = [[300, '#16a34a', '≤ 5 min'], [600, '#84cc16', '5–10'], [900, '#facc15', '10–15'], [1200, '#fb923c', '15–20'], [1800, '#ef4444', '20–30']], CMP_ACC = [['#475569', 'Sin oferta (desierto)'], ['#fde68a', 'Muy baja'], ['#fdba74', 'Baja'], ['#fb923c', 'Media'], ['#ef4444', 'Alta'], ['#7f1d1d', 'Saturación']];
 function cmpMapaFondo(n) {   // al abrir el análisis se enciende el mapa de fondo «Calles» (si estaba en «Sin mapa»); reintenta mientras la maqueta termina de cargar
   n = n || 0; try { const bc = document.querySelector('#cap-base [data-b="calles"]'), of = document.querySelector('#cap-base [data-b="off"]'); if (bc && of && curS) { if (of.classList.contains('on') && !CMP.mapaAuto) { CMP.mapaAuto = true; bc.click(); } return; } } catch (_) { } if (n < 12) setTimeout(() => cmpMapaFondo(n + 1), 700);
 }
@@ -4606,14 +4612,14 @@ function cmpAnDisp(d, mg) {   // diferencia de tiempo entre el mejor competidor 
 const CMP_MET = [
   { ic: '🗺️', t: 'Áreas de servicio por isócronas (Voronoi sobre la red)', d: 'Mide cuánto tarda llegar a cada punto <b>por las calles reales</b> (no en línea recta) y asigna cada manzana del Censo al punto al que llega más rápido. Una isócrona es el conjunto de manzanas que se alcanzan en T minutos o menos.',
     o: 'Delimitar el territorio natural de cada punto y saber a cuánta gente llega primero que los demás.',
-    q: ['¿Cuánta gente tiene a mi punto como el más cercano?', '¿Cuál es mi competidor más directo y cuánta zona se disputan?', '¿Hay zonas que no alcanza ningún punto en un tiempo razonable?'],
+    q: ['¿Cuánta gente tiene a mi punto como el más cercano?', '¿Cuál es mi competidor más directo y cuánta zona se disputan?', '¿Hay zonas que no alcanza ningún punto en un tiempo razonable?', '¿Cuántos minutos tarda la gente de cada zona hasta el punto más cercano? (mapa «Minutos al más cercano»)'],
     f: 'tᵢⱼ = acceso_i + red(i→j) + acceso_j<br>dueño(i) = el punto j con menor tᵢⱼ<br>Territorio_j = Σ población de las manzanas cuyo dueño es j<br>Isócrona_j(T) = manzanas con tᵢⱼ ≤ T',
     v: ['<b>tᵢⱼ</b>: tiempo de viaje (s) de la manzana i al punto j, por el camino más corto (algoritmo de Dijkstra sobre la red de OpenStreetMap).', '<b>acceso</b>: tramo desde la manzana o el punto hasta la calle más cercana, a pie (4.8 km/h).', '<b>Velocidad en auto</b> por tipo de vía: autopista 80, troncal 65, primaria 50, secundaria 40, terciaria 35, local 25, servicio 15 km/h; se ajusta con Google Routes (ver «Efecto del tráfico»). Respeta sentidos de circulación.', '<b>A pie</b>: 4.8 km/h por cualquier calle excepto autopistas. Alcance máximo calculado: 25 min.'],
     e: 'Dos farmacias, A y B. Una manzana de 500 personas queda a 4 min de A y a 6 min de B: pertenece al territorio de A, que suma esas 500 personas. Si A tiene 12,000 personas en total en su territorio y B 8,000, A domina el 60 % de la gente asignada.',
     n: 'Es «el ganador se lo lleva todo»: si dos puntos están muy cerca, la diferencia de segundos decide toda la manzana (por eso se agregó la vista «Zona disputada»).' },
   { ic: '🧲', t: 'Modelo gravitacional de Huff (cuota de mercado)', d: 'Estima la probabilidad de que la gente de cada manzana compre en cada punto. Cada persona se reparte entre todos los puntos: los más atractivos y los más cercanos reciben más, pero ninguno se queda con todo.',
     o: 'Estimar qué porcentaje de los clientes potenciales captura cada punto y cuánto le quitaría un competidor nuevo.',
-    q: ['¿Qué cuota de mercado le corresponde a mi punto?', '¿Gano o pierdo frente a lo que me tocaría solo por mi atractivo?', '¿Qué tan sensible es mi cuota a cuánto pesa la distancia para el cliente?'],
+    q: ['¿Qué cuota de mercado le corresponde a mi punto?', '¿Gano o pierdo frente a lo que me tocaría solo por mi atractivo?', '¿Qué tan sensible es mi cuota a cuánto pesa la distancia para el cliente?', '¿Cuánta demanda captaría un punto nuevo (o mi referencia movida) y a quién se la quita? (simulador)', '¿Cómo se reparte cada manzana entre los puntos? (barras apiladas)'],
     f: 'Pᵢⱼ = Aⱼ · máx(1, tᵢⱼ)^(−β) / Σₖ [ Aₖ · máx(1, tᵢₖ)^(−β) ]<br>Cuota_j = Σᵢ (población_i · Pᵢⱼ) / Σᵢ población_i<br>Cuota justa_j = Aⱼ / Σₖ Aₖ',
     v: ['<b>Pᵢⱼ</b>: probabilidad de que la manzana i compre en el punto j.', '<b>Aⱼ</b>: atractivo = ponderador 1–10 del competidor. La referencia usa el promedio de los competidores.', '<b>tᵢⱼ</b>: tiempo de viaje en minutos (mínimo 1 para evitar ceros).', '<b>β</b>: sensibilidad a la distancia. A mayor β, el cliente castiga más la lejanía y el modelo se parece más a los territorios. Se muestran 1, 1.5, 2, 2.5 y 3; el valor 2 es el habitual en comercio urbano.', '<b>Cuota justa</b>: lo que le tocaría solo por su atractivo, sin distancia.'],
     e: 'Manzana de 1,000 personas, dos puntos con atractivo 5 cada uno, β = 2. A queda a 3 min y B a 6 min: A·3⁻² = 0.556 y B·6⁻² = 0.139. P(A) = 0.556 / 0.694 = 80 % y P(B) = 20 %. A recibe 800 personas y B 200. Si ambos quedaran a 6 min, serían 50 % y 50 %.',
@@ -4627,7 +4633,7 @@ const CMP_MET = [
     n: 'Es una medida relativa: «saturación» significa más oferta que el resto de la ciudad analizada, no un número absoluto.' },
   { ic: '🚦', t: 'Efecto del tráfico (calibrado con Google Routes)', d: 'Mide cuánto se encoge el alcance de cada punto cuando hay congestión. Se pide a Google Routes el tiempo con y sin tráfico en unos 6 pares de puntos (3 horas, un martes típico) y se aplica la proporción a toda la red, más fuerte en avenidas que en calles locales.',
     o: 'Saber qué tan sensible es cada punto a la hora pico y quién pierde más clientela potencial.',
-    q: ['¿Cuánta gente alcanzo a las 8:00, 13:00 o 19:00?', '¿Mi punto es más o menos sensible al tráfico que mis competidores?', '¿Mis tiempos de la red coinciden con los reales de Google?'],
+    q: ['¿Cuánta gente alcanzo a las 8:00, 13:00 o 19:00?', '¿Mi punto es más o menos sensible al tráfico que mis competidores?', '¿Mis tiempos de la red coinciden con los reales de Google?', '¿Cómo cambia el alcance hora por hora? (control deslizante y superposición de las 4 horas)'],
     f: 'f_h = mediana( duración con tráfico / duración sin tráfico )<br>k = mediana( duración sin tráfico de Google / tiempo de la red )<br>tiempo de un tramo = largo · (1 / velocidad) · k · (1 + w · (f_h − 1))<br>Pérdida_j = 1 − Cobertura_j(hora) / Cobertura_j(libre)',
     v: ['<b>f_h</b>: factor de congestión de la hora h (8:00, 13:00, 19:00).', '<b>k</b>: ajuste de las velocidades de la red para que coincidan con Google.', '<b>w</b>: cuánta congestión se aplica según la vía: 1 en autopistas, troncales y primarias, 0.9 secundarias, 0.6 terciarias y 0.3 locales.', '<b>Cobertura</b>: población que se alcanza en T minutos.'],
     e: 'Google indica que un trayecto de 10 min sin tráfico toma 12 a las 19:00: f = 1.2. En una avenida (w = 1) el tramo pasa de 10 a 12 min; en una calle local (w = 0.3), de 10 a 10.6 min. Si la cobertura de un punto baja de 60,000 a 45,000 personas, su pérdida en hora pico es 25 %.',
@@ -4663,44 +4669,105 @@ function cmpAyuda(r) {
   const abre = on => { p.style.display = on ? '' : 'none'; b.classList.toggle('on', on); if (on) { p.scrollIntoView({ block: 'start' }); } };
   b.addEventListener('click', e => { e.stopPropagation(); abre(p.style.display === 'none'); }); b.addEventListener('pointerdown', e => e.stopPropagation()); p.querySelector('.mt-x').addEventListener('click', () => abre(false));
 }
-function cmpAnQuita() { const A = CMP.an; if (A.g) { if (A.g.parent) A.g.parent.remove(A.g); A.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.g = null; A.im = null; } }
+function cmpAnQuita() { const A = CMP.an; cmpAnBarrasEv(false); if (A.g) { if (A.g.parent) A.g.parent.remove(A.g); A.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.g = null; A.im = null; A.gov = null; A.gb = null; A.bm = null; } if (A.gm) { if (A.gm.parent) A.gm.parent.remove(A.gm); A.gm = null; } }
 function cmpAnDib() {   // una sola malla: el polígono real de cada manzana sobre el suelo, con color por vértice
-  cmpAnQuita(); const A = CMP.an, d = A.d, S = curS; if (!d || !world || !S || S.lat == null || !CMP.on) return; const M = d.nz, kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, pos = [], idx = [], rng = []; let vc = 0;
+  cmpAnQuita(); const A = CMP.an, d = A.d, S = curS; if (!d || !world || !S || S.lat == null || !CMP.on) return; const M = d.nz, kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, pos = [], idx = [], rng = [], irg = []; let vc = 0;
   for (let i = 0; i < M; i++) {
     const cx = (q.ln[i] - S.lng) * kx, cz = -(q.la[i] - S.lat) * 111320, P = q.pl && q.pl[i]; let pts = [];
     if (P && P.length >= 6) for (let k = 0; k + 1 < P.length; k += 2) pts.push(new THREE.Vector2(cx + P[k] / 10, cz - P[k + 1] / 10)); else { const h = q.sd[i] / 2; pts = [new THREE.Vector2(cx - h, cz - h), new THREE.Vector2(cx + h, cz - h), new THREE.Vector2(cx + h, cz + h), new THREE.Vector2(cx - h, cz + h)]; }
     let tri = []; try { tri = THREE.ShapeUtils.triangulateShape(pts, []); } catch (_) { } if (!tri.length) for (let k = 1; k + 1 < pts.length; k++) tri.push([0, k, k + 1]);
-    pts.forEach(v => pos.push(v.x, 2.2, v.y)); tri.forEach(t => idx.push(vc + t[0], vc + t[1], vc + t[2])); rng.push([vc, pts.length]); vc += pts.length;
+    pts.forEach(v => pos.push(v.x, 2.2, v.y)); const i0 = idx.length; tri.forEach(t => idx.push(vc + t[0], vc + t[1], vc + t[2])); irg.push([i0, idx.length - i0]); rng.push([vc, pts.length]); vc += pts.length;
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vc * 3).fill(.6), 3)); geo.setIndex(idx);
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .72, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -80, polygonOffsetUnits: -80 })); mesh.renderOrder = 30; mesh.frustumCulled = false; mesh.userData.noPick = 1;
-  const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.visible = A.ver; G.add(mesh); world.add(G); A.g = G; A.im = mesh; A.rng = rng; cmpAnPinta();
+  const G = new THREE.Group(); G.userData.keep = true; G.userData.noPick = 1; G.visible = A.ver; G.add(mesh); world.add(G); A.g = G; A.im = mesh; A.rng = rng; A.irg = irg; cmpAnPinta();
 }
 function cmpAnPinta() {
   const A = CMP.an, d = A.d; if (!A.im || !d) return; const q = d.mz, M = d.nz, c = new THREE.Color(), blanco = new THREE.Color('#ffffff'), gris = new THREE.Color('#cbd5e1'), cols = d.fac.map((f, j) => new THREE.Color(cmpAnCol(f, j))), col = A.im.geometry.attributes.color.array;
   const modoIso = A.iso && (A.vista === 'traf' || A.sel); if (A.vista === 'terr' && A.dm === 'disp') A.dk = cmpAnDisp(d, A.mg).k;
   for (let i = 0; i < M; i++) {
-    if (modoIso) { const t = A.iso[i]; if (t < 0) { c.copy(gris).lerp(blanco, .4); } else { const b = CMP_ISO.find(x => t <= x[0]); c.set(b ? b[1] : '#ef4444'); } }
+    if (modoIso && A.ov) c.copy(gris).lerp(blanco, .6);
+    else if (modoIso) { const t = A.iso[i]; if (t < 0) { c.copy(gris).lerp(blanco, .4); } else { const b = CMP_ISO.find(x => t <= x[0]); c.set(b ? b[1] : '#ef4444'); } }
+    else if (A.vista === 'terr' && A.dm === 'min') { const t = (A.mn === 'comp' ? q.tc : A.mn === 'ref' ? q.tr : q.t)[i]; if (t < 0) c.copy(gris); else c.set(CMP_MINC.find(x => t / 60 <= x[0])[1]); }
     else if (A.vista === 'terr' && A.dm === 'disp') { const k = A.dk ? A.dk[i] : 3; c.set(['#1d4ed8', '#f59e0b', '#dc2626', '#cbd5e1'][k]); }
     else if (A.vista === 'terr') { if (q.own[i] < 0) c.copy(gris); else { c.copy(cols[q.own[i]]); c.lerp(blanco, Math.min(.4, q.t[i] / 1200 * .4)); if (A.bord && A.bord[i]) c.multiplyScalar(.55); } }
-    else if (A.vista === 'huff') { if (q.hw[i] < 0) c.copy(gris); else if (A.hm === 'ref') { const r = q.rp[i] / 100; c.set('#dc2626'); c.lerp(new THREE.Color('#e2e8f0'), Math.min(1, r * 2)); if (r > .5) c.lerp(new THREE.Color('#1d4ed8'), Math.min(1, (r - .5) * 2)); } else { c.copy(cols[q.hw[i]]); c.lerp(blanco, 1 - q.hp[i] / 100 * .9 - .1); } }
+    else if (A.vista === 'huff') { if (A.hm === 'bars') c.set('#e5e7eb'); else if (q.hw[i] < 0) c.copy(gris); else if (A.hm === 'ref') { const r = q.rp[i] / 100; c.set('#dc2626'); c.lerp(new THREE.Color('#e2e8f0'), Math.min(1, r * 2)); if (r > .5) c.lerp(new THREE.Color('#1d4ed8'), Math.min(1, (r - .5) * 2)); } else { c.copy(cols[q.hw[i]]); c.lerp(blanco, 1 - q.hp[i] / 100 * .9 - .1); } }
     else if (A.vista === 'acc') { const a = q.acc[i], k = a <= 0 ? 0 : a <= d.qs[0] ? 1 : a <= d.qs[1] ? 2 : a <= d.qs[2] ? 3 : a <= d.qs[3] ? 4 : 5; c.set(CMP_ACC[k][0]); }
     else c.set('#94a3b8');
     const [v0, n] = A.rng[i]; for (let k = 0; k < n; k++) { const o = (v0 + k) * 3; col[o] = c.r; col[o + 1] = c.g; col[o + 2] = c.b; }
   }
-  A.im.geometry.attributes.color.needsUpdate = true;
+  A.im.geometry.attributes.color.needsUpdate = true; try { cmpAnBarras(); cmpAnOv(); } catch (e) { console.warn('extras', e); }
 }
-async function cmpAnIso(fid) {   // isócrona de un punto: tiempo de viaje a cada manzana
-  const A = CMP.an, sq = ++A.isq; A.sel = fid; A.iso = null; cmpRes(); if (!fid) { cmpAnPinta(); return; }
-  try { const j = await fetch(`${CMP_API}isocrona?id=${ID}&modo=${A.modo}&hora=${A.hora}&f=${encodeURIComponent(fid)}`, { cache: 'no-store' }).then(r => r.json()); if (sq !== A.isq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.iso = j.t; } catch (e) { visToast('No se pudo calcular la isócrona: ' + e.message, true); A.sel = null; }
+async function cmpAnIsoT(fid, hora) {   // tiempo (s) del punto a cada manzana a esa hora, con caché
+  const A = CMP.an, k = A.modo + '|' + fid + '|' + hora; if (A.isoC[k]) return A.isoC[k];
+  const j = await fetch(`${CMP_API}isocrona?id=${ID}&modo=${A.modo}&hora=${hora}&f=${encodeURIComponent(fid)}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); return (A.isoC[k] = j.t);
+}
+async function cmpAnIso(fid) {   // isócrona de un punto: tiempo de viaje a cada manzana (a la hora del control deslizante y, si se pide, las 4 horas superpuestas)
+  const A = CMP.an, sq = ++A.isq; A.sel = fid; A.iso = null; A.isoOv = null; cmpRes(); if (!fid) { cmpAnPinta(); return; }
+  try { const h = A.modo === 'auto' ? (A.isoH || 'libre') : 'libre'; A.iso = await cmpAnIsoT(fid, h); if (sq !== A.isq) return;
+    if (A.ov && A.modo === 'auto') { const o = { fid }; for (const hh of ['libre', 'am', 'md', 'pm']) { o[hh] = await cmpAnIsoT(fid, hh); if (sq !== A.isq) return; } A.isoOv = o; } }
+  catch (e) { visToast('No se pudo calcular la isócrona: ' + e.message, true); A.sel = null; }
   cmpRes(); cmpAnPinta();
+}
+function cmpAnOv() {   // las isócronas de las 4 horas, una sobre otra con transparencia
+  const A = CMP.an, on = !!(A.g && A.im && A.d && A.ov && A.sel && A.isoOv && A.isoOv.fid === A.sel && A.irg && A.modo === 'auto'), k = A.sel + '|' + A.T;
+  if (A.gov && (!on || A.gov.__k !== k)) { A.g.remove(A.gov); A.gov.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.gov = null; }
+  if (!on || A.gov) return;
+  const lim = A.T * 60, base = A.im.geometry, idx = base.index.array, G = new THREE.Group(); G.__k = k; G.userData.noPick = 1;
+  ['libre', 'am', 'md', 'pm'].forEach((h, n) => { const t = A.isoOv[h]; if (!t) return; const ids = []; for (let i = 0; i < t.length; i++) if (t[i] >= 0 && t[i] <= lim) { const [s0, c] = A.irg[i]; for (let z = 0; z < c; z++) ids.push(idx[s0 + z]); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', base.attributes.position); g.setIndex(new THREE.Uint32BufferAttribute(ids, 1)); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: CMP_HC[h][0], transparent: true, opacity: .4, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -90 - n * 2, polygonOffsetUnits: -90 - n * 2 })); m.renderOrder = 31 + n; m.frustumCulled = false; m.userData.noPick = 1; G.add(m); });
+  A.g.add(G); A.gov = G;
+}
+function cmpAnBarrasEv(on) {   // clic en una barra: muestra el reparto de esa manzana
+  const A = CMP.an, cv = renderer.domElement; if (!on) { if (A.bev) { cv.removeEventListener('pointerdown', A.bev[0], true); cv.removeEventListener('pointerup', A.bev[1], true); A.bev = null; } return; } if (A.bev) return;
+  let dn = null; const ray = new THREE.Raycaster(), nd = new THREE.Vector2(), dw = e => { dn = [e.clientX, e.clientY]; }, up = e => { const d0 = dn; dn = null; if (!d0 || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5 || !A.bm || A.sim.pick) return; const rc = cv.getBoundingClientRect(); nd.set((e.clientX - rc.left) / rc.width * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(nd, camera); const h = ray.intersectObject(A.bm, false)[0]; if (!h || h.instanceId == null) return; A.mzSel = A.bmap[h.instanceId]; cmpRes(); };
+  cv.addEventListener('pointerdown', dw, true); cv.addEventListener('pointerup', up, true); A.bev = [dw, up];
+}
+function cmpAnBarras() {   // barras apiladas: cada manzana es una columna (altura ∝ población) dividida por la probabilidad de Huff de cada punto
+  const A = CMP.an, d = A.d, on = !!(d && A.g && A.vista === 'huff' && A.hm === 'bars' && d.mz.pj);
+  if (A.gb && (!on || A.gb.__d !== d)) { A.g.remove(A.gb); A.gb.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); A.gb = null; A.bm = null; }
+  cmpAnBarrasEv(on); if (!on || A.gb) return;
+  const S = curS, kx = 111320 * Math.cos(+S.lat * Math.PI / 180), q = d.mz, M = d.nz, KP = 4, cols = d.fac.map((f, j) => new THREE.Color(cmpAnCol(f, j))), gris = new THREE.Color('#94a3b8'); let pmax = 1; for (let i = 0; i < M; i++) if (q.pop[i] > pmax) pmax = q.pop[i];
+  const items = []; for (let i = 0; i < M; i++) { if (q.hw[i] < 0 || !(q.pop[i] > 0)) continue; const h = 4 + 66 * Math.pow(q.pop[i] / pmax, .6), w = Math.max(5, Math.min(14, q.sd[i] * .5)), cx = (q.ln[i] - S.lng) * kx, cz = -(q.la[i] - S.lat) * 111320; let y = 0, sum = 0;
+    for (let z = 0; z < KP; z++) { const j = q.pj[i * KP + z], pr = q.pp[i * KP + z]; if (j < 0 || !pr) break; sum += pr; const hs = h * pr / 100; items.push({ i, cx, cz, y, hs, w, c: cols[j] }); y += hs; } if (sum < 99) items.push({ i, cx, cz, y, hs: h * (100 - sum) / 100, w, c: gris }); }
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), items.length), m4 = new THREE.Matrix4(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), qt = new THREE.Quaternion(), map = new Int32Array(items.length);
+  items.forEach((it, k) => { ps.set(it.cx, it.y + it.hs / 2 + 2.3, it.cz); sc.set(it.w, Math.max(.3, it.hs - .15), it.w); m4.compose(ps, qt, sc); im.setMatrixAt(k, m4); im.setColorAt(k, it.c); map[k] = it.i; });
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.frustumCulled = false; im.userData.noPick = 1; im.renderOrder = 35; const G = new THREE.Group(); G.userData.noPick = 1; G.__d = d; G.add(im); A.g.add(G); A.gb = G; A.bm = im; A.bmap = map;
+}
+// ── simulación de un punto nuevo (Huff): se calcula en el servidor sin consultar a Google y se compara contra el análisis base
+function cmpAnSimMarker() {
+  const A = CMP.an; if (A.gm) { if (A.gm.parent) A.gm.parent.remove(A.gm); A.gm = null; } const S = curS, pt = A.sim.pt; if (!pt || !world || !S) return;
+  const G = new THREE.Group(); cmpMarkers(G, S, [{ n: 'Punto nuevo', lat: pt.lat, lng: pt.lng, rol: 'sel' }], () => '#7c3aed', 1); G.userData.keep = true; world.add(G); A.gm = G;
+}
+async function cmpAnSim() {
+  const A = CMP.an, S_ = A.sim; if (!S_.pt || !A.d || S_.busy) return; S_.busy = true; S_.msg = ''; S_.d = null; cmpRes();
+  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, sim: { lat: S_.pt.lat, lng: S_.pt.lng, pd: S_.pd, mover: S_.mover } }) }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'Error'); S_.d = j; }
+  catch (e) { S_.msg = 'No se pudo simular: ' + e.message; } S_.busy = false; cmpRes();
+}
+function cmpAnSimPick(on) {
+  const A = CMP.an, S_ = A.sim, cv = renderer.domElement; if (S_.pick === on) return; S_.pick = on; if (S_.pickOff) { S_.pickOff(); S_.pickOff = null; } cv.style.cursor = on ? 'crosshair' : ''; cmpRes(); if (!on) return;
+  const ray = new THREE.Raycaster(), nd = new THREE.Vector2(), pl = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); let dn = null;
+  const dw = e => { dn = [e.clientX, e.clientY]; }, key = e => { if (e.key === 'Escape') cmpAnSimPick(false); };
+  const up = e => { const d0 = dn; dn = null; if (!d0 || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return; const rc = cv.getBoundingClientRect(); nd.set((e.clientX - rc.left) / rc.width * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1); ray.setFromCamera(nd, camera); const pt = new THREE.Vector3(); if (!ray.ray.intersectPlane(pl, pt)) return; const S = curS; if (!S) return; e.stopPropagation(); e.preventDefault();
+    S_.pt = { lat: +S.lat - pt.z / 111320, lng: +S.lng + pt.x / (111320 * Math.cos(+S.lat * Math.PI / 180)) }; cmpAnSimPick(false); cmpAnSimMarker(); cmpAnSim(); };
+  cv.addEventListener('pointerdown', dw, true); cv.addEventListener('pointerup', up, true); addEventListener('keydown', key, true); S_.pickOff = () => { cv.removeEventListener('pointerdown', dw, true); cv.removeEventListener('pointerup', up, true); removeEventListener('keydown', key, true); };
+}
+function cmpAnSimRes() {
+  const A = CMP.an, S_ = A.sim, b = A.d, s = S_.d; if (!s) return ''; const nuevo = s.fac.find(f => f.id === 'sim'); if (!nuevo) return '';
+  const refsB = b.fac.filter(f => f.rol === 'ref'), capB = refsB.reduce((a, f) => a + f.capPct, 0), capS = s.fac.filter(f => f.rol === 'ref').reduce((a, f) => a + f.capPct, 0), sb = new Map(b.fac.map(f => [f.id, f])), N = x => cmpFmtN(Math.abs(x)), sg = x => (x > 0 ? '+' : x < 0 ? '−' : '±') + N(x), pf = x => Math.round(x * 10) / 10;
+  const rows = s.fac.filter(f => f.id !== 'sim' && sb.has(f.id)).map(f => { const o = sb.get(f.id); return { f, o, dp: f.capPct - o.capPct, dh: f.cap - o.cap }; }), comp = rows.filter(r => r.f.rol === 'comp'), mis = rows.filter(r => r.f.rol === 'ref');
+  const pierdeC = comp.reduce((a, r) => a + Math.min(0, r.dh), 0), pierdeM = mis.reduce((a, r) => a + Math.min(0, r.dh), 0), top = comp.slice().sort((x, y) => x.dh - y.dh).filter(r => r.dh < -1).slice(0, 5);
+  const txt = S_.mover ? `Si <b>mueve su referencia</b> a este punto (atractivo ${S_.pd}), su cuota de mercado pasaría de <b>${pf(capB)} %</b> a <b>${pf(capS)} %</b> (<b>${pf(capS - capB) >= 0 ? '+' : ''}${pf(capS - capB)} puntos</b>), unas ${N(nuevo.cap)} personas.`
+    : `Un punto nuevo con atractivo ${S_.pd} captaría <b>${pf(nuevo.capPct)} %</b> de la demanda (≈ <b>${N(nuevo.cap)} personas</b>). Su cuota total (referencias actuales + el punto nuevo) pasaría de <b>${pf(capB)} %</b> a <b>${pf(capS)} %</b> (<b>${pf(capS - capB) >= 0 ? '+' : ''}${pf(capS - capB)} puntos</b>)${pierdeM < -1 ? `; de esa ganancia, ${N(pierdeM)} personas se las quita a sus propios puntos actuales (canibalización)` : ''}.`;
+  const dif = Math.abs(s.totPop - b.totPop) / (b.totPop || 1) > .01 ? `<div class="an-h" style="margin:4px 0 0">La zona analizada cambió ${N(s.totPop - b.totPop)} hab. porque el punto nuevo amplió el radio de cálculo; los porcentajes son comparables.</div>` : '';
+  return `<div class="an-simr"><div class="an-h" style="margin:0 0 4px;color:#1e1b4b">${txt}</div>${top.length ? `<div class="an-sub">A quién se la quita</div>` + top.map(r => `<div class="an-sr"><span>${esc_(r.f.n)}</span><span>${pf(r.o.capPct)} → ${pf(r.f.capPct)} %</span><span>${sg(r.dh)} hab.</span></div>`).join('') + `<div class="an-sr"><span><b>Todos los competidores</b></span><span></span><span><b>${sg(pierdeC)} hab.</b></span></div>` : '<div class="an-h" style="margin:0">A los competidores les quita menos de 1,000 personas en total.</div>'}${dif}<div class="an-nt" style="margin-top:6px">Estimación con el mismo modelo de Huff (β ${b.params.beta}); no considera que la competencia reaccione ni que cambie la demanda.</div></div>`;
 }
 async function cmpAnaliza(calibra, desdeBoton) {
   const A = CMP.an; if (A.busy) return; if (cmpSinRol()) { visToast('Clasifique todos los puntos primero', true); return; }
   if (!CMP.pts.some(p => p.rol === 'ref') || !CMP.pts.some(p => p.rol === 'comp')) { A.msg = 'Marque al menos un punto de referencia y un competidor.'; cmpRes(); return; }
   if (cmpDirty()) { await cmpGuarda(); if (cmpDirty()) return; }
   const sq = ++A.seq; A.busy = true; A.msg = (A.modo === 'auto' && (A.hora !== 'libre' || calibra)) ? '⏳ Calculando sobre la red vial y calibrando con Google Routes (la primera vez tarda ~30 s)…' : '⏳ Calculando tiempos de viaje sobre la red vial…'; cmpRes(); if (desdeBoton) { const e = CMP.rb && CMP.rb.querySelector('.an-top'); if (e) e.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, calibra: !!calibra }) }).then(r => r.json()); if (sq !== A.seq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.d = j; A.iso = null; A.sel = null; A.msg = ''; cmpAnColorea(j); cmpAnDib(); }
+  try { const j = await fetch(CMP_API + 'analisis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ID, modo: A.modo, hora: A.modo === 'auto' ? A.hora : 'libre', beta: A.beta, T: A.T, calibra: !!calibra }) }).then(r => r.json()); if (sq !== A.seq) return; if (!j.ok) throw new Error(j.error || 'Error'); A.d = j; A.iso = null; A.sel = null; A.isoOv = null; A.isoC = {}; A.isoH = A.modo === 'auto' ? A.hora : 'libre'; A.mzSel = null; A.sim.d = null; A.sim.msg = ''; A.msg = ''; cmpAnColorea(j); cmpAnDib(); if (A.sim.pt) cmpAnSimMarker(); }
   catch (e) { A.msg = 'No se pudo analizar: ' + e.message; }
   A.busy = false; cmpRes();
 }
@@ -4750,14 +4817,18 @@ function cmpRes() {
   const F = d.fac.map((f, j) => [f, j]);
   if (A.vista === 'terr') {
     const L = F.slice().sort((a, b) => b[0].pop - a[0].pop), mx = L[0][0].pop;
-    const ds = cmpAnDisp(d, A.mg), sg = `<div class="an-seg"><button class="an-b${A.dm === 'pt' ? ' on' : ''}" data-an="dm" data-v="pt">Por punto</button><button class="an-b${A.dm === 'disp' ? ' on' : ''}" data-an="dm" data-v="disp">⚔️ Zona disputada</button></div>`;
+    const ds = cmpAnDisp(d, A.mg), sg = `<div class="an-seg"><button class="an-b${A.dm === 'pt' ? ' on' : ''}" data-an="dm" data-v="pt">Por punto</button><button class="an-b${A.dm === 'disp' ? ' on' : ''}" data-an="dm" data-v="disp">⚔️ Zona disputada</button><button class="an-b${A.dm === 'min' ? ' on' : ''}" data-an="dm" data-v="min">⏱️ Minutos al más cercano</button></div>`;
     const disp = A.dm === 'disp' ? `<div class="an-r" style="margin:0 0 6px"><span title="Una manzana es disputada si el mejor competidor y la mejor referencia le quedan a una diferencia de tiempo menor a este margen">Margen</span>${[30, 60, 120].map(v => bt('mg', v, v < 60 ? v + ' s' : v / 60 + ' min')).join('')}</div>`
       + `<div class="an-h">Compara cada manzana entre tu referencia y el <b>mejor competidor</b>: si la diferencia de tiempo de viaje es menor al margen, no hay un dueño claro.</div><div class="an-leg"><span><i style="background:#1d4ed8"></i>Claramente de la referencia<small>${pc(ds.ref, tot)} %</small></span><span><i style="background:#f59e0b"></i>Disputada<small>${pc(ds.disp, tot)} %</small></span><span><i style="background:#dc2626"></i>Claramente de competidores<small>${pc(ds.comp, tot)} %</small></span>${ds.sin ? `<span><i style="background:#cbd5e1"></i>Sin acceso<small>${pc(ds.sin, tot)} %</small></span>` : ''}</div>` : '';
-    cuerpo = sg + disp + `<div class="an-h">Territorio = manzanas cuyo punto más cercano <b>por tiempo de viaje</b> es ese. Más claro = más lejos. Clic en un punto para ver su isócrona.</div>` + L.map(([f, j]) => fila(f, j, `${bar(f.pop, mx, cmpAnCol(f, j))}<span class="an-n">${cmpFmtN(f.pop)}<small>${pc(f.pop, tot)} % · ${f.tmed == null ? '–' : f.tmed + ' min'}</small></span>`)).join('');
+    let mnh = ''; if (A.dm === 'min') { const arr = A.mn === 'comp' ? d.mz.tc : A.mn === 'ref' ? d.mz.tr : d.mz.t, cl = CMP_MINC.map(() => 0); let sin = 0, ws = 0, wp = 0; const ord = []; for (let i = 0; i < d.nz; i++) { const t = arr[i]; if (t < 0) { sin += d.mz.pop[i]; continue; } cl[CMP_MINC.findIndex(x => t / 60 <= x[0])] += d.mz.pop[i]; ws += t * d.mz.pop[i]; wp += d.mz.pop[i]; ord.push([t, d.mz.pop[i]]); } ord.sort((a, b) => a[0] - b[0]); let ac = 0, p80 = 0; for (const [t, w] of ord) { ac += w; if (ac >= .8 * wp) { p80 = t; break; } }
+      mnh = `<div class="an-r" style="margin:0 0 6px"><span>Hasta</span>${[['all', 'Cualquier punto'], ['comp', 'Competidor'], ['ref', 'Mi referencia']].map(([k, t]) => bt('mn', k, t)).join('')}</div><div class="an-h">Minutos de viaje de cada manzana al <b>${A.mn === 'comp' ? 'competidor más cercano' : A.mn === 'ref' ? 'punto de referencia más cercano' : 'punto más cercano (cualquiera)'}</b>${A.modo === 'auto' ? ' en auto' : ' a pie'}. En promedio la gente tarda <b>${wp ? Math.round(ws / wp / 6) / 10 : '–'} min</b> y el 80 % llega en <b>${Math.round(p80 / 6) / 10} min</b> o menos.</div><div class="an-leg">${CMP_MINC.map((c, k) => `<span><i style="background:${c[1]}"></i>${c[2]}<small>${pc(cl[k], tot)} %</small></span>`).join('')}${sin ? `<span><i style="background:#cbd5e1"></i>Sin acceso<small>${pc(sin, tot)} %</small></span>` : ''}</div>`; }
+    cuerpo = sg + disp + mnh + `<div class="an-h">Territorio = manzanas cuyo punto más cercano <b>por tiempo de viaje</b> es ese. Más claro = más lejos. Clic en un punto para ver su isócrona.</div>` + L.map(([f, j]) => fila(f, j, `${bar(f.pop, mx, cmpAnCol(f, j))}<span class="an-n">${cmpFmtN(f.pop)}<small>${pc(f.pop, tot)} % · ${f.tmed == null ? '–' : f.tmed + ' min'}</small></span>`)).join('');
   } else if (A.vista === 'huff') {
     const L = F.slice().sort((a, b) => b[0].cap - a[0].cap), mx = L[0][0].cap, ref = d.fac.filter(f => f.rol === 'ref').reduce((a, f) => a + f.capPct, 0);
-    cuerpo = `<div class="an-seg"><button class="an-b${A.hm === 'ref' ? ' on' : ''}" data-an="hm" data-v="ref">Cuota de mi referencia</button><button class="an-b${A.hm === 'win' ? ' on' : ''}" data-an="hm" data-v="win">Quién gana cada manzana</button></div>`
+    cuerpo = `<div class="an-seg"><button class="an-b${A.hm === 'ref' ? ' on' : ''}" data-an="hm" data-v="ref">Cuota de mi referencia</button><button class="an-b${A.hm === 'win' ? ' on' : ''}" data-an="hm" data-v="win">Quién gana cada manzana</button><button class="an-b${A.hm === 'bars' ? ' on' : ''}" data-an="hm" data-v="bars">📊 Barras apiladas</button></div>`
       + `<div class="an-h">Probabilidad de que cada manzana compre en cada punto: atracción (ponderador, la referencia usa ${d.params.aRef}) ÷ tiempo<sup>β</sup>. <b>La referencia captura ${Math.round(ref * 10) / 10} % de la demanda.</b> Sensibilidad a β: ${d.sens.map(s => `${s.beta} → <b>${s.ref} %</b>`).join(' · ')}.</div>`
+      + (A.hm === 'bars' ? `<div class="an-h">Cada columna es una manzana: su <b>altura crece con la población</b> y se divide en tramos según la <b>probabilidad de comprar en cada punto</b> (los colores de la lista; gris = otros puntos menores). Toque una columna para ver su reparto.</div>` + (A.mzSel != null && d.mz.pj ? (() => { const i = A.mzSel, q = d.mz, r = []; let sum = 0; for (let z = 0; z < 4; z++) { const j = q.pj[i * 4 + z], pr = q.pp[i * 4 + z]; if (j < 0 || !pr) break; sum += pr; r.push(`<span><i style="background:${cmpAnCol(d.fac[j], j)}"></i>${esc_(d.fac[j].n)} <b>${pr} %</b></span>`); } if (sum < 99) r.push(`<span><i style="background:#94a3b8"></i>otros <b>${100 - sum} %</b></span>`); return `<div class="an-mz"><b>Manzana de ${cmpFmtN(q.pop[i])} habitantes</b>${q.t[i] >= 0 ? ' · ' + Math.round(q.t[i] / 6) / 10 + ' min al punto más cercano' : ''}<br>${r.join('')}</div>`; })() : '') : '')
+      + (() => { const S_ = A.sim; return `<div class="an-sim"><div class="an-sh">🧪 Simular un punto nuevo</div><div class="an-h" style="margin:0 0 6px">Coloque un punto en el mapa y vea cuánta demanda captaría y a quién se la quita (mismo modelo de Huff; no consulta a Google).</div><div class="an-r"><span>Qué hacer</span>${[['add', '➕ Agregar punto'], ['mov', '🔀 Mover mi referencia']].map(([k, t]) => `<button class="an-b${(S_.mover ? 'mov' : 'add') === k ? ' on' : ''}" data-an="smode" data-v="${k}">${t}</button>`).join('')}</div><div class="an-r"><span title="Atractivo del punto nuevo, de 1 a 10">Atractivo</span>${[3, 5, 7, 9].map(v => `<button class="an-b${S_.pd === v ? ' on' : ''}" data-an="spd" data-v="${v}">${v}</button>`).join('')}</div><div class="btnrow" style="margin:6px 0"><button class="cmp-an an-sp">${S_.pick ? '⏹ Cancelar (Esc)' : '📍 Colocar punto nuevo en el mapa'}</button>${S_.pt ? '<button class="cmp-an an-sq" style="background:#fff;color:#334155;border:1px solid #cbd5e1">✕ Quitar</button>' : ''}</div>${S_.busy ? '<div class="cmp-warn" style="background:#eff6ff;border-color:#93c5fd;color:#1e3a8a">⏳ Calculando…</div>' : S_.msg ? `<div class="cmp-warn">${esc_(S_.msg)}</div>` : ''}${S_.d ? cmpAnSimRes() : ''}</div>`; })()
       + L.map(([f, j]) => fila(f, j, `${bar(f.cap, mx, cmpAnCol(f, j))}<span class="an-n">${f.capPct} %<small>${cmpFmtN(f.cap)} hab.</small></span>`)).join('');
   } else if (A.vista === 'acc') {
     const q = d.mz, cls = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < d.nz; i++) { const a = q.acc[i]; cls[a <= 0 ? 0 : a <= d.qs[0] ? 1 : a <= d.qs[1] ? 2 : a <= d.qs[2] ? 3 : a <= d.qs[3] ? 4 : 5] += q.pop[i]; }
@@ -4776,24 +4847,34 @@ function cmpRes() {
         + `<div class="an-sub">Calibración de la red con Google (${tr.cal.n} pares · ${esc_(tr.cal.dia || '')}) — factor de velocidad de la red ×${tr.cal.kg}</div>` + (tr.cal.val || []).map(v => `<div class="an-cv">${esc_(v.a)} → ${esc_(v.b)} · ${v.km} km · Google <b>${v.google}</b> min · red <b>${v.red}</b> min</div>`).join('');
     }
   }
-  const iso = A.sel && A.iso ? `<div class="an-leg"><b style="font-size:11px">Isócrona de «${esc_((d.fac.find(f => f.id === A.sel) || {}).n || '')}»</b>${CMP_ISO.map(c => `<span><i style="background:${c[1]}"></i>${c[2]}</span>`).join('')}<button class="an-x" data-an="quitaiso">✕ Quitar</button></div>` : '';
+  let iso = ''; if (A.sel && A.iso) { const H4 = ['libre', 'am', 'md', 'pm'], hi = Math.max(0, H4.indexOf(A.isoH || 'libre')), pw = t => { let c = 0, lim = d.params.T * 60; for (let i = 0; i < d.nz; i++) if (t[i] >= 0 && t[i] <= lim) c += d.mz.pop[i]; return c; };
+    const sl = A.modo === 'auto' ? `<div class="an-sl"><span>Hora</span><input type="range" min="0" max="3" step="1" value="${hi}" data-sl="isoh"><b id="an-slv">${CMP_HC[H4[hi]][1]}</b></div><div class="an-slt"><span>Libre</span><span>8:00</span><span>13:00</span><span>19:00</span></div><div class="an-r" style="margin:4px 0"><button class="an-b${A.ov ? ' on' : ''}" data-an="ov">${A.ov ? '✓ ' : ''}Superponer las 4 horas</button></div>${d.cal && d.cal.calibrado ? '' : '<div class="an-h" style="margin:0 0 4px">Las horas se parecen entre sí hasta calibrar con Google (pestaña 🚦 Tráfico).</div>'}` : '';
+    let ovl = ''; if (A.ov && A.isoOv) { const c0 = pw(A.isoOv.libre); ovl = `<div class="an-leg">${H4.map(h => { const c = pw(A.isoOv[h]); return `<span><i style="background:${CMP_HC[h][0]}"></i>${CMP_HC[h][1]}<small>${cmpFmtN(c)} hab.${h !== 'libre' && c0 ? ' · ' + Math.round((c - c0) / c0 * 100) + ' %' : ''}</small></span>`; }).join('')}</div><div class="an-h" style="margin:0 0 4px">Cada color es lo que el punto alcanza en ≤ ${d.params.T} min a esa hora (capas al 40 % de opacidad): donde se ven menos capas, el tráfico recorta el alcance.</div>`; }
+    iso = `<div class="an-leg"><b style="font-size:11px">Isócrona de «${esc_((d.fac.find(f => f.id === A.sel) || {}).n || '')}»</b>${A.ov && A.isoOv ? '' : CMP_ISO.map(c => `<span><i style="background:${c[1]}"></i>${c[2]}</span>`).join('')}<button class="an-x" data-an="quitaiso">✕ Quitar</button></div>${sl}${ovl}`; }
   const nota = `<div class="an-nt">Red: ${cmpFmtN(d.nVias)} vías OpenStreetMap (radio ${d.R} m) · población: Censo 2020 por manzana${d.sinRedPop ? ` · ${cmpFmtN(d.sinRedPop)} hab. sin acceso a la red quedaron fuera` : ''}${d.cal && d.cal.calibrado ? ' · velocidades calibradas con Google Routes' : ' · velocidades por tipo de vía sin calibrar'}.</div>`;
   box.innerHTML = ctl + msg + resum + `<div class="an-tabs">${tabs}</div>` + iso + `<div class="an-body">${cuerpo}</div>` + cmpAnResumen(d) + nota;
 }
 // eventos de resultados
 function cmpAnEventos(el) {
+  const H4 = ['libre', 'am', 'md', 'pm'];
+  el.addEventListener('input', e => { const t = e.target; if (t && t.dataset && t.dataset.sl === 'isoh') { const b = el.querySelector('#an-slv'); if (b) b.textContent = CMP_HC[H4[+t.value] || 'libre'][1]; } });
+  el.addEventListener('change', e => { const t = e.target, A = CMP.an; if (t && t.dataset && t.dataset.sl === 'isoh' && A.sel) { A.isoH = H4[+t.value] || 'libre'; cmpAnIso(A.sel); } });
   el.addEventListener('click', e => {
     const A = CMP.an, t = e.target; if (!t.closest) return; const b = t.closest('[data-an]');
-    if (b) { const k = b.dataset.an, v = b.dataset.v; if (k === 'quitaiso') { A.sel = null; A.iso = null; cmpRes(); return cmpAnPinta(); } if (k === 'dm' || k === 'mg') { A[k] = k === 'mg' ? +v : v; cmpRes(); return cmpAnPinta(); }
-      if (k === 'vista' || k === 'hm') { A[k] = v; if (k === 'vista') { A.sel = null; A.iso = null; if (v === 'traf' && A.d && A.d.traf) { const rf = A.d.fac.find(f => f.rol === 'ref'); if (rf) { cmpRes(); return cmpAnIso(rf.id); } } } cmpRes(); return cmpAnPinta(); }
+    if (b) { const k = b.dataset.an, v = b.dataset.v; if (k === 'quitaiso') { A.sel = null; A.iso = null; cmpRes(); return cmpAnPinta(); } if (k === 'dm' || k === 'mg' || k === 'mn') { A[k] = k === 'mg' ? +v : v; cmpRes(); return cmpAnPinta(); }
+      if (k === 'ov') { A.ov = !A.ov; if (A.sel) return cmpAnIso(A.sel); visToast('Elija un punto de la lista para superponer sus horas'); return cmpRes(); }
+      if (k === 'smode') { A.sim.mover = v === 'mov'; if (A.sim.pt) cmpAnSim(); else cmpRes(); return; } if (k === 'spd') { A.sim.pd = +v; if (A.sim.pt) cmpAnSim(); else cmpRes(); return; }
+      if (k === 'vista' || k === 'hm') { A[k] = v; A.mzSel = null; if (k === 'vista') { A.sel = null; A.iso = null; if (v === 'traf' && A.d && A.d.traf) { const rf = A.d.fac.find(f => f.rol === 'ref'); if (rf) { cmpRes(); return cmpAnIso(rf.id); } } } cmpRes(); return cmpAnPinta(); }
       const val = (k === 'T' || k === 'beta') ? +v : v; if (A[k] === val) return; A[k] = val; if (k === 'hora' && A.sel && A.d) { const f = A.sel; cmpAnaliza(false).then(() => cmpAnIso(f)); return; } return cmpAnaliza(false); }
+    if (t.closest('.an-sp')) return cmpAnSimPick(!A.sim.pick);
+    if (t.closest('.an-sq')) { A.sim.pt = null; A.sim.d = null; A.sim.msg = ''; cmpAnSimMarker(); return cmpRes(); }
     if (t.closest('#an-ver')) { A.ver = !A.ver; if (A.g) A.g.visible = A.ver; return cmpRes(); }
     if (t.closest('.an-cal')) return cmpAnaliza(true);
     const r = t.closest('.an-row'); if (r) { const id = r.dataset.f, p = CMP.pts.find(x => x.id === id); if (p) cmpIr(p); return cmpAnIso(A.sel === id ? null : id); }
     if (t.closest('#cmp-go')) return cmpAnaliza(false, true);
   });
 }
-PW_CIERRA.cmp = () => { cmpPickSet(false); cmpAnQuita(); };
+PW_CIERRA.cmp = () => { cmpPickSet(false); try { cmpAnSimPick(false); } catch (_) { } cmpAnQuita(); };
 // ── Edificio de prueba (tienda de conveniencia tipo OXXO): modelo 3D procedural que se coloca sobre la maqueta
 window.__prbW = () => world; const PRB = { t: 'oxxo', on: false, g: null, x: 0, z: 0, rot: 0, w: 15, d: 13, ver: true, pick: false, pickOff: null, tx: null };
 function prbCv(w, h, f) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); f(g, w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
