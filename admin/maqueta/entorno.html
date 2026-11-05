@@ -2355,7 +2355,7 @@ function dkLista() {
 function dkClasifica(root) {
   const TG = /^(b-gr|b-rt|fr-tema|sol-tray|sol-hrs|sol-vien|inu-flu|inu-zon|ga-cont|ent-cn|ent-rg|eco-fus|b-rz|b-gh|b-solo)$/, RUN = /^(cmp-go|ind-go|od-r|cov-go|psl-calc|sol-play|inu-play|uc-play|vue-go|ed-save|vc-g|sol-load)$/;
   (root || document).querySelectorAll('#dock button:not([data-k]),.pwin button:not([data-k])').forEach(b => {
-    if (b.closest('#dk-tabs,#dk-lista,#tt,.pwh,#dk-bus') || b.matches('.pwm,.pwx,.dk-back,.dk-out')) return; const t = (b.textContent || '').trim(), id = b.id || ''; let k;
+    if (b.closest('#dk-tabs,#dk-sub,#dk-lista,#tt,.pwh,#dk-bus') || b.matches('.pwm,.pwx,.dk-back,.dk-out')) return; const t = (b.textContent || '').trim(), id = b.id || ''; let k;
     if (b.closest('.pwtabs')) k = 'tab'; else if (b.closest('.seg')) k = 'seg'; else if (b.closest('.ed-tools')) k = 'tool';
     else if (/^(Eliminar|Cancelar|Descartar|Restablecer)|(Cancelar figura|Descartar)$/.test(t.replace(/^[^\wÁ-ú]+/, '')) || id === 'ed-can' || id === 'ed-dis' || id === 'vc-r') k = 'bad';
     else if (RUN.test(id) || /^(▶ (Animar|Simular)|Calcular|☀️ Calcular|↻ Calcular)/.test(t)) k = 'run';
