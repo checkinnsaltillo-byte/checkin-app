@@ -2048,6 +2048,7 @@ const PW = { m: new Map(), z: 8600, n: 0 }, PW_DEF = { rgp: ['🚨', 'Riesgos'],
 function pwLeft() { const d = $('dock'); return d && !d.classList.contains('off') ? Math.round(d.getBoundingClientRect().right) + 6 : 8; }
 // ── leyendas y tablas de simbología flotantes: aparecen centradas abajo en el mapa (apiladas si hay varias) y se pueden arrastrar; la posición se recuerda por leyenda (doble clic = volver a la posición inicial)
 const LEG = { re: /^((trg|hxl|afl|gp|eco|pob|psl|air)-leg|leg-[a-z0-9]+|acc-box|pob-box)$/, def: /(-leg$|^leg-)/, col: (() => { try { return JSON.parse(localStorage.getItem('legcol') || '{}'); } catch (_) { return {}; } })(), noClick: 0, flo: (() => { try { return JSON.parse(localStorage.getItem('legflo') || '{}'); } catch (_) { return {}; } })(), pos: (() => { try { return JSON.parse(localStorage.getItem('legpos') || '{}'); } catch (_) { return {}; } })(), drag: null };
+const LEG_AN = /^(leg-(fr|inu|geo|urb|cmp|od|ent|den|man)|(eco|gp|afl|hxl|pob|psl|air)-leg|pob-box|acc-box)$/;
 const legGuarda = () => { try { localStorage.setItem('legpos', JSON.stringify(LEG.pos)); } catch (_) { } };
 const legTodas = () => [...document.querySelectorAll('body > [id]')].filter(e => LEG.re.test(e.id) && !e.classList.contains('dk-c'));
 function legPon(el) {
@@ -2065,13 +2066,13 @@ function legCol() { let c = $('lg-col'); if (c) return c; c = document.createEle
 const legFloGuarda = () => { try { localStorage.setItem('legflo', JSON.stringify(LEG.flo)); } catch (_) { } };
 function legFlota(el) {   // leyenda sacada de la columna: tarjeta sobre el mapa, arrastrable y con tamaño ajustable
   const st = LEG.flo[el.id]; if (!st) return; if (!el.classList.contains('legfl')) { const p = LEG.pos[el.id], n = Object.keys(LEG.flo).indexOf(el.id), x = p ? p.x : .28 + (n % 4) * .03, y = p ? p.y : .22 + (n % 4) * .05;
-    el.classList.add('legc', 'legfl'); el.style.cssText = LEG_ST + `;max-width:none;left:${Math.round(x * innerWidth)}px;top:${Math.round(y * innerHeight)}px;right:auto;bottom:auto;transform:none;width:${st.w || 300}px;${st.h ? 'height:' + st.h + 'px;' : ''}min-width:190px;min-height:44px;z-index:9040;background:rgba(15,23,42,.95)`; el.dataset.mv = '1';
+    el.classList.add('legc', 'legfl'); el.classList.toggle('leg-an', LEG_AN.test(el.id)); el.style.cssText = LEG_ST + `;max-width:none;left:${Math.round(x * innerWidth)}px;top:${Math.round(y * innerHeight)}px;right:auto;bottom:auto;transform:none;width:${st.w || 300}px;${st.h ? 'height:' + st.h + 'px;' : ''}min-width:190px;min-height:44px;z-index:9040;background:rgba(15,23,42,.95)`; el.dataset.mv = '1';
     try { const ro = new ResizeObserver(() => { if (!LEG.flo[el.id] || !el.isConnected) return; const w = el.offsetWidth, h = el.offsetHeight; if (Math.abs(w - (st.w || 0)) > 2 || Math.abs(h - (st.h || 0)) > 2) { st.w = w; st.h = h; clearTimeout(ro.t); ro.t = setTimeout(legFloGuarda, 400); } }); ro.observe(el); } catch (_) { } }
   legBtns(el); const bc = el.querySelector('.legb-c'); if (bc) bc.textContent = LEG.col[el.id] ? '▸' : '▾'; el.classList.toggle('legcol', !!LEG.col[el.id]); const bf = el.querySelector('.legb-f'); if (bf) { bf.textContent = '⤓'; bf.title = 'Volver a la columna'; }
 }
 function legAcomoda() {
   const col = legCol(); legTodas().forEach(el => { if (LEG.def.test(el.id)) { if (LEG.flo[el.id]) legFlota(el); else col.appendChild(el); } });
-  [...col.children].forEach(el => { el.classList.add('legc'); el.classList.toggle('legcol', !!LEG.col[el.id]); legBtns(el); const bc = el.querySelector('.legb-c'); if (bc) bc.textContent = LEG.col[el.id] ? '▸' : '▾'; const k = LEG_ORDEN.indexOf(el.id); el.style.order = k < 0 ? 50 : k; });
+  [...col.children].forEach(el => { el.classList.add('legc'); el.classList.toggle('leg-an', LEG_AN.test(el.id)); el.classList.toggle('legcol', !!LEG.col[el.id]); legBtns(el); const bc = el.querySelector('.legb-c'); if (bc) bc.textContent = LEG.col[el.id] ? '▸' : '▾'; const k = LEG_ORDEN.indexOf(el.id); el.style.order = k < 0 ? 50 : k; });
   legColEstado();
 }
 document.addEventListener('pointerdown', e => {
@@ -2340,6 +2341,7 @@ function dkAncho() {   /* arrastrar el borde derecho del menú para cambiar su a
   + '.dk-sn{display:flex;flex-wrap:wrap;gap:6px 18px;padding:6px 2px 2px}.dk-sb{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:2px 0;color:#64748b;font:500 12px/1.3 system-ui,sans-serif;transition:color .15s}.dk-sb:hover{color:#0f172a}.dk-sb.on{color:#0f172a;font-weight:600}'
   + '.dk-sb .rd{flex:none;position:relative;width:13px;height:13px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:50%;background:#fff}.dk-sb.on .rd{border-color:#2563eb}.dk-sb.on .rd::after{content:"";position:absolute;inset:2.5px;border-radius:50%;background:#2563eb}.dk-sb small{color:#94a3b8;font-size:10px;font-weight:600}'
   + '.pwsec>.pwk{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .15s}.pwsec>.pwk:hover{background:#e6ebff}.pwsec>.pwk::after{content:"";flex:none;width:7px;height:7px;margin-right:3px;border-right:2px solid #6366f1;border-bottom:2px solid #6366f1;transform:rotate(45deg) translateY(-2px);transition:transform .15s}.pwsec.col>.pwk::after{transform:rotate(-45deg)}.pwsec.col>.pwb{display:none!important}.pwsec>.pwk:focus-visible{outline:2px solid #2563eb;outline-offset:-2px}'
+  + '#lg-col>.legc.leg-an,.legc.leg-an.legfl{background:linear-gradient(160deg,rgba(67,56,202,.5),rgba(30,41,59,.82) 70%)!important;border:1px solid rgba(129,140,248,.5)!important}.legc.leg-an::before{content:"Análisis · en el mapa mientras esté activo";display:block;margin:-1px 0 5px;font:700 8.5px/1.2 system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#a5b4fc}'
   + '#dk-lista .dk-sd{font:700 10px system-ui;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin:10px 2px 6px}'
   + ':is(#dock,.pwin) .seg{display:flex!important;flex-wrap:wrap!important;gap:6px 18px!important;padding:2px 0!important;margin-top:8px!important;background:none!important;border-radius:0!important}'
   + ':is(#dock,.pwin) .seg>button{flex:none!important;display:inline-flex!important;align-items:center;gap:7px;padding:2px 0!important;border-radius:0!important;background:none!important;box-shadow:none!important;color:#64748b!important;font:500 12px/1.3 system-ui,sans-serif!important;text-align:left}'
@@ -2398,11 +2400,7 @@ function dkClasifica(root) {
 }
 /* cajas de información que el código dibuja flotando sobre el mapa: se pasan a la sección de resultados del análisis abierto */
 document.addEventListener('click', e => { const w = e.target.closest && e.target.closest('.pwin'); if (w && w.id) DK.ult = w.id.replace(/^pw-/, ''); }, true);
-function dkInfo(el) {
-  const id = DK.ult || DK.cur, r = id && PW.m.get(id); if (!r) return; const R = [...r.el.querySelectorAll('.pwres')].find(x => x.offsetParent) || r.el.querySelector('.pwres'); if (!R) return;
-  let c = R.parentNode.querySelector(':scope > .dk-info'); if (!c) { c = document.createElement('div'); c.className = 'dk-info'; R.parentNode.insertBefore(c, R); }
-  el.classList.add('dk-c'); el.style.position = 'static'; el.style.left = el.style.right = el.style.top = el.style.bottom = 'auto'; el.style.width = 'auto'; el.style.maxWidth = 'none'; el.style.margin = '0 0 8px'; el.style.zIndex = 'auto'; c.appendChild(el);
-}
+function dkInfo(el) { /* las leyendas de los mapas de Análisis aparecen en la columna de Leyendas mientras el mapa está activo (no dentro de la ventana) */ }
 function dkRefresca() { clearTimeout(DK.t); DK.t = setTimeout(() => { if (DK.tab === 'A' && !DK.cur) dkLista(); }, 60); }
 function dkAbre(id, r) {
   dkInit(); const d = $('dock'); if (!d) return; const og = DK.origenNuevo || (DK.cur ? DK.origen : null); DK.origenNuevo = null; if (DK.cur && DK.cur !== id) pwShow(DK.cur, false); DK.origen = og; d.classList.remove('off'); const el = r.el;   /* og: de dónde se llegó (p. ej. Configuración › Sobrevuelo al abrir una vista guardada) para que «Volver» regrese ahí */
