@@ -4766,7 +4766,7 @@ function cmpAnEventos(el) {
 }
 PW_CIERRA.cmp = () => { cmpPickSet(false); cmpAnQuita(); };
 // ── Edificio de prueba (tienda de conveniencia tipo OXXO): modelo 3D procedural que se coloca sobre la maqueta
-const PRB = { on: false, g: null, x: 0, z: 0, rot: 0, w: 15, d: 13, ver: true, pick: false, pickOff: null, tx: null };
+window.__prbW = () => world; const PRB = { on: false, g: null, x: 0, z: 0, rot: 0, w: 15, d: 13, ver: true, pick: false, pickOff: null, tx: null };
 function prbCv(w, h, f) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); f(g, w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
 function prbTex() {
   if (PRB.tx) return PRB.tx; const T = {};
