@@ -2346,6 +2346,13 @@ function dkAncho() {   /* arrastrar el borde derecho del menú para cambiar su a
   + ':is(#dock,.pwin) button[data-k=tg][data-mv]::after{background-color:#475569!important;box-shadow:none!important}'
   + ':is(#dock,.pwin) button[data-k=tg][data-mv].on,:is(#dock,.pwin) button[data-k=tg][data-mv][data-s="1"]{background:linear-gradient(135deg,#0f172a,#14281f)!important;border-color:#10b981!important;color:#fff!important}'
   + ':is(#dock,.pwin) button[data-k=tg][data-mv].on::after,:is(#dock,.pwin) button[data-k=tg][data-mv][data-s="1"]::after{background-color:#22c55e!important}'
+  + ':is(#dock,.pwin) .seg:has(~ .pwtabs){gap:0!important;padding:0!important;margin:8px 10px 0!important;flex-wrap:nowrap!important;border-bottom:1px solid #e2e8f0}'
+  + ':is(#dock,.pwin) .seg:has(~ .pwtabs)>button{flex:1 1 auto!important;justify-content:center;padding:10px 6px 9px!important;margin-bottom:-1px;border-bottom:2px solid transparent!important;color:#64748b!important;font:600 12px/1.2 system-ui,sans-serif!important}'
+  + ':is(#dock,.pwin) .seg:has(~ .pwtabs)>button::before{display:none}:is(#dock,.pwin) .seg:has(~ .pwtabs)>button.on{color:#2563eb!important;border-bottom-color:#2563eb!important;font-weight:600!important}'
+  + ':is(#dock,.pwin) .seg~.pwtabs:not([style*="display: none"]){display:flex!important;flex-wrap:wrap;gap:6px 18px!important;border-bottom:0!important;padding:12px 12px 2px!important}'
+  + ':is(#dock,.pwin) .seg~.pwtabs>button{display:inline-flex!important;align-items:center;gap:7px;padding:2px 0!important;margin:0;border-bottom:0!important;color:#64748b!important;font:500 12px/1.3 system-ui,sans-serif!important}'
+  + ':is(#dock,.pwin) .seg~.pwtabs>button::before{content:"";flex:none;width:13px;height:13px;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:50%;background:#fff}'
+  + ':is(#dock,.pwin) .seg~.pwtabs>button:hover{color:#0f172a!important}:is(#dock,.pwin) .seg~.pwtabs>button.on{color:#0f172a!important;border-bottom:0!important;font-weight:600!important}:is(#dock,.pwin) .seg~.pwtabs>button.on::before{border-color:#2563eb;background:radial-gradient(circle,#2563eb 0 3.5px,#fff 4px)}'
   + ':is(#dock,.pwin) .pwtabs[style*="display: none"],:is(#dock,.pwin) .seg[style*="display: none"]{display:none!important}'
   + ':is(#dock,.pwin) .pwtabs{padding:0!important}:is(#dock,.pwin) .pwtabs>button.on{color:#2563eb!important;border-bottom-color:#2563eb!important}'
   ; document.head.appendChild(st); }
