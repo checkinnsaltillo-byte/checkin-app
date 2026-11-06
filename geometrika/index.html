@@ -49,7 +49,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card dl" data-sys="data">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=42e658cb" alt="Data Lab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=2013db2a" alt="Data Lab"></div>
         <h2>Sistema de Datos y Fuentes</h2>
         <p class="s">acceso restringido</p>
       </div>
@@ -85,8 +85,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=42e658cb"; document.head.appendChild(l);
-    gpCarga("datalab-fuentes.js?v=42e658cb", () => gpCarga("datalab-indicadores.js?v=42e658cb", () => gpCarga("datalab.js?v=42e658cb", () => window.datalabInit && window.datalabInit())));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=2013db2a"; document.head.appendChild(l);
+    gpCarga("datalab-fuentes.js?v=2013db2a", () => gpCarga("datalab-indicadores.js?v=2013db2a", () => gpCarga("datalab.js?v=2013db2a", () => window.datalabInit && window.datalabInit())));
   } else {
     document.getElementById("geometrika-host").style.display = "";
     gpCarga("geometrika.js?v=2435", () => window.geometrikaInit && window.geometrikaInit());
