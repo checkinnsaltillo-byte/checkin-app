@@ -257,3 +257,12 @@
 
 .dl-prev{margin-top:6px}.dl-prev p{margin:6px 2px 0;font-size:13px;color:#334155}.dl-prev p.dl-mut{font-size:12px}
 .dl-d .dl-prev{max-width:420px}
+
+/* interruptor «Publicado en Geo Lab» y avisos de la receta */
+.dl-sw{all:unset;box-sizing:border-box;flex:0 0 30px;width:30px;height:17px;border-radius:99px;background:#cbd5e1;position:relative;cursor:pointer;margin-top:2px;transition:background .18s}
+.dl-sw i{position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.3);transition:transform .18s}
+.dl-sw.on{background:#10b981}.dl-sw.on i{transform:translateX(13px)}.dl-sw.off{opacity:.5;cursor:not-allowed}
+.dl-new-b.pub{color:#047857;background:#d1fae5;border-color:#a7f3d0}
+.dl-b.Publicado{background:#d1fae5;color:#047857}.dl-nm .dot.Publicado{background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.2)}
+.dl-ok,.dl-warn{margin-top:10px;border-radius:12px;padding:10px 12px;font-size:13px}.dl-ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}.dl-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.dl-ok b,.dl-warn b{display:block;margin-bottom:2px}.dl-ok p,.dl-warn p{margin:0;font-size:12.5px}
