@@ -49,7 +49,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card dl" data-sys="data">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=c8913629" alt="Data Lab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=42e658cb" alt="Data Lab"></div>
         <h2>Sistema de Datos y Fuentes</h2>
         <p class="s">acceso restringido</p>
       </div>
@@ -69,7 +69,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "4739ee3bd29e4f415da8ba9298a087e0fdc9c61378420ba8fbbab298bd74c4df";  // GP_HASH2: nivel con precios reales
 function gpNivel(n) { window.GM_PRECIOS = n === "2"; }
 window.GM_MAQ = "/admin/maqueta/entorno.html"; window.GM_PUBLICO = true;
-window.GM_SALIR = function () { try { sessionStorage.removeItem("gp_ok"); sessionStorage.removeItem("gp_sys"); } catch (_) { } location.reload(); };
+window.GM_SALIR = function () { try { sessionStorage.removeItem("gp_ok"); sessionStorage.removeItem("gp_sys"); localStorage.removeItem("gp_ok"); } catch (_) { } location.reload(); };
 window.DL_SALIR = window.GM_SALIR;
 window.DL_CAMBIAR = function () { try { sessionStorage.removeItem("gp_sys"); } catch (_) { } location.reload(); };
 window._rsvEnsureLeaflet_ = function (cb) {
@@ -78,15 +78,15 @@ window._rsvEnsureLeaflet_ = function (cb) {
   const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = cb; document.head.appendChild(s);
 };
 async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
-function gpAut() { try { const n = sessionStorage.getItem("gp_ok"), t = JSON.parse(localStorage.getItem("gmTok") || "null"); return (n === "1" || n === "2") && t && t.exp > Date.now() ? n : ""; } catch (_) { return ""; } }
+function gpAut() { try { const n = sessionStorage.getItem("gp_ok") || localStorage.getItem("gp_ok"), t = JSON.parse(localStorage.getItem("gmTok") || "null"); return (n === "1" || n === "2") && t && t.exp > Date.now() ? n : ""; } catch (_) { return ""; } }
 function gpCarga(src, cb) { const s = document.createElement("script"); s.src = src; s.onload = cb; document.body.appendChild(s); }
 function gpAbre(sys) {
   try { sessionStorage.setItem("gp_sys", sys); } catch (_) { }
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=c8913629"; document.head.appendChild(l);
-    gpCarga("datalab-fuentes.js?v=c8913629", () => gpCarga("datalab-indicadores.js?v=c8913629", () => gpCarga("datalab.js?v=c8913629", () => window.datalabInit && window.datalabInit())));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=42e658cb"; document.head.appendChild(l);
+    gpCarga("datalab-fuentes.js?v=42e658cb", () => gpCarga("datalab-indicadores.js?v=42e658cb", () => gpCarga("datalab.js?v=42e658cb", () => window.datalabInit && window.datalabInit())));
   } else {
     document.getElementById("geometrika-host").style.display = "";
     gpCarga("geometrika.js?v=2435", () => window.geometrikaInit && window.geometrikaInit());
@@ -95,16 +95,16 @@ function gpAbre(sys) {
 async function gpEntra(sys) {
   const inp = document.getElementById(sys === "data" ? "gpPass2" : "gpPass"), e = document.getElementById(sys === "data" ? "gpErr2" : "gpErr"), v = inp.value.trim(); if (!v) { e.textContent = "Captura tu contraseña."; return; }
   const h = await gpSha(v), n = h === GP_HASH2 ? "2" : h === GP_HASH ? "1" : "";
-  if (n) { try { sessionStorage.setItem("gp_ok", n); } catch (_) { } let tk = null; try { const r = await fetch("https://api.check-inn.mx/geometrika/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: v }) }); tk = await r.json(); } catch (_) { }
-    if (!(tk && tk.ok && tk.token)) { try { sessionStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = "No se pudo validar el acceso con el servidor. Intenta de nuevo."; return; }
-    window.gmGuarda(tk); try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); if (!(g && g.token)) throw 0; } catch (_) { try { sessionStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = "Tu navegador no permite guardar el acceso (¿modo privado?). Desactívalo e intenta de nuevo."; return; }
+  if (n) { try { sessionStorage.setItem("gp_ok", n); localStorage.setItem("gp_ok", n); } catch (_) { } let tk = null; try { const r = await fetch("https://api.check-inn.mx/geometrika/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: v }) }); tk = await r.json(); } catch (_) { }
+    if (!(tk && tk.ok && tk.token)) { try { sessionStorage.removeItem("gp_ok"); localStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = "No se pudo validar el acceso con el servidor. Intenta de nuevo."; return; }
+    window.gmGuarda(tk); try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); if (!(g && g.token)) throw 0; } catch (_) { try { sessionStorage.removeItem("gp_ok"); localStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = "Tu navegador no permite guardar el acceso (¿modo privado?). Desactívalo e intenta de nuevo."; return; }
     gpNivel(n); gpAbre(sys); } else { e.textContent = "Contraseña incorrecta."; inp.select(); }
 }
 // cada tarjeta entra a su sistema; con la sesión ya iniciada basta un clic (la misma contraseña sirve para los dos)
 function gpClic(sys) { const n = gpAut(); if (n) { gpNivel(n); gpAbre(sys); } else gpEntra(sys); }
 document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data");
 document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpClic("geo"); }; document.getElementById("gpPass2").onkeydown = e => { if (e.key === "Enter") gpClic("data"); };
-{ const n = gpAut(); if (n) { let s = ""; try { s = sessionStorage.getItem("gp_sys") || ""; } catch (_) { } gpNivel(n); if (s === "geo" || s === "data") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; } } }
+{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; } } }
 </script>
 </body>
 </html>

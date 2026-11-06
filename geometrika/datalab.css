@@ -18,6 +18,7 @@
 .dl-btn{all:unset;box-sizing:border-box;cursor:pointer;font-size:12.5px;font-weight:600;color:#e2e8f0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:7px 13px;border-radius:9px;white-space:nowrap;transition:background .15s}
 .dl-btn:hover{background:rgba(255,255,255,.16)}
 .dl-btn .sh{display:none}
+.dl-go{display:inline-flex;align-items:center;gap:8px;text-decoration:none}.dl-go img{height:17px;width:auto;display:block}
 
 /* cuerpo: menú lateral + contenido */
 .dl-body{flex:1;min-height:0;display:flex;position:relative}

@@ -41,7 +41,7 @@
         <div class="dl-brand"><b>Sistema de Datos y Fuentes</b><span>Fuentes de información e indicadores</span></div>
         <div class="dl-sp"></div>
         <span class="dl-chip">v.Beta.1</span>
-        <button class="dl-btn" id="dlCambiar" type="button" title="Volver a elegir entre Geo Lab y Data Lab"><span class="lg">Cambiar de sistema</span><span class="sh">Cambiar</span></button>
+        <a class="dl-btn dl-go" id="dlIrGeo" href="index.html?s=geo" target="_blank" rel="noopener" title="Abrir Geo Lab en una ventana nueva"><img src="geometrika-logo-claro.png" alt=""><span class="lg">Ir a Geo Lab</span><span class="sh">Geo Lab</span></a>
         <button class="dl-btn" id="dlSalir" type="button"><span class="lg">Cerrar sesión</span><span class="sh">Salir</span></button>
       </header>
       <div class="dl-body">
@@ -57,7 +57,7 @@
     if (innerWidth < 900 || ls.get("dl_side", "on") === "off") app.classList.add("dl-off");   // en celular siempre inicia cerrado
     $("#dlBurger", host).onclick = () => { app.classList.toggle("dl-off"); if (innerWidth >= 900) ls.set("dl_side", app.classList.contains("dl-off") ? "off" : "on"); };
     $("#dlSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();
-    $("#dlCambiar", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
+    
     $("#dlMain", host).addEventListener("scroll", () => { const f = $(".dl-fl", host); if (f) f.classList.toggle("st", $("#dlMain", host).scrollTop > 140); }, { passive: true });
     host.addEventListener("click", clic); host.addEventListener("input", entrada); host.addEventListener("change", cambia);
     // en pantallas angostas el menú es un cajón: se cierra al elegir una sección
