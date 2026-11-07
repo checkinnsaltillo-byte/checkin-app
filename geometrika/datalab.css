@@ -266,3 +266,13 @@
 .dl-b.Publicado{background:#d1fae5;color:#047857}.dl-nm .dot.Publicado{background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.2)}
 .dl-ok,.dl-warn{margin-top:10px;border-radius:12px;padding:10px 12px;font-size:13px}.dl-ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}.dl-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
 .dl-ok b,.dl-warn b{display:block;margin-bottom:2px}.dl-ok p,.dl-warn p{margin:0;font-size:12.5px}
+
+/* «En Geo Lab» dentro del detalle de cada indicador */
+.dl-geo-chip{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:700;color:#475569;background:#f1f5f9;border:1px solid #e2e8f0;padding:1px 8px;border-radius:999px;vertical-align:middle;white-space:nowrap}
+.dl-geo-chip.map{color:#047857;background:#d1fae5;border-color:#a7f3d0}
+.dl-geo-b .dl-geo-g{display:grid;grid-template-columns:minmax(260px,380px) 1fr;gap:14px 22px;align-items:start;margin-top:6px}
+.dl-geo-ej small{display:block;margin-top:6px;font-size:11px;color:#64748b}
+.dl-geo{max-width:380px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:8px;box-shadow:0 1px 3px rgba(15,23,42,.06);overflow:hidden}
+.dl-geo-nd{padding:12px;border:1px dashed #cbd5e1;border-radius:12px;font-size:12px;color:#64748b}
+.dl-geo-l{margin:0;padding:0 0 0 18px;color:#334155;font-size:13px;line-height:1.5}.dl-geo-l li{margin:0 0 6px}
+@media (max-width:720px){.dl-geo-b .dl-geo-g{grid-template-columns:1fr}}
