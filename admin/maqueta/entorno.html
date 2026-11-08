@@ -7940,8 +7940,9 @@ if (window.parent === window) {
   };
   const kpP = r => { const m = /--p:(\d+(?:\.\d+)?)/.exec(r.viz || '') || /class="ind-bar"[^>]*><i style="width:(\d+(?:\.\d+)?)%/.exec(r.viz || ''); return m ? Math.max(0, Math.min(1, +m[1] / 100)) : null; };
   const KP_ENF = { sol: ['met', 'inu'], geo: ['geo'], urb: ['urb'], rgp: ['rie'], eu: ['eu'], fr: ['fri'], cov: ['cob'], trf: ['tra'], od: ['od'], dem: ['dem'], eco: ['eco'], afl: ['afl'], ent: ['ent'], aire: ['aire'], psl: ['psl'], arb: ['arb'], emi: ['emi'], amb: ['aire', 'psl', 'arb', 'emi'], cmp: ['cmp'], mapa: ['mapa'], prb: ['prb'] };
-  // análisis cuya vista «Ver en el mapa» está activa: la barra solo muestra los KPIs de ese análisis
+  // análisis abierto (o con su «Ver en el mapa» activo): la barra solo muestra los KPIs de ese análisis
   function kpFoco() {
+    if (DK.cur && KP_ENF[DK.cur]) return DK.cur;   // el análisis abierto en el menú: sus KPIs (con o sin mapa activo)
     const ids = []; PW.m.forEach((r, id) => { if (r.el.classList.contains('on') && KP_ENF[id]) ids.push(id); }); const cur = DK.cur, ord = (cur && ids.includes(cur) ? [cur] : []).concat(ids.filter(i => i !== cur));
     for (const id of ord) { const el = PW.m.get(id).el; if ([...el.querySelectorAll('[data-mv]')].some(b => b.dataset.s === '1' || b.classList.contains('on') || /^\s*(✖|Quitar|Ocultar)/.test(b.textContent))) return id; } return null;
   }
