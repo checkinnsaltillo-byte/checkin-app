@@ -17,7 +17,7 @@ window.DL_FUENTES = [
     ob: "Saber cuántas personas viven en cada manzana, por sexo y grupo de edad, y sus rasgos de vivienda y escolaridad.",
     ind: ["Población por hexágono", "Pirámide de edad por manzana", "Nivel socioeconómico (NSE)", "Competencia: Cuota (Huff)", "Competencia: Accesibilidad (E2SFCA)", "Alcance acumulado"],
     cob: "32 estados · 2,478 municipios · 1.43 millones de manzanas urbanas (99.3 millones de habitantes)", act: "Decenal (levantamiento 2020)",
-    alm: "Cloud Storage · censo/mun/<estado>/<municipio>.json (Saltillo y Monterrey: censo/manzanas-<región>.json)", lic: "Libre uso INEGI, citando la fuente", url: "https://www.inegi.org.mx/programas/ccpv/2020/",
+    alm: "Cloud Storage · censo/mun/<estado>/<municipio>.json (Saltillo y Monterrey: censo/manzanas-<región>.json) · hexágonos de 200 m con población y NSE de todo México ya calculados: hex/<estado>/<celda>.json (arbolado en hex/<estado>/arb/ y colonias en colonias/<estado>/)", lic: "Libre uso INEGI, citando la fuente", url: "https://www.inegi.org.mx/programas/ccpv/2020/",
     nota: "Los valores confidenciales (*) se tratan como 0; el grupo de 25 a 59 años se obtiene por diferencia." },
   { id: "mgn", cat: "demo", n: "Marco Geoestadístico (manzanas, municipios y AGEB)", p: "INEGI", t: "Pública", a: "Gratuita", m: "Descarga masiva", e: "Activa",
     ob: "Dar forma y ubicación a cada manzana y municipio para poder dibujarlos y repartir la población.",
