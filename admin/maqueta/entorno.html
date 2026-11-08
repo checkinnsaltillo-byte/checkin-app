@@ -7901,6 +7901,146 @@ if (!SPLH) {
   const iv = setInterval(() => { if (solS()) { clearInterval(iv); parent.postMessage({ t: 'spl-ready' }, location.origin); } }, 500);
   setInterval(() => { if (!solS()) return; Object.keys(want).forEach(k => { try { if ((capaHay(k) || k === 'maqueta') && capaVis(k) !== want[k] && (tries[k] = (tries[k] || 0) + 1) < 25) capaSet(k, want[k]); } catch (_) { } }); }, 1000);
 }
+
+/* ═══ Barra de KPIs (parte superior del mapa) ═══
+   Resume cada análisis en pocos datos: un chip por KPI, animado, con semáforo; al tocarlo muestra qué mide, cómo se calcula y abre el análisis.
+   Los datos salen de indLista() (los mismos indicadores del panel «Indicadores»); Competencia, Mapa de proyectos y Edificio de prueba aportan los suyos. */
+if (window.parent === window) {
+  const KP_G = [
+    { g: 'met', w: 'sol', ico: '🌦️', n: 'Meteorología', it: [['met', 'temp', 'Temperatura media'], ['met', 'lluvia', 'Lluvia anual'], ['met', 'viento', 'Viento']] },
+    { g: 'inu', w: 'sol', ico: '🌊', n: 'Inundación', it: [['inu', 'riesgo', 'Riesgo de inundación'], ['inu', 'calles', 'Calles con agua']] },
+    { g: 'geo', w: 'geo', ico: '⛰️', n: 'Terreno', it: [['geo', 'pend', 'Pendiente'], ['geo', 'desn', 'Desnivel']] },
+    { g: 'urb', w: 'urb', ico: '🏘️', n: 'Urbanización', it: [['urb', 'crec', 'Crecimiento urbano'], ['urb', 'veg', 'Vegetación']] },
+    { g: 'rie', w: 'rgp', ico: '🚨', n: 'Riesgos', it: [['rie', 'rg', 'Riesgos detectados']] },
+    { g: 'eu', w: 'eu', ico: '🏘️', n: 'Entorno urbano', it: [['eu', 'eu_indice', 'Calidad urbana'], ['eu', 'eu_banq', 'Con banqueta']] },
+    { g: 'fri', w: 'fr', ico: '🕸️', n: 'Accesibilidad', it: [['fri', 'ancla', 'Tiempo a destinos'], ['fri', 'cerca', 'Destinos a 15 min']] },
+    { g: 'cob', w: 'cov', ico: '📡', n: 'Población', it: [['cob', 'pob', 'Población alcanzada'], ['cob', 'p15', 'A 15 min a pie']] },
+    { g: 'tra', w: 'trf', ico: '🚦', n: 'Tráfico', it: [['tra', 'dem', 'Demora por tráfico'], ['tra', 'vel', 'Velocidad media']] },
+    { g: 'od', w: 'od', ico: '🧭', n: 'Origen/Destino', it: [['od', 'orig', 'Origen del tráfico'], ['od', 'tviaje', 'Tiempo de viaje']] },
+    { g: 'dem', w: 'dem', ico: '👥', n: 'Demografía', it: [['dem', 'pob', 'Población en la zona'], ['dem', 'nse', 'Nivel socioeconómico']] },
+    { g: 'eco', w: 'eco', ico: '🏪', n: 'Actividad económica', it: [['eco', 'denue', 'Negocios a 500 m'], ['eco', 'div', 'Diversidad']] },
+    { g: 'afl', w: 'afl', ico: '🚶', n: 'Afluencia', it: [['afl', 'aidx', 'Afluencia'], ['afl', 'apea', 'Peatones al día']] },
+    { g: 'ent', w: 'ent', ico: '🏙️', n: 'Entorno (IA)', it: [['ent', 'ire', 'Riesgo visible'], ['ent', 'ioi', 'Oportunidad']] },
+    { g: 'aire', w: 'aire', ico: '💨', n: 'Aire y polen', it: [['aire', 'aqi', 'Calidad del aire'], ['aire', 'polen', 'Polen']] },
+    { g: 'psl', w: 'psl', ico: '☀️', n: 'Potencial solar', it: [['psl', 'sole', 'Energía solar'], ['psl', 'solr', 'Recuperación']] },
+    { g: 'arb', w: 'arb', ico: '🌳', n: 'Arbolado', it: [['arb', 'arbp', 'Cobertura arbórea']] },
+    { g: 'emi', w: 'emi', ico: '🏭', n: 'Emisiones', it: [['emi', 'emipc', 'CO₂e por habitante']] },
+    { g: 'cmp', w: 'cmp', ico: '🥊', n: 'Competencia', it: [['own', 'cmp', 'Competidores']] },
+    { g: 'mapa', w: 'mapa', ico: '🗺️', n: 'Mis proyectos', it: [['own', 'mapa', 'Proyectos en el mapa']] },
+    { g: 'prb', w: 'prb', ico: '🏗️', n: 'Edificio de prueba', it: [['own', 'prb', 'Huella del edificio']] }
+  ];
+  const KP_COL = { ok: '#34d399', warn: '#fbbf24', bad: '#fb7185', info: '#67e8f9', na: '#64748b' }, KP_TX = { ok: 'Favorable', warn: 'En atención', bad: 'Alerta', info: 'Informativo', na: 'Sin dato' };
+  const KP = { open: null, sig: '', first: true, last: new Map(), L: null, G: [], tm: 0 };
+  const kpOwn = {
+    cmp: () => { const P = CMP.pts || [], co = P.filter(p => p.rol !== 'ref').length, rf = P.filter(p => p.rol === 'ref').length; return { r: P.length ? { val: String(co), unit: co === 1 ? 'competidor' : 'competidores', sem: co ? 'info' : 'na', msg: rf + ' referencia(s) · ' + co + ' competidor(es) en el análisis' } : indNA('Agrega puntos de referencia o competencia'), d: 'Cuántos competidores directos se han marcado frente a la propiedad o el punto de referencia.', m: 'Se cuentan los puntos con rol de competencia en el análisis de Competencia (DENUE, Google o captura manual).', f: 'N = #{puntos con rol ≠ referencia}' }; },
+    mapa: () => { const n = (MQ.items || []).length, s = MQ.sel ? MQ.sel.size : 0; return { r: n ? { val: String(n), unit: n === 1 ? 'proyecto' : 'proyectos', sem: 'info', msg: s ? s + ' en comparación' : 'Marca varios para compararlos' } : indNA('Sin proyectos cargados'), d: 'Proyectos disponibles para ver en el mapa y comparar columna por columna.', m: 'Se cuentan los proyectos de la lista de «Mapa de mis proyectos».', f: 'N = #{proyectos}' }; },
+    prb: () => { if (!PRB.on) return { r: indNA('Coloca un edificio de prueba'), d: 'Superficie en planta del edificio de prueba colocado en la maqueta.', m: 'Ancho × fondo del edificio de prueba.', f: 'A = ancho · fondo' }; return { r: { val: String(Math.round(PRB.w * PRB.d)), unit: 'm²', sem: 'info', msg: PRB.w + ' × ' + PRB.d + ' m' }, d: 'Superficie en planta del edificio de prueba colocado en la maqueta.', m: 'Ancho × fondo del edificio de prueba.', f: 'A = ancho · fondo' }; }
+  };
+  const kpP = r => { const m = /--p:(\d+(?:\.\d+)?)/.exec(r.viz || '') || /class="ind-bar"[^>]*><i style="width:(\d+(?:\.\d+)?)%/.exec(r.viz || ''); return m ? Math.max(0, Math.min(1, +m[1] / 100)) : null; };
+  function kpModel() {
+    let L; try { L = evalLst(); } catch (_) { L = null; } KP.L = L; const E = (e, i) => { const A = L && L.flatMap(c => c.an).find(x => x.id === e); return A && A.ind.find(x => x.id === i); };
+    const G = KP_G.map(g => ({ g: g.g, w: g.w, ico: g.ico, n: g.n, k: g.it.map(([e, i, lab]) => { let it = null, own = null; if (e === 'own') { own = kpOwn[i](); it = { d: own.d, m: own.m, f: own.f, u: own.r.unit, r: own.r }; } else it = E(e, i); if (!it || !it.r) return null; return { key: e + ':' + i, l: lab, it, r: it.r, p: kpP(it.r) }; }).filter(Boolean) })).filter(g => g.k.length && !(g.g === 'prb' && !PRB.on));
+    const c = { ok: 0, warn: 0, bad: 0, info: 0 }, alertas = []; if (L) L.forEach(cat => cat.an.forEach(e => e.ind.forEach(i => { const s = i.r && i.r.sem; if (c[s] != null) c[s]++; if (s === 'bad' || s === 'warn') alertas.push({ n: i.n, s, msg: i.r.msg, v: i.r.val + ' ' + (i.r.unit || ''), e: e.n, ei: e.id }); }))); const tot = c.ok + c.info + c.warn + c.bad;
+    KP.S = { c, tot, alertas, score: tot >= 6 ? Math.round(100 * (c.ok + .75 * c.info + .4 * c.warn) / tot) : null }; KP.G = G; return G;
+  }
+  const kpEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const kpWG = w => w === 'sol' ? ['sol'] : [w];
+  function kpRender(force) {
+    const bar = $('kp-bar'); if (!bar) return; const G = kpModel(), S = KP.S, cur = (typeof DK !== 'undefined' && DK.cur) || null;
+    const sig = JSON.stringify([G.map(g => g.k.map(k => [k.key, k.r.val, k.r.sem, k.p])), S.c, cur, INDX.busy ? 1 : 0]); if (!force && sig === KP.sig) return; KP.sig = sig;
+    const ord = G.slice().sort((a, b) => (b.w === cur) - (a.w === cur)), ld = !!INDX.busy;
+    const chips = ord.map(g => g.k.map((k, ix) => { const s = k.r.sem || 'na', c = KP_COL[s], p = k.p, act = g.w === cur; const dash = p == null ? 88 : 88 * p;
+      return `<button type="button" class="kp ${s}${act ? ' act' : ''}${ld && s === 'na' ? ' ld' : ''}${KP.first ? '' : ' nofx'}" data-kp="${k.key}" data-g="${g.g}" style="--c:${c};--d:${dash.toFixed(1)};animation-delay:${KP.first ? Math.min(ix + ord.indexOf(g), 14) * 45 : 0}ms" title="${kpEsc(g.n)} · ${kpEsc(k.l)}">
+        <svg class="kr" viewBox="0 0 34 34"><circle cx="17" cy="17" r="14" class="t"/><circle cx="17" cy="17" r="14" class="a" style="stroke-dasharray:${dash.toFixed(1)} 88"/></svg><i class="ki">${g.ico}</i>
+        <span class="l">${kpEsc(k.l)}</span><span class="v" data-v="${kpEsc(k.r.val)}">${kpEsc(k.r.val)}<small>${kpEsc(k.r.unit || '')}</small></span><span class="s">${kpEsc(k.r.msg || KP_TX[s])}</span></button>`; }).join('')).join('');
+    const sc = S.score, tt = S.tot || 1, seg = ['ok', 'info', 'warn', 'bad'].map(s => S.c[s] / tt * 100); let o = 0; const arcs = ['ok', 'info', 'warn', 'bad'].map((s, i) => { const a = `<circle cx="17" cy="17" r="15.9155" pathLength="100" class="seg" style="stroke:${KP_COL[s]};stroke-dasharray:${Math.max(0, seg[i] - (seg[i] > 1 ? .8 : 0)).toFixed(2)} 100;stroke-dashoffset:${(-o).toFixed(2)}"/>`; o += seg[i]; return a; }).join('');
+    bar.innerHTML = `<button type="button" class="kp kps${KP.first ? '' : ' nofx'}" data-kp="__s" title="Puntaje del sitio"><svg class="kd" viewBox="0 0 34 34"><circle cx="17" cy="17" r="15.9155" class="t"/>${arcs}</svg><b class="kn">${sc == null ? '—' : sc}</b><span class="l">Puntaje del sitio</span><span class="v">${S.c.bad ? `<em class="b">${S.c.bad}</em> alertas` : 'Sin alertas'}<small>${S.c.warn ? S.c.warn + ' en atención' : S.tot + ' indicadores'}</small></span><span class="s">${ld ? 'Calculando…' : 'Toca para ver el detalle'}</span></button><div class="kp-strip" id="kp-strip">${chips}</div><button type="button" class="kp-rf${ld ? ' ld' : ''}" data-kp="__r" title="Calcular y actualizar todos los indicadores">⟳</button>`;
+    const st = $('kp-strip'); if (st && KP.sc) st.scrollLeft = KP.sc; if (st) st.addEventListener('scroll', () => { KP.sc = st.scrollLeft; }, { passive: true });
+    bar.querySelectorAll('.kp[data-kp]:not(.kps)').forEach(b => { const k = b.dataset.kp, v = b.querySelector('.v'), txt = v.dataset.v, prev = KP.last.get(k); KP.last.set(k, txt); if (prev === txt) return; const m = /^(-?[\d.,]+)$/.exec(txt || ''); if (!m) return; const n = parseFloat(m[1].replace(/,/g, '')), dec = (m[1].split('.')[1] || '').length; if (!isFinite(n)) return; const sm = v.querySelector('small'), t0 = performance.now(); const f = t => { const q = Math.min(1, (t - t0) / 700), e = 1 - Math.pow(1 - q, 3), x = n * e; v.firstChild.nodeValue = (q < 1 ? x.toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : txt); if (q < 1) requestAnimationFrame(f); }; if (v.firstChild && v.firstChild.nodeType === 3) requestAnimationFrame(f); });
+    KP.first = false; kpPlace();
+  }
+  function kpPlace() { const b = $('kp-bar'); if (!b) return; const lg = $('lg-col'), abierto = lg && !lg.classList.contains('off'), l = pwLeft() + 8, r = abierto ? Math.round(lg.getBoundingClientRect().width) + 16 : 46; b.style.left = l + 'px'; b.style.right = (innerWidth < 760 ? 8 : r) + 'px'; if (innerWidth < 760) b.style.left = '8px'; const pb = $('pw-bar'); if (pb) pb.style.top = (b.offsetHeight + 46) + 'px'; }
+  function kpPop(key, anchor) {
+    kpPopCierra(); let h = ''; const S = KP.S, A = anchor.getBoundingClientRect();
+    if (key === '__s') {
+      const al = S.alertas.sort((a, b) => (a.s === 'bad' ? 0 : 1) - (b.s === 'bad' ? 0 : 1)).slice(0, 8);
+      h = `<div class="kh"><span class="ko" style="--c:#818cf8">${S.score == null ? '—' : S.score}</span><div><b>Puntaje del sitio</b><small>Síntesis de todos los indicadores calculados</small></div></div>
+      <div class="kb"><div class="kbar">${['ok', 'info', 'warn', 'bad'].map(s => S.c[s] ? `<i style="flex:${S.c[s]};background:${KP_COL[s]}" title="${KP_TX[s]}: ${S.c[s]}"></i>` : '').join('')}</div>
+      <div class="kleg">${['ok', 'info', 'warn', 'bad'].map(s => `<span><i style="background:${KP_COL[s]}"></i>${KP_TX[s]} <b>${S.c[s]}</b></span>`).join('')}</div>
+      ${al.length ? `<div class="kcap">Lo que merece atención</div>` + al.map(a => `<button type="button" class="kal" data-e="${a.ei}"><i style="background:${KP_COL[a.s]}"></i><span><b>${kpEsc(a.n)}</b><small>${kpEsc(a.e)} · ${kpEsc(a.v)}</small></span></button>`).join('') : '<p class="kmsg">Ningún indicador está en alerta ni en atención.</p>'}
+      <p class="kfm">Puntaje = (favorables + 0.75·informativos + 0.4·en atención) ÷ indicadores con dato × 100. Las alertas no suman.</p></div>`;
+    } else {
+      const g = KP.G.find(x => x.k.some(k => k.key === key)), k = g.k.find(x => x.key === key), r = k.r, s = r.sem || 'na', c = KP_COL[s];
+      h = `<div class="kh"><span class="ko" style="--c:${c}">${g.ico}</span><div><b>${kpEsc(k.l)}</b><small>${kpEsc(g.n)}</small></div></div>
+      <div class="kb"><div class="kbig" style="color:${c}">${kpEsc(r.val)}<small>${kpEsc(r.unit || '')}</small></div><span class="kst" style="--c:${c}">${KP_TX[s]}</span>
+      ${r.msg ? `<p class="kmsg">${kpEsc(r.msg)}</p>` : ''}${r.viz ? `<div class="kviz">${r.viz}</div>` : ''}
+      ${k.it.d ? `<div class="kcap">Qué mide</div><p>${kpEsc(k.it.d)}</p>` : ''}${k.it.m ? `<div class="kcap">Cómo se calcula</div><p>${kpEsc(k.it.m)}</p>` : ''}${k.it.f ? `<code>${kpEsc(k.it.f)}</code>` : ''}
+      ${g.k.length > 1 ? `<div class="kcap">Más de ${kpEsc(g.n)}</div><div class="kmore">${g.k.filter(x => x.key !== key).map(x => `<button type="button" data-kp="${x.key}"><b>${kpEsc(x.r.val)}</b> ${kpEsc(x.l)}</button>`).join('')}</div>` : ''}
+      <button type="button" class="kgo" data-w="${g.w}">Abrir ${kpEsc(g.n)} →</button></div>`;
+    }
+    const p = document.createElement('div'); p.id = 'kp-pop'; p.innerHTML = `<button type="button" class="kx" aria-label="Cerrar">✕</button>` + h; document.body.appendChild(p);
+    const W = Math.min(360, innerWidth - 16); p.style.width = W + 'px'; p.style.left = Math.max(8, Math.min(innerWidth - W - 8, A.left)) + 'px'; p.style.top = (A.bottom + 10) + 'px'; p.style.maxHeight = (innerHeight - A.bottom - 24) + 'px'; KP.pop = key;
+  }
+  function kpPopCierra() { const p = $('kp-pop'); if (p) p.remove(); KP.pop = null; }
+  {
+    const st = document.createElement('style'); st.id = 'kp-css'; st.textContent = `
+    @property --kd{syntax:'<number>';inherits:false;initial-value:0}
+    #kp-bar{position:fixed;top:38px;z-index:8400;display:flex;gap:10px;align-items:stretch;pointer-events:none;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    #kp-bar>*{pointer-events:auto}#kp-bar.off{display:none}
+    .kp-strip{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding:6px 14px 12px 4px;margin:-6px 0 -12px;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 6px,#000 calc(100% - 26px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 6px,#000 calc(100% - 26px),transparent 100%);scroll-snap-type:x proximity;min-width:0;flex:1 1 auto}.kp-strip::-webkit-scrollbar{display:none}
+    .kp{--c:#64748b;position:relative;flex:0 0 auto;scroll-snap-align:start;min-width:176px;max-width:230px;display:grid;grid-template-columns:36px minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:10px;align-items:center;text-align:left;padding:8px 14px 8px 10px;border-radius:15px;color:#e2e8f0;background:linear-gradient(150deg,rgba(11,18,36,.86),rgba(30,41,59,.76));backdrop-filter:blur(14px) saturate(165%);-webkit-backdrop-filter:blur(14px) saturate(165%);border:1px solid rgba(148,163,184,.22);box-shadow:0 10px 28px rgba(2,6,23,.38),inset 0 1px 0 rgba(255,255,255,.07);cursor:pointer;overflow:hidden;font:inherit;transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s,border-color .22s;animation:kpIn .55s cubic-bezier(.2,.8,.2,1) both}
+    .kp.nofx{animation:none}
+    .kp::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--c);box-shadow:0 0 12px var(--c)}
+    .kp::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.09) 50%,transparent 65%);transform:translateX(-120%);transition:transform .7s}
+    .kp:hover{transform:translateY(-2px);border-color:var(--c);box-shadow:0 14px 32px rgba(2,6,23,.5),0 0 26px -8px var(--c)}.kp:hover::after{transform:translateX(120%)}
+    .kp:active{transform:translateY(0) scale(.985)}
+    .kp.act{border-color:rgba(129,140,248,.7);box-shadow:0 10px 28px rgba(2,6,23,.4),0 0 0 1px rgba(129,140,248,.45),0 0 28px -10px #818cf8}
+    .kp.bad .ki{animation:kpPu 1.8s ease-in-out infinite}
+    .kr{grid-row:1/4;grid-column:1;width:36px;height:36px;transform:rotate(-90deg)}.kr circle{fill:none;stroke-width:3.4}.kr .t{stroke:rgba(148,163,184,.2)}.kr .a{stroke:var(--c);stroke-linecap:round;filter:drop-shadow(0 0 3px var(--c));animation:kpAr .9s cubic-bezier(.2,.8,.2,1) both}
+    .ki{grid-row:1/4;grid-column:1;justify-self:center;font-style:normal;font-size:14px;line-height:1}
+    .kp .l{grid-column:2;font:700 9.5px/1.2 system-ui;letter-spacing:.09em;text-transform:uppercase;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .kp .v{grid-column:2;font:800 19px/1.1 system-ui;letter-spacing:-.02em;color:#f8fafc;font-variant-numeric:tabular-nums;white-space:nowrap}.kp .v small{font:600 10.5px system-ui;letter-spacing:0;color:#94a3b8;margin-left:4px}
+    .kp .s{grid-column:2;font:500 10px/1.25 system-ui;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .kp.na{opacity:.72}.kp.na .v{color:#94a3b8}
+    .kp.ld .v{color:transparent;width:70px;border-radius:6px;background:linear-gradient(90deg,#334155,#475569,#334155);background-size:200% 100%;animation:kpSh 1.3s linear infinite}.kp.ld .v small{display:none}
+    .kps{min-width:200px;grid-template-columns:44px minmax(0,1fr);border-color:rgba(129,140,248,.45);background:linear-gradient(150deg,rgba(30,27,75,.88),rgba(15,23,42,.82))}.kps::before{background:#818cf8;box-shadow:0 0 12px #818cf8}
+    .kd{grid-row:1/4;grid-column:1;width:44px;height:44px;transform:rotate(-90deg)}.kd circle{fill:none;stroke-width:3.2}.kd .t{stroke:rgba(148,163,184,.18)}.kd .seg{stroke-linecap:butt;transition:stroke-dasharray .9s cubic-bezier(.2,.8,.2,1);animation:kpAr2 1s cubic-bezier(.2,.8,.2,1) both}
+    .kn{grid-row:1/4;grid-column:1;justify-self:center;font:800 14px system-ui;color:#fff;letter-spacing:-.02em}
+    .kp .v em{font-style:normal;color:#fb7185}
+    .kp-rf{flex:0 0 auto;align-self:center;width:34px;height:34px;border-radius:50%;border:1px solid rgba(148,163,184,.28);background:rgba(15,23,42,.8);backdrop-filter:blur(10px);color:#cbd5e1;font-size:16px;cursor:pointer;transition:transform .3s,border-color .2s,color .2s}.kp-rf:hover{transform:rotate(180deg);color:#fff;border-color:#818cf8}.kp-rf.ld{animation:kpSp 1s linear infinite;color:#818cf8}
+    #kp-pop{position:fixed;z-index:9100;overflow:auto;color:#e2e8f0;border-radius:18px;background:linear-gradient(160deg,rgba(11,18,36,.96),rgba(30,41,59,.94));backdrop-filter:blur(18px);border:1px solid rgba(148,163,184,.25);box-shadow:0 24px 60px rgba(2,6,23,.6),0 0 0 1px rgba(129,140,248,.18);font:13px/1.45 system-ui;animation:kpPop .28s cubic-bezier(.2,.8,.2,1) both;transform-origin:top left;scrollbar-width:thin}
+    #kp-pop .kx{position:absolute;top:10px;right:12px;border:0;background:none;color:#94a3b8;cursor:pointer;font-size:14px}#kp-pop .kx:hover{color:#fff}
+    #kp-pop .kh{display:flex;gap:12px;align-items:center;padding:16px 38px 12px 16px;border-bottom:1px solid rgba(148,163,184,.16)}#kp-pop .kh b{display:block;font-size:15px;color:#fff}#kp-pop .kh small{color:#94a3b8;font-size:11.5px}
+    #kp-pop .ko{flex:0 0 auto;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font:800 17px system-ui;color:#fff;background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--c) 55%,#fff 0),color-mix(in srgb,var(--c) 40%,#0f172a));box-shadow:0 0 18px -4px var(--c)}
+    #kp-pop .kb{padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px}
+    #kp-pop .kbig{font:800 32px/1 system-ui;letter-spacing:-.03em;font-variant-numeric:tabular-nums}#kp-pop .kbig small{font:600 13px system-ui;color:#94a3b8;margin-left:6px;letter-spacing:0}
+    #kp-pop .kst{align-self:flex-start;font:700 10.5px system-ui;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:99px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+    #kp-pop p{margin:0;color:#cbd5e1}#kp-pop .kmsg{color:#e2e8f0}#kp-pop .kcap{margin-top:4px;font:700 10px system-ui;letter-spacing:.1em;text-transform:uppercase;color:#818cf8}
+    #kp-pop code{display:block;font:11.5px ui-monospace,Menlo,monospace;color:#c7d2fe;background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.16);border-radius:10px;padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+    #kp-pop .kviz{background:#f8fafc;border-radius:12px;padding:10px;color:#0f172a}
+    #kp-pop .kmore{display:flex;flex-wrap:wrap;gap:6px}#kp-pop .kmore button{border:1px solid rgba(148,163,184,.25);background:rgba(15,23,42,.6);color:#cbd5e1;border-radius:99px;padding:4px 11px;font:500 11.5px system-ui;cursor:pointer}#kp-pop .kmore button:hover{border-color:#818cf8;color:#fff}#kp-pop .kmore b{color:#fff}
+    #kp-pop .kgo{margin-top:4px;border:0;border-radius:12px;padding:10px 14px;font:700 13px system-ui;color:#fff;cursor:pointer;background:linear-gradient(135deg,#4f46e5,#06b6d4);box-shadow:0 8px 20px -8px #4f46e5;transition:transform .15s,filter .15s}#kp-pop .kgo:hover{filter:brightness(1.1);transform:translateY(-1px)}
+    #kp-pop .kbar{display:flex;height:9px;border-radius:99px;overflow:hidden;gap:2px;background:rgba(148,163,184,.15)}#kp-pop .kbar i{display:block;border-radius:99px;animation:kpGr .8s cubic-bezier(.2,.8,.2,1) both;transform-origin:left}
+    #kp-pop .kleg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:#94a3b8}#kp-pop .kleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}#kp-pop .kleg b{color:#fff}
+    #kp-pop .kal{display:flex;gap:10px;align-items:center;text-align:left;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.55);border-radius:11px;padding:7px 10px;color:#e2e8f0;cursor:pointer;font:inherit}#kp-pop .kal:hover{border-color:#818cf8}#kp-pop .kal i{flex:0 0 8px;height:8px;border-radius:50%}#kp-pop .kal b{display:block;font-size:12.5px}#kp-pop .kal small{color:#94a3b8;font-size:11px}
+    #kp-pop .kfm{font-size:10.5px;color:#64748b}
+    @keyframes kpIn{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:none}}@keyframes kpPop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+    @keyframes kpAr{from{stroke-dasharray:0 88}}@keyframes kpAr2{from{stroke-dasharray:0 100}}@keyframes kpGr{from{transform:scaleX(0)}}@keyframes kpSh{to{background-position:-200% 0}}@keyframes kpSp{to{transform:rotate(360deg)}}
+    @keyframes kpPu{0%,100%{transform:scale(1);filter:none}50%{transform:scale(1.18);filter:drop-shadow(0 0 5px #fb7185)}}
+    @media (max-width:760px){#kp-bar{top:44px}.kp{min-width:150px}.kps{min-width:170px}}
+    @media (prefers-reduced-motion:reduce){.kp,.kp *,#kp-pop,#kp-pop *{animation:none!important;transition:none!important}}
+    @media print{#kp-bar,#kp-pop{display:none!important}}`;
+    document.head.appendChild(st);
+    const bar = document.createElement('div'); bar.id = 'kp-bar'; bar.className = 'off'; document.body.appendChild(bar);
+    bar.addEventListener('click', e => { const b = e.target.closest('[data-kp]'); if (!b) return; e.stopPropagation(); const k = b.dataset.kp; if (k === '__r') { if (!INDX.busy) { indCarga(); setTimeout(() => kpRender(true), 300); } return; } if (KP.pop === k) { kpPopCierra(); return; } kpPop(k, b); });
+    document.addEventListener('click', e => { const p = $('kp-pop'); if (!p) return; const x = e.target.closest('#kp-pop'); if (x) { if (e.target.closest('.kx')) { kpPopCierra(); return; } const go = e.target.closest('.kgo'); if (go) { pwShow(go.dataset.w, true); kpPopCierra(); return; } const al = e.target.closest('.kal'); if (al) { const g = KP_G.find(q => q.g === al.dataset.e || q.it.some(t => t[0] === al.dataset.e)); if (g) pwShow(g.w, true); kpPopCierra(); return; } const mk = e.target.closest('.kmore [data-kp]'); if (mk) { kpPop(mk.dataset.kp, $('kp-bar').querySelector(`[data-kp="${mk.dataset.kp}"]`) || $('kp-bar')); } return; } if (!e.target.closest('#kp-bar')) kpPopCierra(); }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') kpPopCierra(); });
+    bar.addEventListener('wheel', e => { const s = $('kp-strip'); if (s && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { s.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+    let auto = false;
+    setInterval(() => { try { if (document.hidden) return; const S = solS(); const on = !!S && !document.documentElement.classList.contains('dk-drag'); bar.classList.toggle('off', !on); if (!on) return; kpPlace(); kpRender(); if (!auto && !INDX.busy) { auto = true; setTimeout(() => { try { if (!INDX.busy) indCarga(); } catch (_) { } }, 3500); } } catch (_) { } }, 1500);
+    addEventListener('resize', () => { try { kpPlace(); } catch (_) { } });
+  }
+}
 </script>
 <script>
 (() => { const dk = document.getElementById('dock'); if (!dk) return; const tg = document.createElement('button'); tg.id = 'dock-tg'; tg.title = 'Ocultar o mostrar el menú'; tg.innerHTML = '<b>‹</b><span class="tg-t">Menú</span>'; document.body.appendChild(tg); tg.onclick = () => { const off = dk.classList.toggle('off'); tg.classList.toggle('off', off); tg.querySelector('b').textContent = off ? '›' : '‹'; };
