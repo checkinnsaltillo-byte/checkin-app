@@ -220,14 +220,15 @@
     }).join("");
   }
   // «En Geo Lab»: si el indicador se muestra, dónde, cómo se ve en el mapa y una tarjeta de ejemplo real (datalab-geo.js)
-  function chipGeo(i) { const g = !i._nuevo && (window.DL_GEO || {})[i._e.id + ":" + i.id]; return g ? `<span class="dl-geo-chip${g.m ? " map" : ""}" title="${g.m ? "Se muestra en Geo Lab y se dibuja en el mapa" : "Se muestra en Geo Lab (tarjeta y ventana); no se dibuja en el mapa"}">${g.m ? "🗺️ En el mapa" : "📋 Solo tarjeta"}</span>` : ""; }
+  const CUANDO = { P: ["🆕", "Al crear el proyecto", "Se consulta una vez al crear el proyecto y se guarda con él; después solo se lee."], I: ["🔁", "Cada vez que se ingresa", "Se calcula o se consulta de nuevo cada vez que se abre la maqueta o se pulsa «Calcular y actualizar»."], D: ["👆", "Bajo demanda", "Solo se genera cuando alguien pulsa el botón correspondiente; luego queda guardado o en pantalla."], G: ["📦", "Ya guardado en el sistema", "Es un dato de referencia (Censo, DENUE, INEGI, WorldCover…) ya cargado de antemano: no hay que generarlo."], X: ["⏳", "Pendiente de construir", "Todavía no se genera."] };
+  function chipGeo(i) { const g = !i._nuevo && (window.DL_GEO || {})[i._e.id + ":" + i.id]; return g ? `<span class="dl-geo-chip${g.m ? " map" : ""}" title="${g.m ? "Se muestra en Geo Lab y se dibuja en el mapa" : "Se muestra en Geo Lab (tarjeta y ventana); no se dibuja en el mapa"}">${g.m ? "🗺️ En el mapa" : "📋 Solo tarjeta"}</span>${CUANDO[g.w] ? `<span class="dl-geo-chip w${g.w}" title="${esc(CUANDO[g.w][2])}">${CUANDO[g.w][0]} ${esc(CUANDO[g.w][1])}</span>` : ""}` : ""; }
   function bloqueGeo(i) {
     if (i._nuevo) { const pub = i._meta && i._meta.publicado; return `<div class="wide dl-geo-b"><span>En Geo Lab</span><p>${pub ? "✓ Publicado: aparece en el panel Indicadores y como ventana en Análisis › Indicadores generados." : "Todavía no se muestra en Geo Lab: aparecerá cuando se publique."}</p></div>`; }
     const g = (window.DL_GEO || {})[i._e.id + ":" + i.id]; if (!g) return `<div class="wide dl-geo-b"><span>En Geo Lab</span><p class="dl-mut">Todavía no se muestra en Geo Lab.</p></div>`;
     return `<div class="wide dl-geo-b"><span>En Geo Lab</span><div class="dl-geo-g">
       <div class="dl-geo-ej">${g.h ? `<div class="dl-geo">${g.h}</div><small>Así se ve la tarjeta en el panel Indicadores (ejemplo real: ${esc(window.DL_GEO_PROY || "")}).</small>` : `<div class="dl-geo-nd">Sin tarjeta de ejemplo: en el proyecto de muestra no hubo dato para este indicador.</div>`}</div>
       <ul class="dl-geo-l"><li><b>✓ Se muestra</b> en el panel <b>Indicadores</b> y en la ventana <b>${esc(g.v)}</b> (menú Análisis).</li>
-      <li>${g.m ? "<b>🗺️ En el mapa:</b> " : "<b>Sin capa en el mapa.</b> "}${esc(g.t)}</li></ul></div></div>`;
+      <li>${g.m ? "<b>🗺️ En el mapa:</b> " : "<b>Sin capa en el mapa.</b> "}${esc(g.t)}</li>${CUANDO[g.w] ? `<li><b>⏱️ Cuándo se genera:</b> <span class="dl-geo-chip w${g.w}">${CUANDO[g.w][0]} ${esc(CUANDO[g.w][1])}</span> ${esc(g.wn || "")}<div class="dl-mut">${esc(CUANDO[g.w][2])}</div></li>` : ""}</ul></div></div>`;
   }
   function filaI(i) {
     const k = i._e.id + ":" + i.id, ab = S2.filas.has(k), fam = i._fam.map(f => `<button type="button" class="dl-c${S2.fam === f ? " on" : ""}" data-ifam="${esc(f)}" title="Filtrar por esta fuente">${esc(f)}</button>`).join("");

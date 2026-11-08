@@ -276,3 +276,5 @@
 .dl-geo-nd{padding:12px;border:1px dashed #cbd5e1;border-radius:12px;font-size:12px;color:#64748b}
 .dl-geo-l{margin:0;padding:0 0 0 18px;color:#334155;font-size:13px;line-height:1.5}.dl-geo-l li{margin:0 0 6px}
 @media (max-width:720px){.dl-geo-b .dl-geo-g{grid-template-columns:1fr}}
+.dl-geo-chip.wP{color:#1d4ed8;background:#dbeafe;border-color:#bfdbfe}.dl-geo-chip.wI{color:#b45309;background:#fef3c7;border-color:#fde68a}.dl-geo-chip.wD{color:#7c3aed;background:#ede9fe;border-color:#ddd6fe}.dl-geo-chip.wG{color:#047857;background:#d1fae5;border-color:#a7f3d0}.dl-geo-chip.wX{color:#64748b;background:#f1f5f9;border-color:#e2e8f0}
+.dl-geo-l .dl-geo-chip{margin-left:0}
