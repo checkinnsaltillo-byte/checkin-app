@@ -15,7 +15,7 @@ window.DL_FUENTES = [
   /* ── Población y territorio ───────────────────────────────────────────────────────────────────────── */
   { id: "censo", cat: "demo", n: "Censo de Población y Vivienda 2020 (por manzana y AGEB)", p: "INEGI", t: "Pública", a: "Gratuita", m: "Descarga masiva", e: "Activa",
     ob: "Saber cuántas personas viven en cada manzana, por sexo y grupo de edad, y sus rasgos de vivienda y escolaridad.",
-    ind: ["Población por hexágono", "Pirámide de edad por manzana", "Nivel socioeconómico (NSE)", "Competencia: Cuota (Huff)", "Competencia: Accesibilidad (E2SFCA)", "Alcance acumulado"],
+    ind: ["Población por hexágono", "Pirámide de edad por manzana", "NSE estatal (Censo)", "Competencia: Cuota (Huff)", "Competencia: Accesibilidad (E2SFCA)", "Alcance acumulado"],
     cob: "32 estados · 2,478 municipios · 1.43 millones de manzanas urbanas (99.3 millones de habitantes)", act: "Decenal (levantamiento 2020)",
     alm: "Cloud Storage · censo/mun/<estado>/<municipio>.json (Saltillo y Monterrey: censo/manzanas-<región>.json) · hexágonos de 200 m con población y NSE de todo México ya calculados: hex/<estado>/<celda>.json (arbolado en hex/<estado>/arb/ y colonias en colonias/<estado>/)", lic: "Libre uso INEGI, citando la fuente", url: "https://www.inegi.org.mx/programas/ccpv/2020/",
     nota: "Los valores confidenciales (*) se tratan como 0; el grupo de 25 a 59 años se obtiene por diferencia." },
@@ -42,7 +42,7 @@ window.DL_FUENTES = [
     lic: "Libre uso INEGI, citando la fuente", url: "https://www.inegi.org.mx/programas/intercensal/2025/", nota: "Es una estimación (población 2020 × factor municipal), no un dato por manzana." },
   { id: "enigh", cat: "demo", n: "Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH) 2024 · ingreso del hogar", p: "INEGI", t: "Pública", a: "Gratuita", m: "Descarga masiva", e: "Activa",
     ob: "Estimar el ingreso mensual del hogar típico (mediana) en cada manzana, AGEB y hexágono del país: los hogares de la ENIGH se reponderan hasta parecerse a cada AGEB según el Censo 2020 (microsimulación espacial, con los porcentajes del Censo armonizados a la ENIGH por entidad).",
-    ind: ["Ingreso mensual típico del hogar (estimado)"],
+    ind: ["Ingreso mensual típico del hogar (estimado)", "NSE por ingreso (nacional)"],
     cob: "91 mil hogares de la ENIGH 2024; estimación en 24.4 millones de hogares urbanos de los 32 estados (manzana, AGEB y hexágono de 200 m). Las medianas coinciden con la ENIGH por entidad (error medio 6 %)", act: "Bienal (la ENIGH); se reestima al publicar una nueva",
     alm: "Cloud Storage · ingreso/mun/<estado>/<municipio>.json (manzanas), ingreso/ageb/<estado>.json, hexágonos en hex/<estado>/<celda>.json", lic: "Libre uso INEGI, citando la fuente", url: "https://www.inegi.org.mx/programas/enigh/nc/2024/",
     nota: "Es una estimación, no un dato censal: suaviza los extremos y la media se descarta por inestable (la mediana es el ingreso típico). Los niveles son quintiles de hogares urbanos del país. No usa la regla AMAI. No usa la regla AMAI porque el Censo no trae focos ni baños completos por hogar." },
