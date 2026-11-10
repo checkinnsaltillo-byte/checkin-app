@@ -4130,7 +4130,7 @@ const IND_MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 
 function bxStats(a) {
   const v = a.filter(x => x != null && isFinite(x)).sort((x, y) => x - y); if (v.length < 8) return null;
   const q = p => { const x = (v.length - 1) * p, i = Math.floor(x); return v[i] + (v[Math.min(i + 1, v.length - 1)] - v[i]) * (x - i); }, q1 = q(.25), md = q(.5), q3 = q(.75), iq = q3 - q1, lf = q1 - 1.5 * iq, uf = q3 + 1.5 * iq, inn = v.filter(x => x >= lf && x <= uf);
-  return { v, n: v.length, q1, md, q3, wl: inn.length ? inn[0] : v[0], wh: inn.length ? inn[inn.length - 1] : v[v.length - 1], mn: v[0], mx: v[v.length - 1], out: v.filter(x => x < lf || x > uf).length };
+  return { v, n: v.length, p: q, q1, md, q3, wl: inn.length ? inn[0] : v[0], wh: inn.length ? inn[inn.length - 1] : v[v.length - 1], mn: v[0], mx: v[v.length - 1], out: v.filter(x => x < lf || x > uf).length };
 }
 function bxHtml(ref, arr, o) {
   o = o || {}; if (ref == null || !isFinite(ref)) return ''; const B = bxStats(arr); if (!B) return '';
@@ -4141,7 +4141,7 @@ function bxHtml(ref, arr, o) {
     + `<div style="position:absolute;left:${pc(B.q1)}%;width:${Math.max(1.2, pc(B.q3) - pc(B.q1))}%;top:11px;height:18px;border:1.5px solid #64748b;border-radius:3px;background:#cbd5e1aa;box-sizing:border-box" title="Q1 ${f(B.q1)} · Q3 ${f(B.q3)}"></div><div style="position:absolute;left:calc(${pc(B.md)}% - 1px);top:11px;width:2px;height:18px;background:#0f172a" title="Mediana ${f(B.md)}"></div>`
     + `<div style="position:absolute;left:calc(${pc(ref)}% - 8px);top:12px;width:16px;height:16px;border-radius:50%;background:${col};border:2.5px solid #fff;box-shadow:0 0 0 2px ${col},0 1px 4px rgba(0,0,0,.35);box-sizing:border-box;z-index:2" title="${o.nom || 'Este punto'}: ${f(ref)}"></div>`;
   const etq = `<div style="position:absolute;left:${Math.max(0, Math.min(78, pc(ref) - 10))}%;top:-3px;font-size:9.5px;font-weight:800;color:${col};white-space:nowrap">${o.nom || 'Este punto'} ${f(ref)}</div>`;
-  return `<div class="bxp" style="margin-top:6px;grid-column:1/-1;width:100%;text-align:left"><div style="font-size:10px;color:#64748b;margin-bottom:1px">${o.lbl || 'Distribución en la ciudad'} · ${B.n.toLocaleString('es-MX')} zonas · <b style="color:${col}">percentil ${per}</b></div><div style="position:relative;height:34px;margin:0 6px">${etq}${caja}</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;margin:0 6px"><span>${f(lo)}</span><span>mediana ${f(B.md)}</span><span>${f(hi)}</span></div><div style="font-size:10px;color:#64748b;margin-top:2px">${pos}${B.out ? ' · ' + B.out + ' atípicas fuera de los bigotes' : ''}</div></div>`;
+  return `<div class="bxp" style="margin-top:6px;grid-column:1/-1;width:100%;text-align:left"><div style="font-size:10px;color:#64748b;margin-bottom:1px">${o.lbl || 'Distribución en la ciudad'} · <b style="color:${col}">percentil ${per}</b></div><div style="position:relative;height:34px;margin:0 6px">${etq}${caja}</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;margin:0 6px"><span>${f(lo)}</span><span>mediana ${f(B.md)}</span><span>${f(hi)}</span></div><div style="font-size:10px;color:#64748b;margin-top:2px">${pos}${B.out ? ' · ' + B.out + ' atípicas fuera de los bigotes' : ''}</div><div style="font-size:10px;color:#475569;margin-top:3px;line-height:1.5;border-top:1px dashed #e2e8f0;padding-top:3px"><b>Universo: ${B.n.toLocaleString('es-MX')} observaciones</b> (${o.uni || 'zonas de la ciudad'})<br>Mín ${f(B.mn)} · P10 ${f(B.p(.1))} · <b>Q1 ${f(B.q1)}</b> · <b>Mediana ${f(B.md)}</b> · <b>Q3 ${f(B.q3)}</b> · P90 ${f(B.p(.9))} · Máx ${f(B.mx)}<br>Rango intercuartil ${f(B.q3 - B.q1)} · bigotes ${f(B.wl)} a ${f(B.wh)}</div></div>`;
 }
 
 // vialidades y manzanas (INEGI, entorno urbano): se pide una ventana más grande (1.5 km) como conjunto de referencia
@@ -4157,10 +4157,10 @@ function euRef(j) {
 }
 function bxEu(id) {
   const j = EU.jr; if (!j || !j.ok || !j.f || !j.f.length) return null;
-  if (id === 'eu_nse') { const A = euA(), z = A && A.prop && A.prop.z; return z == null || !isFinite(z) ? null : { v: z, a: (j.m || []).map(m => m.z), lbl: 'Puntaje socioeconómico de las manzanas (vivienda y escolaridad)', nom: 'Manzana', fmt: x => (x > 0 ? '+' : '') + x.toFixed(2) }; }
+  if (id === 'eu_nse') { const A = euA(), z = A && A.prop && A.prop.z; return z == null || !isFinite(z) ? null : { v: z, a: (j.m || []).map(m => m.z), lbl: 'Puntaje socioeconómico de las manzanas (vivienda y escolaridad)', uni: 'manzanas en 1.5 km alrededor', nom: 'Manzana', fmt: x => (x > 0 ? '+' : '') + x.toFixed(2) }; }
   const R = euRef(j); if (!R.pt || R.W.length < 8) return null;
-  if (id === 'eu_indice') return { v: R.pt.idx, a: R.W.map(w => w.idx), lbl: 'Índice de infraestructura en ventanas de 500 m de la zona', nom: 'Aquí', fmt: x => indN(x) };
-  const k = id.slice(3); if (R.pt.cov[k] == null) return null; return { v: R.pt.cov[k], a: R.W.map(w => w.cov[k]), lbl: 'Cobertura en ventanas de 500 m de la zona', nom: 'Aquí', fmt: x => indN(x) + ' %' };
+  if (id === 'eu_indice') return { v: R.pt.idx, a: R.W.map(w => w.idx), lbl: 'Índice de infraestructura en ventanas de 500 m de la zona', uni: 'ventanas de 500 m en 1.5 km alrededor', nom: 'Aquí', fmt: x => indN(x) };
+  const k = id.slice(3); if (R.pt.cov[k] == null) return null; return { v: R.pt.cov[k], a: R.W.map(w => w.cov[k]), lbl: 'Cobertura en ventanas de 500 m de la zona', uni: 'ventanas de 500 m en 1.5 km alrededor', nom: 'Aquí', fmt: x => indN(x) + ' %' };
 }
 // definición por indicador: valor de la zona del punto y el conjunto de referencia (todos los hexágonos de la región)
 function bxDef(id) {
@@ -4170,21 +4170,21 @@ function bxDef(id) {
   const sum = (a, k) => a.reduce((t, h) => t + (h[k] || 0), 0), wmed = (a, vf, wf) => { const q = a.filter(h => vf(h) != null && wf(h) > 0).sort((x, y) => vf(x) - vf(y)), T = q.reduce((t, h) => t + wf(h), 0); if (!T) return null; let c = 0; for (const h of q) { c += wf(h); if (c >= T / 2) return vf(h); } return null; }, M = x => '$' + indN(x), ing = h => h.ing && h.viv > 0 ? h.ing[0] : null;
   const tot = h => h.est ? h.est.reduce((a, b) => a + b, 0) : null;
   switch (id) {
-    case 'pob': return { v: sum(Z, 'p20') / Z.length, a: H.map(h => h.p20 > 0 ? h.p20 : null), lbl: 'Habitantes por hexágono (Censo 2020)', nom: 'Zona', fmt: x => indN(x) };
-    case 'den': return { v: sum(Z, 'p20') / (Z.length * .1039), a: H.map(h => h.p20 > 0 ? h.p20 / .1039 : null), lbl: 'Densidad por hexágono (hab/km²)', nom: 'Zona', fmt: x => indN(x) };
-    case 'ocu': return { v: sum(Z, 'viv') ? sum(Z, 'p20') / sum(Z, 'viv') : null, a: H.map(h => h.viv > 0 && h.p20 > 0 ? h.p20 / h.viv : null), lbl: 'Ocupantes por vivienda por hexágono', nom: 'Zona', fmt: x => indN(x, 2) };
-    case 'ing': case 'nsei': return { v: wmed(Z, ing, h => h.viv), a: H.map(ing), lbl: 'Ingreso mensual típico del hogar por hexágono', nom: 'Zona', fmt: M };
-    case 'nse': { const q = Z.filter(h => h.nse && h.p20 > 0), t = sum(q, 'p20'); return { v: t ? q.reduce((a, h) => a + h.nse[0] * h.p20, 0) / t : null, a: H.map(h => h.nse && h.p20 > 0 ? h.nse[0] : null), lbl: 'Índice NSE estatal por hexágono', nom: 'Zona', fmt: x => (x > 0 ? '+' : '') + x.toFixed(2) }; }
-    case 'arbp': { const q = Z.filter(h => h.arb); return { v: q.length ? q.reduce((a, h) => a + h.arb[0], 0) / q.length : null, a: H.map(h => h.arb ? h.arb[0] : null), lbl: 'Cobertura arbórea por hexágono (%)', nom: 'Zona', fmt: x => indN(x, 1) + ' %' }; }
-    case 'denue': return { v: Z.reduce((a, h) => a + (tot(h) || 0), 0) / Z.length, a: H.map(h => h.p20 > 0 || tot(h) ? tot(h) : null), lbl: 'Establecimientos DENUE por hexágono', nom: 'Zona', fmt: x => indN(x, 1) };
-    case 'emipc': { if (!H[0].e) return null; const f = h => h.e && h.p20 > 20 ? (h.e.edi + h.e.mo) / h.p20 : null, P = sum(Z, 'p20'); return { v: P ? Z.reduce((a, h) => a + (h.e ? h.e.edi + h.e.mo : 0), 0) / P : null, a: H.map(f), lbl: 'Emisiones per cápita por hexágono (t CO₂e/hab·año)', nom: 'Zona', fmt: x => indN(x, 2) }; }
-    case 'emie': { if (!H[0].e) return null; return { v: Z.reduce((a, h) => a + (h.e ? h.e.edi : 0), 0) / Z.length, a: H.map(h => h.e ? h.e.edi : null), lbl: 'Emisiones de edificaciones por hexágono (t/año)', nom: 'Zona', fmt: x => indN(x) }; }
-    case 'emim': { if (!H[0].e) return null; return { v: Z.reduce((a, h) => a + (h.e ? h.e.mo : 0), 0) / Z.length, a: H.map(h => h.e ? h.e.mo : null), lbl: 'Emisiones del transporte por hexágono (t/año)', nom: 'Zona', fmt: x => indN(x) }; }
+    case 'pob': return { v: sum(Z, 'p20') / Z.length, a: H.map(h => h.p20 > 0 ? h.p20 : null), lbl: 'Habitantes por hexágono (Censo 2020)', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x) };
+    case 'den': return { v: sum(Z, 'p20') / (Z.length * .1039), a: H.map(h => h.p20 > 0 ? h.p20 / .1039 : null), lbl: 'Densidad por hexágono (hab/km²)', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x) };
+    case 'ocu': return { v: sum(Z, 'viv') ? sum(Z, 'p20') / sum(Z, 'viv') : null, a: H.map(h => h.viv > 0 && h.p20 > 0 ? h.p20 / h.viv : null), lbl: 'Ocupantes por vivienda por hexágono', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x, 2) };
+    case 'ing': case 'nsei': return { v: wmed(Z, ing, h => h.viv), a: H.map(ing), lbl: 'Ingreso mensual típico del hogar por hexágono', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: M };
+    case 'nse': { const q = Z.filter(h => h.nse && h.p20 > 0), t = sum(q, 'p20'); return { v: t ? q.reduce((a, h) => a + h.nse[0] * h.p20, 0) / t : null, a: H.map(h => h.nse && h.p20 > 0 ? h.nse[0] : null), lbl: 'Índice NSE estatal por hexágono', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => (x > 0 ? '+' : '') + x.toFixed(2) }; }
+    case 'arbp': { const q = Z.filter(h => h.arb); return { v: q.length ? q.reduce((a, h) => a + h.arb[0], 0) / q.length : null, a: H.map(h => h.arb ? h.arb[0] : null), lbl: 'Cobertura arbórea por hexágono (%)', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x, 1) + ' %' }; }
+    case 'denue': return { v: Z.reduce((a, h) => a + (tot(h) || 0), 0) / Z.length, a: H.map(h => h.p20 > 0 || tot(h) ? tot(h) : null), lbl: 'Establecimientos DENUE por hexágono', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x, 1) };
+    case 'emipc': { if (!H[0].e) return null; const f = h => h.e && h.p20 > 20 ? (h.e.edi + h.e.mo) / h.p20 : null, P = sum(Z, 'p20'); return { v: P ? Z.reduce((a, h) => a + (h.e ? h.e.edi + h.e.mo : 0), 0) / P : null, a: H.map(f), lbl: 'Emisiones per cápita por hexágono (t CO₂e/hab·año)', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x, 2) }; }
+    case 'emie': { if (!H[0].e) return null; return { v: Z.reduce((a, h) => a + (h.e ? h.e.edi : 0), 0) / Z.length, a: H.map(h => h.e ? h.e.edi : null), lbl: 'Emisiones de edificaciones por hexágono (t/año)', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x) }; }
+    case 'emim': { if (!H[0].e) return null; return { v: Z.reduce((a, h) => a + (h.e ? h.e.mo : 0), 0) / Z.length, a: H.map(h => h.e ? h.e.mo : null), lbl: 'Emisiones del transporte por hexágono (t/año)', uni: 'hexágonos de 200 m de la región', nom: 'Zona', fmt: x => indN(x) }; }
   }
   return null;
 }
 function bxAnota(L) {   // a cada indicador con conjunto de referencia le agrega r.box
-  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const c0 = i.calc; i.calc = () => { const r = c0(); try { if (r && r.sem !== 'na' && !r.box) { const d = bxDef(i.id); if (d && d.v != null) r.box = bxHtml(d.v, d.a, { lbl: d.lbl, fmt: d.fmt, nom: d.nom }); } } catch (_) { } return r; }; })));
+  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const c0 = i.calc; i.calc = () => { const r = c0(); try { if (r && r.sem !== 'na' && !r.box) { const d = bxDef(i.id); if (d && d.v != null) r.box = bxHtml(d.v, d.a, { lbl: d.lbl, fmt: d.fmt, nom: d.nom, uni: d.uni }); } } catch (_) { } return r; }; })));
   return L;
 }
 function indLista() {
