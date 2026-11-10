@@ -4143,8 +4143,28 @@ function bxHtml(ref, arr, o) {
   const etq = `<div style="position:absolute;left:${Math.max(0, Math.min(78, pc(ref) - 10))}%;top:-3px;font-size:9.5px;font-weight:800;color:${col};white-space:nowrap">${o.nom || 'Este punto'} ${f(ref)}</div>`;
   return `<div class="bxp" style="margin-top:6px;grid-column:1/-1;width:100%;text-align:left"><div style="font-size:10px;color:#64748b;margin-bottom:1px">${o.lbl || 'Distribución en la ciudad'} · ${B.n.toLocaleString('es-MX')} zonas · <b style="color:${col}">percentil ${per}</b></div><div style="position:relative;height:34px;margin:0 6px">${etq}${caja}</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;margin:0 6px"><span>${f(lo)}</span><span>mediana ${f(B.md)}</span><span>${f(hi)}</span></div><div style="font-size:10px;color:#64748b;margin-top:2px">${pos}${B.out ? ' · ' + B.out + ' atípicas fuera de los bigotes' : ''}</div></div>`;
 }
+
+// vialidades y manzanas (INEGI, entorno urbano): se pide una ventana más grande (1.5 km) como conjunto de referencia
+function euRef(j) {
+  if (j._ref) return j._ref;
+  const K = { pav: [0], banq: [3], guarn: [4], alum: [7], dren: [15], arb: [10], rampa: [1], paso: [2], transp: [16, 13], rest: [17, 18], amb: [19, 20] }, F = [];
+  (j.f || []).forEach(fr => { const c = fr.c; if (c[0] === '8' && c[3] === '8') return; let l = 0, sx = 0, sy = 0, n = 0; for (let i = 0; i + 1 < fr.p.length; i += 2) { if (i >= 2) l += Math.hypot(fr.p[i] - fr.p[i - 2], fr.p[i + 1] - fr.p[i - 1]); sx += fr.p[i]; sy += fr.p[i + 1]; n++; } if (!n || !l) return;
+    const o = { x: sx / n, y: sy / n, l, idx: euIdx(c), k: {} }; for (const k in K) { const vs = K[k].map(i => c[i]); if (vs.some(v => v === '1' || v === '2' || v === '3')) o.k[k] = vs.includes('1') ? 1 : 0; } F.push(o); });
+  const win = (cx, cy) => { const a = { iS: 0, iW: 0, s: {}, t: {} }; for (const o of F) { if (Math.hypot(o.x - cx, o.y - cy) > 500) continue; if (o.idx != null) { a.iS += o.idx * o.l; a.iW += o.l; } for (const k in o.k) { a.t[k] = (a.t[k] || 0) + o.l; a.s[k] = (a.s[k] || 0) + o.l * o.k[k]; } }
+    if (a.iW < 400) return null; const r = { idx: a.iS / a.iW, cov: {} }; for (const k in a.t) if (a.t[k] >= 400) r.cov[k] = 100 * a.s[k] / a.t[k]; return r; };
+  const C = F.filter(o => Math.hypot(o.x, o.y) <= 1000), st = Math.max(1, Math.ceil(C.length / 300)), W = []; for (let i = 0; i < C.length; i += st) { const w = win(C[i].x, C[i].y); if (w) W.push(w); }
+  return (j._ref = { pt: win(0, 0), W });
+}
+function bxEu(id) {
+  const j = EU.jr; if (!j || !j.ok || !j.f || !j.f.length) return null;
+  if (id === 'eu_nse') { const A = euA(), z = A && A.prop && A.prop.z; return z == null || !isFinite(z) ? null : { v: z, a: (j.m || []).map(m => m.z), lbl: 'Puntaje socioeconómico de las manzanas (vivienda y escolaridad)', nom: 'Manzana', fmt: x => (x > 0 ? '+' : '') + x.toFixed(2) }; }
+  const R = euRef(j); if (!R.pt || R.W.length < 8) return null;
+  if (id === 'eu_indice') return { v: R.pt.idx, a: R.W.map(w => w.idx), lbl: 'Índice de infraestructura en ventanas de 500 m de la zona', nom: 'Aquí', fmt: x => indN(x) };
+  const k = id.slice(3); if (R.pt.cov[k] == null) return null; return { v: R.pt.cov[k], a: R.W.map(w => w.cov[k]), lbl: 'Cobertura en ventanas de 500 m de la zona', nom: 'Aquí', fmt: x => indN(x) + ' %' };
+}
 // definición por indicador: valor de la zona del punto y el conjunto de referencia (todos los hexágonos de la región)
 function bxDef(id) {
+  if (id.startsWith('eu_')) return bxEu(id);
   const S = solS(), H = HXL.H; if (!S || !H || !H.length || !HXL.D) return null;
   const [la0, lo0] = HXL.D.meta.ancla, kx0 = 111320 * Math.cos(la0 * Math.PI / 180), cx = (+S.lng - lo0) * kx0, cy = (+S.lat - la0) * 111320, Z = H.filter(h => Math.abs(h.x - cx) < 450 && Math.abs(h.y - cy) < 450); if (!Z.length) return null;
   const sum = (a, k) => a.reduce((t, h) => t + (h[k] || 0), 0), wmed = (a, vf, wf) => { const q = a.filter(h => vf(h) != null && wf(h) > 0).sort((x, y) => vf(x) - vf(y)), T = q.reduce((t, h) => t + wf(h), 0); if (!T) return null; let c = 0; for (const h of q) { c += wf(h); if (c >= T / 2) return vf(h); } return null; }, M = x => '$' + indN(x), ing = h => h.ing && h.viv > 0 ? h.ing[0] : null;
@@ -7652,10 +7672,11 @@ function euDibuja(W, j, RAD) {
   EU.G = grp; try { capasSync(); renderOnce && renderOnce(); } catch (_) { }
 }
 function euCarga(S) {
-  if (!S || S.lat == null || S.lng == null || !world) return; const W = world, key = [S.id, S.lat, S.lng, S.radio].join('|'); if (EU.W === W && EU.key === key) return; EU.W = W; EU.key = key; EU.j = null; EU.est = 'carga'; EU.G = {}; euPanel();
+  if (!S || S.lat == null || S.lng == null || !world) return; const W = world, key = [S.id, S.lat, S.lng, S.radio].join('|'); if (EU.W === W && EU.key === key) return; EU.W = W; EU.key = key; EU.j = null; EU.jr = null; EU.est = 'carga'; EU.G = {}; euPanel();
   const R = Math.min(900, Math.max(250, Math.round(+S.radio || 400)));
   fetch(`https://api.check-inn.mx/mercado/maqueta/entorno-inegi?lat=${(+S.lat).toFixed(6)}&lng=${(+S.lng).toFixed(6)}&r=${R}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (world !== W || EU.key !== key) return; if (!j.ok) throw new Error(j.error || 'sin datos'); EU.j = j; EU.R = R; EU.est = j.fuera ? 'fuera' : 'ok'; if (!j.fuera) euDibuja(W, j, R); euPanel(); try { indRender(); } catch (_) { } })
     .catch(e => { if (EU.key === key) { EU.est = 'error'; EU.err = String(e && e.message || e); euPanel(); } });
+  fetch(`https://api.check-inn.mx/mercado/maqueta/entorno-inegi?lat=${(+S.lat).toFixed(6)}&lng=${(+S.lng).toFixed(6)}&r=1500`).then(r => r.json()).then(j => { if (EU.key !== key || !j.ok || j.fuera) return; EU.jr = j; try { indRender(); } catch (_) { } }).catch(() => { });
 }
 // ── cifras de la zona (radio de 500 m alrededor de la propiedad)
 function euStats(j) {
