@@ -7912,6 +7912,19 @@ if (!SPLH) {
   setInterval(() => { if (!solS()) return; Object.keys(want).forEach(k => { try { if ((capaHay(k) || k === 'maqueta') && capaVis(k) !== want[k] && (tries[k] = (tries[k] || 0) + 1) < 25) capaSet(k, want[k]); } catch (_) { } }); }, 1000);
 }
 
+/* ═══ Ventana de datos nacionales ═══ los hexágonos, el DENUE y las colonias se piden por ventana (≈12 km) centrada en la propiedad: si se cambia de proyecto a otro lugar (> 5 km) se descartan los datos en memoria para pedirlos de nuevo */
+{
+  const RG = { c: null };
+  setInterval(() => {
+    try {
+      const S = (typeof curS !== 'undefined' && curS) || null; if (!S || S.lat == null) return; if (!RG.c) { RG.c = [+S.lat, +S.lng]; return; }
+      const d = Math.hypot((+S.lat - RG.c[0]) * 111320, (+S.lng - RG.c[1]) * 111320 * Math.cos(+S.lat * Math.PI / 180)); if (d < 5000) return;
+      RG.c = [+S.lat, +S.lng]; CITY.pobD = CITY.nseD = CITY.ingD = null; HXL.H = null; HXL.D = null; ECO.D = null; ECO.G = null; AFL.D = null; AFL.G = null; AFL.P = null; COL.D = null; COL.G = null; COL.busy = null;
+      if (CITY.on && CITY.demo) { try { cityPob(S); } catch (_) { } }
+    } catch (_) { }
+  }, 1500);
+}
+
 /* ═══ Barra de KPIs (parte superior del mapa) ═══
    Resume cada análisis en pocos datos: un chip por KPI, animado, con semáforo; al tocarlo muestra qué mide, cómo se calcula y abre el análisis.
    Los datos salen de indLista() (los mismos indicadores del panel «Indicadores»); Competencia, Mapa de proyectos y Edificio de prueba aportan los suyos. */
