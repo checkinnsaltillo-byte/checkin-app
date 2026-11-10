@@ -5573,7 +5573,7 @@ async function ecoDraw(S) {
   if (ECO.k !== [+S.lat, +S.lng, 111320 * Math.cos(+S.lat * Math.PI / 180)].join('|')) ecoPrep(S);
   const D = ECO.D, G = D.meta.grupos, grp = new THREE.Group(), n = D.p.length, f0 = v => Math.round(v).toLocaleString('es-MX'), V = ECO.v, sub = ecoSub(), gc = ECO.g >= 0 ? G[ECO.g].c : '#22d3ee', gs = ECO.g >= 0 ? G[ECO.g].n : 'todos los giros', hl = ECO.g >= 0 ? gc : '#22d3ee';
   const dim = i => ecoRgb(G[D.p[i][2]].c, .55), kmm = 1e-6; let leg = '', st = '', pickList = null, tipf = null;
-  const faint = () => ecoPts(Array.from(ECO.W).filter(i => ECO.g < 0 || D.p[i][2] !== ECO.g), dim, 3, .75);
+  const faint = () => ecoPts(ECO.g < 0 ? Array.from(ECO.W) : [], dim, 3, .75);   // con un giro elegido solo se dibuja ese giro (sin los demás atenuados)
   if (V === 'dbscan' || V === 'hull') {
     const key = [ECO.g, ECO.eps, ECO.minp].join('|'); if (!ECO.cl || ECO.cl.key !== key) { const r = ecoDbscan(sub, ECO.X, ECO.Z, ECO.eps, ECO.minp), sz = new Array(r.n).fill(0); r.lab.forEach(l => { if (l >= 0) sz[l]++; }); ECO.cl = { key, lab: r.lab, n: r.n, sz, sub }; }
     const C = ECO.cl, inC = C.lab.reduce((t, l) => t + (l >= 0 ? 1 : 0), 0), ord = C.sz.map((s, i) => [s, i]).sort((a, b) => b[0] - a[0]);
