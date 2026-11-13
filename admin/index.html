@@ -88,7 +88,7 @@
   </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>/* Operaciones «modo personal»: se aplica desde el inicio de sesión (sin parpadeo de botones) */
-body.cl-emp-u #module-aseo .ck-bar .aseo-btn:not(.cl-keep),body.cl-emp-u #aseo-dnav,body.cl-emp-u #aseo-cal,body.cl-emp-u #aseo-split{display:none!important}
+body.cl-emp-u #module-aseo .ck-bar .aseo-btn:not(.cl-keep),body.cl-emp-u #module-aseo .ck2-bar .aseo-btn:not(.cl-keep),body.cl-emp-u #aseo-dnav,body.cl-emp-u #aseo-cal,body.cl-emp-u #aseo-split{display:none!important}
 body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</style>
 </head>
 <body>
@@ -1853,18 +1853,27 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
       <div class="cl-title">🛠️ Operaciones<span id="aseo-vercomo"></span></div>
       <div id="aseo-kpis" class="ad-v2"></div>
       <div class="cl-nav-slot" data-act="checkinn"></div>
-      <div class="ck-bar">
-        <span id="aseo-ham-slot"></span>
-        <input class="ck-q aseo-q" type="search" placeholder="🔎 Buscar alojamiento, tipo, servicio, persona…" oninput="ASEO.q=this.value;clearTimeout(ASEO._qt);ASEO._qt=setTimeout(()=>{ASEO.calSig='';aseoRender_()},250)">
-        <div class="ck-dnav" id="aseo-dnav"></div>
-        <button type="button" class="ck-ib aseo-btn" id="aseo-cal-btn" onclick="aseoToggleCal_()" title="Mostrar calendario">📅</button>
-        <button type="button" class="aseo-btn mv-pubt" id="aseo-pub-btn" onclick="aseoPubTodas_()" title="Publicar o no el aviso en las guías de todas las cards"><span class="ck"></span>Publicar en guías</button>
-        <span class="ck-sp"></span>
-        <span class="ck-live" data-sync-mini></span>
-        <button type="button" class="ck-ib aseo-btn cl-keep" id="aseo-upd-btn" onclick="aseoRecargar_()" title="Actualizar ahora con Lodgify" aria-label="Actualizar"><svg class="ck-rf" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
-        <span id="aseo-vista-slot"></span>
-        <button type="button" class="ck-ib aseo-btn" onclick="rbDrAbrir_()" title="Programar limpiezas del día" aria-label="Programar limpiezas del día" style="font-size:16px">🪄</button>
-        <button type="button" class="aseo-btn ck-pri at-nueva" onclick="atForm_()" title="Crear una tarea de limpieza, inspección o mantenimiento">＋ Nueva tarea</button>
+      <div class="ck2-bar" id="aseo-bar" role="toolbar" aria-label="Herramientas de Operaciones">
+        <div class="ck2-r">
+          <label class="ck2-search"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg><input class="ck-q aseo-q" type="search" placeholder="Buscar alojamiento, tipo, persona…" aria-label="Buscar" oninput="ASEO.q=this.value;clearTimeout(ASEO._qt);ASEO._qt=setTimeout(()=>{ASEO.calSig='';aseoRender_()},250)"></label>
+          <div class="ck2-strip">
+          <div class="ck-dnav" id="aseo-dnav" role="group" aria-label="Fecha"></div>
+          <span id="aseo-calv-slot"></span>
+          <button type="button" class="aseo-btn ck2-tog" id="aseo-cal-btn" onclick="aseoToggleCal_()" title="Mostrar calendario" aria-pressed="false"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12.5" rx="2.5"/><path d="M3 8.5h14M7 3v3M13 3v3"/></svg><span>Calendario</span></button>
+          <span class="ck2-sp"></span>
+          <div class="ck2-sync"><span class="ck-live" data-sync-mini></span><button type="button" class="ck-ib aseo-btn cl-keep" id="aseo-upd-btn" onclick="aseoRecargar_()" title="Actualizar ahora con Lodgify" aria-label="Actualizar"><svg class="ck-rf" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button></div>
+          </div>
+        </div>
+        <div class="ck2-r">
+          <div class="ck2-strip">
+          <span id="aseo-ham-slot"></span>
+          <span id="aseo-vista-slot"></span>
+          <span class="ck2-sp"></span>
+          <button type="button" class="aseo-btn mv-pubt" id="aseo-pub-btn" onclick="aseoPubTodas_()" title="Publicar o no el aviso en las guías de todas las cards"><span class="ck"></span>Publicar en guías</button>
+          <button type="button" class="aseo-btn" onclick="rbDrAbrir_()" title="Programar limpiezas del día" aria-label="Programar limpiezas del día"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 16 9-9M12 4l.8 1.7L14.5 6.5l-1.7.8L12 9l-.8-1.7-1.7-.8 1.7-.8L12 4ZM16 10l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5.5-1Z"/></svg><span>Programar limpiezas</span></button>
+          <button type="button" class="aseo-btn ck-pri at-nueva" onclick="atForm_()" title="Crear una tarea de limpieza, inspección o mantenimiento" aria-label="Nueva tarea"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg><span>Nueva tarea</span></button>
+          </div>
+        </div>
         <span id="aseo-status" hidden></span><span id="aseo-hoy-btn" hidden></span>
       </div>
       <div id="aseo-top" class="ad-v2"></div>
@@ -2979,7 +2988,7 @@ body.cl-emp-u #module-aseo .aseo-grid{grid-template-columns:1fr!important}</styl
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="gm-auth.js?v=2"></script>
-  <script src="app.js?v=2460"></script>
+  <script src="app.js?v=2461"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
