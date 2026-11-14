@@ -36,6 +36,8 @@ a{color:inherit}
 .aseo-badge .sem i.on{opacity:1;background:var(--l);box-shadow:0 0 0 3px color-mix(in srgb,var(--l) 28%,transparent),0 0 14px 1px var(--l);animation:semGlow 2s ease-in-out infinite}
 .aseo-badge .sem i.r{--l:#ef4444}.aseo-badge .sem i.a{--l:#f59e0b}.aseo-badge .sem i.g{--l:#22c55e}
 .aseo-badge .ab-m{min-width:0}
+.aseo-badge{position:relative}
+.aseo-badge .ab-hoy{position:absolute;top:8px;right:14px;font-size:10.5px;font-weight:500;letter-spacing:.02em;color:#94a3b8;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
 .aseo-badge .ab-s{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 82%,#0f172a);line-height:1.2}
 .aseo-badge .ab-t{margin-top:3px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.3}
 .aseo-badge .ab-u{margin-top:3px;font-size:12px;color:#64748b;line-height:1.35}
@@ -1407,7 +1409,10 @@ function aseoBadgePaint_() {
     el.className = 'aseo-badge plano'; el.style.setProperty('--c', E.c);
     el.innerHTML = `<i class="ab-pt"></i><div class="ab-t">${E.t}</div>`; el.style.display = 'flex'; return;
   }
+  const ahora = new Date(), dia = ahora.toLocaleDateString('es-MX', { weekday: 'long', timeZone: 'America/Monterrey' }), hora = ahora.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Monterrey' }).replace(/\s?([ap])\.?\s?m\.?/i, (m, x) => ' ' + x.toUpperCase() + '.M.');
+  const fechaTx = `Hoy: ${dia.charAt(0).toUpperCase() + dia.slice(1)} ${hora}`;
   el.innerHTML = `<div class="sem" aria-hidden="true"><i class="r ${E.l === 'r' ? 'on' : ''}"></i><i class="a ${E.l === 'a' ? 'on' : ''}"></i><i class="g ${E.l === 'g' ? 'on' : ''}"></i></div>
+    <div class="ab-hoy">${fechaTx}</div>
     <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. Bienvenido 🙂` : E.t}</div>
     ${cambio || ABADGE.err ? `<div class="ab-u">${cambio ? `Desde las ${cambio}` : ''}${ABADGE.err ? `${cambio ? ' · ' : ''}⚠️ ${ABADGE.err}` : ''}</div>` : ''}</div>`;
   el.style.display = 'flex';
