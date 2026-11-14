@@ -1364,8 +1364,8 @@ const ABADGE = { hid: '', ts: 0, data: null, err: '' };
 //   aseo (día de entrada/salida) · desocupa (sale hoy, aseo pendiente) · ocupado · '' (nada).
 // "Pendiente" no se muestra. Terminado e Inspeccionado = puede ingresar.
 const AB_MODO = {
-  ocupado: { c: '#ef4444', plano: true, t: 'Está ocupado' },
-  libre: { c: '#22c55e', plano: true, t: 'Está disponible' },
+  ocupado: { c: '#ef4444', l: 'r', s: 'Ocupado', t: 'Este alojamiento está actualmente ocupado' },
+  libre: { c: '#22c55e', l: 'g', s: 'Listo para ingresar', t: 'Este alojamiento está actualmente disponible' },
   desocupa: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Este alojamiento se desocupa hoy. Te avisaremos en cuanto esté listo para el ingreso.' },
   espera: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Te avisaremos en cuanto esté listo tu alojamiento para el ingreso.' },
 };
