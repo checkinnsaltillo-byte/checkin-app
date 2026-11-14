@@ -1414,7 +1414,7 @@ function aseoBadgePaint_() {
   const fechaTx = `Hoy: ${dia.charAt(0).toUpperCase() + dia.slice(1)} ${dnum}-${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][mnum - 1]} ${hora}`;
   el.innerHTML = `<div class="sem" aria-hidden="true"><i class="r ${E.l === 'r' ? 'on' : ''}"></i><i class="a ${E.l === 'a' ? 'on' : ''}"></i><i class="g ${E.l === 'g' ? 'on' : ''}"></i></div>
     <div class="ab-hoy">${fechaTx}</div>
-    <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. Bienvenido 🙂` : E.t}</div>
+    <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. ¡Disfruta tu estancia! 🙂.` : E.t}</div>
     ${cambio || ABADGE.err ? `<div class="ab-u">${cambio ? `Desde las ${cambio}` : ''}${ABADGE.err ? `${cambio ? ' · ' : ''}⚠️ ${ABADGE.err}` : ''}</div>` : ''}</div>`;
   el.style.display = 'flex';
 }
