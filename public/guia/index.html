@@ -29,19 +29,18 @@ a{color:inherit}
 .logo-bar img.pn{height:36px}
 .hero{position:relative;color:#fff;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b;min-height:280px;display:flex;align-items:center;justify-content:center;text-align:center;padding:28px 18px}
 .hero-bg{position:absolute;inset:0;background:#1e293b}
-/* Estado de aseo del alojamiento — recuadro arriba de "Ubicación y cómo llegar" */
-.aseo-badge{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;padding:14px 16px;box-shadow:0 2px 10px -4px rgba(15,23,42,.10)}
-.aseo-badge .ab-i{flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,#fff)}
-.aseo-badge .ab-d{width:14px;height:14px;border-radius:50%;background:var(--c);animation:abPulse 1.6s ease-in-out infinite}
-.aseo-badge .ab-t{font-size:15px;font-weight:800;color:#0f172a;line-height:1.25}
-.aseo-badge .ab-u{margin-top:3px;font-size:11.5px;color:#64748b;line-height:1.35}
-.aseo-badge.listo{background:linear-gradient(135deg,#16a34a,#15803d);border-color:#15803d;box-shadow:0 10px 26px -10px rgba(22,163,74,.65)}
-.aseo-badge.listo .ab-i{background:#fff;border-radius:50%}
-.aseo-badge.listo .ab-t{color:#fff;font-size:16px}
-.aseo-badge.listo .ab-u{color:rgba(255,255,255,.85)}
-.aseo-badge .ab-ck{color:#16a34a;font-size:28px;font-weight:900;line-height:1;animation:abCk .5s cubic-bezier(.2,1.6,.4,1)}
-@keyframes abPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 70%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
-@keyframes abCk{from{transform:scale(0) rotate(-45deg)}to{transform:none}}
+/* Estado del alojamiento a manera de semáforo: rojo = ocupado · amarillo = en preparación · verde = listo para ingresar */
+.aseo-badge{--c:#94a3b8;display:flex;align-items:center;gap:16px;background:color-mix(in srgb,var(--c) 7%,#fff);border:1px solid color-mix(in srgb,var(--c) 28%,#fff);border-left:4px solid var(--c);border-radius:16px;margin-bottom:14px;padding:12px 16px 12px 14px;box-shadow:0 6px 18px -12px color-mix(in srgb,var(--c) 70%,transparent);transition:background .4s,border-color .4s}
+.aseo-badge .sem{flex:none;display:flex;flex-direction:column;gap:6px;padding:8px 7px;border-radius:999px;background:linear-gradient(180deg,#1e293b,#0f172a);box-shadow:inset 0 1px 2px rgba(255,255,255,.12),0 2px 6px rgba(15,23,42,.25)}
+.aseo-badge .sem i{display:block;width:13px;height:13px;border-radius:50%;background:#334155;opacity:.55;transition:background .4s,opacity .4s,box-shadow .4s}
+.aseo-badge .sem i.on{opacity:1;background:var(--l);box-shadow:0 0 0 3px color-mix(in srgb,var(--l) 28%,transparent),0 0 14px 1px var(--l);animation:semGlow 2s ease-in-out infinite}
+.aseo-badge .sem i.r{--l:#ef4444}.aseo-badge .sem i.a{--l:#f59e0b}.aseo-badge .sem i.g{--l:#22c55e}
+.aseo-badge .ab-m{min-width:0}
+.aseo-badge .ab-s{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 82%,#0f172a);line-height:1.2}
+.aseo-badge .ab-t{margin-top:3px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.3}
+.aseo-badge .ab-u{margin-top:3px;font-size:12px;color:#64748b;line-height:1.35}
+@keyframes semGlow{0%,100%{box-shadow:0 0 0 3px color-mix(in srgb,var(--l) 28%,transparent),0 0 14px 1px var(--l)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--l) 14%,transparent),0 0 20px 3px var(--l)}}
+@media (prefers-reduced-motion:reduce){.aseo-badge .sem i.on{animation:none}}
 .hero-card{position:relative;z-index:2;max-width:360px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:16px;padding:14px 18px}
 .hero-badge{display:inline-block;font-size:10px;letter-spacing:1.3px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:4px 10px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:10px}
 .hero h1{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.2;margin:0 0 4px;text-shadow:0 2px 8px rgba(0,0,0,.35)}
@@ -199,7 +198,7 @@ details.section[open]>summary .sec-ico{color:var(--pd-r)}
 .emerg .em-ico{width:40px;height:40px;border-radius:50%;background:none!important;box-shadow:inset 0 0 0 1.5px var(--pd-ink);color:var(--pd-ink);font-size:0}
 .emerg .em-ico::before{content:'';width:18px;height:18px;background:var(--pd-ink);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2'/%3E%3C/svg%3E") center/contain no-repeat}
 .emerg .em-call{color:var(--pd-rd);font-weight:600}
-.aseo-badge{border:0;border-radius:14px;box-shadow:none;background:#fff;margin:4px 0 8px}
+.aseo-badge{margin:4px 0 8px}
 .gl-cargando .pd-lang{opacity:.6;pointer-events:none}
 .pd-veh{display:flex;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid var(--pd-line);cursor:pointer}
 /* Barra inferior */
@@ -1362,14 +1361,14 @@ const ABADGE = { hid: '', ts: 0, data: null, err: '' };
 //   aseo (día de entrada/salida) · desocupa (sale hoy, aseo pendiente) · ocupado · '' (nada).
 // "Pendiente" no se muestra. Terminado e Inspeccionado = puede ingresar.
 const AB_MODO = {
-  ocupado: { c: '#64748b', t: 'Este alojamiento está actualmente ocupado', ico: '🔒' },
-  desocupa: { c: '#f59e0b', t: 'Este alojamiento se desocupa hoy. Te avisaremos en cuanto esté listo para el ingreso.', ico: '🧳' },
-  espera: { c: '#f59e0b', t: 'Te avisaremos en cuanto esté listo tu alojamiento para el ingreso.', ico: '⏳' },
+  ocupado: { c: '#ef4444', l: 'r', s: 'Ocupado', t: 'Este alojamiento está actualmente ocupado' },
+  desocupa: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Este alojamiento se desocupa hoy. Te avisaremos en cuanto esté listo para el ingreso.' },
+  espera: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Te avisaremos en cuanto esté listo tu alojamiento para el ingreso.' },
 };
 const AB_EST = {
-  en_proceso: { c: '#f59e0b', t: 'Aseo en proceso' },
-  terminado: { c: '#22c55e', t: 'Ya puedes ingresar a tu alojamiento', listo: true },
-  inspeccionado: { c: '#22c55e', t: 'Ya puedes ingresar a tu alojamiento', listo: true },
+  en_proceso: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Aseo en proceso' },
+  terminado: { c: '#22c55e', l: 'g', s: 'Listo para ingresar', t: 'Ya puedes ingresar a tu alojamiento', listo: true },
+  inspeccionado: { c: '#22c55e', l: 'g', s: 'Listo para ingresar', t: 'Ya puedes ingresar a tu alojamiento', listo: true },
 };
 function aseoBadgeStart_(hid) {
   ABADGE.hid = String(hid || '').replace(/\D/g, '');
@@ -1400,8 +1399,8 @@ function aseoBadgePaint_() {
   const cambio = modo === 'aseo' && d.at ? new Date(d.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
   el.className = 'aseo-badge' + (listo ? ' listo' : '');
   el.style.setProperty('--c', E.c);
-  el.innerHTML = `<div class="ab-i">${listo ? '<span class="ab-ck">✓</span>' : E.ico ? `<span style="font-size:22px">${E.ico}</span>` : '<span class="ab-d"></span>'}</div>
-    <div style="min-width:0"><div class="ab-t">${E.t}</div>
+  el.innerHTML = `<div class="sem" aria-hidden="true"><i class="r ${E.l === 'r' ? 'on' : ''}"></i><i class="a ${E.l === 'a' ? 'on' : ''}"></i><i class="g ${E.l === 'g' ? 'on' : ''}"></i></div>
+    <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.t}</div>
     ${cambio || ABADGE.err ? `<div class="ab-u">${cambio ? `Desde las ${cambio}` : ''}${ABADGE.err ? `${cambio ? ' · ' : ''}⚠️ ${ABADGE.err}` : ''}</div>` : ''}</div>`;
   el.style.display = 'flex';
 }
