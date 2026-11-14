@@ -1410,7 +1410,8 @@ function aseoBadgePaint_() {
     el.innerHTML = `<i class="ab-pt"></i><div class="ab-t">${E.t}</div>`; el.style.display = 'flex'; return;
   }
   const ahora = new Date(), dia = ahora.toLocaleDateString('es-MX', { weekday: 'long', timeZone: 'America/Monterrey' }), hora = ahora.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Monterrey' }).replace(/\s?([ap])\.?\s?m\.?/i, (m, x) => ' ' + x.toUpperCase() + '.M.');
-  const fechaTx = `Hoy: ${dia.charAt(0).toUpperCase() + dia.slice(1)} ${hora}`;
+  const dm = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'numeric', timeZone: 'America/Monterrey' }).formatToParts(ahora), dnum = (dm.find(x => x.type === 'day') || {}).value, mnum = +(dm.find(x => x.type === 'month') || {}).value;
+  const fechaTx = `Hoy: ${dia.charAt(0).toUpperCase() + dia.slice(1)} ${dnum}-${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][mnum - 1]} ${hora}`;
   el.innerHTML = `<div class="sem" aria-hidden="true"><i class="r ${E.l === 'r' ? 'on' : ''}"></i><i class="a ${E.l === 'a' ? 'on' : ''}"></i><i class="g ${E.l === 'g' ? 'on' : ''}"></i></div>
     <div class="ab-hoy">${fechaTx}</div>
     <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. Bienvenido 🙂` : E.t}</div>
