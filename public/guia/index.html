@@ -39,6 +39,7 @@ a{color:inherit}
 .aseo-badge{position:relative}
 .aseo-badge .ab-hoy{position:absolute;top:8px;right:14px;font-size:10.5px;font-weight:500;letter-spacing:.02em;color:#94a3b8;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
 .aseo-badge .ab-s{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 82%,#0f172a);line-height:1.2}
+.aseo-badge .ab-rj{color:#dc2626;font-weight:800}
 .aseo-badge .ab-t{margin-top:3px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.3}
 .aseo-badge .ab-u{margin-top:3px;font-size:12px;color:#64748b;line-height:1.35}
 .aseo-badge.plano{gap:10px;padding:11px 16px 11px 14px}
@@ -1369,7 +1370,7 @@ const AB_MODO = {
   ocupado: { c: '#ef4444', l: 'r', s: 'Ocupado', t: 'Este alojamiento está actualmente ocupado' },
   libre: { c: '#22c55e', l: 'g', s: 'Listo para ingresar', t: 'Este alojamiento está actualmente disponible' },
   desocupa: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Este alojamiento se desocupa hoy. Te avisaremos aquí mismo en cuanto esté listo para el ingreso.' },
-  espera: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Te avisaremos en cuanto esté listo tu alojamiento para el ingreso.' },
+  espera: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Te avisaremos aquí mismo en cuanto esté listo tu alojamiento para el ingreso.' },
 };
 const AB_EST = {
   en_proceso: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Aseo en proceso' },
@@ -1393,6 +1394,7 @@ async function aseoBadgeLoad_() {
   } catch (e) { ABADGE.err = 'sin conexión'; }
   aseoBadgePaint_();
 }
+const rjTx = t => String(t).replace(/aquí mismo/g, '<b class="ab-rj">aquí mismo</b>');
 function aseoBadgePaint_() {
   const el = document.getElementById('aseo-badge'); if (!el) return;
   const d = ABADGE.data;
@@ -1414,7 +1416,7 @@ function aseoBadgePaint_() {
   const fechaTx = `Hoy: ${dia.charAt(0).toUpperCase() + dia.slice(1)} ${dnum}-${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][mnum - 1]} ${hora}`;
   el.innerHTML = `<div class="sem" aria-hidden="true"><i class="r ${E.l === 'r' ? 'on' : ''}"></i><i class="a ${E.l === 'a' ? 'on' : ''}"></i><i class="g ${E.l === 'g' ? 'on' : ''}"></i></div>
     <div class="ab-hoy">${fechaTx}</div>
-    <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. ¡Disfruta tu estancia! 🙂` : E.t}</div>
+    <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${rjTx(E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. ¡Disfruta tu estancia! 🙂` : E.t)}</div>
     ${cambio || ABADGE.err ? `<div class="ab-u">${cambio ? `Desde las ${cambio}` : ''}${ABADGE.err ? `${cambio ? ' · ' : ''}⚠️ ${ABADGE.err}` : ''}</div>` : ''}</div>`;
   el.style.display = 'flex';
 }
