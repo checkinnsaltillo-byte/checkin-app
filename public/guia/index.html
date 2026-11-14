@@ -39,6 +39,9 @@ a{color:inherit}
 .aseo-badge .ab-s{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 82%,#0f172a);line-height:1.2}
 .aseo-badge .ab-t{margin-top:3px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.3}
 .aseo-badge .ab-u{margin-top:3px;font-size:12px;color:#64748b;line-height:1.35}
+.aseo-badge.plano{gap:10px;padding:11px 16px 11px 14px}
+.aseo-badge.plano .ab-t{margin:0;font-size:15px;font-weight:700}
+.aseo-badge .ab-pt{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 22%,transparent)}
 @keyframes semGlow{0%,100%{box-shadow:0 0 0 3px color-mix(in srgb,var(--l) 28%,transparent),0 0 14px 1px var(--l)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--l) 14%,transparent),0 0 20px 3px var(--l)}}
 @media (prefers-reduced-motion:reduce){.aseo-badge .sem i.on{animation:none}}
 .hero-card{position:relative;z-index:2;max-width:360px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:16px;padding:14px 18px}
@@ -1361,7 +1364,8 @@ const ABADGE = { hid: '', ts: 0, data: null, err: '' };
 //   aseo (día de entrada/salida) · desocupa (sale hoy, aseo pendiente) · ocupado · '' (nada).
 // "Pendiente" no se muestra. Terminado e Inspeccionado = puede ingresar.
 const AB_MODO = {
-  ocupado: { c: '#ef4444', l: 'r', s: 'Ocupado', t: 'Este alojamiento está actualmente ocupado' },
+  ocupado: { c: '#ef4444', plano: true, t: 'Está ocupado' },
+  libre: { c: '#22c55e', plano: true, t: 'Está disponible' },
   desocupa: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Este alojamiento se desocupa hoy. Te avisaremos en cuanto esté listo para el ingreso.' },
   espera: { c: '#f59e0b', l: 'a', s: 'En preparación', t: 'Te avisaremos en cuanto esté listo tu alojamiento para el ingreso.' },
 };
@@ -1399,6 +1403,10 @@ function aseoBadgePaint_() {
   const cambio = modo === 'aseo' && d.at ? new Date(d.at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
   el.className = 'aseo-badge' + (listo ? ' listo' : '');
   el.style.setProperty('--c', E.c);
+  if (E.plano) { // ocupado / disponible: aviso sencillo, sin semáforo
+    el.className = 'aseo-badge plano'; el.style.setProperty('--c', E.c);
+    el.innerHTML = `<i class="ab-pt"></i><div class="ab-t">${E.t}</div>`; el.style.display = 'flex'; return;
+  }
   el.innerHTML = `<div class="sem" aria-hidden="true"><i class="r ${E.l === 'r' ? 'on' : ''}"></i><i class="a ${E.l === 'a' ? 'on' : ''}"></i><i class="g ${E.l === 'g' ? 'on' : ''}"></i></div>
     <div class="ab-m"><div class="ab-s">${E.s}</div><div class="ab-t">${E.listo ? `${d && d.huesped ? `${String(d.huesped).replace(/[<>&"]/g, '')}, ya puedes ingresar a tu alojamiento` : E.t}. Bienvenido 🙂` : E.t}</div>
     ${cambio || ABADGE.err ? `<div class="ab-u">${cambio ? `Desde las ${cambio}` : ''}${ABADGE.err ? `${cambio ? ' · ' : ''}⚠️ ${ABADGE.err}` : ''}</div>` : ''}</div>`;
