@@ -6339,7 +6339,7 @@ body.has-session input[name="nombre"] {
 
 <div class="section" id="section_celular_principal">
 <h2 class="section-title" style="margin:0 0 10px">Identifícate</h2>
-<div id="lookupModeTabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+<div id="lookupModeTabs" style="display:none;gap:8px;margin-bottom:12px;flex-wrap:wrap"><!-- 2026-11-14: Lodgify ya no entrega el celular de Airbnb → identificación solo por código de confirmación -->
   <button type="button" id="lookupModeBtnCel" onclick="sectionLookupSetMode('cel')"
     style="flex:1;min-width:120px;padding:10px 14px;border:2px solid #2563eb;border-radius:10px;background:#dbeafe;color:#1e40af;font-weight:700;cursor:pointer;font-size:13px">
     📱 Número de celular
@@ -6349,7 +6349,7 @@ body.has-session input[name="nombre"] {
     🎫 Código de confirmación
   </button>
 </div>
-<div id="lookupPanelCel">
+<div id="lookupPanelCel" class="hidden">
   <h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2>
   <p class="section-subtitle" data-i18n="phoneLookupSub">⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.</p>
   <div class="phone-group">
@@ -6360,7 +6360,7 @@ body.has-session input[name="nombre"] {
 <div id="lookupPanelNone" class="hidden">
   <p class="section-subtitle" style="margin-top:12px">Sigue al siguiente paso y captura los datos manualmente. Podrás guardar tu registro sin código de confirmación.</p>
 </div>
-<div id="lookupPanelCode" class="hidden">
+<div id="lookupPanelCode">
   <h2 class="section-title">Código de confirmación</h2>
   <p class="section-subtitle">Ingresa el código de confirmación de tu reservación de Airbnb (ej. <strong>HMC9QRDTWR</strong>) o de Lodgify (ej. <strong>#B23006918</strong>). Se completarán automáticamente los datos si ya existe registro.</p>
   <input type="text" id="confirmation_code_input" name="confirmation_code"
@@ -8087,6 +8087,7 @@ window.sectionLookupSetMode = function(mode) {
   window.__wizIdentMode = mode;
 };
 
+try { sectionLookupSetMode('code'); } catch(_) {}
 // ═══════════════════════════════════════════════════════════════════════════
 // ║  WIZARD DE CHECK-IN (4 pasos)                                            ║
 // ═══════════════════════════════════════════════════════════════════════════

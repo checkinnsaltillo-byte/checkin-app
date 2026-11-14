@@ -910,13 +910,13 @@ function openBooking_(){
 
 // ─── Auto-facturación express: popup 3 pasos ─────────────────────────────
 const FACT_APPS_URL = 'https://api.check-inn.mx/as'; // pasa por el servidor (perfiles en Google Cloud; lo demás se reenvía a Apps Script)
-const FACT_STATE = { step:1, mode:'cel', reserva:null, perfil:null, phone:'' };
+const FACT_STATE = { step:1, mode:'code', reserva:null, perfil:null, phone:'' };
 function openFacturacion_(){
   document.getElementById('fact-modal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  FACT_STATE.step = 1; FACT_STATE.mode = 'cel'; FACT_STATE.reserva = null; FACT_STATE.perfil = null;
+  FACT_STATE.step = 1; FACT_STATE.mode = 'code'; FACT_STATE.reserva = null; FACT_STATE.perfil = null;
   factRenderStep_();
-  factSetMode_('cel');
+  factSetMode_('code');
 }
 function closeFacturacion_(){
   document.getElementById('fact-modal').style.display = 'none';
@@ -1565,17 +1565,17 @@ window.closeWelcomeTour_ = function () {
     <!-- Paso 1: identificación + selección de reserva -->
     <div id="fact-step-1" style="padding:18px">
       <div style="font-weight:800;color:#0f172a;font-size:15px;margin-bottom:4px">Identifícate</div>
-      <div style="color:#64748b;font-size:12px;margin-bottom:12px">Elige cómo buscar tu reserva.</div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div style="color:#64748b;font-size:12px;margin-bottom:12px">Ingresa tu código de confirmación para buscar tu reserva.</div>
+      <div style="display:none;gap:8px;margin-bottom:14px"><!-- 2026-11-14: solo código de confirmación (Airbnb ya no entrega el celular) -->
         <button type="button" id="fact-mode-cel" onclick="factSetMode_('cel')" style="flex:1;padding:10px;border:2px solid #2563eb;border-radius:10px;background:#dbeafe;color:#1e40af;font-weight:700;cursor:pointer;font-size:13px">📱 Celular</button>
         <button type="button" id="fact-mode-code" onclick="factSetMode_('code')" style="flex:1;padding:10px;border:2px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-weight:600;cursor:pointer;font-size:13px">🎫 Código de confirmación</button>
       </div>
-      <div id="fact-panel-cel">
+      <div id="fact-panel-cel" style="display:none">
         <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Número de celular</label>
         <input id="fact-cel-input" type="tel" inputmode="numeric" placeholder="10 dígitos" oninput="factLookupByCel_()" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;box-sizing:border-box">
         <div id="fact-cards-cel" style="margin-top:12px"></div>
       </div>
-      <div id="fact-panel-code" style="display:none">
+      <div id="fact-panel-code">
         <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Código de confirmación</label>
         <input id="fact-code-input" type="text" placeholder="HMXXXXXXXX o #Bxxxxxxxx" oninput="factLookupByCode_()" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;font-family:monospace;text-transform:uppercase;box-sizing:border-box">
         <div id="fact-cards-code" style="margin-top:12px"></div>
