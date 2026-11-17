@@ -242,19 +242,262 @@
     ${AREAS.map(a => { const l = a.g.flatMap(g => g.i); return `<div class="eco-panel"><div class="eco-ph"><h3 style="color:${a.col}">${esc(a.n)}</h3><a class="eco-more" data-go="a:${esc(a.n)}">ver área →</a></div>${cards(l.slice(0, 6))}</div>`; }).join("")}`;
   }
 
+  /* ───────── geografía (entidades y zonas) y sectores ───────── */
+  const ZONAS = [["Noroeste", "#22d3ee"], ["Noreste", "#a78bfa"], ["Occidente y Bajío", "#34d399"], ["Centro", "#fbbf24"], ["Sur", "#f472b6"], ["Península y Sureste", "#60a5fa"]];
+  // [clave, nombre, abreviatura, columna, fila, zona]  (columna/fila: mapa de mosaicos)
+  const ENT = [["01", "Aguascalientes", "AGS", 3, 2, 2], ["02", "Baja California", "BC", 0, 0, 0], ["03", "Baja California Sur", "BCS", 0, 1, 0], ["04", "Campeche", "CAM", 9, 4, 5], ["05", "Coahuila", "COA", 3, 0, 1], ["06", "Colima", "COL", 2, 3, 2], ["07", "Chiapas", "CHP", 8, 5, 4], ["08", "Chihuahua", "CHH", 2, 0, 0],
+    ["09", "Ciudad de México", "CDMX", 5, 3, 3], ["10", "Durango", "DGO", 2, 1, 0], ["11", "Guanajuato", "GTO", 4, 2, 2], ["12", "Guerrero", "GRO", 4, 4, 4], ["13", "Hidalgo", "HGO", 6, 2, 3], ["14", "Jalisco", "JAL", 2, 2, 2], ["15", "México", "MEX", 4, 3, 3], ["16", "Michoacán", "MIC", 3, 3, 2],
+    ["17", "Morelos", "MOR", 5, 4, 3], ["18", "Nayarit", "NAY", 1, 2, 2], ["19", "Nuevo León", "NL", 4, 0, 1], ["20", "Oaxaca", "OAX", 7, 4, 4], ["21", "Puebla", "PUE", 7, 3, 3], ["22", "Querétaro", "QRO", 5, 2, 2], ["23", "Quintana Roo", "QR", 10, 4, 5], ["24", "San Luis Potosí", "SLP", 4, 1, 2],
+    ["25", "Sinaloa", "SIN", 1, 1, 0], ["26", "Sonora", "SON", 1, 0, 0], ["27", "Tabasco", "TAB", 8, 4, 5], ["28", "Tamaulipas", "TAM", 5, 0, 1], ["29", "Tlaxcala", "TLA", 6, 3, 3], ["30", "Veracruz", "VER", 6, 1, 4], ["31", "Yucatán", "YUC", 10, 3, 5], ["32", "Zacatecas", "ZAC", 3, 1, 2]];
+  const ENTBY = Object.fromEntries(ENT.map(e => [e[0], e]));
+  const SEC = [{ k: "agro", n: "Agropecuario", ic: "🌾", t: 1, scian: ["111", "112"], st: ["s_agro"] },
+    { k: "mineria_energia", n: "Minería y energía", ic: "⛏️", t: 2, scian: ["21", "22"], st: ["s_min", "s_ene"] }, { k: "construccion", n: "Construcción", ic: "🏗️", t: 2, scian: ["23"], st: ["s_con"] },
+    { k: "manufacturas", n: "Manufacturas", ic: "🏭", t: 2, scian: ["31-33"], st: ["s_man"] }, { k: "comercio", n: "Comercio", ic: "🛒", t: 3, scian: ["43", "46"], st: ["s_com"] },
+    { k: "transporte_info", n: "Transportes e información", ic: "🚚", t: 3, scian: ["48-49", "51"], st: ["s_tra"] }, { k: "finanzas_inmob", n: "Finanzas e inmobiliario", ic: "🏦", t: 3, scian: ["52", "53"], st: ["s_fin"] },
+    { k: "servicios_neg", n: "Servicios profesionales y de negocios", ic: "💼", t: 3, scian: ["54", "56"], st: ["s_neg"] }, { k: "turismo", n: "Turismo, esparcimiento y alimentos", ic: "🏖️", t: 3, scian: ["71", "72"], st: ["s_tur"] },
+    { k: "social", n: "Educación, salud y gobierno", ic: "🎓", t: 3, scian: ["61", "62", "81", "93"], st: ["s_soc"] }];
+  SEC.forEach((s, i) => { s.col = PAL[i % PAL.length]; });
+  const TIER = [null, ["Primario", "Agricultura, ganadería y pesca", "🌱"], ["Secundario", "Industria: minería, energía, construcción y manufacturas", "🏭"], ["Terciario", "Comercio y servicios", "🏙️"]];
+  const SECBY = Object.fromEntries(SEC.map(s => [s.k, s]));
+  const REFNAC = { s_agro: "11", s_min: "21", s_ene: "22", s_con: "23", s_man: "31-33", s_sec: "T2", s_ter: "T3" };
+  const METR = [["itaee_yoy", "Actividad económica estatal (ITAEE) · variación anual"], ["ind_yoy", "Actividad industrial · variación anual"], ["man_yoy", "Manufacturas (mensual) · variación anual"], ["desoc", "Tasa de desocupación (%)"],
+    ["s_agro", "Sector agropecuario · variación anual"], ["s_min", "Minería · variación anual"], ["s_ene", "Energía, agua y gas · variación anual"], ["s_con", "Construcción · variación anual"], ["s_man", "Manufacturas (trimestral) · variación anual"], ["s_com", "Comercio · variación anual"],
+    ["s_tra", "Transportes e información · variación anual"], ["s_fin", "Finanzas e inmobiliario · variación anual"], ["s_neg", "Servicios profesionales y de negocios · variación anual"], ["s_tur", "Turismo, esparcimiento y alimentos · variación anual"], ["s_soc", "Educación, salud y gobierno · variación anual"]];
+  const HEAD = [["910406", "Inflación anual"], ["737145", "Actividad económica (IGAE) · var. anual"], ["736526", "Actividad industrial · var. anual"], ["737374", "PIB trimestral · var. anual"], ["444603", "Tasa de desocupación"], ["444610", "Informalidad laboral"], ["454168", "Confianza del consumidor"], ["701401", "Confianza empresarial"], ["6204198542", "Balanza comercial"]];
+  const POL = { "444603": -1, "444610": -1 };   // indicadores donde “menos es mejor”
+  let EST = {}, IGS = {};
+  function cargaMon() {
+    EST = {}; IGS = {};
+    (D.estatal || []).forEach((e, k) => {
+      const m = { tipo: e.tipo, def: e, by: {} };
+      Object.entries(e.est).forEach(([c, obs]) => { if (!ENTBY[c] || obs.length < 4) return; const I = prep(Object.assign({}, e, { obs, nombre: e.nombre + " · " + ENTBY[c][1], area: "Estados", grupo: e.nombre, mult: "", id: e.id + "-" + c }), k); I.code = c; I.col = ZONAS[ENTBY[c][5]][1]; m.by[c] = I; });
+      EST[e.clave] = m;
+    });
+    IND.forEach(I => { if (I.scian && I.tipo) (IGS[I.scian] = IGS[I.scian] || {})[I.tipo] = I; });
+    IGS.TOT = { idx: BYID["737121"], yoy: BYID["737145"] };
+  }
+  const emv = (cl, c) => { const m = EST[cl], I = m && m.by[c]; return I ? (m.tipo === "idx" ? I.last.yoy : I.last.v) : null; };
+  const secSer = sc => sc.scian.map(c => IGS[c]).filter(Boolean);
+  const lerp3 = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const cDiv = (v, lim) => { if (v == null) return "#334155"; const t = Math.max(-1, Math.min(1, v / lim)), n = [51, 65, 85], c = t >= 0 ? lerp3(n, [52, 211, 153], t) : lerp3(n, [251, 113, 133], -t); return "rgb(" + c + ")"; };
+  const cSeq = (v, lo, hi) => { if (v == null) return "#334155"; const t = Math.max(0, Math.min(1, (v - lo) / (hi - lo || 1))); return "rgb(" + (t < .5 ? lerp3([52, 211, 153], [250, 204, 21], t * 2) : lerp3([250, 204, 21], [251, 113, 133], (t - .5) * 2)) + ")"; };
+  const sg = (v, d) => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + nf(Math.abs(v), d == null ? 1 : d);
+  const fp = (v, d) => v == null ? "—" : sg(v, d) + "%";
+  const periodoL = (t, ppy) => ppy === 12 ? MES[((t % 12) + 12) % 12] + " " + String(Math.floor(t / 12)).slice(2) : ppy === 4 ? "T" + ((t % 4) + 1) + " " + String(Math.floor(t / 4)).slice(2) : String(t);
+  const panel = (t, hint, inner, cl) => `<div class="eco-panel ${cl || ""}"><div class="eco-ph"><h3>${t}</h3>${hint ? `<span class="eco-hint">${hint}</span>` : ""}</div>${inner}</div>`;
+
+  /* ───────── gráficas de monitor ───────── */
+  function tileMap(el, f, o) {
+    o = o || {}; const cols = 11, rows = 6, g = 4, W = Math.max(300, Math.min(el.clientWidth, 820)), ts = Math.floor((W - g * (cols - 1)) / cols), H = rows * ts + (rows - 1) * g + 34, W2 = cols * ts + (cols - 1) * g;
+    const vals = ENT.map(e => ({ c: e[0], v: f(e[0]) })), ok = vals.filter(x => x.v != null), srt = ok.slice().sort((a, b) => o.seq ? a.v - b.v : b.v - a.v), rk = Object.fromEntries(srt.map((x, i) => [x.c, i + 1]));
+    const col = v => o.seq ? cSeq(v, o.lo, o.hi) : cDiv(v, o.lim || 6);
+    let s = "";
+    ENT.forEach((e, i) => {
+      const v = f(e[0]), x = e[3] * (ts + g), y = e[4] * (ts + g), dim = o.hl && !o.hl.has(e[0]), sel = o.sel === e[0];
+      s += `<g class="eco-tile" data-c="${e[0]}" style="animation-delay:${i * 18}ms;opacity:${dim ? .22 : 1}"><rect x="${x}" y="${y}" width="${ts}" height="${ts}" rx="${(ts * .2).toFixed(1)}" fill="${col(v)}" stroke="${sel ? "#fff" : "rgba(255,255,255,.12)"}" stroke-width="${sel ? 3 : 1}"/>` +
+        `<text x="${x + ts / 2}" y="${y + ts / 2 - (ts > 40 ? 2 : 0)}" text-anchor="middle" class="eco-tt" style="font-size:${Math.max(8, ts * .22).toFixed(0)}px">${e[2]}</text>` +
+        (ts > 40 ? `<text x="${x + ts / 2}" y="${y + ts / 2 + ts * .26}" text-anchor="middle" class="eco-tv" style="font-size:${Math.max(8, ts * .2).toFixed(0)}px">${v == null ? "—" : o.seq ? nf(v, 1) : sg(v, 1)}</text>` : "") + `</g>`;
+    });
+    const lg = o.seq ? `<span>${nf(o.lo, 1)}%</span><i style="background:linear-gradient(90deg,${cSeq(o.lo, o.lo, o.hi)},${cSeq((o.lo + o.hi) / 2, o.lo, o.hi)},${cSeq(o.hi, o.lo, o.hi)})"></i><span>${nf(o.hi, 1)}%</span>` : `<span>−${o.lim || 6}%</span><i style="background:linear-gradient(90deg,${cDiv(-1, 1)},${cDiv(0, 1)},${cDiv(1, 1)})"></i><span>+${o.lim || 6}%</span>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W2} ${H - 30}" width="${W2}" height="${H - 30}" style="margin:0 auto">${s}</svg><div class="eco-lg" style="justify-content:center">${lg}</div>`;
+    $$(".eco-tile", el).forEach(t => { const c = t.dataset.c, e = ENTBY[c], v = f(c); t.style.cursor = "pointer";
+      t.onmousemove = ev => tip(`<b>${esc(e[1])}</b><div class="tp-s">${ZONAS[e[5]][0]}</div><div class="tp-v" style="color:${v == null ? "#94a3b8" : o.seq ? "#fbbf24" : v >= 0 ? "#34d399" : "#fb7185"}">${v == null ? "sin dato" : o.seq ? nf(v, 1) + "%" : fp(v, 1)}</div>${rk[c] ? `<div class="tp-r nu">Lugar ${rk[c]} de ${ok.length}</div>` : ""}<div class="tp-r nu">Clic para abrir el monitor del estado</div>`, ev); t.onmouseleave = () => tip(null); t.onclick = () => (o.click || (cc2 => ir("e:" + cc2)))(c); });
+  }
+  function barsH(el, rows, o) {
+    o = o || {}; if (!rows.length) { el.innerHTML = '<div class="eco-vacio">Sin datos.</div>'; return; }
+    const W = Math.max(300, el.clientWidth), rh = o.rh || 27, lw = Math.min(o.lw || 230, W * .42), H = rows.length * rh + 22, vs = rows.map(r => r.v).concat(rows.filter(r => r.ref != null).map(r => r.ref)), lo = Math.min(0, ...vs), hi = Math.max(0, ...vs), ng = lo < 0 ? 52 : 0, sc = (W - lw - 74 - ng) / ((hi - lo) || 1), x0 = lw + 8 + ng + (-lo) * sc, fm = o.fmt || (v => fp(v, 1));
+    let s = `<line x1="${x0}" x2="${x0}" y1="2" y2="${H - 20}" class="eco-ch"/>`;
+    rows.forEach((r, i) => { const y = 4 + i * rh, w = Math.abs(r.v) * sc, up = r.v >= 0, cl = r.col || (o.col || (up ? "#34d399" : "#fb7185"));
+      s += `<text x="${lw}" y="${y + rh / 2 + 4}" class="eco-ax" text-anchor="end" style="fill:#cbd5e1">${esc(r.label.length > 38 ? r.label.slice(0, 37) + "…" : r.label)}</text><rect class="eco-hb" data-i="${i}" x="${(up ? x0 : x0 - w).toFixed(1)}" y="${y + 3}" width="${Math.max(1, w).toFixed(1)}" height="${rh - 8}" rx="5" fill="${cl}" style="transform-origin:${up ? "left" : "right"} center;transform-box:fill-box;animation-delay:${i * 30}ms;cursor:${r.go ? "pointer" : "default"}"/>` +
+        `<text x="${(up ? x0 + w + 6 : x0 - w - 6).toFixed(1)}" y="${y + rh / 2 + 4}" class="eco-ax" text-anchor="${up ? "start" : "end"}" style="fill:#e2e8f0">${fm(r.v)}</text>` + (r.ref != null ? `<path d="M${(x0 + r.ref * sc).toFixed(1)} ${y + 2}l5 ${(rh - 4) / 2}l-5 ${(rh - 4) / 2}l-5 -${(rh - 4) / 2}z" fill="#fff" stroke="#0a0f1f" stroke-width="1" opacity=".9"/>` : "");
+    });
+    s += o.nota ? `<text x="${W - 4}" y="${H - 4}" class="eco-ax" text-anchor="end">${o.nota}</text>` : "";
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg>`;
+    $$(".eco-hb", el).forEach(b => { const r = rows[+b.dataset.i]; b.onmousemove = e => tip(`<b>${esc(r.label)}</b>${r.sub ? `<div class="tp-s">${esc(r.sub)}</div>` : ""}<div class="tp-v" style="color:${r.v >= 0 ? "#34d399" : "#fb7185"}">${fm(r.v)}</div>${r.ref != null ? `<div class="tp-r nu">Nacional: ${fm(r.ref)}</div>` : ""}${r.go ? '<div class="tp-r nu">Clic para abrir</div>' : ""}`, e); b.onmouseleave = () => tip(null); if (r.go) b.onclick = () => ir(r.go); });
+  }
+  function multiLine(el, lines, o) {
+    o = o || {}; const L = lines.filter(l => l.pts.length > 1); if (!L.length) { el.innerHTML = '<div class="eco-vacio">Sin datos.</div>'; return; }
+    const W = Math.max(320, el.clientWidth), H = W < 520 ? 260 : 320, m = { l: 48, r: 16, t: 14, b: 28 }, yrs = o.anios || 12, t1 = Math.max(...L.map(l => l.pts[l.pts.length - 1].t)), t0 = t1 - yrs, P = L.map(l => ({ ...l, pts: l.pts.filter(p => p.t >= t0) })).filter(l => l.pts.length > 1);
+    const vs = P.flatMap(l => l.pts.map(p => p.v)); let lo = Math.min(...vs), hi = Math.max(...vs); if (o.cero !== false) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } const pad = (hi - lo) * .08 || 1; lo -= pad; hi += pad;
+    const X = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b), tk = ticksN(lo, hi, 5), td = tdec(tk), emph = o.sel;
+    let s = `<defs><filter id="ecoGl3"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+    tk.forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="eco-gr"/><text x="${m.l - 6}" y="${(Y(v) + 4).toFixed(1)}" class="eco-ax" text-anchor="end">${nf(v, td)}</text>`; });
+    if (lo < 0 && hi > 0) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#94a3b8" stroke-opacity=".6"/>`;
+    for (let y = Math.ceil(t0); y <= t1; y += Math.max(1, Math.round(yrs / 7))) s += `<text x="${X(y).toFixed(1)}" y="${H - 8}" class="eco-ax" text-anchor="middle">${y}</text>`;
+    P.forEach((l, i) => { const d = l.pts.map((p, k) => (k ? "L" : "M") + X(p.t).toFixed(1) + " " + Y(p.v).toFixed(1)).join(""); s += `<path d="${d}" pathLength="1" class="eco-ln" fill="none" stroke="${l.col}" stroke-width="${emph == null ? 2.4 : emph === i ? 3.4 : 1.4}" stroke-opacity="${emph == null || emph === i ? 1 : .35}" ${l.dash ? 'stroke-dasharray="5 4"' : ""} stroke-linejoin="round" filter="url(#ecoGl3)" style="animation-delay:${i * 120}ms"/>`; });
+    s += `<g id="ecoMl" style="display:none"><line class="eco-ch" y1="${m.t}" y2="${H - m.b}"/></g><rect id="ecoMlH" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/>`;
+    const lg = P.map((l, i) => `<span class="eco-lgi" data-i="${i}" style="opacity:${emph == null || emph === i ? 1 : .45}"><i style="background:${l.col}"></i>${esc(l.name)}</span>`).join("");
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg><div class="eco-leg eco-legl">${lg}</div>`;
+    const hit = $("#ecoMlH", el), g = $("#ecoMl", el), ln = $("line", g);
+    hit.onmousemove = e => { const r = hit.getBoundingClientRect(), t = t0 + (e.clientX - r.left) / r.width * (t1 - t0); let best = null; P[0].pts.forEach(p => { if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p; });
+      const rows = P.map(l => { let b = null; l.pts.forEach(p => { if (!b || Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; }); return `<div class="tp-r"><i class="eco-dot" style="background:${l.col}"></i>${esc(l.name)}: <b>${b && Math.abs(b.t - t) < 1.2 ? (o.fmt || (v => fp(v, 1)))(b.v) : "—"}</b></div>`; }).join("");
+      g.style.display = ""; ln.setAttribute("x1", X(best.t)); ln.setAttribute("x2", X(best.t)); tip(`<b>${esc(best.l)}</b>${rows}`, e); };
+    hit.onmouseleave = () => { g.style.display = "none"; tip(null); };
+    $$(".eco-lgi", el).forEach(b => { b.style.cursor = "pointer"; b.onclick = () => { o.sel = o.sel === +b.dataset.i ? null : +b.dataset.i; multiLine(el, lines, o); }; });
+  }
+  function heatM(el, rows, nper, o) {   // rows [{label,I,go}]; o.f(obs)->valor, o.lim
+    o = o || {}; const L = rows.filter(r => r.I && r.I.s.length > 8); if (!L.length) { el.innerHTML = '<div class="eco-vacio">Sin datos.</div>'; return; }
+    const ppy = L[0].I.ppy, tmax = Math.max(...L.map(r => r.I.last.t)), ts = Array.from({ length: nper }, (_, i) => tmax - nper + 1 + i), W = Math.max(320, el.clientWidth), lw = Math.min(o.lw || 230, W * .34), cw = (W - lw - 6) / nper, rh = o.rh || 22, H = 22 + L.length * rh, f = o.f || (ob => ob.yoy), lim = o.lim || 8;
+    let s = ""; ts.forEach((t, c) => { if (c % (nper > 14 ? 3 : 2) === 0) s += `<text x="${lw + c * cw + cw / 2}" y="12" class="eco-ax" text-anchor="middle">${periodoL(t, ppy)}</text>`; });
+    L.forEach((r, i) => { const by = {}; r.I.s.forEach(ob => by[ob.t] = ob); s += `<text x="${lw - 6}" y="${22 + i * rh + rh / 2 + 4}" class="eco-ax" text-anchor="end" style="fill:#cbd5e1">${esc(r.label.length > 34 ? r.label.slice(0, 33) + "…" : r.label)}</text>`;
+      ts.forEach((t, c) => { const ob = by[t], v = ob ? f(ob) : null; s += `<rect class="eco-cell" data-i="${i}" data-t="${t}" x="${(lw + c * cw + 1).toFixed(1)}" y="${22 + i * rh + 1}" width="${(cw - 2).toFixed(1)}" height="${rh - 2}" rx="3" fill="${o.seq ? cSeq(v, o.lo, o.hi) : cDiv(v, lim)}" style="animation-delay:${(i * nper + c) * 2}ms"/>`; }); });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg><div class="eco-lg"><span>${o.seq ? "menor" : "caída"}</span><i style="background:linear-gradient(90deg,${o.seq ? cSeq(o.lo, o.lo, o.hi) : cDiv(-1, 1)},${o.seq ? cSeq((o.lo + o.hi) / 2, o.lo, o.hi) : cDiv(0, 1)},${o.seq ? cSeq(o.hi, o.lo, o.hi) : cDiv(1, 1)})"></i><span>${o.seq ? "mayor" : "crecimiento"}</span></div>`;
+    $$(".eco-cell", el).forEach(c => { const r = L[+c.dataset.i], ob = r.I.s.find(q => q.t === +c.dataset.t), v = ob ? f(ob) : null; c.style.cursor = r.go ? "pointer" : "default"; c.onmousemove = e => tip(`<b>${esc(r.label)}</b><div class="tp-s">${periodoL(+c.dataset.t, ppy)}</div><div class="tp-v" style="color:${v == null ? "#94a3b8" : o.seq ? "#fbbf24" : v >= 0 ? "#34d399" : "#fb7185"}">${v == null ? "sin dato" : o.seq ? nf(v, 1) + "%" : fp(v, 1)}</div>`, e); c.onmouseleave = () => tip(null); if (r.go) c.onclick = () => ir(r.go); });
+  }
+  function gauge(el, score, label, col) {
+    const W = Math.min(360, Math.max(240, el.clientWidth)), H = Math.round(W * .62) + 46, cx = W / 2, cy = H - 64, R = W * .38, pt = (a, r) => [cx + r * Math.cos(Math.PI - a), cy - r * Math.sin(Math.PI - a)], arc = (a0, a1, r) => { const p0 = pt(a0, r), p1 = pt(a1, r); return `M${p0[0].toFixed(1)} ${p0[1].toFixed(1)}A${r} ${r} 0 0 1 ${p1[0].toFixed(1)} ${p1[1].toFixed(1)}`; };
+    const segs = [["#fb7185", 0, .25], ["#fbbf24", .25, .45], ["#94a3b8", .45, .55], ["#a3e635", .55, .75], ["#34d399", .75, 1]];
+    let s = segs.map(([c, a, b]) => `<path d="${arc(a * Math.PI + .02, b * Math.PI - .02, R)}" fill="none" stroke="${c}" stroke-width="16" stroke-linecap="round" opacity=".9"/>`).join("");
+    s += `<g style="transform-origin:${cx}px ${cy}px;transform:rotate(-90deg);transition:transform 1.3s cubic-bezier(.2,.9,.3,1.2)" id="ecoNeedle" data-r="${(score / 100 * 180 - 90).toFixed(1)}"><path d="M${cx} ${cy - R + 12}L${cx - 6} ${cy}L${cx + 6} ${cy}Z" fill="#fff" stroke="#0a0f1f" stroke-width="1"/></g><circle cx="${cx}" cy="${cy}" r="9" fill="#fff" stroke="#0a0f1f"/>`;
+    s += `<text x="${cx}" y="${cy + 38}" text-anchor="middle" class="eco-gv">${Math.round(score)}</text><text x="${cx}" y="${cy + 58}" text-anchor="middle" class="eco-gl" fill="${col}">${esc(label)}</text>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="margin:0 auto">${s}</svg>`; const n = $("#ecoNeedle", el); setTimeout(() => { n.style.transform = `rotate(${n.dataset.r}deg)`; }, 60);
+  }
+
+  /* ───────── piezas compartidas de las vistas de monitor ───────── */
+  function pulso() {
+    const xs = HEAD.map(([id]) => { const I = BYID[id], pol = POL[id] || 1; return I && I.last.x != null ? Math.max(-2, Math.min(2, I.last.x)) * pol : null; }).filter(v => v != null), sc = xs.length ? 50 + 25 * (xs.reduce((a, b) => a + b, 0) / xs.length) : 50;
+    const lab = sc < 35 ? ["Debilitamiento", "#fb7185"] : sc < 45 ? ["Moderación", "#fbbf24"] : sc < 55 ? ["Estable", "#94a3b8"] : sc < 65 ? ["Mejora", "#a3e635"] : ["Dinamismo", "#34d399"];
+    return { sc, lab, n: xs.length };
+  }
+  function panelSerie(I) {
+    const rng = [["1A", 12], ["3A", 36], ["5A", 60], ["10A", 120], ["Todo", 0]].filter(([, m]) => !m || m * I.ppy / 12 < I.s.length); if (!rng.some(([, m]) => m === S.serie.rango)) S.serie.rango = 0;
+    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3><div class="eco-tabs" id="ecoMode"><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>`;
+  }
+  function pintaSerie(I) {
+    draws.push(() => drawSerie($("#ecoMain"), I));
+    $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.mode = b.dataset.m; $$("#ecoMode button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
+    $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
+  }
+  const ptsE = (I, tipo) => I.s.map(o => ({ t: o.t / I.ppy, l: o.l, v: tipo === "idx" ? o.yoy : o.v })).filter(p => p.v != null);
+  const ptsI = I => I.s.filter(o => o.yoy != null).map(o => ({ t: o.t / I.ppy, l: o.l, v: I.pct ? o.v : o.yoy })).filter(p => p.v != null);
+  const selMetr = () => `<label class="eco-sel"><span>Indicador del mapa</span><select id="ecoMetr">${METR.map(([k, n]) => `<option value="${k}"${S.metric === k ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>`;
+  const zonaChips = zi => `<div class="eco-chips"><button type="button" class="eco-chip2${zi == null ? " on" : ""}" data-go="reg">Todo México</button>${ZONAS.map((z, i) => `<button type="button" class="eco-chip2${zi === i ? " on" : ""}" style="--c:${z[1]}" data-go="z:${i}">${z[0]}</button>`).join("")}</div>`;
+  const metrOpts = () => { const cl = S.metric, seq = cl === "desoc", vs = ENT.map(e => emv(cl, e[0])).filter(v => v != null), mx = Math.max(...vs.map(Math.abs), 1); return seq ? { seq: true, lo: Math.min(...vs), hi: Math.max(...vs) } : { lim: Math.max(3, Math.min(20, Math.ceil(mx * .75))) }; };
+
+  /* ───────── monitor nacional ───────── */
+  function vistaNac() {
+    const heads = HEAD.map(([id, l]) => BYID[id] && Object.assign(Object.create(BYID[id]), { nombre: l })).filter(Boolean), p = pulso(), ph = { exp: 0, des: 0, con: 0, rec: 0 }; IND.forEach(I => { if (I.quad) ph[I.quad]++; });
+    return `<div class="eco-h"><div><h1>Panorama global · México</h1><div class="eco-sub"><span class="eco-pill">Monitor nacional</span><span class="eco-pill">${IND.length} indicadores</span><span class="eco-pill">${(D.estatal || []).length} series por estado</span><span class="eco-pill">Fuente: INEGI</span></div></div></div>
+    <div class="eco-grid2">${panel("Pulso económico", `${p.n} indicadores clave`, `<div id="ecoGauge"></div><div class="eco-phases">${Object.keys(QD).map(k => `<div class="eco-ph1" style="--c:${QD[k][1]}"><b>${ph[k]}</b><span>${QD[k][0]}</span></div>`).join("")}</div><p class="eco-note">Combina qué tan por encima o por debajo de su tendencia están los indicadores clave (los de desocupación e informalidad se invierten). Fases del reloj económico de los ${IND.length} indicadores.</p>`, "eco-gaugep")}
+    ${panel("Indicadores clave", "clic para abrir el tablero", cards(heads))}</div>
+    <div class="eco-two">${panel("Sectores · variación anual del IGAE", "mayor aporte y mayor caída, por subsector SCIAN", '<div id="ecoSecBars"></div>')}${panel("Mapa de calor sectorial · últimos 18 meses", "variación anual mensual", '<div id="ecoSecHeat"></div>')}</div>
+    <div class="eco-two">${panel("Mapa económico de los estados", "ITAEE · variación anual", '<div id="ecoNacMap"></div><div class="eco-more2"><a data-go="reg">Abrir monitor regional →</a></div>')}${panel("Estados que más crecen y más caen", "ITAEE · variación anual", '<div id="ecoNacRank"></div>')}</div>
+    ${panel("Mapa del ciclo económico", "cada burbuja es un indicador", '<div id="ecoMapa"></div>')}`;
+  }
+  function pintaNac() {
+    const p = pulso(); draws.push(() => gauge($("#ecoGauge"), p.sc, p.lab[0], p.lab[1]));
+    const rows = SEC.flatMap(sc => secSer(sc).map(s => ({ I: s.yoy, label: s.yoy.nombre, sub: sc.n + " · SCIAN " + s.yoy.scian, v: s.yoy.last.v, col: sc.col, go: "s:" + sc.k }))).filter(r => r.I).sort((a, b) => b.v - a.v);
+    draws.push(() => barsH($("#ecoSecBars"), rows.map(r => ({ label: r.label, sub: r.sub, v: r.v, go: r.go })), { rh: 24, lw: 210 }), () => heatM($("#ecoSecHeat"), rows.map(r => ({ label: r.label, I: r.I, go: r.go })), 18, { f: ob => ob.v, lim: 10, rh: 20 }));
+    draws.push(() => tileMap($("#ecoNacMap"), c => emv("itaee_yoy", c), { lim: 6 }), () => { const r = ENT.map(e => ({ v: emv("itaee_yoy", e[0]), e })).filter(x => x.v != null).sort((a, b) => b.v - a.v), t = r.slice(0, 5).concat(r.slice(-5)); barsH($("#ecoNacRank"), t.map(x => ({ label: x.e[1], sub: ZONAS[x.e[5]][0], v: x.v, go: "e:" + x.e[0] })), { rh: 27, lw: 150 }); }, () => mapaCiclo($("#ecoMapa")));
+  }
+
+  /* ───────── monitor regional (todo México o una zona) ───────── */
+  function vistaReg(zi) {
+    const cl = S.metric, men = METR.find(m => m[0] === cl)[1], codes = ENT.filter(e => zi == null || e[5] === zi).map(e => e[0]);
+    const zs = ZONAS.map((z, i) => { const vs = ENT.filter(e => e[5] === i).map(e => emv(cl, e[0])).filter(v => v != null); return { z, i, n: vs.length, avg: vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null }; });
+    const head = zi == null ? "Monitor regional · México" : "Zona " + ZONAS[zi][0], sub = zi == null ? `<span class="eco-pill">32 entidades</span><span class="eco-pill">6 zonas</span>` : `<span class="eco-pill" style="--c:${ZONAS[zi][1]}">${codes.length} entidades</span><span class="eco-pill">${codes.map(c => ENTBY[c][2]).join(" · ")}</span>`;
+    const est = D.estatal ? (D.estatal.find(e => e.clave === cl) || {}).actualizado : "";
+    return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a>${zi != null ? " › " + ZONAS[zi][0] : ""}</div><div class="eco-h"><div><h1>${head}</h1><div class="eco-sub">${sub}<span class="eco-pill">Fuente: INEGI${est ? " · act. " + est : ""}</span></div></div></div>
+    <div class="eco-ctl">${selMetr()}${zonaChips(zi)}</div>
+    <div class="eco-grid2b">${panel("Mapa de estados", esc(men), '<div id="ecoRMap"></div>')}${panel(zi == null ? "Ranking de entidades" : "Ranking en la zona", "", '<div id="ecoRRank"></div>')}</div>
+    ${zi == null ? panel("Resumen por zona", "promedio simple de sus estados", `<div class="eco-cards eco-cards2">${zs.map(x => `<button type="button" class="eco-card" data-go="z:${x.i}" style="--c:${x.z[1]}"><div class="ct"><span>${x.z[0]}</span></div><div class="cg">${ENT.filter(e => e[5] === x.i).map(e => e[2]).join(" · ")}</div><div class="cv" style="color:${x.avg == null ? "#94a3b8" : cl === "desoc" ? "#fbbf24" : x.avg >= 0 ? "#34d399" : "#fb7185"}">${cl === "desoc" ? nf(x.avg, 1) + "%" : fp(x.avg, 1)}</div><div class="cp">${x.n} entidades con dato</div></button>`).join("")}</div>`) : ""}
+    <div class="eco-two">${panel(zi == null ? "Evolución por zona" : "Evolución de las entidades de la zona", "promedio simple · variación anual", '<div id="ecoRLine"></div>')}${panel("Mapa de calor por entidad", cl === "desoc" ? "últimos 12 trimestres" : "últimos periodos", '<div id="ecoRHeat"></div>')}</div>`;
+  }
+  function pintaReg(zi) {
+    const cl = S.metric, m = EST[cl], o = metrOpts(), codes = ENT.filter(e => zi == null || e[5] === zi).map(e => e[0]), hl = zi == null ? null : new Set(codes);
+    $("#ecoMetr").onchange = e => { S.metric = e.target.value; ir(S.sel); };
+    draws.push(() => tileMap($("#ecoRMap"), c => emv(cl, c), Object.assign({ hl }, o)));
+    const r = codes.map(c => ({ c, v: emv(cl, c) })).filter(x => x.v != null).sort((a, b) => cl === "desoc" ? a.v - b.v : b.v - a.v);
+    draws.push(() => barsH($("#ecoRRank"), r.map(x => ({ label: ENTBY[x.c][1], sub: ZONAS[ENTBY[x.c][5]][0], v: x.v, go: "e:" + x.c, col: cl === "desoc" ? undefined : undefined })), { rh: 22, lw: 140, fmt: cl === "desoc" ? v => nf(v, 1) + "%" : undefined, col: cl === "desoc" ? "#fbbf24" : undefined }));
+    if (!m) return;
+    const tipo = m.tipo, lines = zi == null ? ZONAS.map((z, i) => { const by = {}; ENT.filter(e => e[5] === i).forEach(e => { const I = m.by[e[0]]; if (I) ptsE(I, tipo).forEach(p => { (by[p.t] = by[p.t] || { l: p.l, v: [] }).v.push(p.v); }); }); return { name: z[0], col: z[1], pts: Object.keys(by).map(Number).sort((a, b) => a - b).map(t => ({ t, l: by[t].l, v: by[t].v.reduce((a, b) => a + b, 0) / by[t].v.length })) }; })
+      : codes.map((c, i) => m.by[c] ? { name: ENTBY[c][1], col: PAL[i % PAL.length], pts: ptsE(m.by[c], tipo) } : null).filter(Boolean);
+    draws.push(() => multiLine($("#ecoRLine"), lines, { anios: 10, cero: cl !== "desoc", fmt: cl === "desoc" ? v => nf(v, 1) + "%" : undefined }));
+    const rows = codes.map(c => m.by[c] ? { label: ENTBY[c][1], I: m.by[c], go: "e:" + c } : null).filter(Boolean).sort((a, b) => (emv(cl, b.I.code) || 0) - (emv(cl, a.I.code) || 0));
+    draws.push(() => heatM($("#ecoRHeat"), rows, m.by[codes[0]].ppy === 12 ? 18 : 12, { f: tipo === "idx" ? ob => ob.yoy : ob => ob.v, lim: o.lim, seq: o.seq, lo: o.lo, hi: o.hi, rh: zi == null ? 17 : 22, lw: 140 }));
+  }
+
+  /* ───────── monitor de un estado ───────── */
+  function vistaEst(c) {
+    const e = ENTBY[c], z = ZONAS[e[5]], K = [["itaee_yoy", "Actividad económica (ITAEE)", BYID["737145"], "var. anual"], ["ind_yoy", "Actividad industrial", BYID["736526"], "var. anual"], ["man_yoy", "Manufacturas", IGS["31-33"] && IGS["31-33"].yoy, "var. anual"], ["desoc", "Desocupación", BYID["444603"], "% PEA"]];
+    const rank = cl => { const vs = ENT.map(x => emv(cl, x[0])).filter(v => v != null), v = emv(cl, c); return v == null ? null : vs.filter(w => cl === "desoc" ? w < v : w > v).length + 1; };
+    const tiles = K.map(([cl, n, nac, u]) => { const v = emv(cl, c), nv = nac ? nac.last.v : null, dl = v != null && nv != null ? v - nv : null, I = EST[cl] && EST[cl].by[c], rk = rank(cl), pct = cl !== "desoc";
+      return `<div class="eco-kpi"><div class="kl">${n}</div><div class="kv ${cl === "desoc" ? "nu" : v == null ? "" : v >= 0 ? "up" : "dn"}">${v == null ? "—" : pct ? fp(v, 1) : nf(v, 1) + "%"}</div><div class="ks">${u}${I ? " · " + I.last.l : ""}</div><div class="eco-vs">${nv == null ? "" : `Nacional: <b>${pct ? fp(nv, 1) : nf(nv, 1) + "%"}</b> · ${dl == null ? "" : `<span class="${(cl === "desoc" ? -dl : dl) >= 0 ? "up" : "dn"}">${sg(dl, 1)} pp</span>`}`}</div>${rk ? `<div class="eco-rk">Lugar <b>${rk}</b> de 32</div>` : ""}</div>`; }).join("");
+    const I0 = EST.itaee_idx && EST.itaee_idx.by[c], q = I0 && I0.quad ? QD[I0.quad] : null;
+    return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a> › <a data-go="z:${e[5]}">${z[0]}</a></div><div class="eco-h"><div><h1>${esc(e[1])}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${z[1]}">${z[0]}</span><span class="eco-pill">Monitor estatal</span>${I0 ? `<span class="eco-pill">ITAEE: ${I0.last.l}</span>` : ""}</div></div></div>
+    <div class="eco-kpis">${tiles}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "ITAEE · reloj económico") : ""}</div>
+    ${I0 ? panelSerie(I0) : ""}
+    <div class="eco-two">${panel("Actividad económica: estado vs. nación", "variación anual", '<div id="ecoELn1"></div>')}${panel("Actividad industrial: estado vs. nación", "variación anual (mensual)", '<div id="ecoELn2"></div>')}</div>
+    <div class="eco-two">${panel("¿Qué sectores jalan o frenan?", "ITAEE · variación anual · ◆ = nacional", '<div id="ecoESec"></div>')}${I0 ? panel("Reloj económico", "ITAEE estatal", '<div id="ecoEClock"></div>') : ""}</div>
+    ${panel("El estado en el mapa", "ITAEE · variación anual", '<div id="ecoEMap"></div>')}`;
+  }
+  function pintaEst(c) {
+    const I0 = EST.itaee_idx && EST.itaee_idx.by[c]; if (I0) { pintaSerie(I0); draws.push(() => drawReloj($("#ecoEClock"), I0)); }
+    const mk = (cl, nac, nom, nn) => { const m = EST[cl], I = m && m.by[c]; return [I ? { name: ENTBY[c][1], col: "#22d3ee", pts: ptsE(I, m.tipo) } : null, nac ? { name: nn, col: "#fbbf24", dash: true, pts: ptsI(nac) } : null].filter(Boolean); };
+    draws.push(() => multiLine($("#ecoELn1"), mk("itaee_yoy", BYID["737145"], "", "México (IGAE)"), { anios: 12 }), () => multiLine($("#ecoELn2"), mk("ind_yoy", BYID["736526"], "", "México (act. industrial)"), { anios: 12 }));
+    const rows = METR.filter(([k]) => k.startsWith("s_") && EST[k]).map(([k, n]) => { const v = emv(k, c), rf = REFNAC[k] && IGS[REFNAC[k]] ? IGS[REFNAC[k]].yoy.last.v : null; return v == null ? null : { label: n.replace(" · variación anual", "").replace("Sector agropecuario", "Agropecuario"), v, ref: rf, sub: EST[k].def.actualizado ? "act. " + EST[k].def.actualizado : "" }; }).filter(Boolean).sort((a, b) => b.v - a.v);
+    draws.push(() => barsH($("#ecoESec"), rows, { rh: 26, lw: 200, nota: "◆ valor nacional (cuando existe)" }), () => tileMap($("#ecoEMap"), x => emv("itaee_yoy", x), { lim: 6, sel: c, hl: new Set(ENT.filter(x => x[5] === ENTBY[c][5]).map(x => x[0])) }));
+  }
+
+  /* ───────── monitores sectoriales ───────── */
+  function vistaSecciones() {
+    const tiers = [1, 2, 3].map(t => { const l = SEC.filter(s => s.t === t), tot = t === 2 ? IGS.T2 : t === 3 ? IGS.T3 : null, T = tot && tot.yoy;
+      return `<div class="eco-tier"><div class="eco-tierh"><span>${TIER[t][2]}</span><div><b>Sector ${TIER[t][0].toLowerCase()}</b><small>${TIER[t][1]}</small></div>${T ? `<span class="eco-ch2 ${cc(T.last.v)}">${T.last.v >= 0 ? "▲" : "▼"} ${fp(T.last.v, 1)} anual</span>` : ""}</div><div class="eco-cards eco-cards2">${l.map(sc => { const ss = secSer(sc), I = ss[0] && ss[0].idx, Y = ss[0] && ss[0].yoy, y = ss.map(s => s.yoy.last.v), av = y.length ? y.reduce((a, b) => a + b, 0) / y.length : null;
+        return `<button type="button" class="eco-card" data-go="s:${sc.k}" style="--c:${sc.col}"><div class="ct"><span>${sc.ic} ${esc(sc.n)}</span>${I ? dotE(I) : ""}</div><div class="cg">SCIAN ${sc.scian.join(" · ")}</div><div class="cv">${av == null ? "—" : fp(av, 1)}<small>var. anual${ss.length > 1 ? " (prom.)" : ""}</small></div>${Y ? `<span class="eco-ch2 ${cc(av)}">${I ? I.last.l : ""}</span>` : ""}<div class="cs">${I ? spark(I, 48, 220, 46) : ""}</div></button>`; }).join("")}</div></div>`; }).join("");
+    return `<div class="eco-h"><div><h1>Monitores por sector</h1><div class="eco-sub"><span class="eco-pill">3 grandes sectores</span><span class="eco-pill">10 monitores sectoriales</span><span class="eco-pill">Clasificación basada en SCIAN</span></div></div></div>${tiers}
+    <div class="eco-two">${panel("¿Quién jala la economía?", "IGAE · variación anual por subsector", '<div id="ecoSecBars"></div>')}${panel("Mapa de calor sectorial", "últimos 18 meses", '<div id="ecoSecHeat"></div>')}</div>`;
+  }
+  function pintaSecciones() { pintaNacSectores(); }
+  function pintaNacSectores() {
+    const rows = SEC.flatMap(sc => secSer(sc).map(s => ({ I: s.yoy, label: s.yoy.nombre, sub: sc.n + " · SCIAN " + s.yoy.scian, v: s.yoy.last.v, col: sc.col, go: "s:" + sc.k }))).filter(r => r.I).sort((a, b) => b.v - a.v);
+    draws.push(() => barsH($("#ecoSecBars"), rows.map(r => ({ label: r.label, sub: r.sub, v: r.v, go: r.go })), { rh: 24, lw: 210 }), () => heatM($("#ecoSecHeat"), rows.map(r => ({ label: r.label, I: r.I, go: r.go })), 18, { f: ob => ob.v, lim: 10, rh: 20 }));
+  }
+  function vistaSector(k) {
+    const sc = SECBY[k], ss = secSer(sc); if (!ss.length) return `<div class="eco-vacio">Sin datos para este sector.</div>`;
+    if (S.sub == null || S.subK !== k) { S.sub = 0; S.subK = k; } const cur = ss[Math.min(S.sub, ss.length - 1)], I = cur.idx, Y = cur.yoy, q = I.quad ? QD[I.quad] : null;
+    const rel = IND.filter(x => x.sectores && x.sectores.includes(k) && !x.scian), stK = sc.st.filter(c => EST[c]);
+    if (!stK.includes(S.sk)) S.sk = stK[0];
+    return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="sec">Sectores</a> › ${TIER[sc.t][0]}</div><div class="eco-h"><div><h1>${sc.ic} ${esc(sc.n)}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${sc.col}">${TIER[sc.t][0]}</span>${sc.scian.map(c => `<span class="eco-pill">SCIAN ${c}</span>`).join("")}<span class="eco-pill st-${I.est[0]}">${dotE(I)} ${I.est[1]} · ${esc(I.last.l)}</span></div></div></div>
+    ${ss.length > 1 ? `<div class="eco-chips" id="ecoSub">${ss.map((s, i) => `<button type="button" class="eco-chip2${i === S.sub ? " on" : ""}" style="--c:${sc.col}" data-sub="${i}">${esc(s.idx.nombre)}</button>`).join("")}</div>` : ""}
+    <div class="eco-kpis">${kpi("Índice de volumen físico", fv(I, I.last.v), esc(I.last.l), "big")}${kpi("Variación anual", fp(Y.last.v, 1), "IGAE · " + esc(Y.last.l), cc(Y.last.v))}${kpi("Posición histórica", ring(I.pctil, sc.col, nf(I.pctil, 0) + "%"), "percentil del índice")}${kpi("Máximo histórico", fv(I, I.max), esc(I.maxO.l))}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "reloj económico") : ""}</div>
+    ${panelSerie(I)}
+    <div class="eco-two">${panel("Variación anual por subsector", "IGAE", '<div id="ecoSLn"></div>')}${panel("Reloj económico", esc(I.nombre), '<div id="ecoSClock"></div>')}</div>
+    ${stK.length ? panel("Mapa del sector por estado", "ITAEE trimestral · variación anual" + (stK.length > 1 ? "" : ""), (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
+    ${rel.length ? panel("Indicadores relacionados", "confianza, pedidos, ventas y comercio exterior ligados al sector", cards(rel)) : ""}`;
+  }
+  function pintaSector(k) {
+    const sc = SECBY[k], ss = secSer(sc), cur = ss[Math.min(S.sub, ss.length - 1)], I = cur.idx;
+    pintaSerie(I); draws.push(() => drawReloj($("#ecoSClock"), I));
+    draws.push(() => multiLine($("#ecoSLn"), ss.map((s, i) => ({ name: s.yoy.nombre, col: i === 0 ? sc.col : PAL[(SEC.indexOf(sc) + i * 3) % PAL.length], pts: ptsI(s.yoy) })).concat(IGS.TOT.yoy ? [{ name: "Economía total", col: "#94a3b8", dash: true, pts: ptsI(IGS.TOT.yoy) }] : []), { anios: 14 }));
+    const stK = sc.st.filter(c => EST[c]); if (stK.length) {
+      const cl = S.sk, vs = ENT.map(e => emv(cl, e[0])).filter(v => v != null), lim = Math.max(4, Math.min(25, Math.ceil(Math.max(...vs.map(Math.abs), 1) * .7)));
+      draws.push(() => tileMap($("#ecoSMap"), c => emv(cl, c), { lim }), () => barsH($("#ecoSRank"), ENT.map(e => ({ v: emv(cl, e[0]), e })).filter(x => x.v != null).sort((a, b) => b.v - a.v).map(x => ({ label: x.e[1], sub: ZONAS[x.e[5]][0], v: x.v, go: "e:" + x.e[0] })), { rh: 18, lw: 130 }));
+    }
+  }
+
   /* ───────── navegación y árbol ───────── */
+  const modo = id => /^(nac|reg|sec|z:|e:|s:)/.test(id) ? "mon" : "cat";
+  const rer = () => { const m = $("#ecoMain2"), st = m.scrollTop; ir(S.sel); m.scrollTop = st; };
   function ir(id) {
+    if (id === "home") id = "nac";
     S.sel = id; ls.set("eco_sel", id); draws = []; tip(null);
-    const main = $("#ecoMain2"); let h = "";
-    if (id.startsWith("i:") && BYID[id.slice(2)]) { const I = BYID[id.slice(2)]; S.open.add("a:" + I.area); S.open.add("g:" + I.area + "|" + I.grupo); h = vistaInd(I); main.innerHTML = h; pintaInd(I); }
-    else if (id.startsWith("g:")) { const [an, gn] = id.slice(2).split("|"), a = AREAS.find(x => x.n === an), g = a && a.g.find(x => x.n === gn); if (!g) return ir("home"); S.open.add("a:" + an); main.innerHTML = vistaPano(g.n, `<span class="eco-pill" style="--c:${a.col}">${esc(a.n)}</span><span class="eco-pill">${g.i.length} indicadores</span>`, g.i, `<a data-go="home">Panorama</a> › <a data-go="a:${esc(a.n)}">${esc(a.n)}</a>`); pintaPano(g.i); }
-    else if (id.startsWith("a:")) { const a = AREAS.find(x => x.n === id.slice(2)); if (!a) return ir("home"); S.open.add(id); const l = a.g.flatMap(g => g.i); main.innerHTML = vistaPano(a.n, `<span class="eco-pill" style="--c:${a.col}">${a.g.length} grupos</span><span class="eco-pill">${l.length} indicadores</span>`, l, `<a data-go="home">Panorama</a>`); pintaPano(l); }
-    else { S.sel = "home"; main.innerHTML = vistaHome(); draws.push(() => mapaCiclo($("#ecoMapa"))); }
+    const main = $("#ecoMain2"), mo = modo(id); if (mo === "mon") S.lastMon = id; else S.lastCat = id;
+    if (mo === "mon") {
+      if (id === "reg") { main.innerHTML = vistaReg(null); pintaReg(null); S.open.add("R"); }
+      else if (id.startsWith("z:")) { const zi = +id.slice(2); if (!ZONAS[zi]) return ir("reg"); S.open.add("R"); S.open.add("z:" + zi); main.innerHTML = vistaReg(zi); pintaReg(zi); }
+      else if (id.startsWith("e:")) { const c = id.slice(2); if (!ENTBY[c]) return ir("reg"); S.open.add("R"); S.open.add("z:" + ENTBY[c][5]); main.innerHTML = vistaEst(c); pintaEst(c); }
+      else if (id === "sec") { main.innerHTML = vistaSecciones(); pintaSecciones(); }
+      else if (id.startsWith("s:")) { const k = id.slice(2); if (!SECBY[k]) return ir("sec"); S.open.add("SC"); S.open.add("t:" + SECBY[k].t); main.innerHTML = vistaSector(k); pintaSector(k); }
+      else { S.sel = "nac"; main.innerHTML = vistaNac(); pintaNac(); }
+    } else if (id.startsWith("i:") && BYID[id.slice(2)]) { const I = BYID[id.slice(2)]; S.open.add("a:" + I.area); S.open.add("g:" + I.area + "|" + I.grupo); main.innerHTML = vistaInd(I); pintaInd(I); }
+    else if (id.startsWith("g:")) { const [an, gn] = id.slice(2).split("|"), a = AREAS.find(x => x.n === an), g = a && a.g.find(x => x.n === gn); if (!g) return ir("cat"); S.open.add("a:" + an); main.innerHTML = vistaPano(g.n, `<span class="eco-pill" style="--c:${a.col}">${esc(a.n)}</span><span class="eco-pill">${g.i.length} indicadores</span>`, g.i, `<a data-go="home">Panorama</a> › <a data-go="a:${esc(a.n)}">${esc(a.n)}</a>`); pintaPano(g.i); }
+    else if (id.startsWith("a:")) { const a = AREAS.find(x => x.n === id.slice(2)); if (!a) return ir("cat"); S.open.add(id); const l = a.g.flatMap(g => g.i); main.innerHTML = vistaPano(a.n, `<span class="eco-pill" style="--c:${a.col}">${a.g.length} grupos</span><span class="eco-pill">${l.length} indicadores</span>`, l, `<a data-go="home">Panorama</a>`); pintaPano(l); }
+    else { S.sel = "cat"; main.innerHTML = vistaHome(); draws.push(() => mapaCiclo($("#ecoMapa"))); }
     draws.forEach(f => f()); main.scrollTop = 0; arbol(); $("#ecoApp").classList.remove("eco-menu");
   }
-  function arbol() {
+  function arbolCat() {
     const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), pasa = I => !ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w));
-    let h = `<button type="button" class="eco-n eco-n0${S.sel === "home" ? " on" : ""}" data-go="home"><span class="ic">🌐</span><span class="tx">Panorama general</span><span class="bd">${IND.length}</span></button>`, any = false;
+    let h = `<button type="button" class="eco-n eco-n0${S.sel === "cat" ? " on" : ""}" data-go="cat"><span class="ic">🗂️</span><span class="tx">Catálogo completo</span><span class="bd">${IND.length}</span></button>`, any = false;
     AREAS.forEach(a => {
       const gs = a.g.map(g => ({ g, i: g.i.filter(pasa) })).filter(x => x.i.length); if (!gs.length) return; any = true;
       const op = q ? true : S.open.has("a:" + a.n), tot = gs.reduce((s, x) => s + x.i.length, 0);
@@ -263,7 +506,31 @@
       h += `</div>`;
     });
     if (!any) h += `<div class="eco-nada">Sin resultados para «${esc(S.q)}».</div>`;
-    const t = $("#ecoTree"), sc = t.scrollTop; t.innerHTML = h; t.scrollTop = sc;
+    return h;
+  }
+
+  function arbolMon() {
+    const q = norm(S.q.trim()), on = id => S.sel === id ? " on" : "";
+    let h = `<button type="button" class="eco-n eco-n0${on("nac")}" data-go="nac"><span class="ic">🌐</span><span class="tx">Panorama global</span><span class="bd">MX</span></button>`;
+    const opR = q || S.open.has("R");
+    h += `<div class="eco-ar" style="--c:#22d3ee"><div class="eco-n eco-n1${on("reg")}"><button type="button" class="tg" data-tg="R" aria-label="Desplegar">${opR ? "▾" : "▸"}</button><button type="button" class="nm" data-go="reg"><i></i><span class="tx">Regiones y estados</span><span class="bd">32</span></button></div>`;
+    if (opR) ZONAS.forEach((z, i) => { const es = ENT.filter(e => e[5] === i && (!q || norm(e[1] + " " + z[0]).includes(q))); if (!es.length) return; const zo = q || S.open.has("z:" + i);
+      h += `<div class="eco-n eco-n2${on("z:" + i)}" style="--c:${z[1]}"><button type="button" class="tg" data-tg="z:${i}" aria-label="Desplegar">${zo ? "▾" : "▸"}</button><button type="button" class="nm" data-go="z:${i}"><span class="tx">${z[0]}</span><span class="bd">${es.length}</span></button></div>`;
+      if (zo) es.forEach(e => { h += `<button type="button" class="eco-n eco-n3${on("e:" + e[0])}" data-go="e:${e[0]}"><span class="tx">${e[1]}</span></button>`; }); });
+    h += `</div>`;
+    const opS = q || S.open.has("SC");
+    h += `<div class="eco-ar" style="--c:#fbbf24"><div class="eco-n eco-n1${on("sec")}"><button type="button" class="tg" data-tg="SC" aria-label="Desplegar">${opS ? "▾" : "▸"}</button><button type="button" class="nm" data-go="sec"><i></i><span class="tx">Sectores económicos</span><span class="bd">${SEC.length}</span></button></div>`;
+    if (opS) [1, 2, 3].forEach(t => { const l = SEC.filter(s => s.t === t && (!q || norm(s.n + " " + TIER[t][0]).includes(q))); if (!l.length) return; const to = q || S.open.has("t:" + t);
+      h += `<div class="eco-n eco-n2"><button type="button" class="tg" data-tg="t:${t}" aria-label="Desplegar">${to ? "▾" : "▸"}</button><button type="button" class="nm" data-tg="t:${t}"><span class="tx">${TIER[t][2]} ${TIER[t][0]}</span><span class="bd">${l.length}</span></button></div>`;
+      if (to) l.forEach(s => { h += `<button type="button" class="eco-n eco-n3${on("s:" + s.k)}" data-go="s:${s.k}"><span class="tx">${s.ic} ${esc(s.n)}</span></button>`; }); });
+    h += `</div>`;
+    if (q && h.indexOf('data-go="e:') < 0 && h.indexOf('data-go="s:') < 0) h += `<div class="eco-nada">Sin resultados para «${esc(S.q)}».</div>`;
+    return h;
+  }
+  function arbol() {
+    const mo = modo(S.sel), t = $("#ecoTree"), sc = t.scrollTop;
+    $$(".eco-seg button").forEach(b => b.classList.toggle("on", b.dataset.mode === mo)); $("#ecoQ").placeholder = mo === "mon" ? "Buscar estado o sector…" : "Buscar indicador, tema o ID…";
+    t.innerHTML = mo === "mon" ? arbolMon() : arbolCat(); t.scrollTop = sc;
   }
 
   function shell() {
@@ -273,7 +540,7 @@
         <div class="eco-brand"><b>EcoLab</b><span>Laboratorio económico · monitoreo de variables coyunturales</span></div><div class="eco-sp"></div>
         <span class="eco-chip" title="Datos descargados de la API del INEGI">Datos: ${esc((D.generado || "").slice(0, 10))}</span>
         <button class="eco-theme" id="ecoTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="ecoCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="ecoSalir" type="button">Salir</button></header>
-      <div class="eco-body"><aside class="eco-side"><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
+      <div class="eco-body"><aside class="eco-side"><div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
       <main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
     tipEl = document.createElement("div"); tipEl.className = "eco-tip"; document.body.appendChild(tipEl);
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
@@ -281,11 +548,11 @@
     const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"; ls.set("eco_tema", c); };
     tema(ls.get("eco_tema", "oscuro")); $("#ecoTema", host).onclick = () => tema($("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro");
     $("#ecoQ", host).oninput = e => { S.q = e.target.value; arbol(); };
-    host.onclick = e => { const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
+    host.onclick = e => { const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
   window.ecolabInit = function () {
-    host = document.getElementById("ecolab-host"); carga(); shell();
-    let s = ls.get("eco_sel", "home"); if (s.startsWith("i:") && !BYID[s.slice(2)]) s = "home"; ir(s);
+    host = document.getElementById("ecolab-host"); carga(); cargaMon(); S.metric = "itaee_yoy"; ["SC", "t:1", "t:2", "t:3"].forEach(k => S.open.add(k)); shell();
+    let s = ls.get("eco_sel", "nac"); if (s.startsWith("i:") && !BYID[s.slice(2)]) s = "nac"; ir(s);
   };
 })();
