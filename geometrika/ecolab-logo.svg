@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 100" width="330" height="100" role="img" aria-label="EcoLab">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0891b2"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+  </defs>
+  <rect x="4" y="10" width="80" height="80" rx="22" fill="#0f172a" stroke="url(#g1)" stroke-width="4"/>
+  <path d="M18 66 L36 46 L50 57 L68 32 L76 38" fill="none" stroke="url(#g1)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="75" cy="34" r="6" fill="#f472b6"/>
+  <text x="98" y="70" font-family="Montserrat, 'Segoe UI', system-ui, Arial, sans-serif" font-size="56" font-weight="800" fill="url(#g2)">Eco</text>
+  <text x="212" y="70" font-family="Montserrat, 'Segoe UI', system-ui, Arial, sans-serif" font-size="56" font-weight="300" fill="#808080">Lab</text>
+</svg>

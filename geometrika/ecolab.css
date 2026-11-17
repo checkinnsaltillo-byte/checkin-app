@@ -280,3 +280,17 @@
 .gl-back:hover{border-color:#22d3ee;color:#fff}
 .eco-light .gl-back{background:#fff;color:#0f172a;border-color:#cbd5e1}
 .eco-emb .eco-sp{flex:1}
+
+/* ── encabezado nuevo: logos como pestañas y logo de Metrika ── */
+.gl-tabs{gap:6px;padding:0;background:none;border:0}
+.gl-tabs button{flex:1 1 0;min-width:0;gap:4px;padding:9px 6px 7px;border:2px solid transparent;background:#fff;color:#64748b;border-radius:14px;box-shadow:0 1px 4px rgba(15,23,42,.22);opacity:.82}
+.gl-tabs button img{height:30px;width:100%;object-fit:contain;display:block}
+.gl-tabs button b{font:800 9.5px system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+.gl-tabs button:hover{opacity:1;background:#fff;color:#64748b}
+.gl-tabs button.on{opacity:1;border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.28),0 8px 18px rgba(79,70,229,.3)}
+.gl-tabs button.on b{color:#4338ca}
+.mt-logo{flex:1;min-width:0;height:34px;object-fit:contain;filter:invert(1) hue-rotate(180deg)}
+.eco-emb .eco-logo,.eco-emb .eco-brand{display:none}
+.eco-emb .eco-top{gap:10px}.eco-emb .gl-tabs{margin:12px 12px 0}
+.eco-light.eco-emb .mt-logo{filter:none}
+.eco-light .gl-tabs{background:none;border:0}

@@ -307,3 +307,16 @@ html.emb .dl-app,.dl-emb{background:transparent!important}
 .gl-back{flex:none;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.1);color:#fff;border-radius:10px;padding:6px 11px;font:700 12px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
 .gl-back:hover{background:rgba(255,255,255,.2)}
 .dl-emb .dl-sp{flex:1}
+
+/* ── encabezado nuevo: logos como pestañas y logo de Metrika ── */
+.gl-tabs{gap:6px;padding:0;background:none;border:0}
+.gl-tabs button{flex:1 1 0;min-width:0;gap:4px;padding:9px 6px 7px;border:2px solid transparent;background:#fff;color:#64748b;border-radius:14px;box-shadow:0 1px 4px rgba(15,23,42,.22);opacity:.82}
+.gl-tabs button img{height:30px;width:100%;object-fit:contain;display:block}
+.gl-tabs button b{font:800 9.5px system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+.gl-tabs button:hover{opacity:1;background:#fff;color:#64748b}
+.gl-tabs button.on{opacity:1;border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.28),0 8px 18px rgba(79,70,229,.3)}
+.gl-tabs button.on b{color:#4338ca}
+.mt-logo{flex:1;min-width:0;height:34px;object-fit:contain;filter:invert(1) hue-rotate(180deg)}
+.dl-emb .dl-logo,.dl-emb .dl-brand{display:none}
+.dl-emb .dl-top{gap:10px}
+.dl-app.dl-off .gl-tabs{flex-direction:column}
