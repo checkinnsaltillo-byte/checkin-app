@@ -165,7 +165,7 @@
 
   function serieChecks(I) {   // casillas para elegir qué series ver en la gráfica de evolución
     const st = S.serie, ck = (k, t, on, tit) => `<button type="button" class="eco-ck" data-k="${k}" title="${tit || ""}"><span class="eco-ckb${on ? " on" : ""}">✓</span>${t}</button>`;
-    return `<div class="eco-chks" id="ecoMode">${ck("nivel", "Nivel", st.vn !== false)}${ck("anual", "Variación anual", st.va !== false)}${I.ppy > 1 && !I.pct ? ck("mom", "Variación periodo previo", st.vm === true, "Cambio respecto del periodo inmediato anterior (línea rosa)") : ""}${I.fc && prono(I) ? ck("fc", "Pronóstico", st.fc !== false, "Pronóstico estadístico (línea punteada)") : ""}${ck("og", "Serie original", st.og !== false, "Con suavizado: mostrar la serie original tenue")}</div>`;
+    return `<div class="eco-chks" id="ecoMode">${ck("nivel", st.suav ? "Nivel suavizado" : "Nivel", st.vn !== false)}${ck("anual", "Variación anual", st.va !== false)}${I.ppy > 1 && !I.pct ? ck("mom", "Variación periodo previo", st.vm === true, "Cambio respecto del periodo inmediato anterior (línea rosa)") : ""}${I.fc && prono(I) ? ck("fc", "Pronóstico", st.fc !== false, "Pronóstico estadístico (línea punteada)") : ""}${st.suav ? ck("og", "Nivel original", st.og !== false, "Muestra la serie sin suavizar, tenue, detrás de la suavizada") : ""}</div>`;
   }
   const ckOn = k => k === "nivel" ? S.serie.vn !== false : k === "anual" ? S.serie.va !== false : k === "mom" ? S.serie.vm === true : k === "fc" ? S.serie.fc !== false : S.serie.og !== false;
   /* ───────── gráfica principal de la serie ───────── */
@@ -856,7 +856,7 @@
         if (k === "nivel" || k === "anual" || k === "mom") { const cur = { nivel: vn, anual: va, mom: st.vm === true }, nx = Object.assign({}, cur, { [k]: !cur[k] }); if (nx.nivel || nx.anual || nx.mom) { st.vn = nx.nivel; st.va = nx.anual; st.vm = nx.mom; } } else if (k === "fc") st.fc = st.fc === false; else if (k === "og") st.og = st.og === false;
         $$("#ecoMode .eco-ck").forEach(b => b.querySelector(".eco-ckb").classList.toggle("on", ckOn(b.dataset.k))); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; }
       const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
-    host.onchange = e => { if (e.target.id === "ecoSm") { S.serie.suav = e.target.value; if (S.curI) drawSerie($("#ecoMain"), S.curI); } };
+    host.onchange = e => { if (e.target.id === "ecoSm") { S.serie.suav = e.target.value; const gk = $("#ecoMode"); if (gk && S.curI) gk.outerHTML = serieChecks(S.curI); if (S.curI) drawSerie($("#ecoMain"), S.curI); } };
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
   window.ecolabInit = function () {
