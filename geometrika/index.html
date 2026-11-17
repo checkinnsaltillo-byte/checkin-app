@@ -102,8 +102,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=1436a7fd"; document.head.appendChild(l);
-    gpCarga("ecolab-datos.js?v=1436a7fd", () => gpCarga("ecolab.js?v=1436a7fd", () => window.ecolabInit && window.ecolabInit()));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=e06c4398"; document.head.appendChild(l);
+    gpCarga("ecolab-datos.js?v=e06c4398", () => gpCarga("ecolab.js?v=e06c4398", () => window.ecolabInit && window.ecolabInit()));
   } else if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=441abbd2"; document.head.appendChild(l);

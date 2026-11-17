@@ -398,7 +398,7 @@
     const head = zi == null ? "Monitor regional · México" : "Zona " + ZONAS[zi][0], sub = zi == null ? `<span class="eco-pill">32 entidades</span><span class="eco-pill">6 zonas</span>` : `<span class="eco-pill" style="--c:${ZONAS[zi][1]}">${codes.length} entidades</span><span class="eco-pill">${codes.map(c => ENTBY[c][2]).join(" · ")}</span>`;
     const est = D.estatal ? (D.estatal.find(e => e.clave === cl) || {}).actualizado : "";
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a>${zi != null ? " › " + ZONAS[zi][0] : ""}</div><div class="eco-h"><div><h1>${head}</h1><div class="eco-sub">${sub}<span class="eco-pill">Fuente: INEGI${est ? " · act. " + est : ""}</span></div></div></div>
-    <div class="eco-ctl">${selMetr()}${zonaChips(zi)}</div>
+    <div class="eco-ctl">${selMetr()}${zonaChips(zi)}<button type="button" class="eco-chip2" style="--c:#34d399" data-go="ciu">🏙️ Ciudades (39)</button></div>
     <div class="eco-grid2b">${panel("Mapa de estados", esc(men), '<div id="ecoRMap"></div>')}${panel(zi == null ? "Ranking de entidades" : "Ranking en la zona", "", '<div id="ecoRRank"></div>')}</div>
     ${zi == null ? panel("Resumen por zona", "promedio simple de sus estados", `<div class="eco-cards eco-cards2">${zs.map(x => `<button type="button" class="eco-card" data-go="z:${x.i}" style="--c:${x.z[1]}"><div class="ct"><span>${x.z[0]}</span></div><div class="cg">${ENT.filter(e => e[5] === x.i).map(e => e[2]).join(" · ")}</div><div class="cv" style="color:${x.avg == null ? "#94a3b8" : cl === "desoc" ? "#fbbf24" : x.avg >= 0 ? "#34d399" : "#fb7185"}">${cl === "desoc" ? nf(x.avg, 1) + "%" : fp(x.avg, 1)}</div><div class="cp">${x.n} entidades con dato</div></button>`).join("")}</div>`) : ""}
     <div class="eco-two">${panel(zi == null ? "Evolución por zona" : "Evolución de las entidades de la zona", "promedio simple · variación anual", '<div id="ecoRLine"></div>')}${panel("Mapa de calor por entidad", cl === "desoc" ? "últimos 12 trimestres" : "últimos periodos", '<div id="ecoRHeat"></div>')}</div>`;
@@ -429,7 +429,11 @@
     ${I0 ? panelSerie(I0) : ""}
     <div class="eco-two">${panel("Actividad económica: estado vs. nación", "variación anual", '<div id="ecoELn1"></div>')}${panel("Actividad industrial: estado vs. nación", "variación anual (mensual)", '<div id="ecoELn2"></div>')}</div>
     <div class="eco-two">${panel("¿Qué sectores jalan o frenan?", "ITAEE · variación anual · ◆ = nacional", '<div id="ecoESec"></div>')}${I0 ? panel("Reloj económico", "ITAEE estatal", '<div id="ecoEClock"></div>') : ""}</div>
-    ${panel("El estado en el mapa", "ITAEE · variación anual", '<div id="ecoEMap"></div>')}`;
+    ${panel("El estado en el mapa", "ITAEE · variación anual", '<div id="ecoEMap"></div>')}${ciudadesDe(c)}`;
+  }
+  function ciudadesDe(c) {
+    const l = CIU.filter(x => x[2] === c); if (!l.length) return "";
+    return panel("Ciudades del estado", "ENOE · tasa de desocupación", `<div class="eco-cards eco-cards2">${l.map(x => { const I = CST.c_desoc && CST.c_desoc.by[x[0]]; return `<button type="button" class="eco-card" data-go="c:${x[0]}" style="--c:${ZONAS[ENTBY[c][5]][1]}"><div class="ct"><span>${esc(x[1])}</span></div><div class="cg">Ciudad · ENOE</div><div class="cv">${I ? nf(I.last.v, 1) + "%" : "—"}<small>desocupación</small></div>${I ? `<div class="cs">${spark(I, 40, 220, 46)}</div><div class="cp">${esc(I.last.l)} · participación ${nf(cmv("c_part", x[0]), 1)}%</div>` : ""}</button>`; }).join("")}</div>`);
   }
   function pintaEst(c) {
     const I0 = EST.itaee_idx && EST.itaee_idx.by[c]; if (I0) { pintaSerie(I0); draws.push(() => drawReloj($("#ecoEClock"), I0)); }
@@ -475,8 +479,80 @@
     }
   }
 
+  /* ───────── ciudades (ENOE, 39 ciudades) ───────── */
+  // [código de área INEGI, nombre, entidad]
+  const CIU = [["47000001", "Ciudad de México", "09"], ["47000002", "Mérida", "31"], ["47000003", "Morelia", "16"], ["47000004", "Guadalajara", "14"], ["47000005", "Monterrey", "19"], ["47000006", "Mexicali", "02"], ["47000007", "Ciudad Juárez", "08"], ["47000008", "Acapulco", "12"], ["47000009", "Culiacán", "25"], ["47000010", "León", "11"],
+    ["47000011", "Puebla", "21"], ["47000012", "San Luis Potosí", "24"], ["47000013", "Tapachula", "07"], ["47000014", "Toluca", "15"], ["47000015", "Torreón", "05"], ["47000016", "Veracruz", "30"], ["47000017", "Villahermosa", "27"], ["47000018", "Tampico", "28"], ["47000019", "Chihuahua", "08"], ["47000020", "Hermosillo", "26"],
+    ["47000023", "Aguascalientes", "01"], ["47000024", "Tijuana", "02"], ["47000026", "Colima", "06"], ["47000027", "La Paz", "03"], ["47000036", "Durango", "10"], ["47000037", "Tepic", "18"], ["47000038", "Oaxaca", "20"], ["47000039", "Querétaro", "22"], ["47000040", "Cuernavaca", "17"], ["47000041", "Tlaxcala", "29"],
+    ["47000043", "Campeche", "04"], ["47000047", "Cancún", "23"], ["47000050", "Reynosa", "28"], ["47000051", "Coatzacoalcos", "30"], ["47000052", "Zacatecas", "32"], ["47000053", "Saltillo", "05"], ["47000054", "Tuxtla Gutiérrez", "07"], ["47000076", "Pachuca", "13"], ["47000077", "Ciudad del Carmen", "04"]];
+  const CBY = Object.fromEntries(CIU.map(c => [c[0], c]));
+  const CMET = [["c_desoc", "Tasa de desocupación (%)", 1], ["c_part", "Tasa de participación (%)", 0], ["c_ocupr", "Tasa de ocupación (%)", 0], ["c_subo", "Tasa de subocupación (%)", 1], ["c_ocup", "Población ocupada · variación anual", 0], ["c_desoc_m", "Desocupación de mujeres (%)", 1], ["c_desoc_h", "Desocupación de hombres (%)", 1]];
+  let CST = {};
+  function cargaCiu() {
+    CST = {};
+    (D.ciudad || []).forEach((e, k) => {
+      const m = { tipo: e.tipo, def: e, by: {} };
+      Object.entries(e.est).forEach(([c, obs]) => { if (!CBY[c] || obs.length < 4) return; const st = ENTBY[CBY[c][2]], I = prep(Object.assign({}, e, { obs, nombre: e.nombre + " · " + CBY[c][1], area: "Ciudades", grupo: e.nombre, mult: "", id: e.id + "-" + c }), k); I.code = c; I.col = st ? ZONAS[st[5]][1] : "#22d3ee"; m.by[c] = I; });
+      CST[e.clave] = m;
+    });
+  }
+  const cmv = (cl, c) => { const m = CST[cl], I = m && m.by[c]; return I ? (cl === "c_ocup" ? I.last.yoy : I.last.v) : null; };
+  const cmeta = cl => CMET.find(m => m[0] === cl) || CMET[0];
+  const ptsL = I => I.s.map(o => ({ t: o.t / I.ppy, l: o.l, v: o.v }));
+  function cfmt(cl) { return cl === "c_ocup" ? v => fp(v, 1) : v => nf(v, 1) + "%"; }
+  function bubbleCiu(el) {
+    const L = CIU.map(c => ({ c, x: cmv("c_part", c[0]), y: cmv("c_desoc", c[0]), n: CST.c_ocup && CST.c_ocup.by[c[0]] ? CST.c_ocup.by[c[0]].last.v : 1 })).filter(p => p.x != null && p.y != null);
+    if (!L.length) { el.innerHTML = '<div class="eco-vacio">Sin datos.</div>'; return; }
+    const W = Math.max(320, el.clientWidth), H = Math.round(Math.min(480, W * .78)), m = { l: 46, r: 16, t: 14, b: 38 }, xs = L.map(p => p.x), ys = L.map(p => p.y), x0 = Math.min(...xs) - 1.5, x1 = Math.max(...xs) + 1.5, y0 = Math.max(0, Math.min(...ys) - .6), y1 = Math.max(...ys) + .6, nm = Math.max(...L.map(p => p.n)),
+      X = v => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r), Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b), tx = ticksN(x0, x1, 6), ty = ticksN(y0, y1, 5), mx = L.reduce((a, p) => a + p.x, 0) / L.length, my = L.reduce((a, p) => a + p.y, 0) / L.length;
+    let s = tx.map(v => `<line x1="${X(v).toFixed(1)}" x2="${X(v).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" class="eco-gr"/><text x="${X(v).toFixed(1)}" y="${H - m.b + 15}" class="eco-ax" text-anchor="middle">${nf(v, 0)}%</text>`).join("") + ty.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="eco-gr"/><text x="${m.l - 6}" y="${(Y(v) + 4).toFixed(1)}" class="eco-ax" text-anchor="end">${nf(v, 1)}%</text>`).join("");
+    s += `<line x1="${X(mx).toFixed(1)}" x2="${X(mx).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" class="eco-ch"/><line x1="${m.l}" x2="${W - m.r}" y1="${Y(my).toFixed(1)}" y2="${Y(my).toFixed(1)}" class="eco-ch"/><text x="${W - m.r}" y="${H - 6}" class="eco-ax" text-anchor="end">tasa de participación →</text><text x="${m.l + 4}" y="${m.t + 10}" class="eco-ax">↑ desocupación</text>`;
+    s += `<text x="${W - m.r - 4}" y="${m.t + 12}" class="eco-q" fill="#fb7185" text-anchor="end">MÁS PRESIÓN LABORAL</text><text x="${m.l + 6}" y="${H - m.b - 8}" class="eco-q" fill="#34d399">MENOS DESOCUPACIÓN</text>`;
+    L.forEach((p, i) => { const st = ENTBY[p.c[2]], col = ZONAS[st[5]][1], r = 5 + 13 * Math.sqrt(p.n / nm); s += `<g class="eco-bub" data-c="${p.c[0]}" style="animation-delay:${i * 22}ms"><circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" fill-opacity=".42" stroke="${col}" stroke-width="1.6"/>${r > 11 ? `<text x="${X(p.x).toFixed(1)}" y="${(Y(p.y) + 3).toFixed(1)}" class="eco-ax" text-anchor="middle" style="fill:#fff;pointer-events:none;font-size:9px">${p.c[1].slice(0, 4)}</text>` : ""}</g>`; });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg>`;
+    $$(".eco-bub", el).forEach(g => { const c = CBY[g.dataset.c], p = L.find(q => q.c === c); g.style.cursor = "pointer"; g.onmousemove = e => tip(`<b>${esc(c[1])}</b><div class="tp-s">${esc(ENTBY[c[2]][1])} · ${ZONAS[ENTBY[c[2]][5]][0]}</div><div class="tp-r nu">Desocupación: <b>${nf(p.y, 1)}%</b></div><div class="tp-r nu">Participación: <b>${nf(p.x, 1)}%</b></div><div class="tp-r nu">Ocupados: <b>${nf(p.n, 0)}</b></div>`, e); g.onmouseleave = () => tip(null); g.onclick = () => ir("c:" + c[0]); });
+  }
+
+  function vistaCiu() {
+    const cl = S.cm || "c_desoc", mt = cmeta(cl), est = CST[cl] ? CST[cl].def.actualizado : "", vs = CIU.map(c => cmv(cl, c[0])).filter(v => v != null), prom = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
+    return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a> › Ciudades</div><div class="eco-h"><div><h1>Monitor de ciudades</h1><div class="eco-sub"><span class="eco-pill">39 ciudades · ENOE</span><span class="eco-pill">Promedio simple: ${prom == null ? "—" : cfmt(cl)(prom)}</span><span class="eco-pill">Fuente: INEGI${est ? " · act. " + est : ""}</span></div></div></div>
+    <div class="eco-ctl"><label class="eco-sel"><span>Indicador</span><select id="ecoCM">${CMET.map(([k, n]) => `<option value="${k}"${k === cl ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label></div>
+    <div class="eco-grid2b">${panel("Ranking de ciudades", esc(mt[1]) + (mt[2] ? " · menos es mejor" : ""), '<div id="ecoCRank"></div>')}${panel("Participación vs. desocupación", "tamaño = población ocupada · color = zona", '<div id="ecoCBub"></div>')}</div>
+    ${panel("Mapa de calor por ciudad", "últimos 12 trimestres", '<div id="ecoCHeat"></div>')}`;
+  }
+  function pintaCiu() {
+    const cl = S.cm || "c_desoc", mt = cmeta(cl), m = CST[cl]; $("#ecoCM").onchange = e => { S.cm = e.target.value; rer(); };
+    const r = CIU.map(c => ({ c, v: cmv(cl, c[0]) })).filter(x => x.v != null).sort((a, b) => b.v - a.v);
+    draws.push(() => barsH($("#ecoCRank"), r.map(x => ({ label: x.c[1], sub: ENTBY[x.c[2]][1], v: x.v, go: "c:" + x.c[0], col: cl === "c_ocup" ? undefined : mt[2] ? "#fbbf24" : "#22d3ee" })), { rh: 21, lw: 120, fmt: cfmt(cl) }), () => bubbleCiu($("#ecoCBub")));
+    if (!m) return; const vals = r.map(x => x.v), lo = Math.min(...vals), hi = Math.max(...vals);
+    draws.push(() => heatM($("#ecoCHeat"), r.map(x => ({ label: x.c[1], I: m.by[x.c[0]], go: "c:" + x.c[0] })), 12, cl === "c_ocup" ? { f: ob => ob.yoy, lim: 6, rh: 18, lw: 130 } : { f: ob => ob.v, seq: true, lo, hi, rh: 18, lw: 130 }));
+  }
+  function vistaCiudad(code) {
+    const c = CBY[code], st = ENTBY[c[2]], z = ZONAS[st[5]], g = k => CST[k] && CST[k].by[code];
+    const rank = (cl, asc) => { const vs = CIU.map(x => cmv(cl, x[0])).filter(v => v != null), v = cmv(cl, code); return v == null ? null : vs.filter(w => asc ? w < v : w > v).length + 1; };
+    const sDes = EST.desoc && EST.desoc.by[c[2]], nDes = BYID["444603"];
+    const K = [["c_desoc", "Desocupación", "% PEA", 1, sDes ? sDes.last.v : null, "Estado"], ["c_part", "Participación", "% pob. 15+", 0, BYID["444602"] ? BYID["444602"].last.v : null, "Nacional"], ["c_subo", "Subocupación", "% de ocupados", 1, null, ""], ["c_ocup", "Población ocupada", "var. anual", 0, null, ""]];
+    const tiles = K.map(([cl, n, u, asc, ref, rl]) => { const v = cmv(cl, code), I = g(cl), pct = cl !== "c_ocup", rk = rank(cl, !!asc), dl = v != null && ref != null ? v - ref : null;
+      return `<div class="eco-kpi"><div class="kl">${n}</div><div class="kv ${cl === "c_ocup" ? (v >= 0 ? "up" : "dn") : "nu"}">${v == null ? "—" : cl === "c_ocup" ? fp(v, 1) : nf(v, 1) + "%"}</div><div class="ks">${u}${I ? " · " + I.last.l : ""}${cl === "c_ocup" && I ? " · " + nf(I.last.v, 0) + " personas" : ""}</div>${ref != null ? `<div class="eco-vs">${rl}: <b>${nf(ref, 1)}%</b> · <span class="${(asc ? -dl : dl) >= 0 ? "up" : "dn"}">${sg(dl, 1)} pp</span></div>` : ""}${rk ? `<div class="eco-rk">Lugar <b>${rk}</b> de 39${asc ? " (menor mejor)" : ""}</div>` : ""}</div>`; }).join("");
+    const hm = cmv("c_desoc_h", code), mm = cmv("c_desoc_m", code), brecha = hm != null && mm != null ? mm - hm : null, I0 = g("c_desoc");
+    return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a> › <a data-go="ciu">Ciudades</a> › <a data-go="e:${c[2]}">${esc(st[1])}</a></div><div class="eco-h"><div><h1>${esc(c[1])}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${z[1]}">${z[0]}</span><span class="eco-pill">${esc(st[1])}</span><span class="eco-pill">Ciudad · ENOE</span>${I0 ? `<span class="eco-pill">${I0.last.l}</span>` : ""}</div></div></div>
+    <div class="eco-kpis">${tiles}${kpi("Brecha de género", brecha == null ? "—" : sg(brecha, 1) + " pp", "desocupación mujeres − hombres", brecha == null ? "" : brecha > 0 ? "dn" : "up")}</div>
+    ${I0 ? panelSerie(I0) : ""}
+    <div class="eco-two">${panel("Desocupación: ciudad, estado y nación", "tasa trimestral / mensual (nacional)", '<div id="ecoCL1"></div>')}${panel("Mujeres y hombres", "tasa de desocupación", '<div id="ecoCL2"></div>')}</div>
+    <div class="eco-two">${panel("Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div>')}${panel("Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div>')}</div>`;
+  }
+  function pintaCiudad(code) {
+    const c = CBY[code], g = k => CST[k] && CST[k].by[code], I0 = g("c_desoc"); if (I0) pintaSerie(I0);
+    const sDes = EST.desoc && EST.desoc.by[c[2]], nDes = BYID["444603"], pc = I => ({ anios: 12, cero: false, fmt: v => nf(v, 1) + "%" });
+    draws.push(() => multiLine($("#ecoCL1"), [I0 ? { name: c[1], col: "#22d3ee", pts: ptsL(I0) } : null, sDes ? { name: ENTBY[c[2]][1] + " (estado)", col: "#a78bfa", pts: ptsL(sDes) } : null, nDes ? { name: "México", col: "#fbbf24", dash: true, pts: ptsL(nDes) } : null].filter(Boolean), pc()));
+    draws.push(() => multiLine($("#ecoCL2"), [g("c_desoc_m") ? { name: "Mujeres", col: "#f472b6", pts: ptsL(g("c_desoc_m")) } : null, g("c_desoc_h") ? { name: "Hombres", col: "#60a5fa", pts: ptsL(g("c_desoc_h")) } : null].filter(Boolean), pc()));
+    const O = g("c_ocup"); draws.push(() => multiLine($("#ecoCL3"), O ? [{ name: c[1] + " · ocupados", col: "#34d399", pts: ptsE(O, "idx") }] : [], { anios: 12 }));
+    const r = CIU.map(x => ({ x, v: cmv("c_desoc", x[0]) })).filter(q => q.v != null).sort((a, b) => b.v - a.v);
+    draws.push(() => barsH($("#ecoCRk"), r.map(q => ({ label: q.x[1], v: q.v, go: "c:" + q.x[0], col: q.x[0] === code ? "#22d3ee" : "#475569" })), { rh: 18, lw: 120, fmt: v => nf(v, 1) + "%" }));
+  }
+
   /* ───────── navegación y árbol ───────── */
-  const modo = id => /^(nac|reg|sec|z:|e:|s:)/.test(id) ? "mon" : "cat";
+  const modo = id => /^(nac|reg|sec|ciu|z:|e:|s:|c:)/.test(id) ? "mon" : "cat";
   const rer = () => { const m = $("#ecoMain2"), st = m.scrollTop; ir(S.sel); m.scrollTop = st; };
   function ir(id) {
     if (id === "home") id = "nac";
@@ -486,6 +562,8 @@
       if (id === "reg") { main.innerHTML = vistaReg(null); pintaReg(null); S.open.add("R"); }
       else if (id.startsWith("z:")) { const zi = +id.slice(2); if (!ZONAS[zi]) return ir("reg"); S.open.add("R"); S.open.add("z:" + zi); main.innerHTML = vistaReg(zi); pintaReg(zi); }
       else if (id.startsWith("e:")) { const c = id.slice(2); if (!ENTBY[c]) return ir("reg"); S.open.add("R"); S.open.add("z:" + ENTBY[c][5]); main.innerHTML = vistaEst(c); pintaEst(c); }
+      else if (id === "ciu") { S.open.add("R"); S.open.add("CI"); main.innerHTML = vistaCiu(); pintaCiu(); }
+      else if (id.startsWith("c:")) { const c = id.slice(2); if (!CBY[c]) return ir("ciu"); S.open.add("CI"); main.innerHTML = vistaCiudad(c); pintaCiudad(c); }
       else if (id === "sec") { main.innerHTML = vistaSecciones(); pintaSecciones(); }
       else if (id.startsWith("s:")) { const k = id.slice(2); if (!SECBY[k]) return ir("sec"); S.open.add("SC"); S.open.add("t:" + SECBY[k].t); main.innerHTML = vistaSector(k); pintaSector(k); }
       else { S.sel = "nac"; main.innerHTML = vistaNac(); pintaNac(); }
@@ -518,13 +596,16 @@
       h += `<div class="eco-n eco-n2${on("z:" + i)}" style="--c:${z[1]}"><button type="button" class="tg" data-tg="z:${i}" aria-label="Desplegar">${zo ? "▾" : "▸"}</button><button type="button" class="nm" data-go="z:${i}"><span class="tx">${z[0]}</span><span class="bd">${es.length}</span></button></div>`;
       if (zo) es.forEach(e => { h += `<button type="button" class="eco-n eco-n3${on("e:" + e[0])}" data-go="e:${e[0]}"><span class="tx">${e[1]}</span></button>`; }); });
     h += `</div>`;
+    const opC = q || S.open.has("CI"), cs = CIU.filter(c => !q || norm(c[1] + " " + ENTBY[c[2]][1]).includes(q)).sort((a, b) => a[1].localeCompare(b[1], "es"));
+    if (cs.length) { h += `<div class="eco-ar" style="--c:#34d399"><div class="eco-n eco-n1${on("ciu")}"><button type="button" class="tg" data-tg="CI" aria-label="Desplegar">${opC ? "▾" : "▸"}</button><button type="button" class="nm" data-go="ciu"><i></i><span class="tx">Ciudades</span><span class="bd">${CIU.length}</span></button></div>`;
+      if (opC) cs.forEach(c => { h += `<button type="button" class="eco-n eco-n3${on("c:" + c[0])}" data-go="c:${c[0]}"><span class="tx">${esc(c[1])}</span></button>`; }); h += `</div>`; }
     const opS = q || S.open.has("SC");
     h += `<div class="eco-ar" style="--c:#fbbf24"><div class="eco-n eco-n1${on("sec")}"><button type="button" class="tg" data-tg="SC" aria-label="Desplegar">${opS ? "▾" : "▸"}</button><button type="button" class="nm" data-go="sec"><i></i><span class="tx">Sectores económicos</span><span class="bd">${SEC.length}</span></button></div>`;
     if (opS) [1, 2, 3].forEach(t => { const l = SEC.filter(s => s.t === t && (!q || norm(s.n + " " + TIER[t][0]).includes(q))); if (!l.length) return; const to = q || S.open.has("t:" + t);
       h += `<div class="eco-n eco-n2"><button type="button" class="tg" data-tg="t:${t}" aria-label="Desplegar">${to ? "▾" : "▸"}</button><button type="button" class="nm" data-tg="t:${t}"><span class="tx">${TIER[t][2]} ${TIER[t][0]}</span><span class="bd">${l.length}</span></button></div>`;
       if (to) l.forEach(s => { h += `<button type="button" class="eco-n eco-n3${on("s:" + s.k)}" data-go="s:${s.k}"><span class="tx">${s.ic} ${esc(s.n)}</span></button>`; }); });
     h += `</div>`;
-    if (q && h.indexOf('data-go="e:') < 0 && h.indexOf('data-go="s:') < 0) h += `<div class="eco-nada">Sin resultados para «${esc(S.q)}».</div>`;
+    if (q && h.indexOf('data-go="e:') < 0 && h.indexOf('data-go="s:') < 0 && h.indexOf('data-go="c:') < 0) h += `<div class="eco-nada">Sin resultados para «${esc(S.q)}».</div>`;
     return h;
   }
   function arbol() {
@@ -552,7 +633,7 @@
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
   window.ecolabInit = function () {
-    host = document.getElementById("ecolab-host"); carga(); cargaMon(); S.metric = "itaee_yoy"; ["SC", "t:1", "t:2", "t:3"].forEach(k => S.open.add(k)); shell();
+    host = document.getElementById("ecolab-host"); carga(); cargaMon(); cargaCiu(); S.metric = "itaee_yoy"; ["SC", "t:1", "t:2", "t:3"].forEach(k => S.open.add(k)); shell();
     let s = ls.get("eco_sel", "nac"); if (s.startsWith("i:") && !BYID[s.slice(2)]) s = "nac"; ir(s);
   };
 })();
