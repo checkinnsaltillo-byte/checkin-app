@@ -15,6 +15,37 @@
   let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", open: new Set(), serie: { mode: "nivel", rango: 120 } }, draws = [], tipEl;
 
   /* ───────── preparación de datos ───────── */
+  /* ───────── ciclo: asignación de coordenadas, filtro HP y derivación desde la tendencia-ciclo ───────── */
+  function cicloSet(I, dev) {
+    const s = I.s, lag = I.ppy === 12 ? 3 : 1; s.forEach(o => { o.dv = null; o.x = null; o.y = null; });
+    if (!dev) { I.quad = null; return; }
+    s.forEach((o, i) => { o.dv = dev[i]; });
+    const v = dev.filter(x => x != null && isFinite(x)), sd = Math.sqrt(v.reduce((a, b) => a + b * b, 0) / (v.length || 1)) || 1;
+    s.forEach(o => { o.x = o.dv == null ? null : o.dv / sd; });
+    s.forEach((o, i) => { o.y = i >= lag && o.x != null && s[i - lag].x != null ? o.x - s[i - lag].x : null; });
+    const ys = s.map(o => o.y).filter(x => x != null), sy = Math.sqrt(ys.reduce((a, b) => a + b * b, 0) / (ys.length || 1)) || 1; s.forEach(o => { if (o.y != null) o.y /= sy; });
+    const l = s[s.length - 1]; I.quad = l.x == null || l.y == null ? null : l.x >= 0 ? (l.y >= 0 ? "exp" : "des") : (l.y >= 0 ? "rec" : "con");
+  }
+  function hpTrend(y, lam) {   // filtro de Hodrick-Prescott (sistema pentadiagonal por LDL')
+    const n = y.length, d = new Float64Array(n), e = new Float64Array(n), f = new Float64Array(n), D = new Float64Array(n), l1 = new Float64Array(n), l2 = new Float64Array(n);
+    for (let i = 0; i < n; i++) d[i] = 1 + lam * ((i === 0 || i === n - 1) ? 1 : (i === 1 || i === n - 2) ? 5 : 6);
+    for (let i = 0; i < n - 1; i++) e[i] = lam * ((i === 0 || i === n - 2) ? -2 : -4);
+    for (let i = 0; i < n - 2; i++) f[i] = lam;
+    for (let i = 0; i < n; i++) { let di = d[i]; if (i >= 1) di -= l1[i - 1] * l1[i - 1] * D[i - 1]; if (i >= 2) di -= l2[i - 2] * l2[i - 2] * D[i - 2]; D[i] = di;
+      if (i < n - 1) { let v = e[i]; if (i >= 1) v -= l2[i - 1] * l1[i - 1] * D[i - 1]; l1[i] = v / di; } if (i < n - 2) l2[i] = f[i] / di; }
+    const z = new Float64Array(n), x = new Float64Array(n);
+    for (let i = 0; i < n; i++) { let v = y[i]; if (i >= 1) v -= l1[i - 1] * z[i - 1]; if (i >= 2) v -= l2[i - 2] * z[i - 2]; z[i] = v; }
+    for (let i = 0; i < n; i++) z[i] /= D[i];
+    for (let i = n - 1; i >= 0; i--) { let v = z[i]; if (i < n - 1) v -= l1[i] * x[i + 1]; if (i < n - 2) v -= l2[i] * x[i + 2]; x[i] = v; }
+    return x;
+  }
+  function cicloDeTC(I, tc) {   // ciclo de I = desviación (%) de la tendencia-ciclo oficial del INEGI respecto de su tendencia de largo plazo (HP)
+    if (!I || !tc || tc.s.length < 24 || I.ppy !== tc.ppy) return;
+    const ly = tc.s.map(o => Math.log(o.v)); if (ly.some(v => !isFinite(v))) return;
+    const tr = hpTrend(ly, tc.ppy === 12 ? 129600 : 1600), by = {}; tc.s.forEach((o, i) => { by[o.t] = (ly[i] - tr[i]) * 100; });
+    cicloSet(I, I.s.map(o => by[o.t] != null ? by[o.t] : null)); I.ciclo = "tc"; I.cicloTC = tc.id;
+  }
+
   function prep(r, k) {
     const ppy = PPY[r.frecuencia] || 1, I = Object.assign({}, r);
     I.ppy = ppy;
@@ -27,23 +58,16 @@
     I.dif = neg || I.pct || /Puntos/.test(r.unidad);
     const ch = (a, b) => b == null ? null : I.dif ? a - b : b > 0 ? (a / b - 1) * 100 : null;
     s.forEach((o, i) => { o.yoy = i >= ppy ? ch(o.v, s[i - ppy].v) : null; o.mom = i >= 1 && ppy > 1 ? ch(o.v, s[i - 1].v) : null; });
-    // reloj económico: desviación vs tendencia (media móvil) y su cambio, ambos estandarizados
-    const kk = ppy === 12 ? 12 : ppy === 4 ? 4 : 3, lag = ppy === 12 ? 3 : 1;
-    s.forEach((o, i) => { o.dev = i >= kk - 1 ? o.v - s.slice(i - kk + 1, i + 1).reduce((a, b) => a + b.v, 0) / kk : null; });
-    const dv = s.map(o => o.dev).filter(v => v != null), sd = Math.sqrt(dv.reduce((a, b) => a + b * b, 0) / (dv.length || 1)) || 1;
-    s.forEach(o => { o.x = o.dev == null ? null : o.dev / sd; });
-    s.forEach((o, i) => { o.y = i >= lag && o.x != null && s[i - lag].x != null ? o.x - s[i - lag].x : null; });
-    const ys = s.map(o => o.y).filter(v => v != null), sy = Math.sqrt(ys.reduce((a, b) => a + b * b, 0) / (ys.length || 1)) || 1;
-    s.forEach(o => { if (o.y != null) o.y /= sy; });
+    I.ciclo = r.tipo === "ciclo" ? "oficial" : null; cicloSet(I, I.ciclo ? s.map(o => o.v - 100) : null);   // ciclo oficial del INEGI; el resto se deriva de su tendencia-ciclo (cicloDeTC) o no aplica
     const last = s[n - 1], vals = s.map(o => o.v).sort((a, b) => a - b);
     I.last = last; I.prev = n > 1 ? s[n - 2] : null; I.fc = FCIDS.has(String(r.id)) || (r.tipo === "idx" && !!r.scian);
     I.min = vals[0]; I.max = vals[n - 1]; I.pctil = vals.filter(v => v <= last.v).length / n * 100;
     I.minO = s.find(o => o.v === I.min); I.maxO = s.find(o => o.v === I.max);
-    I.quad = last.x == null || last.y == null ? null : last.x >= 0 ? (last.y >= 0 ? "exp" : "des") : (last.y >= 0 ? "rec" : "con");
+    // (la fase se asigna en cicloSet)
     const now = new Date(), mesesAct = (now.getFullYear() * 12 + now.getMonth()) - (last.yr * 12 + (ppy === 12 ? last.q - 1 : ppy === 4 ? (last.q - 1) * 3 : 0));
     const ok = ppy === 12 ? 4 : ppy === 4 ? 8 : 24;
     I.edad = mesesAct; I.est = mesesAct <= ok ? ["ok", "Al día"] : mesesAct <= ok * 2 ? ["warn", "Rezagada"] : ["old", "Sin actualizar"];
-    I.th50 = r.unidad === "Puntos" && I.min < 50 && I.max > 50;
+    I.thr = r.tipo === "ciclo" ? 100 : (r.unidad === "Puntos" && I.min < 50 && I.max > 50 ? 50 : null); I.th50 = I.thr != null;
     I.u = r.unidad === "Puntos" ? "pts" : I.pct ? "%" : r.unidad === "Dólares" ? (r.mult === "Millones" ? "mdd" : "USD") : /^Índice/.test(r.unidad) ? r.unidad.replace("Índice base", "índice base ") : /^Pesos/i.test(r.unidad) ? (r.mult === "Millones" ? "mdp " : "pesos ") + (/(20\d\d)/.test(r.unidad) ? "(" + /(20\d\d)/.exec(r.unidad)[1] + ")" : "corrientes") : r.unidad.toLowerCase();
     const a = Math.abs(last.v); I.dg = a >= 1000 ? 0 : a >= 100 ? 1 : 2; I.col = PAL[k % PAL.length];
     return I;
@@ -55,6 +79,9 @@
       let g = a.g.find(x => x.n === r.grupo); if (!g) { g = { n: r.grupo, i: [] }; a.g.push(g); }
       const I = prep(r, AREAS.indexOf(a)); I.col = a.col; I.areaO = a; g.i.push(I); IND.push(I); BYID[I.id] = I;
     });
+    const TCS = IND.filter(x => x.tipo === "tc");
+    IND.forEach(I => { if (I.tipo === "idx" && I.scian) { const t = TCS.find(x => x.scian === I.scian); if (t) cicloDeTC(I, t); } });
+    [["737121", "737222"], ["736407", "736888"]].forEach(([a, b]) => cicloDeTC(BYID[a], BYID[b]));
   }
   const fv = (I, v, d) => nf(v, d == null ? I.dg : d) + (I.u === "%" ? "%" : I.u === "pts" ? " pts" : "");
   const fy = (I, v) => v == null ? "—" : (v >= 0 ? "+" : "−") + nf(Math.abs(v), I.dif ? (Math.abs(v) >= 100 ? 0 : 1) : 1) + (I.dif ? (I.pct ? " pp" : I.u === "pts" ? " pts" : " " + (I.u === "mdd" ? "mdd" : "")) : "%");
@@ -120,13 +147,13 @@
     if (!pts.length) { el.innerHTML = '<div class="eco-vacio">Sin datos suficientes para esta vista.</div>'; return; }
     const FC = I.fc && st.fc !== false ? prono(I) : null, fcv = (FC || []).map((p, k) => ({ i: n + k, l: p.l, v: st.mode === "anual" ? p.yoy : p.v, lo: st.mode === "anual" ? p.ylo : p.lo, hi: st.mode === "anual" ? p.yhi : p.hi })).filter(q => q.v != null), nn = n + (FC ? FC.length : 0), ALL = pts.concat(fcv.map(q => ({ o: null, i: q.i, v: q.v, fc: q }))); S.curI = I;
     let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v)); fcv.forEach(q => { lo = Math.min(lo, q.lo != null ? q.lo : q.v); hi = Math.max(hi, q.hi != null ? q.hi : q.v); });
-    if (st.mode === "anual") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } else if (I.th50) { lo = Math.min(lo, 50); hi = Math.max(hi, 50); }
+    if (st.mode === "anual") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } else if (I.th50) { lo = Math.min(lo, I.thr); hi = Math.max(hi, I.thr); }
     const pad = (hi - lo) * .08 || 1; lo -= pad; hi += pad;
     const X = i => m.l + (nn === 1 ? .5 : i / (nn - 1)) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
     const tk = ticksN(lo, hi, 5), td = tdec(tk);
     let s = `<defs><linearGradient id="ecoAr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${I.col}" stop-opacity=".42"/><stop offset="1" stop-color="${I.col}" stop-opacity="0"/></linearGradient>`;
-    const base = st.mode === "anual" ? Y(0) : I.th50 ? Y(50) : null;
-    if (st.mode !== "anual" && I.th50) { const o = Math.max(0, Math.min(1, (Y(50) - m.t) / (H - m.t - m.b))); s += `<linearGradient id="ecoLn" x1="0" y1="${m.t}" x2="0" y2="${H - m.b}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#34d399"/><stop offset="${o}" stop-color="#34d399"/><stop offset="${o}" stop-color="#fb7185"/><stop offset="1" stop-color="#fb7185"/></linearGradient>`; }
+    const base = st.mode === "anual" ? Y(0) : I.th50 ? Y(I.thr) : null;
+    if (st.mode !== "anual" && I.th50) { const o = Math.max(0, Math.min(1, (Y(I.thr) - m.t) / (H - m.t - m.b))); s += `<linearGradient id="ecoLn" x1="0" y1="${m.t}" x2="0" y2="${H - m.b}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#34d399"/><stop offset="${o}" stop-color="#34d399"/><stop offset="${o}" stop-color="#fb7185"/><stop offset="1" stop-color="#fb7185"/></linearGradient>`; }
     s += `<filter id="ecoGl" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
     tk.forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="eco-gr"/><text x="${m.l - 8}" y="${(Y(v) + 4).toFixed(1)}" class="eco-ax" text-anchor="end">${nf(v, td)}</text>`; });
     const nl = Math.min(8, Math.max(2, Math.floor((W - m.l) / 90)));
@@ -140,7 +167,7 @@
     } else {
       const line = pts.map((p, k) => (k ? "L" : "M") + X(p.i).toFixed(1) + " " + Y(p.v).toFixed(1)).join(""), yb = base != null ? base : H - m.b;
       s += `<path d="${line}L${X(pts[pts.length - 1].i).toFixed(1)} ${yb.toFixed(1)}L${X(pts[0].i).toFixed(1)} ${yb.toFixed(1)}Z" fill="url(#ecoAr)" class="eco-area"/>`;
-      if (I.th50) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(50).toFixed(1)}" y2="${Y(50).toFixed(1)}" stroke="#e2e8f0" stroke-opacity=".55" stroke-dasharray="5 5"/><text x="${W - m.r - 4}" y="${(Y(50) - 6).toFixed(1)}" class="eco-ax" text-anchor="end">umbral neutral 50</text>`;
+      if (I.th50) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(I.thr).toFixed(1)}" y2="${Y(I.thr).toFixed(1)}" stroke="#e2e8f0" stroke-opacity=".55" stroke-dasharray="5 5"/><text x="${W - m.r - 4}" y="${(Y(I.thr) - 6).toFixed(1)}" class="eco-ax" text-anchor="end">${I.thr === 100 ? "tendencia = 100" : "umbral neutral 50"}</text>`;
       s += `<path d="${line}" pathLength="1" class="eco-ln" fill="none" stroke="${I.th50 ? "url(#ecoLn)" : I.col}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" filter="url(#ecoGl)"/>`;
       if (fcv.length) { const a0 = pts[pts.length - 1], P0 = `${X(a0.i).toFixed(1)} ${Y(a0.v).toFixed(1)}`, up = fcv.map(q => `L${X(q.i).toFixed(1)} ${Y(q.hi != null ? q.hi : q.v).toFixed(1)}`).join(""), dn = fcv.slice().reverse().map(q => `L${X(q.i).toFixed(1)} ${Y(q.lo != null ? q.lo : q.v).toFixed(1)}`).join("");
         s += `<path d="M${P0}${up}${dn}Z" fill="${I.col}" fill-opacity=".13"/><path d="M${P0}${fcv.map(q => `L${X(q.i).toFixed(1)} ${Y(q.v).toFixed(1)}`).join("")}" fill="none" stroke="${I.col}" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 7"/><line x1="${X(n - 1).toFixed(1)}" x2="${X(n - 1).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" class="eco-ch"/><text x="${(X(n - 1) + 6).toFixed(1)}" y="${m.t + 10}" class="eco-ax">pronóstico →</text>`; }
@@ -160,6 +187,7 @@
 
   /* ───────── reloj económico ───────── */
   function drawReloj(el, I, big) {
+    if (!I.quad) { el.innerHTML = '<div class="eco-vacio"><b>No aplicable.</b><br>Este indicador no tiene ciclo oficial del INEGI ni serie de tendencia-ciclo para derivarlo (precios, saldos, variaciones anuales, ciudades y series sin tendencia-ciclo). Se muestra solo su evolución.</div>'; return; }
     const W = Math.max(260, Math.min(el.clientWidth, big ? 760 : 520)), H = big ? Math.round(W * .74) : Math.round(W * .86), m = 30;
     const tr = I.s.filter(o => o.x != null && o.y != null).slice(-(big ? 30 : 24));
     if (tr.length < 3) { el.innerHTML = '<div class="eco-vacio">Se necesitan más observaciones para el reloj.</div>'; return; }
@@ -316,6 +344,7 @@
       Object.entries(e.est).forEach(([c, obs]) => { if (!ENTBY[c] || obs.length < 4) return; const I = prep(Object.assign({}, e, { obs, nombre: e.nombre + " · " + ENTBY[c][1], area: "Estados", grupo: e.nombre, mult: "", id: e.id + "-" + c }), k); I.code = c; I.col = ZONAS[ENTBY[c][5]][1]; if (["itaee_idx", "ind_yoy", "desoc"].includes(e.clave)) I.fc = true; m.by[c] = I; });
       EST[e.clave] = m;
     });
+    if (EST.itaee_idx && EST.itaee_tc) Object.keys(EST.itaee_idx.by).forEach(c => cicloDeTC(EST.itaee_idx.by[c], EST.itaee_tc.by[c]));
     IND.forEach(I => { if (I.scian && I.tipo) (IGS[I.scian] = IGS[I.scian] || {})[I.tipo] = I; });
     IGS.TOT = { idx: BYID["737121"], yoy: BYID["737145"] };
   }
@@ -399,7 +428,7 @@
 
   /* ───────── piezas compartidas de las vistas de monitor ───────── */
   function pulso() {
-    const xs = HEAD.map(([id]) => { const I = BYID[id], pol = POL[id] || 1; return I && I.last.x != null ? Math.max(-2, Math.min(2, I.last.x)) * pol : null; }).filter(v => v != null), sc = xs.length ? 50 + 25 * (xs.reduce((a, b) => a + b, 0) / xs.length) : 50;
+    const xs = ["334338", "334339", "334349", "334344"].map(id => BYID[id] && BYID[id].last.x != null ? Math.max(-2, Math.min(2, BYID[id].last.x)) : null).filter(v => v != null), sc = xs.length ? 50 + 25 * (xs.reduce((a, b) => a + b, 0) / xs.length) : 50;
     const lab = sc < 35 ? ["Debilitamiento", "#fb7185"] : sc < 45 ? ["Moderación", "#fbbf24"] : sc < 55 ? ["Estable", "#94a3b8"] : sc < 65 ? ["Mejora", "#a3e635"] : ["Dinamismo", "#34d399"];
     return { sc, lab, n: xs.length };
   }
@@ -422,7 +451,7 @@
   function vistaNac() {
     const heads = HEAD.map(([id, l]) => BYID[id] && Object.assign(Object.create(BYID[id]), { nombre: l })).filter(Boolean), p = pulso(), ph = { exp: 0, des: 0, con: 0, rec: 0 }; IND.forEach(I => { if (I.quad) ph[I.quad]++; });
     return `<div class="eco-h"><div><h1>Panorama global · México</h1><div class="eco-sub"><span class="eco-pill">Monitor nacional</span><span class="eco-pill">${IND.length} indicadores</span><span class="eco-pill">${(D.estatal || []).length} series por estado</span><span class="eco-pill">Fuente: INEGI</span></div></div></div>
-    <div class="eco-grid2">${panel("Pulso económico", `${p.n} indicadores clave`, `<div id="ecoGauge"></div><div class="eco-phases">${Object.keys(QD).map(k => `<div class="eco-ph1" style="--c:${QD[k][1]}"><b>${ph[k]}</b><span>${QD[k][0]}</span></div>`).join("")}</div><p class="eco-note">Combina qué tan por encima o por debajo de su tendencia están los indicadores clave (los de desocupación e informalidad se invierten). Fases del reloj económico de los ${IND.length} indicadores.</p>`, "eco-gaugep")}
+    <div class="eco-grid2">${panel("Pulso económico", `${p.n} indicadores del ciclo oficial`, `<div id="ecoGauge"></div><div class="eco-phases">${Object.keys(QD).map(k => `<div class="eco-ph1" style="--c:${QD[k][1]}"><b>${ph[k]}</b><span>${QD[k][0]}</span></div>`).join("")}</div><p class="eco-note">Promedia el ciclo oficial del INEGI (desviación respecto de la tendencia) del indicador coincidente, el adelantado, el IGAE y la actividad industrial. Las fases cuentan las series con ciclo oficial o derivado de su tendencia-ciclo.</p>`, "eco-gaugep")}
     ${panel("Indicadores clave", "clic para abrir el tablero", cards(heads))}</div>
     <div class="eco-two">${panel("Sectores · variación anual del IGAE", "mayor aporte y mayor caída, por subsector SCIAN", '<div id="ecoSecBars"></div>')}${panel("Mapa de calor sectorial · últimos 18 meses", "variación anual mensual", '<div id="ecoSecHeat"></div>')}</div>
     <div class="eco-two">${panel("Mapa económico de los estados", "ITAEE · variación anual", '<div id="ecoNacMap"></div><div class="eco-more2"><a data-go="reg">Abrir monitor regional →</a></div>')}${panel("Estados que más crecen y más caen", "ITAEE · variación anual", '<div id="ecoNacRank"></div>')}</div>
@@ -638,7 +667,7 @@
   const cyFecha = m => MES[((m % 12) + 12) % 12] + " " + Math.floor(m / 12);
   function cicloAnimado(el) {
     const D2 = cyData(); if (!D2.series.length) { el.innerHTML = '<div class="eco-vacio">Sin datos para el ciclo.</div>'; return; }
-    const cy = S.cy = S.cy || { sel: new Set(HEAD.map(h => h[0]).filter(id => D2.byId[id])), trail: 12, speed: 2, t: D2.end, playing: false };
+    const cy = S.cy = S.cy || { sel: new Set(["334338", "334339", "334349", "334344"].filter(id => D2.byId[id])), trail: 12, speed: 2, t: D2.end, playing: false };
     if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; }
     const W = Math.max(320, el.clientWidth), H = Math.round(Math.min(560, Math.max(340, W * .56))), m = 34, R = D2.R, X = v => m + (Math.max(-R * 1.04, Math.min(R * 1.04, v)) / R + 1) / 2 * (W - 2 * m), Y = v => m + (1 - (Math.max(-R * 1.04, Math.min(R * 1.04, v)) / R + 1) / 2) * (H - 2 * m), cx = X(0), cyy = Y(0);
     let st = ""; [["exp", cx, m, W - m, cyy], ["des", cx, cyy, W - m, H - m], ["con", m, cyy, cx, H - m], ["rec", m, m, cx, cyy]].forEach(([k, x0, y0, x1, y1]) => { st += `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${QD[k][1]}" opacity=".09"/>`; });
@@ -654,16 +683,18 @@
       <div class="eco-cysel"><button type="button" class="eco-chip3 on" id="ecoCyB">☰ Series (<b id="ecoCyN">${nsel()}</b>) ▾</button><div class="eco-cypop" id="ecoCyPop" style="display:none"></div></div></div>
       <div class="eco-cywrap"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" id="ecoCySvg">${st}<g id="ecoCyG"></g></svg></div><div class="eco-cycnt" id="ecoCyC"></div><div class="eco-leg eco-legl">${AREAS.map(a => `<span><i style="background:${a.col}"></i>${esc(a.n)}</span>`).join("")}</div>
       <details class="eco-cyrules" open><summary>📘 Reglas y criterios de cada fase del ciclo</summary>
-      <div class="eco-cyrb"><p>Cada punto se ubica con dos coordenadas calculadas sobre la propia serie: <b>nivel vs. tendencia</b> (eje horizontal) e <b>impulso</b> (eje vertical).</p>
+      <div class="eco-cyrb"><p>Solo se grafican series que tienen <b>ciclo oficial del INEGI</b> o una <b>tendencia-ciclo oficial</b> de la que se puede derivar. Cada punto se ubica con dos coordenadas: <b>nivel</b> (eje horizontal: cuánto está el ciclo por encima o por debajo de su tendencia) e <b>impulso</b> (eje vertical: hacia dónde se mueve).</p>
       <table class="eco-cyt"><thead><tr><th>Fase</th><th>Regla</th><th>Qué significa</th></tr></thead><tbody>
-        <tr style="--c:#34d399"><td><b>Expansión</b></td><td>nivel ≥ 0 e impulso ≥ 0</td><td>La serie está por encima de su tendencia reciente y su posición relativa sigue mejorando.</td></tr>
-        <tr style="--c:#fbbf24"><td><b>Desaceleración</b></td><td>nivel ≥ 0 e impulso &lt; 0</td><td>Sigue por encima de su tendencia, pero ya pierde fuerza.</td></tr>
-        <tr style="--c:#fb7185"><td><b>Contracción</b></td><td>nivel &lt; 0 e impulso &lt; 0</td><td>Está por debajo de su tendencia y se sigue alejando hacia abajo.</td></tr>
-        <tr style="--c:#60a5fa"><td><b>Recuperación</b></td><td>nivel &lt; 0 e impulso ≥ 0</td><td>Sigue por debajo de su tendencia, pero ya mejora; suele anteceder a la expansión.</td></tr></tbody></table>
+        <tr style="--c:#34d399"><td><b>Expansión</b></td><td>nivel ≥ 0 e impulso ≥ 0</td><td>El ciclo está por encima de su tendencia y sigue subiendo.</td></tr>
+        <tr style="--c:#fbbf24"><td><b>Desaceleración</b></td><td>nivel ≥ 0 e impulso &lt; 0</td><td>Sigue por encima de su tendencia, pero ya baja.</td></tr>
+        <tr style="--c:#fb7185"><td><b>Contracción</b> <small>(recesión en el lenguaje del INEGI)</small></td><td>nivel &lt; 0 e impulso &lt; 0</td><td>Está por debajo de su tendencia y sigue bajando.</td></tr>
+        <tr style="--c:#60a5fa"><td><b>Recuperación</b></td><td>nivel &lt; 0 e impulso ≥ 0</td><td>Sigue por debajo de su tendencia, pero ya sube; suele anteceder a la expansión.</td></tr></tbody></table>
       <p><b>Recorrido normal</b> (sentido de las manecillas del reloj): Expansión → Desaceleración → Contracción → Recuperación → Expansión.</p>
-      <p><b>Cálculo.</b> <i>Nivel</i> = (valor − media móvil de 12 meses, o 4 trimestres) ÷ desviación estándar histórica de esa diferencia. <i>Impulso</i> = cambio del nivel en los últimos 3 meses (1 trimestre), también estandarizado. La media móvil hace de “tendencia”; no es la tendencia-ciclo oficial del INEGI.</p>
-      <p><b>¿Por qué algunas series solo alternan entre Expansión y Desaceleración?</b> Porque la serie tiene una tendencia de largo plazo ascendente (índices de precios, series en pesos corrientes, índices de actividad con crecimiento sostenido). Una media móvil va “atrasada” respecto de una serie que sube, así que el valor casi siempre queda por encima de ella (nivel &gt; 0) y solo cambia el signo del impulso: oscila entre Expansión y Desaceleración sin pisar el lado izquierdo. Para entrar a Contracción o Recuperación la serie tendría que caer por debajo de su propia media móvil, es decir, bajar de verdad. Lo mismo ocurre al revés con series de tendencia descendente.</p>
-      <p><b>¿Qué series conviene ver aquí?</b> El gráfico de ciclo (tipo “reloj”) está pensado para <i>indicadores coincidentes y adelantados</i>: medidas de actividad, empleo, producción, ventas o confianza que suben y bajan alrededor de una tendencia, y que idealmente están desestacionalizadas. Con precios, saldos que cruzan por cero, tasas que ya son variación anual o series con tendencia dominante, la lectura es limitada: úsalas solo como referencia. En el selector, cada serie trae una etiqueta según las fases que recorrió en los últimos 10 años: <em class="eco-cyb ok">ciclo completo</em> (las 4 fases y repartidas entre ambos lados), <em class="eco-cyb par">ciclo parcial</em> (2 o 3 fases) o <em class="eco-cyb tend">sigue tendencia</em> (más del 85 % del tiempo del mismo lado). El botón “Ciclo completo” deja solo las primeras.</p></div></details>`;
+      <p><b>De dónde sale el ciclo.</b></p><ul>
+        <li><em class="eco-cyb ofi">ciclo oficial</em> Series «Ciclo» del <i>Sistema de Indicadores Cíclicos</i> del INEGI (indicador coincidente, adelantado y sus componentes). El ciclo viene en puntos, con 100 = tendencia: <i>nivel</i> = (ciclo − 100) ÷ su desviación estándar histórica; <i>impulso</i> = cambio del nivel en 3 meses.</li>
+        <li><em class="eco-cyb tcb">deriv. de tend.-ciclo</em> IGAE por sector, actividad industrial y ITAEE estatal: el INEGI publica su serie de <i>tendencia-ciclo</i> (ya desestacionalizada y suavizada). El ciclo es la desviación (%) de esa tendencia-ciclo respecto de su tendencia de largo plazo, estimada con el filtro de Hodrick-Prescott (λ = 129,600 mensual; 1,600 trimestral). Los datos más recientes son menos firmes (efecto de extremo del filtro y revisiones del INEGI).</li>
+        <li><b>No aplicable.</b> Precios (INPC), saldos que cruzan por cero, variaciones anuales, series sin tendencia-ciclo y las ciudades no se grafican: su comportamiento no es un ciclo alrededor de una tendencia y la lectura engañaría.</li></ul>
+      <p><b>Teoría en breve.</b> El ciclo económico se mide sobre el componente cíclico de indicadores <i>coincidentes</i> (actividad, empleo, ventas) y <i>adelantados</i> (expectativas, mercados, comercio exterior): se quita la estacionalidad, se separa la tendencia de largo plazo y se mira la desviación. Aplicar el mismo método a series con tendencia dominante (como los precios) deja a la serie atrapada en Expansión y Desaceleración.</p></div></details>`;
     const svg = $("#ecoCySvg", el), g = $("#ecoCyG", el), btn = $("#ecoCyP", el), sl = $("#ecoCyS", el);
     function draw() {
       const T = cy.t, L = cy.trail, cnt = { exp: 0, des: 0, con: 0, rec: 0 }, list = D2.series.filter(s => cy.sel.has(s.I.id)), fino = list.length <= 30; let h = "";
@@ -684,17 +715,17 @@
     sl.oninput = () => { cy.t = +sl.value; if (cy.playing) play(false); draw(); };
     el.querySelectorAll("[data-sp]").forEach(b => { b.onclick = () => { cy.speed = +b.dataset.sp; el.querySelectorAll("[data-sp]").forEach(x => x.classList.toggle("on", x === b)); }; });
     el.querySelectorAll("[data-tr]").forEach(b => { b.onclick = () => { cy.trail = +b.dataset.tr; el.querySelectorAll("[data-tr]").forEach(x => x.classList.toggle("on", x === b)); draw(); }; });
-    svg.onmousemove = e => { const hd = e.target.closest(".eco-cyh"); if (!hd) { tip(null); return; } const s = D2.byId[hd.dataset.id], p = cyAt(s, cy.t); if (!p) return; const q = QD[cyQ(p)]; tip(`<b>${esc(s.I.nombre)}</b><div class="tp-s">${esc(s.I.area)} · ${cyFecha(cy.t)}</div><div class="tp-v" style="color:${q[1]}">${q[0]}</div><div class="tp-r nu">Nivel vs tendencia: ${nf(p.x, 2)} σ</div><div class="tp-r nu">Impulso: ${nf(p.y, 2)}</div><div class="tp-r nu">Clic para abrir la serie</div>`, e); };
+    svg.onmousemove = e => { const hd = e.target.closest(".eco-cyh"); if (!hd) { tip(null); return; } const s = D2.byId[hd.dataset.id], p = cyAt(s, cy.t); if (!p) return; const q = QD[cyQ(p)]; tip(`<b>${esc(s.I.nombre)}</b><div class="tp-s">${esc(s.I.area)} · ${cyFecha(cy.t)}</div><div class="tp-v" style="color:${q[1]}">${q[0]}</div><div class="tp-r nu">Nivel vs tendencia: ${nf(p.x, 2)} σ</div><div class="tp-r nu">Impulso: ${nf(p.y, 2)}</div><div class="tp-r nu">${s.I.ciclo === "oficial" ? "Ciclo oficial INEGI" : "Derivado de tendencia-ciclo INEGI"} · clic para abrir</div>`, e); };
     svg.onmouseleave = () => tip(null); svg.onclick = e => { const hd = e.target.closest(".eco-cyh"); if (hd) ir("i:" + hd.dataset.id); };
     // selector de series (casillas con palomita; marcar no vuelve a dibujar la lista)
     const pop = $("#ecoCyPop", el), grupos = AREAS.map(a => ({ a, l: D2.series.filter(s => s.I.area === a.n) })).filter(x => x.l.length);
     pop.innerHTML = `<div class="eco-cypt"><input type="search" id="ecoCyQ" placeholder="Buscar serie…" autocomplete="off"><div class="eco-cyq2"><button type="button" class="eco-chip3" data-q="clave">Clave</button><button type="button" class="eco-chip3" data-q="todas">Todas</button><button type="button" class="eco-chip3" data-q="ciclo" title="Solo series que recorren las 4 fases en los últimos 10 años">Ciclo completo</button><button type="button" class="eco-chip3" data-q="ninguna">Ninguna</button></div></div><div class="eco-cylist">` +
-      grupos.map(x => `<div class="eco-cyg" data-a="${esc(x.a.n)}"><div class="eco-cygh" style="--c:${x.a.col}"><i></i><b>${esc(x.a.n)}</b><button type="button" class="eco-lnk" data-ga="${esc(x.a.n)}">marcar / quitar grupo</button></div>${x.l.map(s => `<div class="eco-cyrow" data-id="${s.I.id}" data-n="${esc(norm(s.I.nombre + " " + s.I.grupo))}"><span class="eco-ckb${cy.sel.has(s.I.id) ? " on" : ""}">✓</span><span class="eco-cyn">${esc(s.I.nombre)}</span><em class="eco-cyb ${s.cov}" title="Últimos 10 años: expansión ${s.qc.exp}% · desaceleración ${s.qc.des}% · contracción ${s.qc.con}% · recuperación ${s.qc.rec}%">${s.cov === "ok" ? "ciclo completo" : s.cov === "par" ? "ciclo parcial" : "sigue tendencia"}</em></div>`).join("")}</div>`).join("") + `</div>`;
+      grupos.map(x => `<div class="eco-cyg" data-a="${esc(x.a.n)}"><div class="eco-cygh" style="--c:${x.a.col}"><i></i><b>${esc(x.a.n)}</b><button type="button" class="eco-lnk" data-ga="${esc(x.a.n)}">marcar / quitar grupo</button></div>${x.l.map(s => `<div class="eco-cyrow" data-id="${s.I.id}" data-n="${esc(norm(s.I.nombre + " " + s.I.grupo))}"><span class="eco-ckb${cy.sel.has(s.I.id) ? " on" : ""}">✓</span><span class="eco-cyn">${esc(s.I.nombre)}</span><em class="eco-cyb ${s.I.ciclo === 'oficial' ? 'ofi' : 'tcb'}" title="${s.I.ciclo === 'oficial' ? 'Ciclo oficial del INEGI (Sistema de Indicadores Cíclicos)' : 'Derivado de la tendencia-ciclo oficial (filtro HP)'} · últimos 10 años: expansión ${s.qc.exp}% · desaceleración ${s.qc.des}% · contracción ${s.qc.con}% · recuperación ${s.qc.rec}%">${s.I.ciclo === "oficial" ? "ciclo oficial" : "deriv. de tend.-ciclo"}</em></div>`).join("")}</div>`).join("") + `</div>`;
     const upd = () => { $("#ecoCyN", el).textContent = nsel(); draw(); };
     pop.onclick = e => { const r = e.target.closest(".eco-cyrow"), q = e.target.closest("[data-q]"), ga = e.target.closest("[data-ga]");
       if (r) { const id = r.dataset.id; cy.sel.has(id) ? cy.sel.delete(id) : cy.sel.add(id); r.querySelector(".eco-ckb").classList.toggle("on", cy.sel.has(id)); upd(); }
       else if (ga) { const rows = [...pop.querySelectorAll(`.eco-cyg[data-a="${CSS.escape(ga.dataset.ga)}"] .eco-cyrow`)], todas = rows.every(x => cy.sel.has(x.dataset.id)); rows.forEach(x => { todas ? cy.sel.delete(x.dataset.id) : cy.sel.add(x.dataset.id); x.querySelector(".eco-ckb").classList.toggle("on", !todas); }); upd(); }
-      else if (q) { const k = q.dataset.q; cy.sel = new Set(k === "todas" ? D2.series.map(s => s.I.id) : k === "ciclo" ? D2.series.filter(s => s.cov === "ok").map(s => s.I.id) : k === "clave" ? HEAD.map(h => h[0]).filter(id => D2.byId[id]) : []); pop.querySelectorAll(".eco-cyrow").forEach(x => x.querySelector(".eco-ckb").classList.toggle("on", cy.sel.has(x.dataset.id))); upd(); } };
+      else if (q) { const k = q.dataset.q; cy.sel = new Set(k === "todas" ? D2.series.map(s => s.I.id) : k === "ciclo" ? D2.series.filter(s => s.cov === "ok").map(s => s.I.id) : k === "clave" ? ["334338", "334339", "334349", "334344"].filter(id => D2.byId[id]) : []); pop.querySelectorAll(".eco-cyrow").forEach(x => x.querySelector(".eco-ckb").classList.toggle("on", cy.sel.has(x.dataset.id))); upd(); } };
     $("#ecoCyQ", el).oninput = e => { const w = norm(e.target.value.trim()).split(/\s+/).filter(Boolean); pop.querySelectorAll(".eco-cyrow").forEach(x => { x.style.display = w.every(t => x.dataset.n.includes(t)) ? "" : "none"; }); pop.querySelectorAll(".eco-cyg").forEach(gp => { gp.style.display = [...gp.querySelectorAll(".eco-cyrow")].some(x => x.style.display !== "none") ? "" : "none"; }); };
     $("#ecoCyB", el).onclick = e => { e.stopPropagation(); pop.style.display = pop.style.display === "none" ? "" : "none"; };
     if (!S._cyDoc) { S._cyDoc = true; document.addEventListener("click", ev => { const p = $("#ecoCyPop"); if (p && p.style.display !== "none" && !ev.target.closest(".eco-cysel")) p.style.display = "none"; }); }
