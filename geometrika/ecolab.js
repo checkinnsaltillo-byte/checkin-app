@@ -39,6 +39,26 @@
     for (let i = n - 1; i >= 0; i--) { let v = z[i]; if (i < n - 1) v -= l1[i] * x[i + 1]; if (i < n - 2) v -= l2[i] * x[i + 2]; x[i] = v; }
     return x;
   }
+  // serie original → serie «Ciclo» oficial del INEGI que corresponde a la misma variable
+  const VINC = [["737121", "334349"], ["737145", "334349"], ["736407", "334344"], ["736526", "334344"], ["737122", "334441"], ["737146", "334441"], ["737130", "334446"], ["737154", "334446"],
+    ["6204198547", "334391"], ["6204198549", "334386"], ["6204198561", "334401"], ["6204198556", "334396"], ["6204198564", "334461"], ["701401", "334486"], ["701618", "334496"], ["454168", "334501"]];
+  function cicloVinc(I, C) {
+    if (!I || !C || !C.quad || I.ppy !== C.ppy) return;
+    const by = {}; C.s.forEach(o => { by[o.t] = o; });
+    I.s.forEach(o => { const c = by[o.t]; o.dv = c ? c.dv : null; o.x = c ? c.x : null; o.y = c ? c.y : null; });
+    const l = I.s[I.s.length - 1]; I.quad = l.x == null || l.y == null ? null : l.x >= 0 ? (l.y >= 0 ? "exp" : "des") : (l.y >= 0 ? "rec" : "con");
+    I.ciclo = "oficial"; I.cicloDe = C.id; I.cicloNom = C.nombre;
+  }
+  function cicloHint(I) {
+    if (!I.quad) return "sin ciclo";
+    return I.ciclo === "tc" ? "derivado de la tendencia-ciclo oficial del INEGI (filtro HP)" : I.cicloDe ? "ciclo oficial del INEGI · «" + I.cicloNom.replace(/^Ciclo · /, "") + "»" : "ciclo oficial del INEGI";
+  }
+  function noAplicaMsg(I) {
+    if (I.area === "Precios e inflación") return "Los precios están dominados por su tendencia (inflación acumulada); un ciclo alrededor de esa tendencia no es una lectura adecuada.";
+    if (I.area === "Ciudades" || I.area === "Estados") return "El INEGI no publica una serie de tendencia-ciclo a este nivel geográfico.";
+    if (I.pct || I.tipo === "yoy") return "Es una variación o una tasa; el ciclo se lee sobre el nivel de la serie, no sobre su variación.";
+    return "El INEGI no publica un ciclo ni una tendencia-ciclo para esta serie, o aún no se ha incorporado a EcoLab.";
+  }
   function cicloDeTC(I, tc) {   // ciclo de I = desviación (%) de la tendencia-ciclo oficial del INEGI respecto de su tendencia de largo plazo (HP)
     if (!I || !tc || tc.s.length < 24 || I.ppy !== tc.ppy) return;
     const ly = tc.s.map(o => Math.log(o.v)); if (ly.some(v => !isFinite(v))) return;
@@ -82,6 +102,7 @@
     const TCS = IND.filter(x => x.tipo === "tc");
     IND.forEach(I => { if (I.tipo === "idx" && I.scian) { const t = TCS.find(x => x.scian === I.scian); if (t) cicloDeTC(I, t); } });
     [["737121", "737222"], ["736407", "736888"]].forEach(([a, b]) => cicloDeTC(BYID[a], BYID[b]));
+    VINC.forEach(([a, b]) => cicloVinc(BYID[a], BYID[b]));
   }
   const fv = (I, v, d) => nf(v, d == null ? I.dg : d) + (I.u === "%" ? "%" : I.u === "pts" ? " pts" : "");
   const fy = (I, v) => v == null ? "—" : (v >= 0 ? "+" : "−") + nf(Math.abs(v), I.dif ? (Math.abs(v) >= 100 ? 0 : 1) : 1) + (I.dif ? (I.pct ? " pp" : I.u === "pts" ? " pts" : " " + (I.u === "mdd" ? "mdd" : "")) : "%");
@@ -227,7 +248,7 @@
 
   /* ───────── reloj económico ───────── */
   function drawReloj(el, I, big) {
-    if (!I.quad) { el.innerHTML = '<div class="eco-vacio"><b>No aplicable.</b><br>Este indicador no tiene ciclo oficial del INEGI ni serie de tendencia-ciclo para derivarlo (precios, saldos, variaciones anuales, ciudades y series sin tendencia-ciclo). Se muestra solo su evolución.</div>'; return; }
+    if (!I.quad) { el.innerHTML = '<div class="eco-vacio"><b>No aplicable.</b><br>' + esc(noAplicaMsg(I)) + ' Se muestra solo su evolución.</div>'; return; }
     const W = Math.max(260, Math.min(el.clientWidth, big ? 760 : 520)), H = big ? Math.round(W * .74) : Math.round(W * .86), m = 30;
     const tr = I.s.filter(o => o.x != null && o.y != null).slice(-(big ? 30 : 24));
     if (tr.length < 3) { el.innerHTML = '<div class="eco-vacio">Se necesitan más observaciones para el reloj.</div>'; return; }
@@ -324,7 +345,7 @@
       ${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "según el reloj económico") : ""}
     </div>
     <div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>
-    <div class="eco-two"><div class="eco-panel"><div class="eco-ph"><h3>Reloj económico</h3><span class="eco-hint">trayectoria reciente: nivel vs tendencia e impulso</span></div><div id="ecoClock"></div></div>
+    <div class="eco-two"><div class="eco-panel"><div class="eco-ph"><h3>Reloj económico</h3><span class="eco-hint">${esc(cicloHint(I))}</span></div><div id="ecoClock"></div></div>
     <div class="eco-panel"><div class="eco-ph"><h3>${I.ppy === 1 ? "Distribución histórica" : "Estacionalidad · año × " + (I.ppy === 12 ? "mes" : "trimestre")}</h3></div><div id="ecoEst"></div></div></div>
     <div class="eco-panel"><div class="eco-ph"><h3>Ficha del indicador</h3></div><dl class="eco-meta">${meta.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>`;
   }
@@ -489,7 +510,7 @@
 
   /* ───────── monitor nacional ───────── */
   function vistaNac() {
-    const heads = HEAD.map(([id, l]) => BYID[id] && Object.assign(Object.create(BYID[id]), { nombre: l })).filter(Boolean), p = pulso(), ph = { exp: 0, des: 0, con: 0, rec: 0 }; IND.forEach(I => { if (I.quad) ph[I.quad]++; });
+    const heads = HEAD.map(([id, l]) => BYID[id] && Object.assign(Object.create(BYID[id]), { nombre: l })).filter(Boolean), p = pulso(), ph = { exp: 0, des: 0, con: 0, rec: 0 }; IND.forEach(I => { if (I.quad && !I.cicloDe) ph[I.quad]++; });
     return `<div class="eco-h"><div><h1>Panorama global · México</h1><div class="eco-sub"><span class="eco-pill">Monitor nacional</span><span class="eco-pill">${IND.length} indicadores</span><span class="eco-pill">${(D.estatal || []).length} series por estado</span><span class="eco-pill">Fuente: INEGI</span></div></div></div>
     <div class="eco-grid2">${panel("Pulso económico", `${p.n} indicadores del ciclo oficial`, `<div id="ecoGauge"></div><div class="eco-phases">${Object.keys(QD).map(k => `<div class="eco-ph1" style="--c:${QD[k][1]}"><b>${ph[k]}</b><span>${QD[k][0]}</span></div>`).join("")}</div><p class="eco-note">Promedia el ciclo oficial del INEGI (desviación respecto de la tendencia) del indicador coincidente, el adelantado, el IGAE y la actividad industrial. Las fases cuentan las series con ciclo oficial o derivado de su tendencia-ciclo.</p>`, "eco-gaugep")}
     ${panel("Indicadores clave", "clic para abrir el tablero", cards(heads))}</div>
@@ -697,7 +718,7 @@
   function cyData() {
     if (S._cyD) return S._cyD;
     const toM = (I, o) => I.ppy === 12 ? o.t : I.ppy === 4 ? Math.floor(o.t / 4) * 12 + (o.t % 4) * 3 + 2 : o.t * 12 + 11, series = [], byId = {};
-    IND.forEach(I => { const pts = I.s.filter(o => o.x != null && o.y != null).map(o => ({ m: toM(I, o), x: o.x, y: o.y, l: o.l })); if (pts.length >= 12) { const rec = pts.slice(-120), qc = { exp: 0, des: 0, con: 0, rec: 0 }; rec.forEach(p => { qc[cyQ(p)]++; }); const fr = k => qc[k] / (rec.length || 1), fases = Object.keys(qc).filter(k => fr(k) >= .08).length, lado = Math.max(fr("exp") + fr("des"), fr("con") + fr("rec")), s = { I, pts, fases, lado, qc: Object.fromEntries(Object.keys(qc).map(k => [k, Math.round(fr(k) * 100)])), cov: lado >= .85 ? "tend" : fases >= 4 && lado <= .8 ? "ok" : "par" }; series.push(s); byId[I.id] = s; } });
+    IND.forEach(I => { if (I.cicloDe) return; const pts = I.s.filter(o => o.x != null && o.y != null).map(o => ({ m: toM(I, o), x: o.x, y: o.y, l: o.l })); if (pts.length >= 12) { const rec = pts.slice(-120), qc = { exp: 0, des: 0, con: 0, rec: 0 }; rec.forEach(p => { qc[cyQ(p)]++; }); const fr = k => qc[k] / (rec.length || 1), fases = Object.keys(qc).filter(k => fr(k) >= .08).length, lado = Math.max(fr("exp") + fr("des"), fr("con") + fr("rec")), s = { I, pts, fases, lado, qc: Object.fromEntries(Object.keys(qc).map(k => [k, Math.round(fr(k) * 100)])), cov: lado >= .85 ? "tend" : fases >= 4 && lado <= .8 ? "ok" : "par" }; series.push(s); byId[I.id] = s; } });
     const mags = series.flatMap(s => s.pts.map(p => Math.max(Math.abs(p.x), Math.abs(p.y)))).sort((a, b) => a - b), p97 = mags[Math.floor(mags.length * .97)] || 3;
     S._cyD = { series, byId, start: 2010 * 12, end: Math.max(...series.map(s => s.pts[s.pts.length - 1].m)), R: Math.max(2.2, Math.min(4, p97 * 1.1)) };
     return S._cyD;
