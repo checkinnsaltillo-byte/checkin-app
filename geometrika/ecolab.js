@@ -224,7 +224,7 @@
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg><div class="eco-lg"><span>por debajo de su tendencia</span><i style="background:linear-gradient(90deg,#fb7185,#1e2946,#34d399)"></i><span>por encima</span></div>`;
     $$(".eco-cell", el).forEach(c => { const I = BYID[c.dataset.i], o = I.s.find(q => q.t === +c.dataset.t); c.onmousemove = e => tip(o ? tipI(I, o) + `<div class="tp-r nu">${o.x != null ? nf(o.x, 2) + " σ vs tendencia" : ""}</div>` : `<b>${esc(I.nombre)}</b><div class="tp-s">Sin dato</div>`, e); c.onmouseleave = () => tip(null); c.onclick = () => ir("i:" + I.id); c.style.cursor = "pointer"; });
   }
-  function mapaCiclo(el) {
+  function mapaCicloEstatico(el) {
     const L = IND.filter(I => I.quad && I.ppy > 0), W = Math.max(320, el.clientWidth), H = Math.round(Math.min(560, W * .62)), m = 34;
     const R = Math.max(2, ...L.map(I => Math.max(Math.abs(I.last.x), Math.abs(I.last.y)))) * 1.1, X = v => m + (v / R + 1) / 2 * (W - 2 * m), Y = v => m + (1 - (v / R + 1) / 2) * (H - 2 * m), cx = X(0), cy = Y(0);
     let s = ""; [["exp", cx, m, W - m, cy], ["des", cx, cy, W - m, H - m], ["con", m, cy, cx, H - m], ["rec", m, m, cx, cy]].forEach(([k, x0, y0, x1, y1]) => { s += `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${QD[k][1]}" opacity=".08"/>`; });
@@ -426,7 +426,7 @@
     ${panel("Indicadores clave", "clic para abrir el tablero", cards(heads))}</div>
     <div class="eco-two">${panel("Sectores · variación anual del IGAE", "mayor aporte y mayor caída, por subsector SCIAN", '<div id="ecoSecBars"></div>')}${panel("Mapa de calor sectorial · últimos 18 meses", "variación anual mensual", '<div id="ecoSecHeat"></div>')}</div>
     <div class="eco-two">${panel("Mapa económico de los estados", "ITAEE · variación anual", '<div id="ecoNacMap"></div><div class="eco-more2"><a data-go="reg">Abrir monitor regional →</a></div>')}${panel("Estados que más crecen y más caen", "ITAEE · variación anual", '<div id="ecoNacRank"></div>')}</div>
-    ${panel("Mapa del ciclo económico", "cada burbuja es un indicador", '<div id="ecoMapa"></div>')}`;
+    ${panel("Mapa del ciclo económico", "▶ Play para ver su evolución · la estela muestra los últimos periodos · elige las series", '<div id="ecoMapa"></div>')}`;
   }
   function pintaNac() {
     const p = pulso(); draws.push(() => gauge($("#ecoGauge"), p.sc, p.lab[0], p.lab[1]));
@@ -624,12 +624,78 @@
     });
   }
 
+  /* ───────── mapa del ciclo animado: Play, estela y selección de series ───────── */
+  function cyData() {
+    if (S._cyD) return S._cyD;
+    const toM = (I, o) => I.ppy === 12 ? o.t : I.ppy === 4 ? Math.floor(o.t / 4) * 12 + (o.t % 4) * 3 + 2 : o.t * 12 + 11, series = [], byId = {};
+    IND.forEach(I => { const pts = I.s.filter(o => o.x != null && o.y != null).map(o => ({ m: toM(I, o), x: o.x, y: o.y, l: o.l })); if (pts.length >= 12) { const s = { I, pts }; series.push(s); byId[I.id] = s; } });
+    const mags = series.flatMap(s => s.pts.map(p => Math.max(Math.abs(p.x), Math.abs(p.y)))).sort((a, b) => a - b), p97 = mags[Math.floor(mags.length * .97)] || 3;
+    S._cyD = { series, byId, start: 2010 * 12, end: Math.max(...series.map(s => s.pts[s.pts.length - 1].m)), R: Math.max(2.2, Math.min(4, p97 * 1.1)) };
+    return S._cyD;
+  }
+  const cyAt = (s, T) => { const a = s.pts; let lo = 0, hi = a.length - 1, r = -1; while (lo <= hi) { const mid = (lo + hi) >> 1; if (a[mid].m <= T) { r = mid; lo = mid + 1; } else hi = mid - 1; } return r >= 0 && T - a[r].m <= 15 ? a[r] : null; };
+  const cyQ = p => p.x >= 0 ? (p.y >= 0 ? "exp" : "des") : (p.y >= 0 ? "rec" : "con");
+  const cyFecha = m => MES[((m % 12) + 12) % 12] + " " + Math.floor(m / 12);
+  function cicloAnimado(el) {
+    const D2 = cyData(); if (!D2.series.length) { el.innerHTML = '<div class="eco-vacio">Sin datos para el ciclo.</div>'; return; }
+    const cy = S.cy = S.cy || { sel: new Set(HEAD.map(h => h[0]).filter(id => D2.byId[id])), trail: 12, speed: 2, t: D2.end, playing: false };
+    if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; }
+    const W = Math.max(320, el.clientWidth), H = Math.round(Math.min(560, Math.max(340, W * .56))), m = 34, R = D2.R, X = v => m + (Math.max(-R * 1.04, Math.min(R * 1.04, v)) / R + 1) / 2 * (W - 2 * m), Y = v => m + (1 - (Math.max(-R * 1.04, Math.min(R * 1.04, v)) / R + 1) / 2) * (H - 2 * m), cx = X(0), cyy = Y(0);
+    let st = ""; [["exp", cx, m, W - m, cyy], ["des", cx, cyy, W - m, H - m], ["con", m, cyy, cx, H - m], ["rec", m, m, cx, cyy]].forEach(([k, x0, y0, x1, y1]) => { st += `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${QD[k][1]}" opacity=".09"/>`; });
+    st += `<line x1="${m}" x2="${W - m}" y1="${cyy}" y2="${cyy}" class="eco-ch"/><line x1="${cx}" x2="${cx}" y1="${m}" y2="${H - m}" class="eco-ch"/>`;
+    [["exp", W - m - 8, m + 18, "end"], ["des", W - m - 8, H - m - 10, "end"], ["con", m + 8, H - m - 10, "start"], ["rec", m + 8, m + 18, "start"]].forEach(([k, x, y, a]) => { st += `<text x="${x}" y="${y}" text-anchor="${a}" class="eco-q" fill="${QD[k][1]}">${QD[k][0].toUpperCase()}</text>`; });
+    st += `<text x="${W - m}" y="${cyy - 6}" class="eco-ax" text-anchor="end">nivel vs tendencia →</text><text x="${cx + 6}" y="${m - 10}" class="eco-ax">↑ impulso</text><text id="ecoCyD" x="${W / 2}" y="${H / 2 + 14}" text-anchor="middle" class="eco-cyd"></text>`;
+    const nsel = () => D2.series.filter(s => cy.sel.has(s.I.id)).length;
+    el.innerHTML = `<div class="eco-cybar"><button type="button" class="eco-cyplay" id="ecoCyP" title="Reproducir / pausar">▶</button><button type="button" class="eco-cybtn" id="ecoCyR" title="Volver al inicio">⏮</button>
+      <input type="range" id="ecoCyS" class="eco-cyslider" min="${D2.start}" max="${D2.end}" value="${cy.t}"><span class="eco-cyfecha" id="ecoCyF">${cyFecha(cy.t)}</span>
+      <div class="eco-cygrp"><span>Velocidad</span>${[1, 2, 4].map(v => `<button type="button" class="eco-chip3${cy.speed === v ? " on" : ""}" data-sp="${v}">${v}×</button>`).join("")}</div>
+      <div class="eco-cygrp"><span>Estela</span>${[[0, "Sin"], [6, "6 m"], [12, "12 m"], [24, "24 m"], [48, "48 m"]].map(([v, t]) => `<button type="button" class="eco-chip3${cy.trail === v ? " on" : ""}" data-tr="${v}">${t}</button>`).join("")}</div>
+      <div class="eco-cysel"><button type="button" class="eco-chip3 on" id="ecoCyB">☰ Series (<b id="ecoCyN">${nsel()}</b>) ▾</button><div class="eco-cypop" id="ecoCyPop" style="display:none"></div></div></div>
+      <div class="eco-cywrap"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" id="ecoCySvg">${st}<g id="ecoCyG"></g></svg></div><div class="eco-cycnt" id="ecoCyC"></div><div class="eco-leg eco-legl">${AREAS.map(a => `<span><i style="background:${a.col}"></i>${esc(a.n)}</span>`).join("")}</div>`;
+    const svg = $("#ecoCySvg", el), g = $("#ecoCyG", el), btn = $("#ecoCyP", el), sl = $("#ecoCyS", el);
+    function draw() {
+      const T = cy.t, L = cy.trail, cnt = { exp: 0, des: 0, con: 0, rec: 0 }, list = D2.series.filter(s => cy.sel.has(s.I.id)), fino = list.length <= 30; let h = "";
+      list.forEach(s => { const p = cyAt(s, T); if (!p) return; cnt[cyQ(p)]++;
+        if (L > 0) { const tp = []; for (let k = L; k >= 0; k--) { const q = cyAt(s, T - k); if (q && (!tp.length || tp[tp.length - 1] !== q)) tp.push(q); }
+          if (tp.length > 1) { if (fino) { for (let i = 1; i < tp.length; i++) h += `<line x1="${X(tp[i - 1].x).toFixed(1)}" y1="${Y(tp[i - 1].y).toFixed(1)}" x2="${X(tp[i].x).toFixed(1)}" y2="${Y(tp[i].y).toFixed(1)}" stroke="${s.I.col}" stroke-width="${(1 + 2 * i / tp.length).toFixed(1)}" stroke-linecap="round" stroke-opacity="${(.12 + .7 * i / tp.length).toFixed(2)}"/>`; }
+            else h += `<path d="${tp.map((q, i) => (i ? "L" : "M") + X(q.x).toFixed(1) + " " + Y(q.y).toFixed(1)).join("")}" fill="none" stroke="${s.I.col}" stroke-width="1.6" stroke-opacity=".38" stroke-linejoin="round"/>`; } }
+        h += `<g class="eco-cyh" data-id="${s.I.id}" style="cursor:pointer"><circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${fino ? 11 : 8}" fill="${s.I.col}" fill-opacity=".25"/><circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${fino ? 6 : 4.5}" fill="${s.I.col}" stroke="#fff" stroke-width="1.6"/></g>`;
+        if (list.length <= 5) h += `<text x="${(X(p.x) + 10).toFixed(1)}" y="${(Y(p.y) - 8).toFixed(1)}" class="eco-ax" style="fill:${s.I.col};font-weight:700;paint-order:stroke;stroke:rgba(8,13,28,.55);stroke-width:3px">${esc(s.I.nombre.length > 26 ? s.I.nombre.slice(0, 25) + "…" : s.I.nombre)}</text>`; });
+      g.innerHTML = h; $("#ecoCyD", svg).textContent = cyFecha(T); $("#ecoCyF", el).textContent = cyFecha(T); sl.value = T;
+      $("#ecoCyC", el).innerHTML = Object.keys(QD).map(k => `<span class="eco-cyq" style="--c:${QD[k][1]}"><i></i>${QD[k][0]} <b>${cnt[k]}</b></span>`).join("") + `<span class="eco-hint">${list.length ? "" : "Elige al menos una serie"}</span>`;
+    }
+    const paint = () => { btn.textContent = cy.playing ? "❚❚" : "▶"; };
+    function loop(ts) { if (!el.isConnected || !cy.playing) { S.cyRaf = 0; return; } if (!loop.last) loop.last = ts; loop.acc = (loop.acc || 0) + ts - loop.last; loop.last = ts; const per = 1000 / (5 * cy.speed);
+      while (loop.acc >= per) { loop.acc -= per; cy.t++; if (cy.t >= D2.end) { cy.t = D2.end; cy.playing = false; paint(); break; } } draw(); S.cyRaf = cy.playing ? requestAnimationFrame(loop) : 0; }
+    function play(on) { cy.playing = on; paint(); if (on) { if (cy.t >= D2.end) cy.t = D2.start; loop.last = 0; loop.acc = 0; S.cyRaf = requestAnimationFrame(loop); } else if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } }
+    btn.onclick = () => play(!cy.playing); $("#ecoCyR", el).onclick = () => { cy.t = D2.start; draw(); };
+    sl.oninput = () => { cy.t = +sl.value; if (cy.playing) play(false); draw(); };
+    el.querySelectorAll("[data-sp]").forEach(b => { b.onclick = () => { cy.speed = +b.dataset.sp; el.querySelectorAll("[data-sp]").forEach(x => x.classList.toggle("on", x === b)); }; });
+    el.querySelectorAll("[data-tr]").forEach(b => { b.onclick = () => { cy.trail = +b.dataset.tr; el.querySelectorAll("[data-tr]").forEach(x => x.classList.toggle("on", x === b)); draw(); }; });
+    svg.onmousemove = e => { const hd = e.target.closest(".eco-cyh"); if (!hd) { tip(null); return; } const s = D2.byId[hd.dataset.id], p = cyAt(s, cy.t); if (!p) return; const q = QD[cyQ(p)]; tip(`<b>${esc(s.I.nombre)}</b><div class="tp-s">${esc(s.I.area)} · ${cyFecha(cy.t)}</div><div class="tp-v" style="color:${q[1]}">${q[0]}</div><div class="tp-r nu">Nivel vs tendencia: ${nf(p.x, 2)} σ</div><div class="tp-r nu">Impulso: ${nf(p.y, 2)}</div><div class="tp-r nu">Clic para abrir la serie</div>`, e); };
+    svg.onmouseleave = () => tip(null); svg.onclick = e => { const hd = e.target.closest(".eco-cyh"); if (hd) ir("i:" + hd.dataset.id); };
+    // selector de series (casillas con palomita; marcar no vuelve a dibujar la lista)
+    const pop = $("#ecoCyPop", el), grupos = AREAS.map(a => ({ a, l: D2.series.filter(s => s.I.area === a.n) })).filter(x => x.l.length);
+    pop.innerHTML = `<div class="eco-cypt"><input type="search" id="ecoCyQ" placeholder="Buscar serie…" autocomplete="off"><div class="eco-cyq2"><button type="button" class="eco-chip3" data-q="clave">Clave</button><button type="button" class="eco-chip3" data-q="todas">Todas</button><button type="button" class="eco-chip3" data-q="ninguna">Ninguna</button></div></div><div class="eco-cylist">` +
+      grupos.map(x => `<div class="eco-cyg" data-a="${esc(x.a.n)}"><div class="eco-cygh" style="--c:${x.a.col}"><i></i><b>${esc(x.a.n)}</b><button type="button" class="eco-lnk" data-ga="${esc(x.a.n)}">marcar / quitar grupo</button></div>${x.l.map(s => `<div class="eco-cyrow" data-id="${s.I.id}" data-n="${esc(norm(s.I.nombre + " " + s.I.grupo))}"><span class="eco-ckb${cy.sel.has(s.I.id) ? " on" : ""}">✓</span><span class="eco-cyn">${esc(s.I.nombre)}</span><small>${esc(s.I.grupo)}</small></div>`).join("")}</div>`).join("") + `</div>`;
+    const upd = () => { $("#ecoCyN", el).textContent = nsel(); draw(); };
+    pop.onclick = e => { const r = e.target.closest(".eco-cyrow"), q = e.target.closest("[data-q]"), ga = e.target.closest("[data-ga]");
+      if (r) { const id = r.dataset.id; cy.sel.has(id) ? cy.sel.delete(id) : cy.sel.add(id); r.querySelector(".eco-ckb").classList.toggle("on", cy.sel.has(id)); upd(); }
+      else if (ga) { const rows = [...pop.querySelectorAll(`.eco-cyg[data-a="${CSS.escape(ga.dataset.ga)}"] .eco-cyrow`)], todas = rows.every(x => cy.sel.has(x.dataset.id)); rows.forEach(x => { todas ? cy.sel.delete(x.dataset.id) : cy.sel.add(x.dataset.id); x.querySelector(".eco-ckb").classList.toggle("on", !todas); }); upd(); }
+      else if (q) { const k = q.dataset.q; cy.sel = new Set(k === "todas" ? D2.series.map(s => s.I.id) : k === "clave" ? HEAD.map(h => h[0]).filter(id => D2.byId[id]) : []); pop.querySelectorAll(".eco-cyrow").forEach(x => x.querySelector(".eco-ckb").classList.toggle("on", cy.sel.has(x.dataset.id))); upd(); } };
+    $("#ecoCyQ", el).oninput = e => { const w = norm(e.target.value.trim()).split(/\s+/).filter(Boolean); pop.querySelectorAll(".eco-cyrow").forEach(x => { x.style.display = w.every(t => x.dataset.n.includes(t)) ? "" : "none"; }); pop.querySelectorAll(".eco-cyg").forEach(gp => { gp.style.display = [...gp.querySelectorAll(".eco-cyrow")].some(x => x.style.display !== "none") ? "" : "none"; }); };
+    $("#ecoCyB", el).onclick = e => { e.stopPropagation(); pop.style.display = pop.style.display === "none" ? "" : "none"; };
+    if (!S._cyDoc) { S._cyDoc = true; document.addEventListener("click", ev => { const p = $("#ecoCyPop"); if (p && p.style.display !== "none" && !ev.target.closest(".eco-cysel")) p.style.display = "none"; }); }
+    paint(); draw(); if (cy.playing) play(true);
+  }
+  function mapaCiclo(el) { return cicloAnimado(el); }
+
   /* ───────── navegación y árbol ───────── */
   const modo = id => /^(nac|reg|sec|ciu|z:|e:|s:|c:)/.test(id) ? "mon" : "cat";
   const rer = () => { const m = $("#ecoMain2"), st = m.scrollTop; ir(S.sel); m.scrollTop = st; };
   function ir(id) {
     if (id === "home") id = "nac";
-    S.sel = id; ls.set("eco_sel", id); draws = []; tip(null); if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
+    S.sel = id; ls.set("eco_sel", id); draws = []; tip(null); if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } if (S.cy) S.cy.playing = false; if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
     const main = $("#ecoMain2"), mo = modo(id); if (mo === "mon") S.lastMon = id; else S.lastCat = id;
     if (mo === "mon") {
       if (id === "reg") { main.innerHTML = vistaReg(null); pintaReg(null); S.open.add("R"); }
