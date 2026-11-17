@@ -293,7 +293,7 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   var sel = document.getElementById('tt-giro'), lug = document.getElementById('tt-lug'); if (!sel || !lug) return;
   var giro = ''; try { giro = localStorage.getItem('ctx_giro') || ''; } catch (e) { }
   sel.innerHTML = GIROS.map(function (g) { return '<option value="' + g[0] + '"' + (g[0] === giro ? ' selected' : '') + '>' + g[1] + '</option>'; }).join('');
-  var ub = null, key = '';
+  var ub = null, key = '', intentos = 0;
   function envia() { var f = document.querySelector('#lab-ov iframe'); var ctx = { gl: 'ctx', giro: giro, lat: ub && ub.lat, lng: ub && ub.lng, estado: ub && ub.estado || '', ent: ub && ub.ent || '', municipio: ub && ub.municipio || '', ciudad: ub && ub.ciudad || '' }; window.__ctx = ctx; document.querySelectorAll('#lab-ov iframe').forEach(function (fr) { try { fr.contentWindow.postMessage(ctx, location.origin); } catch (e) { } }); }
   var EST = { '01': 'Aguascalientes', '02': 'Baja California', '03': 'Baja California Sur', '04': 'Campeche', '05': 'Coahuila', '06': 'Colima', '07': 'Chiapas', '08': 'Chihuahua', '09': 'Ciudad de México', '10': 'Durango', '11': 'Guanajuato', '12': 'Guerrero', '13': 'Hidalgo', '14': 'Jalisco', '15': 'Estado de México', '16': 'Michoacán', '17': 'Morelos', '18': 'Nayarit', '19': 'Nuevo León', '20': 'Oaxaca', '21': 'Puebla', '22': 'Querétaro', '23': 'Quintana Roo', '24': 'San Luis Potosí', '25': 'Sinaloa', '26': 'Sonora', '27': 'Tabasco', '28': 'Tamaulipas', '29': 'Tlaxcala', '30': 'Veracruz', '31': 'Yucatán', '32': 'Zacatecas' };
   function pinta() { if (!ub) { lug.innerHTML = '<i>📍 Sin ubicación aún</i>'; return; } var p = []; if (ub.ciudad) p.push(ub.ciudad); if (ub.municipio && ub.municipio !== ub.ciudad) p.push(ub.municipio); var es = ub.estado || EST[ub.ent]; if (es) p.push(es); lug.innerHTML = p.length ? '📍 ' + p.join(', ') : '<i>📍 ' + (+ub.lat).toFixed(4) + ', ' + (+ub.lng).toFixed(4) + '</i>'; }
@@ -301,7 +301,8 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   async function revisa() {
     var S = window.__curS; if (!S || S.lat == null || S.lng == null) return; var k = (+S.lat).toFixed(4) + ',' + (+S.lng).toFixed(4); if (k === key) return; key = k;
     ub = { lat: +S.lat, lng: +S.lng }; lug.innerHTML = '<i>📍 Buscando lugar…</i>'; envia();
-    try { var r = await fetch('https://api.check-inn.mx/geometrika/ubicacion?lat=' + (+S.lat) + '&lng=' + (+S.lng)); var j = await r.json(); if (k !== key) return; if (j && j.ok) { ub.estado = j.estado; ub.municipio = j.municipio; ub.ciudad = j.ciudad; ub.ent = j.ent; } } catch (e) { }
+    var bien = false; try { var r = await fetch('https://api.check-inn.mx/geometrika/ubicacion?lat=' + (+S.lat) + '&lng=' + (+S.lng)); var j = await r.json(); if (k !== key) return; if (j && j.ok) { bien = true; ub.estado = j.estado; ub.municipio = j.municipio; ub.ciudad = j.ciudad; ub.ent = j.ent; } } catch (e) { }
+    if (!bien && intentos < 6) { intentos++; setTimeout(function () { if (k === key) key = ''; }, 4000); if (!ub.municipio) { lug.innerHTML = '<i>📍 Buscando lugar…</i>'; envia(); return; } } else if (bien) intentos = 0;
     pinta(); envia();
   }
   setInterval(revisa, 1500); revisa();
