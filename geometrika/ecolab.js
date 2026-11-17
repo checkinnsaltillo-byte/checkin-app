@@ -12,7 +12,7 @@
   const QD = { exp: ["Expansión", "#34d399"], des: ["Desaceleración", "#fbbf24"], con: ["Contracción", "#fb7185"], rec: ["Recuperación", "#60a5fa"] };
   const PPY = { Mensual: 12, Trimestral: 4, Anual: 1 };
   const D = window.ECO_DATA || { indicadores: [] };
-  let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", open: new Set(), serie: { mode: "nivel", rango: 120 } }, draws = [], tipEl;
+  let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", open: new Set(), serie: { mode: "ambas", rango: 120 } }, draws = [], tipEl;
 
   /* ───────── preparación de datos ───────── */
   /* ───────── ciclo: asignación de coordenadas, filtro HP y derivación desde la tendencia-ciclo ───────── */
@@ -58,7 +58,7 @@
     I.dif = neg || I.pct || /Puntos/.test(r.unidad);
     const ch = (a, b) => b == null ? null : I.dif ? a - b : b > 0 ? (a / b - 1) * 100 : null;
     s.forEach((o, i) => { o.yoy = i >= ppy ? ch(o.v, s[i - ppy].v) : null; o.mom = i >= 1 && ppy > 1 ? ch(o.v, s[i - 1].v) : null; });
-    I.ciclo = r.tipo === "ciclo" ? "oficial" : null; cicloSet(I, I.ciclo ? s.map(o => o.v - 100) : null);   // ciclo oficial del INEGI; el resto se deriva de su tendencia-ciclo (cicloDeTC) o no aplica
+    I.ciclo = r.tipo === "ciclo" ? "oficial" : null; I.cicloInv = String(r.id) === "334366"; cicloSet(I, I.ciclo ? s.map(o => (I.cicloInv ? -1 : 1) * (o.v - 100)) : null);   // ciclo oficial del INEGI; el resto se deriva de su tendencia-ciclo (cicloDeTC) o no aplica
     const last = s[n - 1], vals = s.map(o => o.v).sort((a, b) => a - b);
     I.last = last; I.prev = n > 1 ? s[n - 2] : null; I.fc = FCIDS.has(String(r.id)) || (r.tipo === "idx" && !!r.scian);
     I.min = vals[0]; I.max = vals[n - 1]; I.pctil = vals.filter(v => v <= last.v).length / n * 100;
@@ -139,35 +139,67 @@
   const fcLine = (I, tipo) => { const p = prono(I); return p ? p.map(q => ({ t: q.tt, l: q.l, v: tipo === "yoy" ? q.yoy : q.v })).filter(q => q.v != null) : null; };
   const tipF = (I, q, mode) => `<b>${esc(I.nombre)}</b><div class="tp-s">Pronóstico · ${esc(q.l)}</div><div class="tp-v" style="color:${I.col}">${mode === "anual" ? fy(I, q.v) : fv(I, q.v)}</div><div class="tp-r nu">Rango probable (80%): ${mode === "anual" ? fy(I, q.lo) + " a " + fy(I, q.hi) : fv(I, q.lo) + " a " + fv(I, q.hi)}</div><div class="tp-r nu">Estimación estadística, no oficial</div>`;
 
+  /* ───────── suavizado: LOESS (regresión lineal local, pesos tricúbicos) y media móvil ───────── */
+  function loess(y, alpha) {
+    const idx = []; y.forEach((v, i) => { if (v != null && isFinite(v)) idx.push(i); });
+    const n = idx.length; if (n < 6) return y.slice();
+    const k = Math.max(5, Math.min(n, Math.round(alpha * n))), out = y.slice();
+    for (let a = 0; a < n; a++) {
+      const x0 = idx[a], lo = Math.max(0, Math.min(a - (k >> 1), n - k)), hi = lo + k - 1, dmax = Math.max(Math.abs(idx[lo] - x0), Math.abs(idx[hi] - x0)) || 1;
+      let sw = 0, swx = 0, swy = 0, swxx = 0, swxy = 0;
+      for (let j = lo; j <= hi; j++) { const dx = idx[j] - x0, u = Math.abs(dx) / (dmax * 1.0001), w = u < 1 ? Math.pow(1 - u * u * u, 3) : 0, yy = y[idx[j]]; sw += w; swx += w * dx; swy += w * yy; swxx += w * dx * dx; swxy += w * dx * yy; }
+      const den = sw * swxx - swx * swx; out[x0] = Math.abs(den) < 1e-12 ? swy / (sw || 1) : (swy * swxx - swx * swxy) / den;
+    }
+    return out;
+  }
+  function mmovil(y, w) {   // media móvil centrada (la ventana se acorta en los extremos)
+    const out = y.slice(), h = w >> 1; for (let i = 0; i < y.length; i++) { if (y[i] == null) continue; let a = 0, c = 0; for (let j = Math.max(0, i - h); j <= Math.min(y.length - 1, i + h); j++) if (y[j] != null) { a += y[j]; c++; } out[i] = a / c; }
+    return out;
+  }
+  const SUAV = { l1: ["LOESS suave", .1], l2: ["LOESS medio", .25], l3: ["LOESS fuerte", .45], m: ["Media móvil (1 año)", 0] };
+  function suavizaSerie(I, k) {
+    I._sm = I._sm || {}; if (I._sm[k]) return I._sm[k];
+    const lv = I.s.map(o => o.v), yy = I.s.map(o => o.yoy), f = k === "m" ? (a => mmovil(a, I.ppy === 1 ? 3 : I.ppy + 1)) : (a => loess(a, SUAV[k][1]));
+    return (I._sm[k] = { v: f(lv), y: f(yy) });
+  }
+
   /* ───────── gráfica principal de la serie ───────── */
   function drawSerie(el, I) {
-    const W = Math.max(320, el.clientWidth), H = W < 520 ? 280 : 360, m = { l: 62, r: 20, t: 16, b: 34 }, st = S.serie;
+    const W = Math.max(320, el.clientWidth), H = W < 520 ? 280 : 360, m = { l: 62, r: 20, t: 16, b: 34 }, st = S.serie, mode = st.mode === "ambas" && (I.pct || !I.s.some(o => o.yoy != null)) ? "nivel" : st.mode; if (mode === "ambas") m.r = 58;
     const nmax = st.rango ? Math.min(I.s.length, Math.round(st.rango * I.ppy / 12) || I.s.length) : I.s.length, d = I.s.slice(-Math.max(nmax, 6)), n = d.length;
-    const f = st.mode === "anual" ? (o => o.yoy) : (o => o.v), pts = d.map((o, i) => ({ o, i, v: f(o) })).filter(p => p.v != null);
+    const f = mode === "anual" ? (o => o.yoy) : (o => o.v), off = I.s.length - d.length, SM = st.suav ? suavizaSerie(I, st.suav) : null, pts = d.map((o, i) => ({ o, i, v: SM ? (mode === "anual" ? SM.y[off + i] : SM.v[off + i]) : f(o), raw: f(o) })).filter(p => p.v != null);
     if (!pts.length) { el.innerHTML = '<div class="eco-vacio">Sin datos suficientes para esta vista.</div>'; return; }
-    const FC = I.fc && st.fc !== false ? prono(I) : null, fcv = (FC || []).map((p, k) => ({ i: n + k, l: p.l, v: st.mode === "anual" ? p.yoy : p.v, lo: st.mode === "anual" ? p.ylo : p.lo, hi: st.mode === "anual" ? p.yhi : p.hi })).filter(q => q.v != null), nn = n + (FC ? FC.length : 0), ALL = pts.concat(fcv.map(q => ({ o: null, i: q.i, v: q.v, fc: q }))); S.curI = I;
-    let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v)); fcv.forEach(q => { lo = Math.min(lo, q.lo != null ? q.lo : q.v); hi = Math.max(hi, q.hi != null ? q.hi : q.v); });
-    if (st.mode === "anual") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } else if (I.th50) { lo = Math.min(lo, I.thr); hi = Math.max(hi, I.thr); }
+    const FC = I.fc && st.fc !== false ? prono(I) : null, fcv = (FC || []).map((p, k) => ({ i: n + k, l: p.l, v: mode === "anual" ? p.yoy : p.v, lo: mode === "anual" ? p.ylo : p.lo, hi: mode === "anual" ? p.yhi : p.hi })).filter(q => q.v != null), nn = n + (FC ? FC.length : 0), ALL = pts.concat(fcv.map(q => ({ o: null, i: q.i, v: q.v, fc: q }))); S.curI = I;
+    const ext = pts.flatMap(p => [p.v, p.raw]).filter(v => v != null); let lo = Math.min(...ext), hi = Math.max(...ext); fcv.forEach(q => { lo = Math.min(lo, q.lo != null ? q.lo : q.v); hi = Math.max(hi, q.hi != null ? q.hi : q.v); });
+    if (mode === "anual") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } else if (I.th50) { lo = Math.min(lo, I.thr); hi = Math.max(hi, I.thr); }
     const pad = (hi - lo) * .08 || 1; lo -= pad; hi += pad;
     const X = i => m.l + (nn === 1 ? .5 : i / (nn - 1)) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
     const tk = ticksN(lo, hi, 5), td = tdec(tk);
     let s = `<defs><linearGradient id="ecoAr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${I.col}" stop-opacity=".42"/><stop offset="1" stop-color="${I.col}" stop-opacity="0"/></linearGradient>`;
-    const base = st.mode === "anual" ? Y(0) : I.th50 ? Y(I.thr) : null;
-    if (st.mode !== "anual" && I.th50) { const o = Math.max(0, Math.min(1, (Y(I.thr) - m.t) / (H - m.t - m.b))); s += `<linearGradient id="ecoLn" x1="0" y1="${m.t}" x2="0" y2="${H - m.b}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#34d399"/><stop offset="${o}" stop-color="#34d399"/><stop offset="${o}" stop-color="#fb7185"/><stop offset="1" stop-color="#fb7185"/></linearGradient>`; }
+    const base = mode === "anual" ? Y(0) : I.th50 ? Y(I.thr) : null;
+    if (mode !== "anual" && I.th50) { const o = Math.max(0, Math.min(1, (Y(I.thr) - m.t) / (H - m.t - m.b))); s += `<linearGradient id="ecoLn" x1="0" y1="${m.t}" x2="0" y2="${H - m.b}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#34d399"/><stop offset="${o}" stop-color="#34d399"/><stop offset="${o}" stop-color="#fb7185"/><stop offset="1" stop-color="#fb7185"/></linearGradient>`; }
     s += `<filter id="ecoGl" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
     tk.forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="eco-gr"/><text x="${m.l - 8}" y="${(Y(v) + 4).toFixed(1)}" class="eco-ax" text-anchor="end">${nf(v, td)}</text>`; });
     const nl = Math.min(8, Math.max(2, Math.floor((W - m.l) / 90)));
     for (let k = 0; k < nl; k++) { const i = Math.round(k * (nn - 1) / (nl - 1)); s += `<text x="${X(i).toFixed(1)}" y="${H - 10}" class="eco-ax" text-anchor="${k === 0 ? "start" : k === nl - 1 ? "end" : "middle"}">${i < n ? d[i].l : FC[i - n].l}</text>`; }
-    if (st.mode === "anual") {
+    if (mode === "anual") {
       const bw = Math.max(1.5, Math.min(22, (W - m.l - m.r) / nn * .72));
       pts.forEach((p, k) => { const y0 = Y(0), y1 = Y(p.v), up = p.v >= 0; s += `<rect class="eco-bar" x="${(X(p.i) - bw / 2).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(y1 - y0)).toFixed(1)}" rx="${Math.min(3, bw / 2)}" fill="${up ? "#34d399" : "#fb7185"}" style="transform-origin:center ${up ? "bottom" : "top"};transform-box:fill-box;animation-delay:${Math.min(900, k * 6)}ms"/>`; });
       fcv.forEach(q => { const y0 = Y(0), y1 = Y(q.v), up = q.v >= 0; s += `<rect x="${(X(q.i) - bw / 2).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(y1 - y0)).toFixed(1)}" rx="${Math.min(3, bw / 2)}" fill="${up ? "#34d399" : "#fb7185"}" fill-opacity=".22" stroke="${up ? "#34d399" : "#fb7185"}" stroke-dasharray="3 3"/>`; });
       if (fcv.length) s += `<line x1="${X(n - 1).toFixed(1)}" x2="${X(n - 1).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" class="eco-ch"/><text x="${(X(n - 1) + 6).toFixed(1)}" y="${m.t + 10}" class="eco-ax">pronóstico →</text>`;
       s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#94a3b8" stroke-opacity=".6"/>`;
     } else {
+      if (mode === "ambas") {
+        const yv = d.map((o, i) => ({ i, v: SM ? SM.y[off + i] : o.yoy })).filter(q => q.v != null), fy2 = (FC || []).map((q, k) => ({ i: n + k, v: q.yoy })).filter(q => q.v != null), all2 = yv.concat(fy2).map(q => q.v);
+        let ylo = Math.min(0, ...all2), yhi = Math.max(0, ...all2); const yp = (yhi - ylo) * .1 || 1; ylo -= yp; yhi += yp; const Y2 = v => m.t + (1 - (v - ylo) / (yhi - ylo)) * (H - m.t - m.b), bw2 = Math.max(1.4, Math.min(18, (W - m.l - m.r) / nn * .7)), t2 = ticksN(ylo, yhi, 4), d2 = tdec(t2);
+        yv.forEach((q, k) => { const y0 = Y2(0), y1 = Y2(q.v), up = q.v >= 0; s += `<rect class="eco-bar" x="${(X(q.i) - bw2 / 2).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw2.toFixed(1)}" height="${Math.max(1, Math.abs(y1 - y0)).toFixed(1)}" rx="${Math.min(2, bw2 / 2)}" fill="${up ? "#34d399" : "#fb7185"}" fill-opacity=".34" style="transform-origin:center ${up ? "bottom" : "top"};transform-box:fill-box;animation-delay:${Math.min(700, k * 5)}ms"/>`; });
+        fy2.forEach(q => { const y0 = Y2(0), y1 = Y2(q.v), up = q.v >= 0; s += `<rect x="${(X(q.i) - bw2 / 2).toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw2.toFixed(1)}" height="${Math.max(1, Math.abs(y1 - y0)).toFixed(1)}" rx="${Math.min(2, bw2 / 2)}" fill="${up ? "#34d399" : "#fb7185"}" fill-opacity=".14" stroke="${up ? "#34d399" : "#fb7185"}" stroke-opacity=".6" stroke-dasharray="2 2"/>`; });
+        s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y2(0).toFixed(1)}" y2="${Y2(0).toFixed(1)}" stroke="#94a3b8" stroke-opacity=".45" stroke-dasharray="1 4"/>` + t2.map(v => `<text x="${W - m.r + 8}" y="${(Y2(v) + 4).toFixed(1)}" class="eco-ax" style="fill:#fbbf24">${nf(v, d2)}${I.dif ? "" : "%"}</text>`).join("") + `<text x="${W - m.r + 8}" y="${m.t - 4}" class="eco-ax" style="fill:#fbbf24;font-weight:700">var. anual</text>`;
+      }
       const line = pts.map((p, k) => (k ? "L" : "M") + X(p.i).toFixed(1) + " " + Y(p.v).toFixed(1)).join(""), yb = base != null ? base : H - m.b;
       s += `<path d="${line}L${X(pts[pts.length - 1].i).toFixed(1)} ${yb.toFixed(1)}L${X(pts[0].i).toFixed(1)} ${yb.toFixed(1)}Z" fill="url(#ecoAr)" class="eco-area"/>`;
       if (I.th50) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(I.thr).toFixed(1)}" y2="${Y(I.thr).toFixed(1)}" stroke="#e2e8f0" stroke-opacity=".55" stroke-dasharray="5 5"/><text x="${W - m.r - 4}" y="${(Y(I.thr) - 6).toFixed(1)}" class="eco-ax" text-anchor="end">${I.thr === 100 ? "tendencia = 100" : "umbral neutral 50"}</text>`;
+      if (SM) s += `<path d="${pts.filter(p => p.raw != null).map((p, k) => (k ? "L" : "M") + X(p.i).toFixed(1) + " " + Y(p.raw).toFixed(1)).join("")}" fill="none" stroke="${I.col}" stroke-width="1.2" stroke-opacity=".32" stroke-linejoin="round"/>`;
       s += `<path d="${line}" pathLength="1" class="eco-ln" fill="none" stroke="${I.th50 ? "url(#ecoLn)" : I.col}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" filter="url(#ecoGl)"/>`;
       if (fcv.length) { const a0 = pts[pts.length - 1], P0 = `${X(a0.i).toFixed(1)} ${Y(a0.v).toFixed(1)}`, up = fcv.map(q => `L${X(q.i).toFixed(1)} ${Y(q.hi != null ? q.hi : q.v).toFixed(1)}`).join(""), dn = fcv.slice().reverse().map(q => `L${X(q.i).toFixed(1)} ${Y(q.lo != null ? q.lo : q.v).toFixed(1)}`).join("");
         s += `<path d="M${P0}${up}${dn}Z" fill="${I.col}" fill-opacity=".13"/><path d="M${P0}${fcv.map(q => `L${X(q.i).toFixed(1)} ${Y(q.v).toFixed(1)}`).join("")}" fill="none" stroke="${I.col}" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 7"/><line x1="${X(n - 1).toFixed(1)}" x2="${X(n - 1).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" class="eco-ch"/><text x="${(X(n - 1) + 6).toFixed(1)}" y="${m.t + 10}" class="eco-ax">pronóstico →</text>`; }
@@ -180,7 +212,7 @@
       const r = hit.getBoundingClientRect(), cx = (e.touches ? e.touches[0].clientX : e.clientX), i = Math.round((cx - r.left) / r.width * (nn - 1));
       let best = ALL[0]; ALL.forEach(p => { if (Math.abs(p.i - i) < Math.abs(best.i - i)) best = p; });
       g.style.display = ""; ln.setAttribute("x1", X(best.i)); ln.setAttribute("x2", X(best.i)); dot.setAttribute("cx", X(best.i)); dot.setAttribute("cy", Y(best.v));
-      tip(best.fc ? tipF(I, best.fc, st.mode) : tipI(I, best.o), e.touches ? e.touches[0] : e);
+      tip(best.fc ? tipF(I, best.fc, mode) : tipI(I, best.o) + (SM && best.v != null ? `<div class="tp-r nu">${SUAV[st.suav][0]}: <b>${mode === "anual" ? fy(I, best.v) : fv(I, best.v)}</b></div>` : ""), e.touches ? e.touches[0] : e);
     };
     hit.onmouseleave = () => { g.style.display = "none"; tip(null); };
   }
@@ -283,7 +315,7 @@
       ${kpi("Mínimo histórico", fv(I, I.min), esc(I.minO.l))}
       ${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "según el reloj económico") : ""}
     </div>
-    <div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${I.fc && prono(I) ? `<button type="button" id="ecoFc" class="eco-fcb${S.serie.fc === false ? "" : " on"}" title="Pronóstico estadístico (línea punteada)">⋯ Pronóstico</button>` : ""}<div class="eco-tabs" id="ecoMode"><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>
+    <div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${I.fc && prono(I) ? `<button type="button" id="ecoFc" class="eco-fcb${S.serie.fc === false ? "" : " on"}" title="Pronóstico estadístico (línea punteada)">⋯ Pronóstico</button>` : ""}<div class="eco-tabs" id="ecoMode"><button data-m="ambas" class="${S.serie.mode === "ambas" ? "on" : ""}">Nivel + var. anual</button><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>
     <div class="eco-two"><div class="eco-panel"><div class="eco-ph"><h3>Reloj económico</h3><span class="eco-hint">trayectoria reciente: nivel vs tendencia e impulso</span></div><div id="ecoClock"></div></div>
     <div class="eco-panel"><div class="eco-ph"><h3>${I.ppy === 1 ? "Distribución histórica" : "Estacionalidad · año × " + (I.ppy === 12 ? "mes" : "trimestre")}</h3></div><div id="ecoEst"></div></div></div>
     <div class="eco-panel"><div class="eco-ph"><h3>Ficha del indicador</h3></div><dl class="eco-meta">${meta.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>`;
@@ -434,7 +466,7 @@
   }
   function panelSerie(I) {
     const rng = [["1A", 12], ["3A", 36], ["5A", 60], ["10A", 120], ["Todo", 0]].filter(([, m]) => !m || m * I.ppy / 12 < I.s.length); if (!rng.some(([, m]) => m === S.serie.rango)) S.serie.rango = 0;
-    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${I.fc && prono(I) ? `<button type="button" id="ecoFc" class="eco-fcb${S.serie.fc === false ? "" : " on"}" title="Pronóstico estadístico (línea punteada)">⋯ Pronóstico</button>` : ""}<div class="eco-tabs" id="ecoMode"><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>`;
+    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${I.fc && prono(I) ? `<button type="button" id="ecoFc" class="eco-fcb${S.serie.fc === false ? "" : " on"}" title="Pronóstico estadístico (línea punteada)">⋯ Pronóstico</button>` : ""}<div class="eco-tabs" id="ecoMode"><button data-m="ambas" class="${S.serie.mode === "ambas" ? "on" : ""}">Nivel + var. anual</button><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>`;
   }
   function pintaSerie(I) {
     draws.push(() => drawSerie($("#ecoMain"), I));
@@ -693,6 +725,7 @@
       <p><b>De dónde sale el ciclo.</b></p><ul>
         <li><em class="eco-cyb ofi">ciclo oficial</em> Series «Ciclo» del <i>Sistema de Indicadores Cíclicos</i> del INEGI (indicador coincidente, adelantado y sus componentes). El ciclo viene en puntos, con 100 = tendencia: <i>nivel</i> = (ciclo − 100) ÷ su desviación estándar histórica; <i>impulso</i> = cambio del nivel en 3 meses.</li>
         <li><em class="eco-cyb tcb">deriv. de tend.-ciclo</em> IGAE por sector, actividad industrial y ITAEE estatal: el INEGI publica su serie de <i>tendencia-ciclo</i> (ya desestacionalizada y suavizada). El ciclo es la desviación (%) de esa tendencia-ciclo respecto de su tendencia de largo plazo, estimada con el filtro de Hodrick-Prescott (λ = 129,600 mensual; 1,600 trimestral). Los datos más recientes son menos firmes (efecto de extremo del filtro y revisiones del INEGI).</li>
+        <li><b>Series contracíclicas.</b> La desocupación sube cuando la economía se debilita; por eso su ciclo se <i>invierte</i> (menos desocupación = por encima de la tendencia) para que “Expansión” siempre signifique mejor situación económica.</li>
         <li><b>No aplicable.</b> Precios (INPC), saldos que cruzan por cero, variaciones anuales, series sin tendencia-ciclo y las ciudades no se grafican: su comportamiento no es un ciclo alrededor de una tendencia y la lectura engañaría.</li></ul>
       <p><b>Teoría en breve.</b> El ciclo económico se mide sobre el componente cíclico de indicadores <i>coincidentes</i> (actividad, empleo, ventas) y <i>adelantados</i> (expectativas, mercados, comercio exterior): se quita la estacionalidad, se separa la tendencia de largo plazo y se mira la desviación. Aplicar el mismo método a series con tendencia dominante (como los precios) deja a la serie atrapada en Expansión y Desaceleración.</p></div></details>`;
     const svg = $("#ecoCySvg", el), g = $("#ecoCyG", el), btn = $("#ecoCyP", el), sl = $("#ecoCyS", el);
@@ -812,6 +845,7 @@
     tema(ls.get("eco_tema", "oscuro")); $("#ecoTema", host).onclick = () => { tema($("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"); rer(); };
     $("#ecoQ", host).oninput = e => { S.q = e.target.value; arbol(); };
     host.onclick = e => { const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
+    host.onchange = e => { if (e.target.id === "ecoSm") { S.serie.suav = e.target.value; if (S.curI) drawSerie($("#ecoMain"), S.curI); } };
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
   window.ecolabInit = function () {

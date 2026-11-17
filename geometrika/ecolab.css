@@ -241,3 +241,6 @@
 .eco-cyb.ofi{background:rgba(34,211,238,.16);color:#22d3ee}.eco-cyb.tcb{background:rgba(167,139,250,.18);color:#c4b5fd}
 .eco-light .eco-cyb.ofi{background:#cffafe;color:#0e7490}.eco-light .eco-cyb.tcb{background:#ede9fe;color:#6d28d9}
 .eco-cyrb ul{margin:6px 0 6px 18px;padding:0}.eco-cyrb li{margin:6px 0}.eco-cyt small{color:#94a3b8;font-weight:400}
+.eco-sm select{border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.9);color:#e2e8f0;border-radius:10px;padding:6px 10px;font:600 12px system-ui,sans-serif;cursor:pointer;outline:none}
+.eco-sm select:focus{border-color:#22d3ee}
+.eco-light .eco-sm select{background:#fff;color:#0f172a;border-color:#cbd5e1}
