@@ -4,6 +4,8 @@
   "use strict";
   const EMB = (() => { try { return new URLSearchParams(location.search).get("emb") === "1" && window.parent !== window; } catch (_) { return false; } })();
   const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab"><i>🛰️</i><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""}><i>📈</i><b>EcoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""}><i>🗄️</i><b>DataLab</b></button></div>` : "";
+  const dNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
+  const dlWin = (o, t) => { if (!EMB) return; const a = document.getElementById("dlApp"); if (!a) return; a.classList.toggle("dl-open", o); if (t) { const w = document.getElementById("dlWT"); if (w) w.textContent = t; } dNotif(o); };
   const glIr = e => { const gt = e.target.closest("#glTabs button"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v }, location.origin); } catch (_) { } return true; };
   const $ = (s, r) => (r || document).querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -47,7 +49,7 @@
         <a class="dl-btn dl-go" id="dlIrGeo" href="index.html?s=geo" target="_blank" rel="noopener" title="Abrir Geo Lab en una ventana nueva"><img src="geometrika-logo-claro.png" alt=""><span class="lg">Ir a Geo Lab</span><span class="sh">Geo Lab</span></a>
         <button class="dl-btn" id="dlSalir" type="button"><span class="lg">Cerrar sesión</span><span class="sh">Salir</span></button>
       </header>
-      <div class="dl-body">
+      <div class="dl-body">${EMB ? '<div class="dl-wbar"><b id="dlWT">Data Lab</b><button type="button" class="dl-wx" id="dlWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}
         <aside class="dl-side" id="dlSide" aria-label="Menú de Data Lab">
           ${glTabs("data")}<div class="dl-side-t">Menú</div>
           <button class="dl-nav on" type="button" data-sec="fuentes" title="Fuente de datos"><span class="ic">🗄️</span><span class="tx">Fuente de datos</span><span class="bd">${tot}</span></button>
@@ -57,14 +59,15 @@
         <main class="dl-main" id="dlMain"><div class="dl-wrap" id="dlWrap"></div></main>
       </div><div class="dl-ov" id="dlOv"></div><aside class="dl-dr" id="dlDr" aria-hidden="true" aria-label="Crear indicador"></aside></div>`;
     const app = $("#dlApp", host); if (EMB) { app.classList.add("dl-emb"); host.addEventListener("click", glIr); }
-    if (innerWidth < 900 || ls.get("dl_side", "on") === "off") app.classList.add("dl-off");   // en celular siempre inicia cerrado
+    if (!EMB && (innerWidth < 900 || ls.get("dl_side", "on") === "off")) app.classList.add("dl-off");   // en celular siempre inicia cerrado
     $("#dlBurger", host).onclick = () => { app.classList.toggle("dl-off"); if (innerWidth >= 900) ls.set("dl_side", app.classList.contains("dl-off") ? "off" : "on"); };
     $("#dlSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();
     
     $("#dlMain", host).addEventListener("scroll", () => { const f = $(".dl-fl", host); if (f) f.classList.toggle("st", $("#dlMain", host).scrollTop > 140); }, { passive: true });
     host.addEventListener("click", clic); host.addEventListener("input", entrada); host.addEventListener("change", cambia);
     // en pantallas angostas el menú es un cajón: se cierra al elegir una sección
-    $("#dlSide", host).addEventListener("click", e => { const n = e.target.closest(".dl-nav"); if (!n) return; ir(n.dataset.sec); if (innerWidth < 900) app.classList.add("dl-off"); });
+    $("#dlSide", host).addEventListener("click", e => { const n = e.target.closest(".dl-nav"); if (!n) return; ir(n.dataset.sec); if (EMB) dlWin(true, n.title || "Data Lab"); else if (innerWidth < 900) app.classList.add("dl-off"); });
+    if (EMB) { $("#dlWX", host).onclick = () => dlWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") dlWin(false); }); }
   }
 
   function fuentes() {

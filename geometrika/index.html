@@ -7,7 +7,9 @@
 <title>Geo Lab · Data Lab · EcoLab</title>
 <link rel="icon" href="geometrika-logo.png?v=2409">
 <link rel="stylesheet" href="geometrika.css?v=2504">
+<script>if(/[?&]emb=1/.test(location.search))document.documentElement.classList.add("emb");</script>
 <style>
+html.emb,html.emb body{background:transparent!important}
 html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a}
 .gp-login{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 20% 20%,#312e81,transparent 55%),radial-gradient(circle at 80% 80%,#0e7490,transparent 55%),#0b1020}
 .gp-login.hidden{display:none}
@@ -52,7 +54,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card dl" data-sys="data">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=10f677ef" alt="Data Lab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=a6d28e63" alt="Data Lab"></div>
         <h2>Sistema de Datos y Fuentes</h2>
         <p class="s">acceso restringido</p>
       </div>
@@ -102,12 +104,12 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=05f3c854"; document.head.appendChild(l);
-    gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=05f3c854", () => window.ecolabInit && window.ecolabInit()));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=69eb0a00"; document.head.appendChild(l);
+    gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=69eb0a00", () => window.ecolabInit && window.ecolabInit()));
   } else if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=10f677ef"; document.head.appendChild(l);
-    gpCarga("datalab-fuentes.js?v=10f677ef", () => gpCarga("datalab-indicadores.js?v=10f677ef", () => gpCarga("datalab-geo.js?v=10f677ef", () => gpCarga("datalab.js?v=10f677ef", () => window.datalabInit && window.datalabInit()))));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=a6d28e63"; document.head.appendChild(l);
+    gpCarga("datalab-fuentes.js?v=a6d28e63", () => gpCarga("datalab-indicadores.js?v=a6d28e63", () => gpCarga("datalab-geo.js?v=a6d28e63", () => gpCarga("datalab.js?v=a6d28e63", () => window.datalabInit && window.datalabInit()))));
   } else {
     document.getElementById("geometrika-host").style.display = "";
     gpCarga("geometrika.js?v=2504", () => window.geometrikaInit && window.geometrikaInit());

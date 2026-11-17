@@ -225,8 +225,8 @@
   #tt .lab-tabs button:hover{background:rgba(99,102,241,.22);color:#fff}
   #tt .lab-tabs button.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.45)}
   html:not(.tema-osc) #tt .lab-tabs{background:rgba(15,23,42,.07)}html:not(.tema-osc) #tt .lab-tabs button{color:#475569}html:not(.tema-osc) #tt .lab-tabs button:hover{background:rgba(99,102,241,.14);color:#3730a3}html:not(.tema-osc) #tt .lab-tabs button.on{color:#fff}
-  #lab-ov{position:fixed;inset:0;z-index:2147483000;display:none;background:#080d1c}#lab-ov.on{display:block}
-  #lab-ov iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:none;background:#080d1c}#lab-ov iframe.on{display:block}
+  #lab-ov{position:fixed;inset:0;z-index:2147483000;display:none;pointer-events:none}#lab-ov.on{display:block}
+  #lab-ov iframe{position:absolute;left:0;top:0;width:404px;height:100%;border:0;display:none;background:transparent;pointer-events:auto;color-scheme:normal}#lab-ov iframe.on{display:block}
 </style>
 </head>
 <body>
@@ -240,18 +240,25 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
 </script>
 <div id="lab-ov"></div>
 <script>
-/* pestañas GeoLab · EcoLab · DataLab: EcoLab y DataLab se abren a pantalla completa dentro de esta ventana (iframes que se crean al primer uso). Cada uno trae sus mismas pestañas y avisa por postMessage. */
+/* pestañas GeoLab · EcoLab · DataLab. EcoLab y DataLab se montan en un iframe transparente: primero solo su menú en la columna izquierda (404 px, como el dock) y, al elegir una opción, el propio sistema pide por postMessage ensanchar el iframe para mostrar su ventana flotante a la derecha; el mapa/maqueta de fondo nunca se oculta. */
 (function () {
-  var ov = document.getElementById('lab-ov'), tabs = document.getElementById('lab-tabs'), URL = { eco: '/geometrika/index.html?s=eco&emb=1', data: '/geometrika/index.html?s=data&emb=1' }, fr = {};
+  var ov = document.getElementById('lab-ov'), tabs = document.getElementById('lab-tabs'), URL = { eco: '/geometrika/index.html?s=eco&emb=1', data: '/geometrika/index.html?s=data&emb=1' }, fr = {}, abierta = {}, COL = 404;
+  function ancho(k) { var w = Math.max(520, Math.min(1050, Math.round((innerWidth - COL) * 0.7))); return abierta[k] ? Math.min(innerWidth, COL + 12 + w + 12) : COL; }
+  function medida() { Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; }); }
   function ir(v) {
     if (v !== 'geo' && !URL[v]) return;
-    if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EcoLab' : 'DataLab'; ov.appendChild(f); fr[v] = f; }
+    if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EcoLab' : 'DataLab'; f.setAttribute('allowtransparency', 'true'); ov.appendChild(f); fr[v] = f; medida(); }
     Object.keys(fr).forEach(function (k) { fr[k].classList.toggle('on', k === v); });
     ov.classList.toggle('on', v !== 'geo');
-    if (tabs) [].forEach.call(tabs.querySelectorAll('button'), function (b) { var on = b.dataset.lab === (v === 'geo' ? 'geo' : v); b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    if (tabs) [].forEach.call(tabs.querySelectorAll('button'), function (b) { var on = b.dataset.lab === v; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   }
   if (tabs) tabs.addEventListener('click', function (e) { var b = e.target.closest('button[data-lab]'); if (b) ir(b.dataset.lab); });
-  window.addEventListener('message', function (e) { if (e.origin !== location.origin) return; var d = e.data; if (d && d.gl === 'tab') ir(d.v); });
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin) return; var d = e.data; if (!d) return;
+    if (d.gl === 'tab') ir(d.v);
+    else if (d.gl === 'win') Object.keys(fr).forEach(function (k) { if (fr[k].contentWindow === e.source) { abierta[k] = !!d.open; medida(); } });
+  });
+  window.addEventListener('resize', medida);
   window.labTab = ir;
 })();
 </script>

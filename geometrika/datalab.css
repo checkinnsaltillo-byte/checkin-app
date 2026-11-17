@@ -287,3 +287,19 @@
 .gl-tabs button.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.4)}
 .dl-emb #dlIrGeo,.dl-emb #dlSalir{display:none}
 .dl-app.dl-off .gl-tabs{flex-direction:column;margin:0 0 8px}.dl-app.dl-off .gl-tabs button{padding:6px 0}.dl-app.dl-off .gl-tabs button b{display:none}
+
+/* ── modo «ventana» dentro de la maqueta: menú en columna izquierda y contenido en una ventana flotante con X ── */
+html.emb .dl-app,.dl-emb{background:transparent!important}
+.dl-emb .dl-top{position:absolute;left:0;top:0;width:404px;height:56px;z-index:3;gap:8px;padding:0 12px}
+.dl-emb .dl-brand,.dl-emb .dl-chip,.dl-emb #dlIrGeo,.dl-emb #dlSalir,.dl-emb .dl-burger{display:none!important}
+.dl-emb .dl-body{position:absolute;inset:0;display:block}
+.dl-emb .dl-side{position:absolute!important;left:0;top:0;bottom:0;width:404px!important;flex-basis:404px;padding:66px 12px 14px;transform:none!important;box-shadow:8px 0 30px rgba(15,23,42,.18);z-index:2;display:flex}
+.dl-emb .dl-side-t,.dl-emb .dl-nav .tx,.dl-emb .dl-nav .bd,.dl-emb .dl-side-f{display:revert!important}
+.dl-emb .dl-nav{justify-content:flex-start!important;padding:10px 12px!important}
+.dl-emb .dl-wbar,.dl-emb .dl-main{display:none}
+.dl-emb.dl-open .dl-wbar{display:flex}.dl-emb.dl-open .dl-main{display:block}
+.dl-emb .dl-wbar{position:absolute;left:416px;right:12px;top:12px;height:46px;align-items:center;gap:10px;padding:0 10px 0 18px;border-radius:16px 16px 0 0;background:#fff;border:1px solid #cbd5e1;z-index:2;box-shadow:0 -4px 30px rgba(15,23,42,.18)}
+.dl-wbar b{flex:1;min-width:0;font-size:14.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0f172a}
+.dl-wx{flex:none;width:32px;height:32px;border-radius:50%;border:0;background:#e2e8f0;color:#334155;font-size:15px;cursor:pointer;transition:.15s}
+.dl-wx:hover{background:#ef4444;color:#fff}
+.dl-emb .dl-main{position:absolute;left:416px;right:12px;top:58px;bottom:12px;overflow:auto;border-radius:0 0 16px 16px;background:var(--bg);border:1px solid #cbd5e1;border-top:0;box-shadow:0 24px 60px rgba(15,23,42,.35)}

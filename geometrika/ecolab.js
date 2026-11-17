@@ -4,6 +4,8 @@
   "use strict";
   const EMB = (() => { try { return new URLSearchParams(location.search).get("emb") === "1" && window.parent !== window; } catch (_) { return false; } })();
   const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab"><i>🛰️</i><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""}><i>📈</i><b>EcoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""}><i>🗄️</i><b>DataLab</b></button></div>` : "";
+  const eNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
+  const ecoWin = o => { if (!EMB) return; const a = document.getElementById("ecoApp"); if (!a) return; a.classList.toggle("eco-open", o); eNotif(o); };
   const glIr = e => { const gt = e.target.closest("#glTabs button"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v }, location.origin); } catch (_) { } return true; };
   const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -819,6 +821,7 @@
     else if (id.startsWith("a:")) { const a = AREAS.find(x => x.n === id.slice(2)); if (!a) return ir("cat"); S.open.add(id); const l = a.g.flatMap(g => g.i); main.innerHTML = vistaPano(a.n, `<span class="eco-pill" style="--c:${a.col}">${a.g.length} grupos</span><span class="eco-pill">${l.length} indicadores</span>`, l, `<a data-go="home">Panorama</a>`); pintaPano(l); }
     else { S.sel = "cat"; main.innerHTML = vistaHome(); draws.push(() => mapaCiclo($("#ecoMapa"))); }
     draws.forEach(f => f()); main.scrollTop = 0; arbol(); $("#ecoApp").classList.remove("eco-menu");
+    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EcoLab"; }
   }
   function arbolCat() {
     const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), pasa = I => !ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w));
@@ -869,17 +872,18 @@
         <span class="eco-chip" title="Datos descargados de la API del INEGI">Datos: ${esc((D.generado || "").slice(0, 10))}</span>
         <button class="eco-theme" id="ecoTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="ecoCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="ecoSalir" type="button">Salir</button></header>
       <div class="eco-body"><aside class="eco-side">${glTabs("eco")}<div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
-      <main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
+      ${EMB ? '<div class="eco-wbar"><b id="ecoWT">EcoLab</b><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
     tipEl = document.createElement("div"); tipEl.className = "eco-tip"; document.body.appendChild(tipEl);
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
-    $("#ecoSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR(); $("#ecoCambia", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
+    $("#ecoSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();
+    if (EMB) { $("#ecoWX", host).onclick = () => ecoWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") ecoWin(false); }); } $("#ecoCambia", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
     const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"; ls.set("eco_tema", c); };
     tema(ls.get("eco_tema", "oscuro")); $("#ecoTema", host).onclick = () => { tema($("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"); rer(); };
     $("#ecoQ", host).oninput = e => { S.q = e.target.value; arbol(); };
     host.onclick = e => { if (glIr(e)) return; const ck = e.target.closest(".eco-ck"); if (ck) { const k = ck.dataset.k, st = S.serie, vn = st.vn !== false, va = st.va !== false;
         if (k === "nivel" || k === "anual" || k === "mom") { const cur = { nivel: vn, anual: va, mom: st.vm === true }, nx = Object.assign({}, cur, { [k]: !cur[k] }); if (nx.nivel || nx.anual || nx.mom) { st.vn = nx.nivel; st.va = nx.anual; st.vm = nx.mom; } } else if (k === "fc") st.fc = st.fc === false; else if (k === "og") st.og = st.og === false;
         $$("#ecoMode .eco-ck").forEach(b => b.querySelector(".eco-ckb").classList.toggle("on", ckOn(b.dataset.k))); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; }
-      const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
+      const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) { ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); ecoWin(true); return; } const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) { ir(g.dataset.go); ecoWin(true); } };
     host.onchange = e => { if (e.target.id === "ecoSm") { S.serie.suav = e.target.value; const gk = $("#ecoMode"); if (gk && S.curI) gk.outerHTML = serieChecks(S.curI); if (S.curI) drawSerie($("#ecoMain"), S.curI); } };
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
