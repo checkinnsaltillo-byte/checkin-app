@@ -825,8 +825,8 @@
     if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EconoLab"; }
   }
   function arbolCat() {
-    const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), pasa = I => !ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w));
-    let h = `<button type="button" class="eco-n eco-n0${S.sel === "cat" ? " on" : ""}" data-go="cat"><span class="ic">🗂️</span><span class="tx">Catálogo completo</span><span class="bd">${IND.length}</span></button>`, any = false;
+    const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), F = ctxF(), pasa = I => (!F || !F.giro || (I.sectores && I.sectores.includes(F.giro))) && (!ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w)));
+    let h = ctxBar() + `<button type="button" class="eco-n eco-n0${S.sel === "cat" ? " on" : ""}" data-go="cat"><span class="ic">🗂️</span><span class="tx">Catálogo completo</span><span class="bd">${F && F.giro ? IND.filter(pasa).length : IND.length}</span></button>`, any = false;
     AREAS.forEach(a => {
       const gs = a.g.map(g => ({ g, i: g.i.filter(pasa) })).filter(x => x.i.length); if (!gs.length) return; any = true;
       const op = q ? true : S.open.has("a:" + a.n), tot = gs.reduce((s, x) => s + x.i.length, 0);
@@ -839,20 +839,20 @@
   }
 
   function arbolMon() {
-    const q = norm(S.q.trim()), on = id => S.sel === id ? " on" : "";
-    let h = `<button type="button" class="eco-n eco-n0${on("nac")}" data-go="nac"><span class="ic">🌐</span><span class="tx">Panorama global</span><span class="bd">MX</span></button>`;
+    const q = norm(S.q.trim()), on = id => S.sel === id ? " on" : "", F = ctxF();
+    let h = ctxBar() + `<button type="button" class="eco-n eco-n0${on("nac")}" data-go="nac"><span class="ic">🌐</span><span class="tx">Panorama global</span><span class="bd">MX</span></button>`;
     const opR = q || S.open.has("R");
     h += `<div class="eco-ar" style="--c:#22d3ee"><div class="eco-n eco-n1${on("reg")}"><button type="button" class="tg" data-tg="R" aria-label="Desplegar">${opR ? "▾" : "▸"}</button><button type="button" class="nm" data-go="reg"><i></i><span class="tx">Regiones y estados</span><span class="bd">32</span></button></div>`;
-    if (opR) ZONAS.forEach((z, i) => { const es = ENT.filter(e => e[5] === i && (!q || norm(e[1] + " " + z[0]).includes(q))); if (!es.length) return; const zo = q || S.open.has("z:" + i);
+    if (opR) ZONAS.forEach((z, i) => { const es = ENT.filter(e => e[5] === i && (!q || norm(e[1] + " " + z[0]).includes(q)) && (!F || !F.ent || e[0] === F.ent)); if (!es.length) return; const zo = q || S.open.has("z:" + i);
       h += `<div class="eco-n eco-n2${on("z:" + i)}" style="--c:${z[1]}"><button type="button" class="tg" data-tg="z:${i}" aria-label="Desplegar">${zo ? "▾" : "▸"}</button><button type="button" class="nm" data-go="z:${i}"><span class="tx">${z[0]}</span><span class="bd">${es.length}</span></button></div>`;
       if (zo) es.forEach(e => { h += `<button type="button" class="eco-n eco-n3${on("e:" + e[0])}" data-go="e:${e[0]}"><span class="tx">${e[1]}</span></button>`; }); });
     h += `</div>`;
-    const opC = q || S.open.has("CI"), cs = CIU.filter(c => !q || norm(c[1] + " " + ENTBY[c[2]][1]).includes(q)).sort((a, b) => a[1].localeCompare(b[1], "es"));
+    const opC = q || S.open.has("CI"), cs = CIU.filter(c => (!q || norm(c[1] + " " + ENTBY[c[2]][1]).includes(q)) && (!F || !F.ent || c[2] === F.ent || c[0] === F.city)).sort((a, b) => a[1].localeCompare(b[1], "es"));
     if (cs.length) { h += `<div class="eco-ar" style="--c:#34d399"><div class="eco-n eco-n1${on("ciu")}"><button type="button" class="tg" data-tg="CI" aria-label="Desplegar">${opC ? "▾" : "▸"}</button><button type="button" class="nm" data-go="ciu"><i></i><span class="tx">Ciudades</span><span class="bd">${CIU.length}</span></button></div>`;
       if (opC) cs.forEach(c => { h += `<button type="button" class="eco-n eco-n3${on("c:" + c[0])}" data-go="c:${c[0]}"><span class="tx">${esc(c[1])}</span></button>`; }); h += `</div>`; }
     const opS = q || S.open.has("SC");
     h += `<div class="eco-ar" style="--c:#fbbf24"><div class="eco-n eco-n1${on("sec")}"><button type="button" class="tg" data-tg="SC" aria-label="Desplegar">${opS ? "▾" : "▸"}</button><button type="button" class="nm" data-go="sec"><i></i><span class="tx">Sectores económicos</span><span class="bd">${SEC.length}</span></button></div>`;
-    if (opS) [1, 2, 3].forEach(t => { const l = SEC.filter(s => s.t === t && (!q || norm(s.n + " " + TIER[t][0]).includes(q))); if (!l.length) return; const to = q || S.open.has("t:" + t);
+    if (opS) [1, 2, 3].forEach(t => { const l = SEC.filter(s => s.t === t && (!q || norm(s.n + " " + TIER[t][0]).includes(q)) && (!F || !F.giro || s.k === F.giro)); if (!l.length) return; const to = q || S.open.has("t:" + t);
       h += `<div class="eco-n eco-n2"><button type="button" class="tg" data-tg="t:${t}" aria-label="Desplegar">${to ? "▾" : "▸"}</button><button type="button" class="nm" data-tg="t:${t}"><span class="tx">${TIER[t][2]} ${TIER[t][0]}</span><span class="bd">${l.length}</span></button></div>`;
       if (to) l.forEach(s => { h += `<button type="button" class="eco-n eco-n3${on("s:" + s.k)}" data-go="s:${s.k}"><span class="tx">${s.ic} ${esc(s.n)}</span></button>`; }); });
     h += `</div>`;
@@ -888,8 +888,32 @@
     host.onchange = e => { if (e.target.id === "ecoSm") { S.serie.suav = e.target.value; const gk = $("#ecoMode"); if (gk && S.curI) gk.outerHTML = serieChecks(S.curI); if (S.curI) drawSerie($("#ecoMain"), S.curI); } };
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
+
+  /* ───────── contexto del proyecto: lugar del pin + giro de interés (los manda el encabezado de GeoLab) ───────── */
+  const ctxF = () => S.ctx && S.ctxOn !== false && (S.ctx.ent || S.ctx.giro) ? S.ctx : null;
+  function ctxBar() {
+    const c = S.ctx; if (!c || !(c.ent || c.giro)) return "";
+    const lug = c.ent ? (c.city ? CBY[c.city][1] + ", " : "") + ENTBY[c.ent][1] : "", gi = c.giro && SECBY[c.giro] ? SECBY[c.giro].ic + " " + SECBY[c.giro].n : "", on = S.ctxOn !== false;
+    return `<div class="eco-ctx${on ? " on" : ""}"><div class="eco-ctx-t">${on ? "Filtrado por" : "Filtro desactivado"}</div>${lug ? `<div class="eco-ctx-l">📍 ${esc(lug)}</div>` : ""}${gi ? `<div class="eco-ctx-l">${esc(gi)}</div>` : ""}<button type="button" class="eco-ctx-b" data-ctx="tog">${on ? "Ver todo" : "Aplicar filtro"}</button></div>`;
+  }
+  function resuelveCtx(m) {
+    const gname = norm(m.estado || ""), ent = m.ent && ENTBY[m.ent] ? ENTBY[m.ent] : gname ? ENT.filter(e => gname.includes(norm(e[1]))).sort((a, b) => b[1].length - a[1].length)[0] : null;
+    let city = null; const names = [m.ciudad, m.municipio].filter(Boolean).map(norm);
+    if (isFinite(m.lat) && isFinite(m.lng)) { let best = 1e9; CIU.forEach(c => { const xy = CIU_XY[c[0]]; if (!xy) return; const dy = (xy[0] - m.lat) * 111, dx = (xy[1] - m.lng) * 111 * Math.cos(m.lat * Math.PI / 180), d = Math.hypot(dx, dy); if (d < best && d < 45) { best = d; city = c[0]; } }); }
+    if (!city) { const c = CIU.find(c => names.some(n => n && (norm(c[1]).includes(n) || n.includes(norm(c[1]))))); if (c) city = c[0]; }
+    let entCode = ent ? ent[0] : (city ? CBY[city][2] : null); if (city && entCode && CBY[city][2] !== entCode) city = null;
+    return { ent: entCode, city, giro: SECBY[m.giro] ? m.giro : "" };
+  }
+  function aplicaCtx(m) {
+    const n = resuelveCtx(m), o = S.ctx || {}, lugCambia = n.ent !== o.ent || n.city !== o.city, giroCambia = n.giro !== o.giro;
+    S.ctx = n; if (!lugCambia && !giroCambia) return; if (n.ent) { S.open.add("R"); S.open.add("z:" + ENTBY[n.ent][5]); S.open.add("CI"); } if (S.ctxOn === false && (n.ent || n.giro)) S.ctxOn = true;
+    if (giroCambia && n.giro && !lugCambia) ir("s:" + n.giro);
+    else if (lugCambia && n.city) ir("c:" + n.city); else if (lugCambia && n.ent) ir("e:" + n.ent); else arbol();
+  }
   window.ecolabInit = function () {
     host = document.getElementById("ecolab-host"); carga(); cargaMon(); cargaCiu(); S.metric = "itaee_yoy"; ["SC", "t:1", "t:2", "t:3"].forEach(k => S.open.add(k)); shell();
     let s = ls.get("eco_sel", "nac"); if (s.startsWith("i:") && !BYID[s.slice(2)]) s = "nac"; ir(s);
+    if (EMB) { addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "ctx") aplicaCtx(e.data); }); try { parent.postMessage({ gl: "ctx?" }, location.origin); } catch (_) { } }
+    host.addEventListener("click", e => { const b = e.target.closest("[data-ctx]"); if (b) { S.ctxOn = S.ctxOn === false; arbol(); } });
   };
 })();

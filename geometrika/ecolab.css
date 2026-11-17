@@ -303,3 +303,11 @@
 .eco-tree{overflow-x:hidden}
 .eco-emb .eco-main{overflow-x:hidden}
 .eco-tree .eco-n,.eco-tree .nm{min-width:0;overflow-wrap:anywhere}
+
+/* filtro por lugar y giro */
+.eco-ctx{margin:2px 0 10px;padding:9px 11px;border-radius:11px;border:1px solid rgba(99,102,241,.45);background:rgba(99,102,241,.14)}
+.eco-ctx:not(.on){border-color:rgba(148,163,184,.35);background:rgba(148,163,184,.1)}
+.eco-ctx-t{font:800 9.5px system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;opacity:.7;margin-bottom:3px}
+.eco-ctx-l{font:600 12.5px system-ui,sans-serif;line-height:1.4}
+.eco-ctx-b{margin-top:7px;border:1px solid rgba(148,163,184,.45);background:transparent;color:inherit;border-radius:8px;padding:4px 10px;font:600 11.5px system-ui,sans-serif;cursor:pointer}
+.eco-ctx-b:hover{background:rgba(99,102,241,.25)}
