@@ -23,8 +23,8 @@
       return { yr, q, t: yr * ppy + (q - 1), v, l: ppy === 12 ? MES[q - 1] + " " + yr : ppy === 4 ? "T" + q + " " + yr : String(yr) };
     });
     const s = I.s, n = s.length, neg = s.some(o => o.v <= 0);
-    I.dif = neg || /Puntos|Porcentaje/.test(r.unidad);
-    I.pct = /^Porcentaje/.test(r.unidad);
+    I.pct = /^Porcentaje|^Variaci[oó]n porcentual/i.test(r.unidad);
+    I.dif = neg || I.pct || /Puntos/.test(r.unidad);
     const ch = (a, b) => b == null ? null : I.dif ? a - b : b > 0 ? (a / b - 1) * 100 : null;
     s.forEach((o, i) => { o.yoy = i >= ppy ? ch(o.v, s[i - ppy].v) : null; o.mom = i >= 1 && ppy > 1 ? ch(o.v, s[i - 1].v) : null; });
     // reloj económico: desviación vs tendencia (media móvil) y su cambio, ambos estandarizados
@@ -44,7 +44,7 @@
     const ok = ppy === 12 ? 4 : ppy === 4 ? 8 : 24;
     I.edad = mesesAct; I.est = mesesAct <= ok ? ["ok", "Al día"] : mesesAct <= ok * 2 ? ["warn", "Rezagada"] : ["old", "Sin actualizar"];
     I.th50 = r.unidad === "Puntos" && I.min < 50 && I.max > 50;
-    I.u = r.unidad === "Puntos" ? "pts" : I.pct ? "%" : r.unidad === "Dólares" ? (r.mult === "Millones" ? "mdd" : "USD") : /^Índice/.test(r.unidad) ? r.unidad.replace("Índice base", "índice base ") : /^Pesos/.test(r.unidad) ? (r.mult === "Millones" ? "mdp " : "pesos ") + (/2013/.test(r.unidad) ? "(2013)" : "corrientes") : r.unidad.toLowerCase();
+    I.u = r.unidad === "Puntos" ? "pts" : I.pct ? "%" : r.unidad === "Dólares" ? (r.mult === "Millones" ? "mdd" : "USD") : /^Índice/.test(r.unidad) ? r.unidad.replace("Índice base", "índice base ") : /^Pesos/i.test(r.unidad) ? (r.mult === "Millones" ? "mdp " : "pesos ") + (/(20\d\d)/.test(r.unidad) ? "(" + /(20\d\d)/.exec(r.unidad)[1] + ")" : "corrientes") : r.unidad.toLowerCase();
     const a = Math.abs(last.v); I.dg = a >= 1000 ? 0 : a >= 100 ? 1 : 2; I.col = PAL[k % PAL.length];
     return I;
   }
