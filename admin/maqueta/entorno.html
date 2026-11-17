@@ -227,6 +227,7 @@
   html:not(.tema-osc) #tt .lab-tabs{background:rgba(15,23,42,.07)}html:not(.tema-osc) #tt .lab-tabs button{color:#475569}html:not(.tema-osc) #tt .lab-tabs button:hover{background:rgba(99,102,241,.14);color:#3730a3}html:not(.tema-osc) #tt .lab-tabs button.on{color:#fff}
   #lab-ov{position:fixed;inset:0;z-index:2147483000;display:none;pointer-events:none}#lab-ov.on{display:block}
   #lab-ov iframe{position:absolute;left:0;top:0;width:404px;height:100%;border:0;display:none;background:transparent;pointer-events:auto;color-scheme:normal}#lab-ov iframe.on{display:block}
+  body.lab-on #dock,body.lab-on #dock-tg{visibility:hidden!important}
 </style>
 </head>
 <body>
@@ -240,16 +241,17 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
 </script>
 <div id="lab-ov"></div>
 <script>
-/* pestañas GeoLab · EcoLab · DataLab. EcoLab y DataLab se montan en un iframe transparente: primero solo su menú en la columna izquierda (404 px, como el dock) y, al elegir una opción, el propio sistema pide por postMessage ensanchar el iframe para mostrar su ventana flotante a la derecha; el mapa/maqueta de fondo nunca se oculta. */
+/* pestañas GeoLab · EcoLab · DataLab. EcoLab y DataLab se montan en un iframe transparente que ocupa EXACTAMENTE la columna del dock (se mide su ancho) y lo sustituye mientras está activo: primero solo su menú y, al elegir una opción, el propio sistema pide por postMessage ensanchar el iframe para mostrar su ventana flotante a la derecha. El mapa/maqueta de fondo nunca se oculta. El botón «← Menú» (o la pestaña GeoLab) regresa al menú de GeoLab. */
 (function () {
-  var ov = document.getElementById('lab-ov'), tabs = document.getElementById('lab-tabs'), URL = { eco: '/geometrika/index.html?s=eco&emb=1', data: '/geometrika/index.html?s=data&emb=1' }, fr = {}, abierta = {}, COL = 404;
-  function ancho(k) { var w = Math.max(520, Math.min(1050, Math.round((innerWidth - COL) * 0.7))); return abierta[k] ? Math.min(innerWidth, COL + 12 + w + 12) : COL; }
-  function medida() { Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; }); }
+  var ov = document.getElementById('lab-ov'), tabs = document.getElementById('lab-tabs'), URL = { eco: '/geometrika/index.html?s=eco&emb=1', data: '/geometrika/index.html?s=data&emb=1' }, fr = {}, abierta = {};
+  function col() { var d = document.getElementById('dock'), w = d ? Math.round(d.getBoundingClientRect().width) : 0; return w > 200 ? w : 404; }
+  function ancho(k) { var c = col(), w = Math.max(520, Math.min(1050, Math.round((innerWidth - c) * 0.7))); return abierta[k] ? Math.min(innerWidth, c + 12 + w + 12) : c; }
+  function medida() { var c = col(); Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; try { fr[k].contentWindow.postMessage({ gl: 'col', w: c }, location.origin); } catch (e) { } }); }
   function ir(v) {
     if (v !== 'geo' && !URL[v]) return;
-    if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EcoLab' : 'DataLab'; f.setAttribute('allowtransparency', 'true'); ov.appendChild(f); fr[v] = f; medida(); }
+    if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EcoLab' : 'DataLab'; f.setAttribute('allowtransparency', 'true'); f.addEventListener('load', medida); ov.appendChild(f); fr[v] = f; medida(); }
     Object.keys(fr).forEach(function (k) { fr[k].classList.toggle('on', k === v); });
-    ov.classList.toggle('on', v !== 'geo');
+    ov.classList.toggle('on', v !== 'geo'); document.body.classList.toggle('lab-on', v !== 'geo'); medida();
     if (tabs) [].forEach.call(tabs.querySelectorAll('button'), function (b) { var on = b.dataset.lab === v; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   }
   if (tabs) tabs.addEventListener('click', function (e) { var b = e.target.closest('button[data-lab]'); if (b) ir(b.dataset.lab); });

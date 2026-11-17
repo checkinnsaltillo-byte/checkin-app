@@ -6,7 +6,8 @@
   const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab"><i>🛰️</i><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""}><i>📈</i><b>EcoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""}><i>🗄️</i><b>DataLab</b></button></div>` : "";
   const dNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
   const dlWin = (o, t) => { if (!EMB) return; const a = document.getElementById("dlApp"); if (!a) return; a.classList.toggle("dl-open", o); if (t) { const w = document.getElementById("dlWT"); if (w) w.textContent = t; } dNotif(o); };
-  const glIr = e => { const gt = e.target.closest("#glTabs button"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v }, location.origin); } catch (_) { } return true; };
+  const glIr = e => { const gt = e.target.closest("#glTabs button, #glBack"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v || "geo" }, location.origin); } catch (_) { } return true; };
+  if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "col") document.documentElement.style.setProperty("--col", e.data.w + "px"); });
   const $ = (s, r) => (r || document).querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) { } } };
@@ -45,7 +46,7 @@
         <img class="dl-logo" src="datalab-logo-claro.png" alt="Data Lab">
         <div class="dl-brand"><b>Sistema de Datos y Fuentes</b><span>Fuentes de información e indicadores</span></div>
         <div class="dl-sp"></div>
-        <span class="dl-chip">v.Beta.1</span>
+        ${EMB ? '<button class="gl-back" id="glBack" type="button" title="Volver al menú de GeoLab">← Menú</button>' : ""}<span class="dl-chip">v.Beta.1</span>
         <a class="dl-btn dl-go" id="dlIrGeo" href="index.html?s=geo" target="_blank" rel="noopener" title="Abrir Geo Lab en una ventana nueva"><img src="geometrika-logo-claro.png" alt=""><span class="lg">Ir a Geo Lab</span><span class="sh">Geo Lab</span></a>
         <button class="dl-btn" id="dlSalir" type="button"><span class="lg">Cerrar sesión</span><span class="sh">Salir</span></button>
       </header>
