@@ -228,6 +228,8 @@
   #lab-ov{position:fixed;inset:0;z-index:2147483000;display:none;pointer-events:none}#lab-ov.on{display:block}
   #lab-ov iframe{position:absolute;left:0;top:0;width:404px;height:100%;border:0;display:none;background:transparent;pointer-events:auto;color-scheme:normal}#lab-ov iframe.on{display:block}
   body.lab-on #dock,body.lab-on #dock-tg{visibility:hidden!important}
+  body.lab-on #tt{z-index:2147483001!important}
+  body.lab-on #tt #lft-nav{display:none!important}
   /* encabezado: logo de Metrika arriba y los logos de GeoLab · EcoLab · DataLab como pestañas */
   #tt .tt-hd{margin:0 0 12px;padding:0 0 12px;gap:0}
   #tt .tt-hd img.mt-logo{height:38px;width:auto;max-width:100%;display:block;margin:0 auto}
@@ -269,7 +271,7 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   var ov = document.getElementById('lab-ov'), tabs = document.getElementById('lab-tabs'), URL = { eco: '/geometrika/index.html?s=eco&emb=1', data: '/geometrika/index.html?s=data&emb=1' }, fr = {}, abierta = {};
   function col() { var d = document.getElementById('dock'), w = d ? Math.round(d.getBoundingClientRect().width) : 0; return w > 200 ? w : 404; }
   function ancho(k) { var c = col(), w = Math.max(520, Math.min(1050, Math.round((innerWidth - c) * 0.7))); return abierta[k] ? Math.min(innerWidth, c + 12 + w + 12) : c; }
-  function medida() { var c = col(); Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; try { fr[k].contentWindow.postMessage({ gl: 'col', w: c }, location.origin); } catch (e) { } }); }
+  function medida() { var c = col(), t = document.getElementById('tt'), h = t ? Math.ceil(t.getBoundingClientRect().height) : 0; Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; try { fr[k].contentWindow.postMessage({ gl: 'col', w: c, h: h }, location.origin); } catch (e) { } }); }
   function ir(v) {
     if (v !== 'geo' && !URL[v]) return;
     if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EconoLab' : 'DataLab'; f.setAttribute('allowtransparency', 'true'); f.addEventListener('load', medida); ov.appendChild(f); fr[v] = f; medida(); }

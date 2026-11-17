@@ -7,7 +7,7 @@
   const eNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
   const ecoWin = o => { if (!EMB) return; const a = document.getElementById("ecoApp"); if (!a) return; a.classList.toggle("eco-open", o); eNotif(o); };
   const glIr = e => { const gt = e.target.closest("#glTabs button, #glBack"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v || "geo" }, location.origin); } catch (_) { } return true; };
-  if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "col") document.documentElement.style.setProperty("--col", e.data.w + "px"); });
+  if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "col") { document.documentElement.style.setProperty("--col", e.data.w + "px"); if (e.data.h != null) document.documentElement.style.setProperty("--tth", e.data.h + "px"); } });
   const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");

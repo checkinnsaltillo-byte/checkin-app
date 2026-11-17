@@ -336,3 +336,7 @@ html.emb .dl-app,.dl-emb{background:transparent!important}
 .dl-emb .dl-vt thead{display:none}.dl-emb .dl-vt,.dl-emb .dl-vt tbody,.dl-emb .dl-vt tr,.dl-emb .dl-vt td{display:block;width:100%}
 .dl-emb .dl-vt tr{padding:8px 10px;border-bottom:1px solid #eef2f7}
 .dl-emb img,.dl-emb svg,.dl-emb canvas{max-width:100%}
+
+/* encabezado fijo de la maqueta arriba; Data Lab solo muestra su menú debajo */
+.dl-emb .dl-top,.dl-emb .gl-tabs{display:none!important}
+.dl-emb .dl-side{padding-top:calc(var(--tth,0px) + 12px)!important}

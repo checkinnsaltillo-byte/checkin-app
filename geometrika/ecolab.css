@@ -311,3 +311,8 @@
 .eco-ctx-l{font:600 12.5px system-ui,sans-serif;line-height:1.4}
 .eco-ctx-b{margin-top:7px;border:1px solid rgba(148,163,184,.45);background:transparent;color:inherit;border-radius:8px;padding:4px 10px;font:600 11.5px system-ui,sans-serif;cursor:pointer}
 .eco-ctx-b:hover{background:rgba(99,102,241,.25)}
+
+/* el encabezado (logo, proyecto, lugar, giro y los 3 sistemas) es el de la maqueta y queda fijo arriba; aquí solo se deja el botón de tema */
+.eco-emb .gl-back,.eco-emb .mt-logo,.eco-emb .gl-tabs{display:none!important}
+.eco-emb .eco-top{top:var(--tth,0px);height:44px;justify-content:flex-end}
+.eco-emb .eco-side{padding-top:calc(var(--tth,0px) + 44px)!important}

@@ -7,7 +7,7 @@
   const dNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
   const dlWin = (o, t) => { if (!EMB) return; const a = document.getElementById("dlApp"); if (!a) return; a.classList.toggle("dl-open", o); if (t) { const w = document.getElementById("dlWT"); if (w) w.textContent = t; } dNotif(o); };
   const glIr = e => { const gt = e.target.closest("#glTabs button, #glBack"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v || "geo" }, location.origin); } catch (_) { } return true; };
-  if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "col") document.documentElement.style.setProperty("--col", e.data.w + "px"); });
+  if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "col") { document.documentElement.style.setProperty("--col", e.data.w + "px"); if (e.data.h != null) document.documentElement.style.setProperty("--tth", e.data.h + "px"); } });
   const $ = (s, r) => (r || document).querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) { } } };
