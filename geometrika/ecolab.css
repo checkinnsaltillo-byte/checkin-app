@@ -298,3 +298,8 @@
 /* ── logo de EconoLab en la cabecera ── */
 .eco-logo{filter:none!important;background:#fff;border-radius:11px;padding:5px 12px;border:1px solid rgba(148,163,184,.35)}
 .eco-logo img{height:26px;width:auto;display:block}
+
+/* sin scroll horizontal: menú y ventana */
+.eco-tree{overflow-x:hidden}
+.eco-emb .eco-main{overflow-x:hidden}
+.eco-tree .eco-n,.eco-tree .nm{min-width:0;overflow-wrap:anywhere}
