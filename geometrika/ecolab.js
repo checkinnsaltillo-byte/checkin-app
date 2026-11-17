@@ -258,19 +258,30 @@
     const W = Math.max(260, Math.min(el.clientWidth, big ? 760 : 520)), H = big ? Math.round(W * .74) : Math.round(W * .86), m = 30;
     const tr = I.s.filter(o => o.x != null && o.y != null).slice(-(big ? 30 : 24));
     if (tr.length < 3) { el.innerHTML = '<div class="eco-vacio">Se necesitan más observaciones para el reloj.</div>'; return; }
-    const R = Math.max(1.6, Math.max(...tr.map(o => Math.max(Math.abs(o.x), Math.abs(o.y)))) * 1.15), X = v => m + (v / R + 1) / 2 * (W - 2 * m), Y = v => m + (1 - (v / R + 1) / 2) * (H - 2 * m), cx = X(0), cy = Y(0);
+    const seq = I.s.filter(o => o.x != null && o.y != null).slice(-120);
+    const R = Math.max(1.6, Math.max(...seq.map(o => Math.max(Math.abs(o.x), Math.abs(o.y)))) * 1.15), X = v => m + (v / R + 1) / 2 * (W - 2 * m), Y = v => m + (1 - (v / R + 1) / 2) * (H - 2 * m), cx = X(0), cy = Y(0);
     let s = `<defs><filter id="ecoGl2"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
     const qd = [["exp", cx, m, W - m, cy], ["des", cx, cy, W - m, H - m], ["con", m, cy, cx, H - m], ["rec", m, m, cx, cy]];
     qd.forEach(([k, x0, y0, x1, y1]) => { s += `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${QD[k][1]}" opacity="${I.quad === k ? .2 : .08}"/>`; });
     s += `<line x1="${m}" x2="${W - m}" y1="${cy}" y2="${cy}" class="eco-ch"/><line x1="${cx}" x2="${cx}" y1="${m}" y2="${H - m}" class="eco-ch"/>`;
     [["exp", W - m - 6, m + 16, "end"], ["des", W - m - 6, H - m - 8, "end"], ["con", m + 6, H - m - 8, "start"], ["rec", m + 6, m + 16, "start"]].forEach(([k, x, y, a]) => { s += `<text x="${x}" y="${y}" text-anchor="${a}" class="eco-q" fill="${QD[k][1]}">${QD[k][0].toUpperCase()}</text>`; });
     s += `<text x="${W - m}" y="${cy - 6}" class="eco-ax" text-anchor="end">nivel vs tendencia →</text><text x="${cx + 6}" y="${m - 8}" class="eco-ax">↑ impulso</text>`;
-    const path = tr.map((o, i) => (i ? "L" : "M") + X(o.x).toFixed(1) + " " + Y(o.y).toFixed(1)).join("");
-    s += `<path d="${path}" pathLength="1" class="eco-ln" fill="none" stroke="${I.col}" stroke-opacity=".75" stroke-width="2.4" stroke-linejoin="round" filter="url(#ecoGl2)"/>`;
-    tr.forEach((o, i) => { const l = i === tr.length - 1; s += `<circle class="eco-dotp" data-i="${i}" cx="${X(o.x).toFixed(1)}" cy="${Y(o.y).toFixed(1)}" r="${l ? 8 : 3 + 3 * i / tr.length}" fill="${l ? "#fff" : I.col}" stroke="${I.col}" stroke-width="${l ? 3 : 0}" style="animation-delay:${i * 45}ms"/>`; });
-    const lo = tr[tr.length - 1]; s += `<text x="${X(lo.x).toFixed(1)}" y="${(Y(lo.y) - 14).toFixed(1)}" text-anchor="middle" class="eco-q" fill="#fff">${esc(lo.l)}</text>`;
-    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg>`;
-    $$(".eco-dotp", el).forEach(c => { const o = tr[+c.dataset.i], k = o.x >= 0 ? (o.y >= 0 ? "exp" : "des") : (o.y >= 0 ? "rec" : "con"); c.onmousemove = e => tip(`<b>${esc(I.nombre)}</b><div class="tp-s">${esc(o.l)}</div><div class="tp-v" style="color:${QD[k][1]}">${QD[k][0]}</div><div class="tp-r nu">Nivel vs tendencia: ${nf(o.x, 2)} σ</div><div class="tp-r nu">Impulso: ${nf(o.y, 2)}</div>`, e); c.onmouseleave = () => tip(null); });
+    const trail = big ? 30 : 24, RL = el._rl && el._rl.raf ? (cancelAnimationFrame(el._rl.raf), null) : null, ST = el._rl = { pos: seq.length - 1, playing: false, raf: 0 };
+    const kq = o => o.x >= 0 ? (o.y >= 0 ? "exp" : "des") : (o.y >= 0 ? "rec" : "con");
+    const dyn = (pos, first) => { const t = seq.slice(Math.max(0, pos - trail + 1), pos + 1); if (!t.length) return "";
+      let h = `<path d="${t.map((o, i) => (i ? "L" : "M") + X(o.x).toFixed(1) + " " + Y(o.y).toFixed(1)).join("")}"${first ? ' pathLength="1" class="eco-ln"' : ""} fill="none" stroke="${I.col}" stroke-opacity=".75" stroke-width="2.4" stroke-linejoin="round" filter="url(#ecoGl2)"/>`;
+      t.forEach((o, i) => { const l = i === t.length - 1; h += `<circle class="${first ? "eco-dotp" : "eco-dotq"}" data-i="${i}" cx="${X(o.x).toFixed(1)}" cy="${Y(o.y).toFixed(1)}" r="${l ? 8 : 3 + 3 * i / t.length}" fill="${l ? "#fff" : I.col}" stroke="${I.col}" stroke-width="${l ? 3 : 0}"${first ? ` style="animation-delay:${i * 45}ms"` : ""}/>`; });
+      const lo = t[t.length - 1]; return h + `<text x="${X(lo.x).toFixed(1)}" y="${(Y(lo.y) - 14).toFixed(1)}" text-anchor="middle" class="eco-q" fill="#fff">${esc(lo.l)}</text>`; };
+    el.innerHTML = `<div class="eco-cybar eco-rlbar"><button type="button" class="eco-cyplay" data-rl="p" title="Reproducir / pausar la trayectoria">▶</button><button type="button" class="eco-cybtn" data-rl="r" title="Volver al inicio">⏮</button><input type="range" class="eco-cyslider" min="0" max="${seq.length - 1}" value="${ST.pos}" aria-label="Fecha"><span class="eco-cyfecha">${esc(seq[ST.pos].l)}</span></div><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><g class="eco-rlg">${s}</g><g class="eco-rld">${dyn(ST.pos, true)}</g></svg>`;
+    const svg = $("svg", el), gd = $(".eco-rld", svg), btn = $("[data-rl=p]", el), sl = $(".eco-cyslider", el), fe = $(".eco-cyfecha", el);
+    const pinta = () => { gd.innerHTML = dyn(ST.pos, false); fe.textContent = seq[ST.pos].l; sl.value = ST.pos; btn.textContent = ST.playing ? "❚❚" : "▶"; };
+    const para = () => { ST.playing = false; if (ST.raf) cancelAnimationFrame(ST.raf); ST.raf = 0; btn.textContent = "▶"; };
+    function loop(ts) { if (!el.isConnected || !ST.playing) { ST.raf = 0; return; } if (!loop.t) loop.t = ts; if (ts - loop.t >= 120) { loop.t = ts; if (ST.pos >= seq.length - 1) { para(); pinta(); return; } ST.pos++; pinta(); } ST.raf = requestAnimationFrame(loop); }
+    btn.onclick = () => { if (ST.playing) { para(); return; } if (ST.pos >= seq.length - 1) ST.pos = 0; ST.playing = true; loop.t = 0; pinta(); ST.raf = requestAnimationFrame(loop); };
+    $("[data-rl=r]", el).onclick = () => { para(); ST.pos = 0; pinta(); };
+    sl.oninput = () => { para(); ST.pos = +sl.value; pinta(); };
+    svg.onmousemove = e => { const c = e.target.closest("circle[data-i]"); if (!c) { tip(null); return; } const t = seq.slice(Math.max(0, ST.pos - trail + 1), ST.pos + 1), o = t[+c.dataset.i]; if (!o) return; tip(`<b>${esc(I.nombre)}</b><div class="tp-s">${esc(o.l)}</div><div class="tp-v" style="color:${QD[kq(o)][1]}">${QD[kq(o)][0]}</div><div class="tp-r nu">Nivel vs tendencia: ${nf(o.x, 2)} σ</div><div class="tp-r nu">Impulso: ${nf(o.y, 2)}</div>`, e); };
+    svg.onmouseleave = () => tip(null);
   }
 
   /* ───────── estacionalidad (año × mes) / histograma ───────── */
@@ -606,7 +617,7 @@
     ${ss.length > 1 ? `<div class="eco-chips" id="ecoSub">${ss.map((s, i) => `<button type="button" class="eco-chip2${i === S.sub ? " on" : ""}" style="--c:${sc.col}" data-sub="${i}">${esc(s.idx.nombre)}</button>`).join("")}</div>` : ""}
     <div class="eco-kpis">${kpi("Índice de volumen físico", fv(I, I.last.v), esc(I.last.l), "big")}${kpi("Variación anual", fp(Y.last.v, 1), "IGAE · " + esc(Y.last.l), cc(Y.last.v))}${kpi("Posición histórica", ring(I.pctil, sc.col, nf(I.pctil, 0) + "%"), "percentil del índice")}${kpi("Máximo histórico", fv(I, I.max), esc(I.maxO.l))}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "reloj económico") : ""}</div>
     ${panelSerie(I)}
-    <div class="eco-two">${panel("Variación anual por subsector", "IGAE", '<div id="ecoSLn"></div>')}${panel("Reloj económico", esc(I.nombre), '<div id="ecoSClock"></div>')}</div>
+    <div class="eco-two">${panel("Variación anual por subsector", "IGAE", '<div id="ecoSLn"></div>')}${panel("Reloj económico", esc(I.nombre) + " · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
     ${stK.length ? panel("Mapa del sector por estado", "ITAEE trimestral · variación anual" + (stK.length > 1 ? "" : ""), (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
     ${rel.length ? panel("Indicadores relacionados", "confianza, pedidos, ventas y comercio exterior ligados al sector", cards(rel)) : ""}`;
   }
