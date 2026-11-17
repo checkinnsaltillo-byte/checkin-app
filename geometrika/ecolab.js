@@ -3,7 +3,7 @@
 (function () {
   "use strict";
   const EMB = (() => { try { return new URLSearchParams(location.search).get("emb") === "1" && window.parent !== window; } catch (_) { return false; } })();
-  const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab" title="GeoLab"><img src="geometrika-logo.png" alt=""><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""} title="EcoLab"><img src="ecolab-logo.svg" alt=""><b>EcoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""} title="DataLab"><img src="datalab-logo.png" alt=""><b>DataLab</b></button></div>` : "";
+  const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab" title="GeoLab"><img src="geometrika-logo.png" alt=""><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""} title="EconoLab"><img src="econolab-logo.png" alt=""><b>EconoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""} title="DataLab"><img src="datalab-logo.png" alt=""><b>DataLab</b></button></div>` : "";
   const eNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
   const ecoWin = o => { if (!EMB) return; const a = document.getElementById("ecoApp"); if (!a) return; a.classList.toggle("eco-open", o); eNotif(o); };
   const glIr = e => { const gt = e.target.closest("#glTabs button, #glBack"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v || "geo" }, location.origin); } catch (_) { } return true; };
@@ -63,7 +63,7 @@
     if (I.area === "Precios e inflación") return "Los precios están dominados por su tendencia (inflación acumulada); un ciclo alrededor de esa tendencia no es una lectura adecuada.";
     if (I.area === "Ciudades" || I.area === "Estados") return "El INEGI no publica una serie de tendencia-ciclo a este nivel geográfico.";
     if (I.pct || I.tipo === "yoy") return "Es una variación o una tasa; el ciclo se lee sobre el nivel de la serie, no sobre su variación.";
-    return "El INEGI no publica un ciclo ni una tendencia-ciclo para esta serie, o aún no se ha incorporado a EcoLab.";
+    return "El INEGI no publica un ciclo ni una tendencia-ciclo para esta serie, o aún no se ha incorporado a EconoLab.";
   }
   function cicloDeTC(I, tc) {   // ciclo de I = desviación (%) de la tendencia-ciclo oficial del INEGI respecto de su tendencia de largo plazo (HP)
     if (!I || !tc || tc.s.length < 24 || I.ppy !== tc.ppy) return;
@@ -822,7 +822,7 @@
     else if (id.startsWith("a:")) { const a = AREAS.find(x => x.n === id.slice(2)); if (!a) return ir("cat"); S.open.add(id); const l = a.g.flatMap(g => g.i); main.innerHTML = vistaPano(a.n, `<span class="eco-pill" style="--c:${a.col}">${a.g.length} grupos</span><span class="eco-pill">${l.length} indicadores</span>`, l, `<a data-go="home">Panorama</a>`); pintaPano(l); }
     else { S.sel = "cat"; main.innerHTML = vistaHome(); draws.push(() => mapaCiclo($("#ecoMapa"))); }
     draws.forEach(f => f()); main.scrollTop = 0; arbol(); $("#ecoApp").classList.remove("eco-menu");
-    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EcoLab"; }
+    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EconoLab"; }
   }
   function arbolCat() {
     const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), pasa = I => !ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w));
@@ -868,12 +868,12 @@
   function shell() {
     host.innerHTML = `<div class="eco-app${EMB ? " eco-emb" : ""}" id="ecoApp">
       <header class="eco-top"><button class="eco-burger" id="ecoBurger" type="button" aria-label="Menú">☰</button>
-        <div class="eco-logo"><svg viewBox="0 0 48 48" width="40" height="40"><defs><linearGradient id="elg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="#0f172a" stroke="url(#elg)" stroke-width="2"/><path d="M9 33l8-9 6 5 8-12 8 6" fill="none" stroke="url(#elg)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="39" cy="23" r="3" fill="#f472b6"/></svg></div>
-        <div class="eco-brand"><b>EcoLab</b><span>Laboratorio económico · monitoreo de variables coyunturales</span></div><div class="eco-sp"></div>
+        <div class="eco-logo"><img src="econolab-logo.png" alt="EconoLab"></div>
+        <div class="eco-brand"><span>Laboratorio económico · monitoreo de variables coyunturales</span></div><div class="eco-sp"></div>
         <span class="eco-chip" title="Datos descargados de la API del INEGI">Datos: ${esc((D.generado || "").slice(0, 10))}</span>
         ${EMB ? '<button class="gl-back" id="glBack" type="button" title="Volver al menú de GeoLab">← Menú</button><img class="mt-logo" src="metrika-logo.png" alt="Metrika Business Intelligence">' : ""}<button class="eco-theme" id="ecoTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="ecoCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="ecoSalir" type="button">Salir</button></header>
       <div class="eco-body"><aside class="eco-side">${glTabs("eco")}<div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
-      ${EMB ? '<div class="eco-wbar"><b id="ecoWT">EcoLab</b><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
+      ${EMB ? '<div class="eco-wbar"><b id="ecoWT">EconoLab</b><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
     tipEl = document.createElement("div"); tipEl.className = "eco-tip"; document.body.appendChild(tipEl);
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
     $("#ecoSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();

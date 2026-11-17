@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Geo Lab · Data Lab · EcoLab</title>
+<title>Geo Lab · Data Lab · EconoLab</title>
 <link rel="icon" href="geometrika-logo.png?v=2409">
 <link rel="stylesheet" href="geometrika.css?v=2504">
 <script>if(/[?&]emb=1/.test(location.search))document.documentElement.classList.add("emb");</script>
@@ -54,7 +54,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card dl" data-sys="data">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=c607bf23" alt="Data Lab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=148a5030" alt="Data Lab"></div>
         <h2>Sistema de Datos y Fuentes</h2>
         <p class="s">acceso restringido</p>
       </div>
@@ -67,14 +67,14 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card eco" data-sys="eco">
       <div>
-        <div class="gp-top" style="flex-direction:column"><svg class="gp-eco-logo" viewBox="0 0 48 48"><defs><linearGradient id="gpelg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="#0f172a" stroke="url(#gpelg)" stroke-width="2"/><path d="M9 33l8-9 6 5 8-12 8 6" fill="none" stroke="url(#gpelg)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="39" cy="23" r="3" fill="#f472b6"/></svg><div class="gp-eco-t">EcoLab</div></div>
+        <div class="gp-top"><img class="gp-img dl" src="econolab-logo.png" alt="EconoLab"></div>
         <h2>Laboratorio económico</h2>
         <p class="s">acceso restringido</p>
       </div>
       <div>
         <input type="password" id="gpPass3" placeholder="Contraseña" autocomplete="current-password">
         <p class="gp-err" id="gpErr3"></p>
-        <button type="button" id="gpGo3">Entrar a EcoLab</button>
+        <button type="button" id="gpGo3">Entrar a EconoLab</button>
         <div class="gp-v">v.Beta.1 · Check Inn</div>
       </div>
     </div>
@@ -104,12 +104,12 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=fe0eed3e"; document.head.appendChild(l);
-    gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=fe0eed3e", () => window.ecolabInit && window.ecolabInit()));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=97981887"; document.head.appendChild(l);
+    gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=97981887", () => window.ecolabInit && window.ecolabInit()));
   } else if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=c607bf23"; document.head.appendChild(l);
-    gpCarga("datalab-fuentes.js?v=c607bf23", () => gpCarga("datalab-indicadores.js?v=c607bf23", () => gpCarga("datalab-geo.js?v=c607bf23", () => gpCarga("datalab.js?v=c607bf23", () => window.datalabInit && window.datalabInit()))));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=148a5030"; document.head.appendChild(l);
+    gpCarga("datalab-fuentes.js?v=148a5030", () => gpCarga("datalab-indicadores.js?v=148a5030", () => gpCarga("datalab-geo.js?v=148a5030", () => gpCarga("datalab.js?v=148a5030", () => window.datalabInit && window.datalabInit()))));
   } else {
     document.getElementById("geometrika-host").style.display = "";
     gpCarga("geometrika.js?v=2504", () => window.geometrikaInit && window.geometrikaInit());
@@ -127,7 +127,7 @@ async function gpEntra(sys) {
 function gpClic(sys) { const n = gpAut(); if (n) { gpNivel(n); gpAbre(sys); } else gpEntra(sys); }
 document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data"); document.getElementById("gpGo3").onclick = () => gpClic("eco");
 document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpClic("geo"); }; document.getElementById("gpPass2").onkeydown = e => { if (e.key === "Enter") gpClic("data"); }; document.getElementById("gpPass3").onkeydown = e => { if (e.key === "Enter") gpClic("eco"); };
-{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EcoLab →"; } } }
+{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EconoLab →"; } } }
 </script>
 </body>
 </html>

@@ -294,3 +294,7 @@
 .eco-emb .eco-top{gap:10px}.eco-emb .gl-tabs{margin:12px 12px 0}
 .eco-light.eco-emb .mt-logo{filter:none}
 .eco-light .gl-tabs{background:none;border:0}
+
+/* ── logo de EconoLab en la cabecera ── */
+.eco-logo{filter:none!important;background:#fff;border-radius:11px;padding:5px 12px;border:1px solid rgba(148,163,184,.35)}
+.eco-logo img{height:26px;width:auto;display:block}
