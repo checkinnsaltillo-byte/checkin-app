@@ -244,3 +244,7 @@
 .eco-sm select{border:1px solid rgba(148,163,184,.35);background:rgba(15,23,42,.9);color:#e2e8f0;border-radius:10px;padding:6px 10px;font:600 12px system-ui,sans-serif;cursor:pointer;outline:none}
 .eco-sm select:focus{border-color:#22d3ee}
 .eco-light .eco-sm select{background:#fff;color:#0f172a;border-color:#cbd5e1}
+.eco-chks{display:inline-flex;flex-wrap:wrap;gap:6px}
+.eco-ck{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.65);color:#cbd5e1;border-radius:10px;padding:5px 11px 5px 8px;font:600 12px system-ui,sans-serif;cursor:pointer;transition:.15s}
+.eco-ck:hover{border-color:#22d3ee;color:#fff}
+.eco-light .eco-ck{background:#fff;color:#334155;border-color:#cbd5e1}.eco-light .eco-ck:hover{color:#0f172a;border-color:#0891b2}

@@ -163,9 +163,14 @@
     return (I._sm[k] = { v: f(lv), y: f(yy) });
   }
 
+  function serieChecks(I) {   // casillas para elegir qué series ver en la gráfica de evolución
+    const st = S.serie, ck = (k, t, on, tit) => `<button type="button" class="eco-ck" data-k="${k}" title="${tit || ""}"><span class="eco-ckb${on ? " on" : ""}">✓</span>${t}</button>`;
+    return `<div class="eco-chks" id="ecoMode">${ck("nivel", "Nivel", st.vn !== false)}${ck("anual", "Variación anual", st.va !== false)}${I.fc && prono(I) ? ck("fc", "Pronóstico", st.fc !== false, "Pronóstico estadístico (línea punteada)") : ""}${ck("og", "Serie original", st.og !== false, "Con suavizado: mostrar la serie original tenue")}</div>`;
+  }
+  const ckOn = k => k === "nivel" ? S.serie.vn !== false : k === "anual" ? S.serie.va !== false : k === "fc" ? S.serie.fc !== false : S.serie.og !== false;
   /* ───────── gráfica principal de la serie ───────── */
   function drawSerie(el, I) {
-    const W = Math.max(320, el.clientWidth), H = W < 520 ? 280 : 360, m = { l: 62, r: 20, t: 16, b: 34 }, st = S.serie, mode = st.mode === "ambas" && (I.pct || !I.s.some(o => o.yoy != null)) ? "nivel" : st.mode; if (mode === "ambas") m.r = 58;
+    const W = Math.max(320, el.clientWidth), H = W < 520 ? 280 : 360, m = { l: 62, r: 20, t: 16, b: 34 }, st = S.serie, mode0 = (st.mode = (st.vn !== false && st.va !== false) ? "ambas" : st.vn !== false ? "nivel" : "anual"), mode = st.mode === "ambas" && (I.pct || !I.s.some(o => o.yoy != null)) ? "nivel" : st.mode; if (mode === "ambas") m.r = 58;
     const nmax = st.rango ? Math.min(I.s.length, Math.round(st.rango * I.ppy / 12) || I.s.length) : I.s.length, d = I.s.slice(-Math.max(nmax, 6)), n = d.length;
     const f = mode === "anual" ? (o => o.yoy) : (o => o.v), off = I.s.length - d.length, SM = st.suav ? suavizaSerie(I, st.suav) : null, pts = d.map((o, i) => ({ o, i, v: SM ? (mode === "anual" ? SM.y[off + i] : SM.v[off + i]) : f(o), raw: f(o) })).filter(p => p.v != null);
     if (!pts.length) { el.innerHTML = '<div class="eco-vacio">Sin datos suficientes para esta vista.</div>'; return; }
@@ -199,7 +204,7 @@
       const line = pts.map((p, k) => (k ? "L" : "M") + X(p.i).toFixed(1) + " " + Y(p.v).toFixed(1)).join(""), yb = base != null ? base : H - m.b;
       s += `<path d="${line}L${X(pts[pts.length - 1].i).toFixed(1)} ${yb.toFixed(1)}L${X(pts[0].i).toFixed(1)} ${yb.toFixed(1)}Z" fill="url(#ecoAr)" class="eco-area"/>`;
       if (I.th50) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(I.thr).toFixed(1)}" y2="${Y(I.thr).toFixed(1)}" stroke="#e2e8f0" stroke-opacity=".55" stroke-dasharray="5 5"/><text x="${W - m.r - 4}" y="${(Y(I.thr) - 6).toFixed(1)}" class="eco-ax" text-anchor="end">${I.thr === 100 ? "tendencia = 100" : "umbral neutral 50"}</text>`;
-      if (SM) s += `<path d="${pts.filter(p => p.raw != null).map((p, k) => (k ? "L" : "M") + X(p.i).toFixed(1) + " " + Y(p.raw).toFixed(1)).join("")}" fill="none" stroke="${I.col}" stroke-width="1.2" stroke-opacity=".32" stroke-linejoin="round"/>`;
+      if (SM && st.og !== false) s += `<path d="${pts.filter(p => p.raw != null).map((p, k) => (k ? "L" : "M") + X(p.i).toFixed(1) + " " + Y(p.raw).toFixed(1)).join("")}" fill="none" stroke="${I.col}" stroke-width="1.2" stroke-opacity=".32" stroke-linejoin="round"/>`;
       s += `<path d="${line}" pathLength="1" class="eco-ln" fill="none" stroke="${I.th50 ? "url(#ecoLn)" : I.col}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" filter="url(#ecoGl)"/>`;
       if (fcv.length) { const a0 = pts[pts.length - 1], P0 = `${X(a0.i).toFixed(1)} ${Y(a0.v).toFixed(1)}`, up = fcv.map(q => `L${X(q.i).toFixed(1)} ${Y(q.hi != null ? q.hi : q.v).toFixed(1)}`).join(""), dn = fcv.slice().reverse().map(q => `L${X(q.i).toFixed(1)} ${Y(q.lo != null ? q.lo : q.v).toFixed(1)}`).join("");
         s += `<path d="M${P0}${up}${dn}Z" fill="${I.col}" fill-opacity=".13"/><path d="M${P0}${fcv.map(q => `L${X(q.i).toFixed(1)} ${Y(q.v).toFixed(1)}`).join("")}" fill="none" stroke="${I.col}" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 7"/><line x1="${X(n - 1).toFixed(1)}" x2="${X(n - 1).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" class="eco-ch"/><text x="${(X(n - 1) + 6).toFixed(1)}" y="${m.t + 10}" class="eco-ax">pronóstico →</text>`; }
@@ -315,14 +320,14 @@
       ${kpi("Mínimo histórico", fv(I, I.min), esc(I.minO.l))}
       ${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "según el reloj económico") : ""}
     </div>
-    <div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${I.fc && prono(I) ? `<button type="button" id="ecoFc" class="eco-fcb${S.serie.fc === false ? "" : " on"}" title="Pronóstico estadístico (línea punteada)">⋯ Pronóstico</button>` : ""}<div class="eco-tabs" id="ecoMode"><button data-m="ambas" class="${S.serie.mode === "ambas" ? "on" : ""}">Nivel + var. anual</button><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>
+    <div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>
     <div class="eco-two"><div class="eco-panel"><div class="eco-ph"><h3>Reloj económico</h3><span class="eco-hint">trayectoria reciente: nivel vs tendencia e impulso</span></div><div id="ecoClock"></div></div>
     <div class="eco-panel"><div class="eco-ph"><h3>${I.ppy === 1 ? "Distribución histórica" : "Estacionalidad · año × " + (I.ppy === 12 ? "mes" : "trimestre")}</h3></div><div id="ecoEst"></div></div></div>
     <div class="eco-panel"><div class="eco-ph"><h3>Ficha del indicador</h3></div><dl class="eco-meta">${meta.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>`;
   }
   function pintaInd(I) {
     const el = $("#ecoMain"); draws.push(() => drawSerie($("#ecoMain"), I), () => drawReloj($("#ecoClock"), I), () => drawEstac($("#ecoEst"), I));
-    $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.mode = b.dataset.m; $$("#ecoMode button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
+    $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; return; };
     $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
     $("#ecoCsv").onclick = () => { const t = "periodo,valor,variacion_anual\n" + I.s.map(o => [o.l, o.v, o.yoy == null ? "" : o.yoy.toFixed(3)].join(",")).join("\n"), a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + t], { type: "text/csv" })); a.download = "ecolab_" + I.id + ".csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
     void el;
@@ -466,11 +471,11 @@
   }
   function panelSerie(I) {
     const rng = [["1A", 12], ["3A", 36], ["5A", 60], ["10A", 120], ["Todo", 0]].filter(([, m]) => !m || m * I.ppy / 12 < I.s.length); if (!rng.some(([, m]) => m === S.serie.rango)) S.serie.rango = 0;
-    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${I.fc && prono(I) ? `<button type="button" id="ecoFc" class="eco-fcb${S.serie.fc === false ? "" : " on"}" title="Pronóstico estadístico (línea punteada)">⋯ Pronóstico</button>` : ""}<div class="eco-tabs" id="ecoMode"><button data-m="ambas" class="${S.serie.mode === "ambas" ? "on" : ""}">Nivel + var. anual</button><button data-m="nivel" class="${S.serie.mode === "nivel" ? "on" : ""}">Nivel</button><button data-m="anual" class="${S.serie.mode === "anual" ? "on" : ""}">Variación anual</button></div><label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>`;
+    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>`;
   }
   function pintaSerie(I) {
     draws.push(() => drawSerie($("#ecoMain"), I));
-    $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.mode = b.dataset.m; $$("#ecoMode button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
+    $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; return; };
     $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
   }
   const ptsE = (I, tipo) => I.s.map(o => ({ t: o.t / I.ppy, l: o.l, v: tipo === "idx" ? o.yoy : o.v })).filter(p => p.v != null);
@@ -844,7 +849,10 @@
     const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"; ls.set("eco_tema", c); };
     tema(ls.get("eco_tema", "oscuro")); $("#ecoTema", host).onclick = () => { tema($("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"); rer(); };
     $("#ecoQ", host).oninput = e => { S.q = e.target.value; arbol(); };
-    host.onclick = e => { const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
+    host.onclick = e => { const ck = e.target.closest(".eco-ck"); if (ck) { const k = ck.dataset.k, st = S.serie, vn = st.vn !== false, va = st.va !== false;
+        if (k === "nivel") { if (!(vn && !va)) st.vn = !vn; } else if (k === "anual") { if (!(va && !vn)) st.va = !va; } else if (k === "fc") st.fc = st.fc === false; else if (k === "og") st.og = st.og === false;
+        $$("#ecoMode .eco-ck").forEach(b => b.querySelector(".eco-ckb").classList.toggle("on", ckOn(b.dataset.k))); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; }
+      const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
     host.onchange = e => { if (e.target.id === "ecoSm") { S.serie.suav = e.target.value; if (S.curI) drawSerie($("#ecoMain"), S.curI); } };
     let tm; addEventListener("resize", () => { clearTimeout(tm); tm = setTimeout(() => draws.forEach(f => f()), 120); });
   }
