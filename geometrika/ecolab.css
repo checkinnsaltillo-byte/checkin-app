@@ -223,3 +223,18 @@
 .eco-light .eco-cypop{background:#fff;border-color:#7dd3e4;box-shadow:0 14px 36px rgba(15,23,42,.22)}.eco-light .eco-cypt input{background:#f8fafc;color:#0f172a;border-color:#cbd5e1}
 .eco-light .eco-cyrow{color:#0f172a}.eco-light .eco-cyrow:hover{background:#eef2f8}.eco-light .eco-cygh{color:#334155}.eco-light .eco-cyfecha{color:#0e7490}.eco-light .eco-cycnt{color:#334155}
 @media (max-width:860px){.eco-cysel{margin-left:0}.eco-cyslider{min-width:120px}}
+/* ── reglas del ciclo y etiquetas de cobertura ── */
+.eco-cyrules{margin-top:12px;border:1px solid rgba(148,163,184,.22);border-radius:14px;background:rgba(15,23,42,.55);overflow:hidden}
+.eco-cyrules summary{cursor:pointer;padding:11px 14px;font-weight:700;font-size:13.5px;color:#e2e8f0;list-style:none}
+.eco-cyrules summary::-webkit-details-marker{display:none}
+.eco-cyrb{padding:2px 16px 14px;font-size:13px;line-height:1.55;color:#cbd5e1}.eco-cyrb p{margin:9px 0}.eco-cyrb b{color:#fff}
+.eco-cyt{width:100%;border-collapse:collapse;margin:6px 0 4px;font-size:12.8px}
+.eco-cyt th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;padding:6px 8px}
+.eco-cyt td{padding:7px 8px;border-top:1px solid rgba(148,163,184,.16);vertical-align:top}.eco-cyt td:first-child{border-left:4px solid var(--c);white-space:nowrap}.eco-cyt tr td:first-child b{color:var(--c)}
+.eco-cyb{font-style:normal;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;white-space:nowrap;margin-left:6px}
+.eco-cyb.ok{background:rgba(52,211,153,.16);color:#34d399}.eco-cyb.par{background:rgba(251,191,36,.16);color:#fbbf24}.eco-cyb.tend{background:rgba(148,163,184,.18);color:#cbd5e1}
+.eco-cyrow .eco-cyb{margin-left:auto}.eco-cyrow small{display:none}
+.eco-light .eco-cyrules{background:#f8fafc;border-color:#dbe3ee}.eco-light .eco-cyrules summary{color:#0f172a}.eco-light .eco-cyrb{color:#334155}.eco-light .eco-cyrb b{color:#0f172a}
+.eco-light .eco-cyt td{border-top-color:#e2e8f0}.eco-light .eco-cyt th{color:#64748b}
+.eco-light .eco-cyb.ok{background:#d1fae5;color:#047857}.eco-light .eco-cyb.par{background:#fef3c7;color:#b45309}.eco-light .eco-cyb.tend{background:#e2e8f0;color:#475569}
+@media (max-width:700px){.eco-cyt td:first-child{white-space:normal}}
