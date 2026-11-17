@@ -2,6 +2,9 @@
    Necesita datalab-fuentes.js (window.DL_FUENTES, DL_CATS, DL_FECHA) y datalab.css. Se inicia con window.datalabInit(). */
 (function () {
   "use strict";
+  const EMB = (() => { try { return new URLSearchParams(location.search).get("emb") === "1" && window.parent !== window; } catch (_) { return false; } })();
+  const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab"><i>🛰️</i><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""}><i>📈</i><b>EcoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""}><i>🗄️</i><b>DataLab</b></button></div>` : "";
+  const glIr = e => { const gt = e.target.closest("#glTabs button"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v }, location.origin); } catch (_) { } return true; };
   const $ = (s, r) => (r || document).querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) { } } };
@@ -46,14 +49,14 @@
       </header>
       <div class="dl-body">
         <aside class="dl-side" id="dlSide" aria-label="Menú de Data Lab">
-          <div class="dl-side-t">Menú</div>
+          ${glTabs("data")}<div class="dl-side-t">Menú</div>
           <button class="dl-nav on" type="button" data-sec="fuentes" title="Fuente de datos"><span class="ic">🗄️</span><span class="tx">Fuente de datos</span><span class="bd">${tot}</span></button>
           <button class="dl-nav" type="button" data-sec="indicadores" title="Indicadores"><span class="ic">📊</span><span class="tx">Indicadores</span><span class="bd">${INDS_ALL().length}</span></button>
           <div class="dl-side-f">Data Lab · Check Inn</div>
         </aside>
         <main class="dl-main" id="dlMain"><div class="dl-wrap" id="dlWrap"></div></main>
       </div><div class="dl-ov" id="dlOv"></div><aside class="dl-dr" id="dlDr" aria-hidden="true" aria-label="Crear indicador"></aside></div>`;
-    const app = $("#dlApp", host);
+    const app = $("#dlApp", host); if (EMB) { app.classList.add("dl-emb"); host.addEventListener("click", glIr); }
     if (innerWidth < 900 || ls.get("dl_side", "on") === "off") app.classList.add("dl-off");   // en celular siempre inicia cerrado
     $("#dlBurger", host).onclick = () => { app.classList.toggle("dl-off"); if (innerWidth >= 900) ls.set("dl_side", app.classList.contains("dl-off") ? "off" : "on"); };
     $("#dlSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();

@@ -248,3 +248,12 @@
 .eco-ck{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.65);color:#cbd5e1;border-radius:10px;padding:5px 11px 5px 8px;font:600 12px system-ui,sans-serif;cursor:pointer;transition:.15s}
 .eco-ck:hover{border-color:#22d3ee;color:#fff}
 .eco-light .eco-ck{background:#fff;color:#334155;border-color:#cbd5e1}.eco-light .eco-ck:hover{color:#0f172a;border-color:#0891b2}
+
+/* ── pestañas GeoLab · EcoLab · DataLab (cuando va dentro de la maqueta) ── */
+.gl-tabs{display:flex;gap:4px;margin:12px 12px 0;padding:3px;border-radius:14px;background:rgba(15,23,42,.9);border:1px solid rgba(148,163,184,.2)}
+.gl-tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 7px;border:0;border-radius:11px;background:transparent;color:#cbd5e1;font:800 11.5px system-ui,sans-serif;cursor:pointer;transition:background .15s,color .15s}
+.gl-tabs button i{font-style:normal;font-size:18px;line-height:1}.gl-tabs button b{font-weight:800}
+.gl-tabs button:hover{background:rgba(99,102,241,.22);color:#fff}
+.gl-tabs button.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(79,70,229,.45)}
+.eco-emb #ecoCambia,.eco-emb #ecoSalir{display:none}
+.eco-light .gl-tabs{background:#e6ecf5;border-color:#cbd5e1}.eco-light .gl-tabs button{color:#475569}.eco-light .gl-tabs button:hover{color:#3730a3}.eco-light .gl-tabs button.on{color:#fff}

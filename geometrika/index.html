@@ -52,7 +52,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card dl" data-sys="data">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=441abbd2" alt="Data Lab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=10f677ef" alt="Data Lab"></div>
         <h2>Sistema de Datos y Fuentes</h2>
         <p class="s">acceso restringido</p>
       </div>
@@ -102,12 +102,12 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=5d96f558"; document.head.appendChild(l);
-    gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=5d96f558", () => window.ecolabInit && window.ecolabInit()));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=05f3c854"; document.head.appendChild(l);
+    gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=05f3c854", () => window.ecolabInit && window.ecolabInit()));
   } else if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=441abbd2"; document.head.appendChild(l);
-    gpCarga("datalab-fuentes.js?v=441abbd2", () => gpCarga("datalab-indicadores.js?v=441abbd2", () => gpCarga("datalab-geo.js?v=441abbd2", () => gpCarga("datalab.js?v=441abbd2", () => window.datalabInit && window.datalabInit()))));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=10f677ef"; document.head.appendChild(l);
+    gpCarga("datalab-fuentes.js?v=10f677ef", () => gpCarga("datalab-indicadores.js?v=10f677ef", () => gpCarga("datalab-geo.js?v=10f677ef", () => gpCarga("datalab.js?v=10f677ef", () => window.datalabInit && window.datalabInit()))));
   } else {
     document.getElementById("geometrika-host").style.display = "";
     gpCarga("geometrika.js?v=2504", () => window.geometrikaInit && window.geometrikaInit());

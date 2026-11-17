@@ -2,6 +2,9 @@
    Necesita ecolab-datos.js (window.ECO_DATA, generado por ecolab-descarga.js) y ecolab.css. Se inicia con window.ecolabInit(). */
 (function () {
   "use strict";
+  const EMB = (() => { try { return new URLSearchParams(location.search).get("emb") === "1" && window.parent !== window; } catch (_) { return false; } })();
+  const glTabs = A => EMB ? `<div class="gl-tabs" id="glTabs" role="tablist" aria-label="Sistemas"><button type="button" data-v="geo" role="tab"><i>🛰️</i><b>GeoLab</b></button><button type="button" data-v="eco" role="tab"${A === "eco" ? ' class="on"' : ""}><i>📈</i><b>EcoLab</b></button><button type="button" data-v="data" role="tab"${A === "data" ? ' class="on"' : ""}><i>🗄️</i><b>DataLab</b></button></div>` : "";
+  const glIr = e => { const gt = e.target.closest("#glTabs button"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v }, location.origin); } catch (_) { } return true; };
   const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -859,13 +862,13 @@
   }
 
   function shell() {
-    host.innerHTML = `<div class="eco-app" id="ecoApp">
+    host.innerHTML = `<div class="eco-app${EMB ? " eco-emb" : ""}" id="ecoApp">
       <header class="eco-top"><button class="eco-burger" id="ecoBurger" type="button" aria-label="Menú">☰</button>
         <div class="eco-logo"><svg viewBox="0 0 48 48" width="40" height="40"><defs><linearGradient id="elg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="#0f172a" stroke="url(#elg)" stroke-width="2"/><path d="M9 33l8-9 6 5 8-12 8 6" fill="none" stroke="url(#elg)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="39" cy="23" r="3" fill="#f472b6"/></svg></div>
         <div class="eco-brand"><b>EcoLab</b><span>Laboratorio económico · monitoreo de variables coyunturales</span></div><div class="eco-sp"></div>
         <span class="eco-chip" title="Datos descargados de la API del INEGI">Datos: ${esc((D.generado || "").slice(0, 10))}</span>
         <button class="eco-theme" id="ecoTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="ecoCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="ecoSalir" type="button">Salir</button></header>
-      <div class="eco-body"><aside class="eco-side"><div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
+      <div class="eco-body"><aside class="eco-side">${glTabs("eco")}<div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
       <main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
     tipEl = document.createElement("div"); tipEl.className = "eco-tip"; document.body.appendChild(tipEl);
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
@@ -873,7 +876,7 @@
     const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"; ls.set("eco_tema", c); };
     tema(ls.get("eco_tema", "oscuro")); $("#ecoTema", host).onclick = () => { tema($("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"); rer(); };
     $("#ecoQ", host).oninput = e => { S.q = e.target.value; arbol(); };
-    host.onclick = e => { const ck = e.target.closest(".eco-ck"); if (ck) { const k = ck.dataset.k, st = S.serie, vn = st.vn !== false, va = st.va !== false;
+    host.onclick = e => { if (glIr(e)) return; const ck = e.target.closest(".eco-ck"); if (ck) { const k = ck.dataset.k, st = S.serie, vn = st.vn !== false, va = st.va !== false;
         if (k === "nivel" || k === "anual" || k === "mom") { const cur = { nivel: vn, anual: va, mom: st.vm === true }, nx = Object.assign({}, cur, { [k]: !cur[k] }); if (nx.nivel || nx.anual || nx.mom) { st.vn = nx.nivel; st.va = nx.anual; st.vm = nx.mom; } } else if (k === "fc") st.fc = st.fc === false; else if (k === "og") st.og = st.og === false;
         $$("#ecoMode .eco-ck").forEach(b => b.querySelector(".eco-ckb").classList.toggle("on", ckOn(b.dataset.k))); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; }
       const fb = e.target.closest("#ecoFc"); if (fb) { S.serie.fc = S.serie.fc === false; fb.classList.toggle("on", S.serie.fc !== false); if (S.curI) drawSerie($("#ecoMain"), S.curI); return; } const sb = e.target.closest("[data-sub]"); if (sb) { S.sub = +sb.dataset.sub; return rer(); } const sk = e.target.closest("[data-sk]"); if (sk) { S.sk = sk.dataset.sk; return rer(); } const sm = e.target.closest("[data-mode]"); if (sm) return ir(sm.dataset.mode === "mon" ? (S.lastMon || "nac") : (S.lastCat || "cat")); const g = e.target.closest("[data-go]"), t = e.target.closest("[data-tg]"); if (t) { const k = t.dataset.tg; S.open.has(k) ? S.open.delete(k) : S.open.add(k); arbol(); } else if (g) ir(g.dataset.go); };
