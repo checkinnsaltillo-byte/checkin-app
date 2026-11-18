@@ -446,20 +446,20 @@
   /* boxplot de la distribución entre estados (sustituye a la barra de colores) con el estado del proyecto resaltado */
   function boxLeg(ok, o, W2) {
     if (ok.length < 4) return "";
-    const fm = v => o.seq ? nf(v, 1) + "%" : fp(v, 1), xs = ok.map(x => x.v).sort((a, b) => a - b), q = pp => { const i = (xs.length - 1) * pp, a = Math.floor(i), b = Math.ceil(i); return xs[a] + (xs[b] - xs[a]) * (i - a); };
+    const fm = o.fmt || (v => o.seq ? nf(v, 1) + "%" : fp(v, 1)), nom = o.nombre || (c => ENTBY[c][1]), pl = o.pl || "estados", xs = ok.map(x => x.v).sort((a, b) => a - b), q = pp => { const i = (xs.length - 1) * pp, a = Math.floor(i), b = Math.ceil(i); return xs[a] + (xs[b] - xs[a]) * (i - a); };
     const q1 = q(.25), md = q(.5), q3 = q(.75), ir = q3 - q1, wl = Math.min(...xs.filter(v => v >= q1 - 1.5 * ir)), wh = Math.max(...xs.filter(v => v <= q3 + 1.5 * ir));
     const W = Math.max(280, Math.min(W2, 640)), m = { l: 14, r: 14 }, H = 104, mn = xs[0], mx = xs[xs.length - 1], pad = (mx - mn) * .06 || 1, lo = mn - pad, hi = mx + pad, X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r), cy = 52;
-    const pc = (S.ctx && S.ctx.ent && ok.find(x => x.c === S.ctx.ent)) || (o.sel && ok.find(x => x.c === o.sel)) || null, rkp = pc ? ok.filter(x => x.v > pc.v).length + 1 : 0;
+    const pc = o.pin !== undefined ? (ok.find(x => x.c === o.pin) || null) : ((S.ctx && S.ctx.ent && ok.find(x => x.c === S.ctx.ent)) || (o.sel && ok.find(x => x.c === o.sel)) || null), rkp = pc ? ok.filter(x => x.v > pc.v).length + 1 : 0;
     let g = "", tk = ticksN(lo, hi, 5), td = tdec(tk);
     tk.forEach(v => { g += `<line x1="${X(v).toFixed(1)}" x2="${X(v).toFixed(1)}" y1="30" y2="76" class="eco-gr"/><text x="${X(v).toFixed(1)}" y="${H - 6}" class="eco-ax" text-anchor="middle">${nf(v, td)}</text>`; });
     if (!o.seq && lo < 0 && hi > 0) g += `<line x1="${X(0).toFixed(1)}" x2="${X(0).toFixed(1)}" y1="30" y2="76" stroke="#94a3b8" stroke-opacity=".7"/>`;
     g += `<line x1="${X(wl).toFixed(1)}" x2="${X(wh).toFixed(1)}" y1="${cy}" y2="${cy}" stroke="#94a3b8" stroke-width="1.6"/><line x1="${X(wl).toFixed(1)}" x2="${X(wl).toFixed(1)}" y1="${cy - 8}" y2="${cy + 8}" stroke="#94a3b8" stroke-width="1.6"/><line x1="${X(wh).toFixed(1)}" x2="${X(wh).toFixed(1)}" y1="${cy - 8}" y2="${cy + 8}" stroke="#94a3b8" stroke-width="1.6"/>`;
     g += `<rect x="${X(q1).toFixed(1)}" y="${cy - 14}" width="${Math.max(2, X(q3) - X(q1)).toFixed(1)}" height="28" rx="5" fill="#6366f1" fill-opacity=".22" stroke="#6366f1" stroke-width="1.4"/><line x1="${X(md).toFixed(1)}" x2="${X(md).toFixed(1)}" y1="${cy - 14}" y2="${cy + 14}" stroke="#6366f1" stroke-width="2.6"/>`;
     ok.forEach((x, i) => { if (pc && x.c === pc.c) return; const jy = cy + ((i * 37) % 17 - 8) * 1.4; g += `<circle cx="${X(x.v).toFixed(1)}" cy="${jy.toFixed(1)}" r="2.6" fill="#94a3b8" fill-opacity=".55"/>`; });
-    if (pc) { const px = X(pc.v), lab = "📍 " + ENTBY[pc.c][1] + " " + fm(pc.v), anc = px < 90 ? "start" : px > W - 90 ? "end" : "middle";
+    if (pc) { const px = X(pc.v), lab = "📍 " + nom(pc.c) + " " + fm(pc.v), anc = px < 90 ? "start" : px > W - 90 ? "end" : "middle";
       g += `<line x1="${px.toFixed(1)}" x2="${px.toFixed(1)}" y1="22" y2="${cy - 6}" stroke="#fbbf24" stroke-width="2"/><circle cx="${px.toFixed(1)}" cy="${cy}" r="7" fill="#fbbf24" stroke="#fff" stroke-width="2"/><text x="${px.toFixed(1)}" y="14" text-anchor="${anc}" class="eco-ax" style="fill:#fbbf24;font-weight:800;font-size:12px">${esc(lab)}</text>`; }
-    const nota = `<span>Mediana <b>${fm(md)}</b> · mitad central de los estados entre <b>${fm(q1)}</b> y <b>${fm(q3)}</b>${pc ? ` · ${esc(ENTBY[pc.c][1])}: lugar <b>${rkp}</b> de ${ok.length}` : ""}</span>`;
-    return `<div class="eco-box"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="margin:0 auto;display:block">${g}</svg><div class="eco-boxn">${nota}<span class="eco-boxn2">Distribución de los ${ok.length} estados · el color de cada mosaico va de rojo (menor) a verde (mayor)</span></div></div>`;
+    const nota = `<span>Mediana <b>${fm(md)}</b> · mitad central de ${pl === "estados" ? "los estados" : "las " + pl} entre <b>${fm(q1)}</b> y <b>${fm(q3)}</b>${pc ? ` · ${esc(nom(pc.c))}: lugar <b>${rkp}</b> de ${ok.length}` : ""}</span>`;
+    return `<div class="eco-box">${o.titulo ? `<div class="eco-boxt">${o.titulo}</div>` : ""}<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="margin:0 auto;display:block">${g}</svg><div class="eco-boxn">${nota}<span class="eco-boxn2">Distribución de ${pl === "estados" ? "los" : "las"} ${ok.length} ${pl}${o.sinColor ? "" : " · el color de cada mosaico va de rojo (menor) a verde (mayor)"}</span></div></div>`;
   }
   function tileMap(el, f, o) {
     o = o || {}; const cols = 11, rows = 6, g = 4, W = Math.max(300, Math.min(el.clientWidth, 820)), ts = Math.floor((W - g * (cols - 1)) / cols), H = rows * ts + (rows - 1) * g + 34, W2 = cols * ts + (cols - 1) * g;
@@ -757,7 +757,7 @@
     <div class="eco-kmap"><div class="eco-kgrid">${tiles}${kpi("Brecha de género", brecha == null ? "—" : sg(brecha, 1) + " pp", "desocupación mujeres − hombres", brecha == null ? "" : brecha > 0 ? "dn" : "up")}</div><div class="eco-mapbox"><div id="ecoMapa2"></div></div></div>
     ${I0 ? panelSerie(I0) : ""}
     <div class="eco-two">${panel("Desocupación: ciudad, estado y nación", "tasa trimestral / mensual (nacional)", '<div id="ecoCL1"></div>')}${panel("Mujeres y hombres", "tasa de desocupación", '<div id="ecoCL2"></div>')}</div>
-    <div class="eco-two">${panel("Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div>')}${panel("Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div>')}</div>`;
+    <div class="eco-two">${panel("Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div><div id="ecoCBox"></div>')}${panel("Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div>')}</div>`;
   }
   function pintaCiudad(code) {
     const c0 = CBY[code], xy = CIU_XY[code]; if (xy) draws.push(() => ecoMapa($("#ecoMapa2"), { lat: xy[0], lon: xy[1], zoom: 10, pin: { col: ZONAS[ENTBY[c0[2]][5]][1], label: c0[1] }, puntos: CIU.filter(x => x[2] === c0[2] && x[0] !== code && CIU_XY[x[0]]).map(x => ({ lat: CIU_XY[x[0]][0], lon: CIU_XY[x[0]][1], label: x[1], go: "c:" + x[0], col: ZONAS[ENTBY[x[2]][5]][1] })) }));
@@ -768,6 +768,7 @@
     const O = g("c_ocup"); draws.push(() => multiLine($("#ecoCL3"), O ? [{ name: c[1] + " · ocupados", col: "#34d399", pts: ptsE(O, "idx"), fc: fcLine(O, "yoy") }] : [], { anios: 12 }));
     const r = CIU.map(x => ({ x, v: cmv("c_desoc", x[0]) })).filter(q => q.v != null).sort((a, b) => b.v - a.v);
     draws.push(() => barsH($("#ecoCRk"), r.map(q => ({ label: q.x[1], v: q.v, go: "c:" + q.x[0], col: q.x[0] === code ? "#22d3ee" : "#475569" })), { rh: 18, lw: 120, fmt: v => nf(v, 1) + "%" }));
+    draws.push(() => { const bx = $("#ecoCBox"); if (bx) bx.innerHTML = boxLeg(r.map(q => ({ c: q.x[0], v: q.v })), { pin: code, nombre: cd => CBY[cd][1], pl: "ciudades", fmt: v => nf(v, 1) + "%", sinColor: true, titulo: "Tasa de desocupación: " + esc(c[1]) + " frente a las demás ciudades" }, Math.max(280, bx.clientWidth || 420)); });
   }
 
   /* ───────── mini-mapa (Leaflet + mosaicos CARTO/OpenStreetMap) ───────── */
