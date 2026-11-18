@@ -539,3 +539,6 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-pl .br{grid-template-columns:1fr 46px 22px;gap:5px}.nr-pl .br .n{white-space:normal;line-height:1.15;font-size:10px}
 .nr-pr{grid-template-columns:1fr 1fr}
 .ml-ff>summary .ml-fh{width:28px;height:26px;padding:0;justify-content:center;border:1px solid var(--ml-ln);border-radius:7px;cursor:pointer;flex:none;color:var(--ml-mut);text-transform:none}.ml-ff>summary .ml-fh:hover{color:var(--ml-ac);border-color:var(--ml-ac)}.ml-ff>summary .ml-fh svg{width:15px;height:15px}
+
+.nr-lt{margin-top:8px}.nr-lt span{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;background:rgba(148,163,184,.1)}.nr-lt span b{margin-left:5px;color:#fff}
+.nr-sel{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:rgba(148,163,184,.12)}.nr-sel button{border:0;background:transparent;color:#94a3b8;font:600 10px system-ui,sans-serif;padding:3px 9px;border-radius:6px;cursor:pointer;letter-spacing:0;text-transform:none}.nr-sel button.on{background:#7c3aed;color:#fff}

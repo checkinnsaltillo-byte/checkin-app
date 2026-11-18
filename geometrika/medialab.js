@@ -240,7 +240,7 @@
     ioMasObs.observe(el); chequeaMas();
   }
   /* ───────── Análisis narrativo (dashboard de fenómenos) ───────── */
-  const NPAL = ["#a855f7", "#38bdf8", "#2dd4bf", "#4ade80", "#f472b6", "#94a3b8"], NPOS = { "Apoyo (+)": "#34d399", "Conflicto (-)": "#f87171", "Neutral (0)": "#60a5fa" }, NTIPO = { Persona: "#f472b6", Institucion: "#a78bfa", Lugar: "#2dd4bf", Concepto: "#fbbf24" };
+  const NPAL = ["#a855f7", "#38bdf8", "#2dd4bf", "#4ade80", "#f472b6", "#fbbf24", "#fb923c", "#64748b"], NPOS = { "Apoyo (+)": "#34d399", "Conflicto (-)": "#f87171", "Neutral (0)": "#60a5fa" }, NTIPO = { Persona: "#f472b6", Institucion: "#a78bfa", Lugar: "#2dd4bf", Concepto: "#fbbf24" };
   const NFR = { Economico: ["Económico", "#a855f7"], Politico: ["Político", "#3b82f6"], Social: ["Social", "#22d3ee"], Ambiental_Tecnico: ["Ambiental / técnico", "#4ade80"] };
   const NOR = { Evento_Directo: "Evento directo", Declaracion_Oficial: "Declaración oficial", Filtracion_Exclusiva: "Filtración exclusiva", Reaccion_En_Cadena: "Reacción en cadena", Analisis_Secundario: "Análisis secundario" };
   const ORCOL = { Evento_Directo: "#4ade80", Declaracion_Oficial: "#60a5fa", Filtracion_Exclusiva: "#f472b6", Reaccion_En_Cadena: "#fbbf24", Analisis_Secundario: "#a78bfa" };
@@ -250,16 +250,16 @@
   const nPanel = (cls, t, sub, body) => `<section class="nr-p ${cls}"><h4>${t}${sub ? `<small>${sub}</small>` : ""}</h4>${body}</section>`;
 
   function nrTemporal(D) {
-    const W = 760, H = 290, pl = 34, pr = 150, pt = 26, pb = 24, S1 = D.serie, tops = D.tops.concat(D.serie.some(r => r.v.Otros) ? ["Otros"] : []);
+    const SR = (D.series && D.series[S.nrDim || "cat"]) || { tops: D.tops, serie: D.serie, cuenta: [] }, W = 760, H = 290, pl = 14, pr = 14, pt = 26, pb = 24, S1 = SR.serie, tops = SR.tops.concat(SR.serie.some(r => r.v.Otros) ? ["Otros"] : []);
     if (S1.length < 2) return `<div class="ml-vacio">Se necesitan al menos dos periodos para dibujar la evolución.</div>`;
     const tot = S1.map(r => tops.reduce((a, t) => a + (r.v[t] || 0), 0)), mx = Math.max(...tot, 1), X = i => pl + (W - pl - pr) * i / (S1.length - 1), cy = pt + (H - pt - pb) / 2, esc1 = (H - pt - pb) / 2 / mx * .95;
     const caps = tops.map(() => []); const base = S1.map((r, i) => -tot[i] / 2); const acum = base.slice();
     tops.forEach((t, k) => { const lo = [], hi = []; S1.forEach((r, i) => { lo.push([X(i), cy + acum[i] * esc1 * 2 / 2]); acum[i] += (r.v[t] || 0); hi.push([X(i), cy + acum[i] * esc1 * 2 / 2]); }); caps[k] = [lo, hi]; });
-    const capas = tops.map((t, k) => { const [lo, hi] = caps[k], d = suave(hi) + "L" + suave(lo.slice().reverse()).slice(1) + "Z"; return `<path d="${d}" fill="${NPAL[k % 6]}" fill-opacity=".72" stroke="${NPAL[k % 6]}" stroke-width="1"/>`; }).join("");
+    const capas = tops.map((t, k) => { const [lo, hi] = caps[k], d = suave(hi) + "L" + suave(lo.slice().reverse()).slice(1) + "Z"; return `<path d="${d}" fill="${NPAL[t === "Otros" ? 7 : k % 7]}" fill-opacity=".78" stroke="${NPAL[t === "Otros" ? 7 : k % 7]}" stroke-width="1"/>`; }).join("");
     const eje = S1.map((r, i) => (i % Math.ceil(S1.length / 8) === 0) ? `<text x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(fechaC(r.f).replace(/ \d{4}$/, ""))}</text>` : "").join("");
     const idx = f => S1.findIndex(r => r.f === f), raf = D.rafagas.map((b, n) => { const i = idx(b.f); if (i < 0) return ""; const x = X(i), up = n % 2 === 0, y = up ? pt - 6 : H - pb + 2; return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${pt}" y2="${H - pb}" stroke="#fff" stroke-opacity=".28" stroke-dasharray="3 3"/><circle cx="${x.toFixed(1)}" cy="${cy}" r="4.5" fill="#0b1226" stroke="#fff" stroke-width="1.6"><title>${esc(fechaC(b.f))}: ${b.n} ráfaga(s)</title></circle><text x="${x.toFixed(1)}" y="${up ? pt - 10 : H - 28}" text-anchor="middle" class="rf">Ráfaga${b.cc[0] ? " · " + esc(nCorta(b.cc[0], 22)) : ""}</text>`; }).join("");
     const ult = tops.map((t, k) => { const [lo, hi] = caps[k], a = lo[lo.length - 1][1], b = hi[hi.length - 1][1]; return `<g><circle cx="${W - pr + 8}" cy="${((a + b) / 2).toFixed(1)}" r="3.5" fill="${NPAL[k % 6]}"/><text x="${W - pr + 16}" y="${((a + b) / 2 + 3.5).toFixed(1)}" class="lb">${esc(nCorta(t, 24))}</text></g>`; }).join("");
-    return `<svg class="nr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución temporal por tópico">${capas}${raf}${ult}${eje}</svg>`;
+    return `<svg class="nr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución temporal por tópico">${capas}${raf}${eje}</svg><div class="nr-ley nr-lt">${tops.map((t, k) => `<span title="${esc(t)}"><i style="background:${NPAL[t === "Otros" ? 7 : k % 7]}"></i>${esc(nCorta(t, 30))}${SR.cuenta && SR.cuenta[k] ? ` <b>${SR.cuenta[k]}</b>` : t === "Otros" && SR.otros ? ` <b>${SR.otros}</b>` : ""}</span>`).join("")}</div>`;
   }
   function nrCooc(D) {
     const N = D.cooc.nodos.slice(0, 12), idx = new Map(N.map((n, i) => [n.id, i])), M = N.map(() => N.map(() => 0)); let mx = 1;
@@ -320,13 +320,13 @@
     else {
       const K = D.kpis;
       h += `<div class="nr-ks">${nrKpi("news", "Noticias analizadas", nf(K.notas), D.pend ? nf(D.pend) + " pendientes" : "al día")}${nrKpi("user", "Entidades detectadas", nf(K.entidades), "personas, instituciones, lugares")}${nrKpi("clock", "Ráfagas disruptivas", nf(K.rafagas), "eventos detonantes")}${nrKpi("layers", "Tópico principal", esc(nCorta(K.topico, 22)), nf(K.topicoN) + " notas")}</div>
-      <div class="nr-g">${nPanel("a4", "Dinámica temporal y evolución semántica", "Notas por tópico · ráfagas marcadas", nrTemporal(D) + `<div class="nr-fas">${D.fases.map(f => `<span><b>${f.v}</b> ${esc(f.k)}</span>`).join("")}${D.conceptos.slice(0, 6).map(c => `<span class="cc">${esc(c.k)}</span>`).join("")}</div>`)}
+      <div class="nr-g">${nPanel("a4", "Dinámica temporal y evolución semántica", `<span class="nr-sel"><button type="button" data-nd="cat" class="${(S.nrDim || "cat") === "cat" ? "on" : ""}">Por categoría</button><button type="button" data-nd="top" class="${S.nrDim === "top" ? "on" : ""}">Por tópico IA</button></span> · notas por periodo · círculos = ráfagas`, nrTemporal(D) + `<div class="nr-fas">${D.fases.map(f => `<span><b>${f.v}</b> ${esc(f.k)}</span>`).join("")}${D.conceptos.slice(0, 6).map(c => `<span class="cc">${esc(c.k)}</span>`).join("")}</div>`)}
       ${nPanel("a2", "Coocurrencia de entidades", "", nrCooc(D))}
       ${nPanel("b2", "Acciones y posturas", "Causalidad y sentimiento", nrSankey(D))}
       ${nPanel("b2", "Análisis de encuadre (framing)", "", nrEncuadre(D))}
       ${nPanel("b2", "Propagación narrativa", "Origen y focos geográficos", nrProp(D))}</div>`;
     }
-    m.innerHTML = h + `</div>`; const b = $("#nrRun"); if (b) b.onclick = narrCorre; nrEstado(); if (D && !D.cargando && !D.vacio && !D.error) nrMapa(D);
+    m.innerHTML = h + `</div>`; const b = $("#nrRun"); if (b) b.onclick = narrCorre; nrEstado(); if (D && !D.cargando && !D.vacio && !D.error) nrMapa(D); $$("[data-nd]").forEach(b => { b.onclick = () => { S.nrDim = b.dataset.nd; narrVista(); }; });
   }
   function nrEstado(t) { const e = $("#nrEst"); if (!e) return; const D = S.nar; e.textContent = t || (D && !D.cargando && !D.error ? (D.pend ? `${nf(D.pend)} por analizar · est. US$ ${D.est}` : "") : ""); const b = $("#nrRun"); if (b) { b.disabled = !!S.nrBusy; b.lastChild.textContent = S.nrBusy ? "Analizando…" : (S.nar && S.nar.pend === 0 && S.nar.listas ? "Reanalizar pendientes" : "Analizar con IA"); } }
   async function cargaNarr() {
