@@ -89,14 +89,14 @@
     let h = `<div class="ml-seg"><button type="button" data-go="tablero" class="${S.modo === "tablero" ? "on" : ""}">📰 Tablero</button><button type="button" data-go="crear" class="${S.modo === "crear" ? "on" : ""}">➕ Crear</button><button type="button" data-go="costos" class="${S.modo === "costos" ? "on" : ""}">💰 Costos</button></div><div class="ml-h4">Proyectos (${S.proy.length})</div>`;
     h += S.proy.length ? S.proy.map(p => { const w = p.estado && p.estado.trabajo, en = enCurso(p); return `<div class="ml-pj${p.id === S.sel ? " on" : ""}" data-pj="${p.id}"><b>${esc(p.titulo)}</b><small>${nf(p.config && p.config.nTerminos)} términos · ${esc(PER[p.config && p.config.periodicidad] || "")}</small><div class="ml-fp">${datosProy(p).map(([i, l, v]) => `<div title="${esc(l)}"><span>${i} ${esc(l)}</span><b>${v}</b></div>`).join("")}</div>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : p.estado && p.estado.ultima ? `<span class="ml-chip ok">✓ ${esc(fechaC(p.estado.ultima))}</span>` : `<span class="ml-chip">sin extraer</span>`}${w && w.ultimoError && !en ? `<span class="ml-chip err" title="${esc(w.ultimoError)}">avisos</span>` : ""}
         <div class="ml-acc"><button type="button" data-ed="${p.id}">✏️ Editar</button>${en ? "" : `<button type="button" data-ex="${p.id}" title="Trae solo lo nuevo desde la última extracción (o todo el periodo si el proyecto está vacío)">↻ Extraer</button><button type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado">⟲ Todo</button>`}<button type="button" data-del="${p.id}">🗑</button></div></div>`; }).join("") : `<div class="ml-vacio">Aún no hay proyectos.<br>Crea el primero con «Crear proyecto».</div>`;
-    if (S.modo === "tablero" && S.sel && S.data) h += filtros();
     side.innerHTML = h;
   }
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
   function filtros() {
     const F = S.data.facetas || {}, f = S.f, ents = [["Personas", "pers", F.pers], ["Instituciones", "inst", F.inst], ["Tópicos", "top", F.top]];
     const eo = ents.map(([t, k, L]) => (L && L.length) ? `<optgroup label="${t}">` + L.map(x => `<option value="${k}:${esc(x.v)}"${f.ent === k + ":" + x.v ? " selected" : ""}>${esc(x.v)} (${nf(x.n)})</option>`).join("") + `</optgroup>` : "").join("");
-    return `<div class="ml-h4">Filtros · ${nf(S.data.total)} de ${nf(S.data.de)} noticias</div>
+    const act = Object.keys(f).filter(k => f[k]).length;
+    return `<details class="ml-ff"${S.ffC ? "" : " open"}><summary><span>${ic("bar")}Filtros</span><em>${nf(S.data.total)} de ${nf(S.data.de)} noticias${act ? ` · ${act} activo${act > 1 ? "s" : ""}` : ""}</em><button class="ml-btn2" type="button" data-go="limpiar">Limpiar filtros</button></summary><div class="ml-ffg">
       <div class="ml-f"><label>Buscar en título y resumen</label><input type="search" id="mlQ" placeholder="Palabra o frase…" value="${esc(f.q || "")}"></div>
       <div class="ml-f"><label>Categoría</label><select data-f="cat">${opt(F.cat, f.cat)}</select></div>
       <div class="ml-f"><label>Subcategoría</label><select data-f="sub">${opt(F.sub, f.sub)}</select></div>
@@ -106,9 +106,9 @@
       ${(F.zona && F.zona.length) ? `<div class="ml-f"><label>Lugar · colonia o zona</label><select data-f="zona">${opt(F.zona, f.zona)}</select></div>` : ""}
       <div class="ml-f"><label>Medio</label><select data-f="med">${opt(F.med, f.med)}</select></div>
       <div class="ml-f"><label>Texto de la nota</label><select data-f="tx"><option value="">Todas</option>${[["1", "📄 Con texto"], ["2", "🔒 Sin texto (no accesible)"], ["0", "⏳ Texto pendiente"]].map(([v, t]) => `<option value="${v}"${f.tx === v ? " selected" : ""}>${t} (${nf(((F.tx || []).find(x => x.v === v) || {}).n || 0)})</option>`).join("")}</select></div>
-      <div class="ml-row2"><div class="ml-f"><label>Fecha desde</label><input type="date" data-f="desde" value="${esc(f.desde || "")}"></div><div class="ml-f"><label>Fecha hasta</label><input type="date" data-f="hasta" value="${esc(f.hasta || "")}"></div></div>
+      <div class="ml-f"><label>Fecha desde</label><input type="date" data-f="desde" value="${esc(f.desde || "")}"></div><div class="ml-f"><label>Fecha hasta</label><input type="date" data-f="hasta" value="${esc(f.hasta || "")}"></div>
       <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><select data-f="ent"><option value="">Todas</option>${eo}</select></div>
-      <button class="ml-btn2" type="button" data-go="limpiar" style="width:100%">Limpiar filtros</button>`;
+    </div></details>`;
   }
 
   /* ───────── tablero ───────── */
@@ -125,7 +125,7 @@
     S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); await consulta();
   }
   function principal() {
-    const m = $("#mlMain"); if (!m) return; S.mapa = null;
+    const m = $("#mlMain"); if (!m) return; S.mapa = null; const qa = document.activeElement && document.activeElement.id === "mlQ" ? document.activeElement.selectionStart : null;
     if (S.modo === "crear") { wizard(); return; }
     if (S.modo === "costos") { costos(); return; }
     const p = S.proy.find(x => x.id === S.sel);
@@ -133,14 +133,15 @@
     const d = S.data, en = enCurso(p);
     let h = `<div class="ml-kp"><div><b>${nf(d ? d.total : 0)}</b><span>noticias con estos filtros</span></div><div><b>${nf(p.estado && p.estado.total)}</b><span>noticias en el proyecto</span></div><div><b>${nf(p.config && p.config.nTerminos)}</b><span>términos de interés</span></div><div><b>${p.estado && p.estado.ultima ? esc(fechaC(p.estado.ultima)) : "—"}</b><span>última extracción${p.estado && p.estado.proxima ? " · próxima " + esc(fechaC(p.estado.proxima)) : ""}</span></div></div>`;
     h += `<div class="ml-ficha">${datosProy(p).map(([i, l, v]) => `<div><span>${i} ${esc(l)}</span><b>${v}</b></div>`).join("")}</div>`;
-    h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : `<button class="ml-btn2" type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado y agrega las notas que falten">⟲ Extraer todo el periodo</button> <button class="ml-btn" type="button" data-ex="${p.id}" title="Solo lo nuevo desde la última extracción">↻ Extraer ahora</button>`}</div><div id="mlProg"></div>`;
+    if (d && d.facetas) h += filtros();
+    h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : ""}</div><div id="mlProg"></div>`;
     if (p.objetivo) h += `<div class="ml-sem"><span>🎯 ${esc(p.objetivo)}</span></div>`;
     const cuerpo = !d ? `<div class="ml-vacio">Cargando noticias…</div>` : !d.items.length ? `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>` : `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
     if (S.vista === "mapa") h += `<div class="ml-split"><div class="ml-mapcol"><div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div></div><div class="ml-cardcol">${cuerpo}</div></div>`;
     else if (!d) h += `<div class="ml-vacio">Cargando noticias…</div>`;
     else if (!d.items.length) h += `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>`;
     else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
-    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa();
+    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
   }
   const TXC = { 1: ["ok", "📄 Con texto", "Se descargó el cuerpo de la nota"], 2: ["", "🔒 Sin texto", "El medio no permitió descargar el cuerpo (bloqueo o suscripción)"], 0: ["run", "⏳ Texto pendiente", "Aún no se intenta descargar el cuerpo"] };
   const MET = { regla: ["🔎 Texto", "Detectado en el título o la descripción con el catálogo de municipios del INEGI"], ia: ["🤖 IA", "La IA interpretó el lugar del texto de la nota y se ubicó con el catálogo de municipios del INEGI"], places: ["🗺️ Google Places", "Ubicado con la API de Google Places y verificado dentro del estado de la nota"] };
@@ -491,6 +492,7 @@
     const pj = t.closest("[data-pj]"); if (pj && !t.closest(".ml-acc")) { selecciona(pj.dataset.pj); return; }
     const ed = t.closest("[data-ed]"); if (ed) { editar(ed.dataset.ed); return; } const ex = t.closest("[data-ex]"); if (ex) { extraer(ex.dataset.ex); return; } const exa = t.closest("[data-exall]"); if (exa) { extraer(exa.dataset.exall, true); return; }
     const del = t.closest("[data-del]"); if (del) { const p = S.proy.find(x => x.id === del.dataset.del); if (p && confirm("¿Eliminar el proyecto «" + p.titulo + "» y todas sus noticias?")) api(`/proyectos/${p.id}`, { method: "DELETE" }).then(async () => { if (S.sel === p.id) { S.sel = null; S.data = null; } await cargaProy(); lado(); principal(); toast("Proyecto eliminado"); }).catch(er => toast(er.message, true)); return; }
+    const sm = t.closest(".ml-ff > summary"); if (sm && !t.closest("button")) { e.preventDefault(); S.ffC = !S.ffC; sm.parentNode.open = !S.ffC; return; }
     const vm = t.closest("[data-vermapa]"); if (vm && S.det && S.det.n && S.det.n.lug) { const L0 = S.det.n.lug; S.foco = { id: vm.dataset.vermapa, lat: +L0.lat, lng: +L0.lng }; if (S.vista === "mapa" && S.mapa) { enfocaMapa(); return; } S.vista = "mapa"; principal(); consulta(); return; }
     const v = t.closest("[data-v]"); if (v) { S.vista = v.dataset.v; S.det = null; principal(); consulta(); return; }
     const rs = t.closest("[data-g3reset]"); if (rs && S.entV) { S.entV.keep = {}; pintaDet(); return; }
