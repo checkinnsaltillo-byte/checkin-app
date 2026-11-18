@@ -232,6 +232,11 @@
   html:not(.tema-osc) body.lab-on #tt{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,250,252,.82))}
   body.lab-on #lg-col,body.lab-on #lg-tg{visibility:hidden!important}
   body.lab-on #tt #lft-nav{display:none!important}
+  /* ventanas de GeoLab semitransparentes (menú izquierdo, paneles y simbología): se deja ver con sutileza el mapa de atrás */
+  #dock,#pry-pn,#cap-pn,#lg-col{background:linear-gradient(180deg,rgba(8,13,26,.82),rgba(15,23,42,.78) 60%,rgba(10,16,32,.82))!important;backdrop-filter:blur(14px) saturate(150%)!important;-webkit-backdrop-filter:blur(14px) saturate(150%)!important}
+  html:not(.tema-osc) #dock,html:not(.tema-osc) #pry-pn,html:not(.tema-osc) #cap-pn{background:linear-gradient(180deg,rgba(248,250,252,.84),rgba(238,242,255,.8) 60%,rgba(241,245,249,.84))!important}
+  body>#tt{background:linear-gradient(180deg,rgba(8,13,26,.88),rgba(8,13,26,.82))!important}
+  html:not(.tema-osc) body>#tt{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,250,252,.82))!important}
   /* encabezado: logo de Metrika arriba y los logos de GeoLab · EcoLab · DataLab como pestañas */
   #tt .tt-hd{margin:0 0 12px;padding:0 0 12px;gap:0}
   #tt .tt-hd img.mt-logo{height:38px;width:auto;max-width:100%;display:block;margin:0 auto}
