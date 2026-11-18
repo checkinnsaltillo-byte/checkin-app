@@ -352,3 +352,13 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-k4w .rg{flex:none;width:58px;height:58px}.ml-k4w .rg text{font:800 11.5px system-ui,sans-serif;fill:var(--ml-tx)}
 @media (max-width:1180px){.ml-k4w{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .ml-k4w .kbar{display:block;height:6px;border-radius:99px;background:rgba(148,163,184,.28);overflow:hidden;margin:3px 0 1px}.ml-k4w .kbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--c1),var(--c2))}.ml-k4w .pill{white-space:normal}
+
+/* selector de medios */
+.ml-mdd{position:relative}.ml-mbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--ml-ln);border-radius:10px;background:var(--ml-card);min-height:42px}
+.ml-mbox:focus-within{border-color:var(--ml-ac)}.ml-mbox input{flex:1;min-width:180px;border:0!important;outline:none;background:transparent!important;padding:6px 4px!important;font-size:13px;color:inherit}
+.ml-mchs{display:contents}.ml-mch{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 11px;border-radius:99px;background:var(--ml-bdbg);border:1px solid var(--ml-bd);font-size:12px;font-weight:600}.ml-mch button{border:0;background:rgba(148,163,184,.3);width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:10px;line-height:1;color:inherit}
+.ml-mlist{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:290px;overflow:auto;border:1px solid var(--ml-ln);border-radius:12px;background:var(--ml-card);box-shadow:0 18px 40px -12px rgba(15,23,42,.45);padding:4px}
+.ml-mi{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer}.ml-mi:hover{background:rgba(148,163,184,.14)}
+.ml-mi .ck{width:18px;height:18px;border:1.5px solid var(--ml-mut);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;flex:none}.ml-mi.on .ck{background:var(--ml-bd);border-color:var(--ml-bd);color:#fff}
+.ml-mi .nm{flex:1;min-width:0}.ml-mi .nm b{display:block;font-size:12.5px}.ml-mi .nm small{color:var(--ml-mut);font-size:11px}.ml-mi em{font-style:normal;font-size:11px;color:var(--ml-mut);white-space:nowrap}.ml-mi.nuevo .ck{color:var(--ml-bd);border-style:dashed}
+.ml-mvac{padding:12px;font-size:12px;color:var(--ml-mut)}

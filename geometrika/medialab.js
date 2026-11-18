@@ -51,6 +51,7 @@
     if (p === "/proveedores") return j({ proveedores: { gdelt: { n: "GDELT (gratis)", ok: true, nota: "Cobertura masiva sin clave." }, grss: { n: "Google Noticias (RSS)", ok: true, nota: "Gratis, 100 por consulta." }, newsdata: { n: "NewsData.io", ok: false, clave: "NEWSDATA_API_KEY", nota: "De pago." }, gnews: { n: "GNews", ok: false, clave: "GNEWS_API_KEY", nota: "De pago." } }, ia: true, geocodificar: true, categorias: CATS, estados: { "05": "Coahuila", "19": "Nuevo León", "14": "Jalisco", "09": "Ciudad de México" } });
     if (/\/situacion$/.test(p) && m === "POST") { const q0 = mockProy().find(x => x.id === p.split("/")[2]); if (q0) q0.situacion = JSON.parse((o && o.body) || "{}").situacion; return j({ proyecto: q0 }); }
     if (/\/gestion$/.test(p) && m === "POST") { const q0 = mockProy().find(x => x.id === p.split("/")[2]), b0 = JSON.parse((o && o.body) || "{}"); if (q0) Object.assign(q0, { situacion: b0.situacion, visibilidad: b0.visibilidad, usuarios: b0.usuarios, vigencia: b0.vigencia, presupuesto: b0.presupuesto }); return j({ proyecto: q0 }); }
+    if (p === "/medios") return j({ medios: [{ d: "milenio.com", nom: "Milenio", n: 214 }, { d: "elheraldodemexico.com", nom: "El Heraldo de México", n: 163 }, { d: "imagen.com.mx", nom: "Imagen", n: 97 }, { d: "mvsnoticias.com", nom: "MVS Noticias", n: 64 }, { d: "noticieros.televisa.com", nom: "Noticieros Televisa", n: 51 }, { d: "elnorte.com", nom: "El Norte", n: 33 }, { d: "elsiglodetorreon.com.mx", nom: "El Siglo de Torreón", n: 12 }] });
     if (p === "/proyectos" && m === "GET") return j({ proyectos: mockProy() });
     if (p === "/estimar") return j({ terminos: 1250, excluidos: 3, grupos: 94, consultas: 94, minutos: 9, muestra: [{ q: "(agua OR sequía…)", n: 250, saturado: true }], notasPorGrupo: 180, notasEstimadas: 10000, saturado: true, advertencias: ["Se subdivide por fechas cuando una consulta se satura."] });
     if (p === "/proyectos" && m === "POST") return j({ id: "demo2", nTerminos: 10 });
@@ -515,9 +516,23 @@
   /* ───────── asistente: crear / editar proyecto ───────── */
   const PASOS = ["1 · Proyecto", "2 · Términos", "3 · Zona", "4 · Periodo y volumen", "5 · Periodicidad", "6 · Lanzar"];
   const WNEW = () => ({ paso: 0, id: null, creador: (() => { try { return localStorage.getItem("ml_creador") || ""; } catch (_) { return ""; } })(), titulo: "", objetivo: "", terminos: "", estados: [], ciudades: "", estricta: false, tipo: "movil", dias: 7, desde: "", hasta: "", max: 5000, idiomas: ["spanish"], medios: "", proveedor: "grss", periodicidad: "manual", texto: true, textoMax: 500, ia: true, iaMax: 0, geo: false, est: null, lanzando: null });
-  function nuevo() { S.W = WNEW(); S.modo = "crear"; titulo("Crear proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); }
+  /* selector de medios: lista de los medios ya guardados (crece con cada extracción), con búsqueda y selección múltiple */
+  const medSel = () => String((S.W && S.W.medios) || "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+  const medNom = d => { const m = (S.medios || []).find(x => x.d === d); return m ? m.nom : d; };
+  function medChips() { return medSel().map(d => `<span class="ml-mch" title="${esc(d)}">${esc(medNom(d))}<button type="button" data-medx="${esc(d)}" aria-label="Quitar">✕</button></span>`).join(""); }
+  function medLista(q) {
+    const sel = new Set(medSel()), t = String(q || "").trim().toLowerCase(), L = (S.medios || []).filter(m => !t || m.d.includes(t) || String(m.nom).toLowerCase().includes(t));
+    if (!S.medios) return `<div class="ml-mvac">Cargando medios…</div>`;
+    return (L.length ? L.map(m => `<div class="ml-mi${sel.has(m.d) ? " on" : ""}" data-med="${esc(m.d)}"><span class="ck">✓</span><span class="nm"><b>${esc(m.nom)}</b><small>${esc(m.d)}</small></span><em>${nf(m.n)} ${m.n === 1 ? "nota" : "notas"}</em></div>`).join("") : "") + (t && !L.some(m => m.d === t) && /\./.test(t) ? `<div class="ml-mi nuevo" data-med="${esc(t)}"><span class="ck">＋</span><span class="nm"><b>Agregar «${esc(t)}»</b><small>medio nuevo</small></span></div>` : "") || `<div class="ml-mvac">Aún no hay medios guardados. Escribe un dominio (p. ej. milenio.com) y pulsa Enter.</div>`;
+  }
+  const mediosHtml = () => `<div class="ml-mdd" id="mlMdd"><div class="ml-mbox"><span id="mlMch" class="ml-mchs">${medChips()}</span><input type="text" id="mlMq" autocomplete="off" placeholder="${medSel().length ? "Agregar otro medio…" : "Buscar medio o escribir un dominio…"}"></div><div class="ml-mlist" id="mlMlist" hidden>${medLista("")}</div></div>`;
+  function medRefresca() { const c = $("#mlMch"), l = $("#mlMlist"), q = $("#mlMq"); if (c) c.innerHTML = medChips(); if (l) l.innerHTML = medLista(q ? q.value : ""); }
+  function medToggle(d) { d = String(d).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""); if (!d || !S.W) return; const a = medSel(), i = a.indexOf(d); i >= 0 ? a.splice(i, 1) : a.push(d); S.W.medios = a.join(", "); if (!(S.medios || []).some(m => m.d === d)) (S.medios = S.medios || []).push({ d, nom: d, n: 0 }); medRefresca(); }
+  async function cargaMedios() { try { S.medios = (await api("/medios")).medios || []; } catch (_) { S.medios = S.medios || []; } if (S.modo === "crear") { const l = $("#mlMlist"); if (l) { const q = $("#mlMq"); l.innerHTML = medLista(q ? q.value : ""); const c = $("#mlMch"); if (c) c.innerHTML = medChips(); } } }
+  function nuevo() { S.W = WNEW(); S.modo = "crear"; titulo("Crear proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); cargaMedios(); }
   async function cargaProv() { try { S.prov = await api("/proveedores"); } catch (e) { S.prov = { proveedores: {}, estados: {}, error: e.message }; } if (S.modo === "crear") principal(); }
   async function editar(id) {
+    cargaMedios();
     try { const r = await api(`/proyectos/${id}?terminos=1`), p = r.proyecto, c = p.config || {}; S.W = Object.assign(WNEW(), { id, creador: p.creador || (() => { try { return localStorage.getItem("ml_creador") || ""; } catch (_) { return ""; } })(), titulo: p.titulo, objetivo: p.objetivo || "", terminos: (c.terminos || []).join("\n"), estados: (c.zona && c.zona.estados) || [], ciudades: ((c.zona && c.zona.ciudades) || []).join(", "), estricta: !!(c.zona && c.zona.estricta), tipo: c.periodo && c.periodo.tipo === "fijo" ? "fijo" : "movil", dias: (c.periodo && c.periodo.dias) || 7, desde: (c.periodo && c.periodo.desde || "").slice(0, 10), hasta: (c.periodo && c.periodo.hasta || "").slice(0, 10), max: c.maxNoticias || 5000, idiomas: c.idiomas || ["spanish"], medios: (c.medios || []).join(", "), proveedor: c.proveedor || "gdelt", periodicidad: c.periodicidad || "manual", texto: c.texto !== false, textoMax: c.textoMax == null ? 500 : c.textoMax, ia: c.ia !== false, iaMax: c.iaMax || 0, geo: !!c.geocodificar }); S.modo = "crear"; titulo("Editar proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); } catch (e) { toast(e.message, true); }
   }
   const cuentaT = txt => { const L = String(txt || "").split(/[\n,;]+/).map(x => x.trim()).filter(Boolean), v = new Set(); let pos = 0, neg = 0, dup = 0; L.forEach(t => { const ng = t.startsWith("-"), k = norm(ng ? t.slice(1) : t).trim(); if (k.length < 3) return; if (v.has(k)) { dup++; return; } v.add(k); ng ? neg++ : pos++; }); return { pos, neg, dup }; };
@@ -531,7 +546,7 @@
       <div class="ml-seg"><button type="button" data-w2="tipo:movil" class="${W.tipo === "movil" ? "on" : ""}">Últimos N días (móvil)</button><button type="button" data-w2="tipo:fijo" class="${W.tipo === "fijo" ? "on" : ""}">Rango fijo</button></div>
       ${W.tipo === "movil" ? `<div class="ml-f"><label>Días hacia atrás</label><input type="number" min="1" max="3650" data-w="dias" value="${W.dias}"></div>` : `<div class="ml-row2"><div class="ml-f"><label>Desde</label><input type="date" data-w="desde" value="${esc(W.desde)}"></div><div class="ml-f"><label>Hasta</label><input type="date" data-w="hasta" value="${esc(W.hasta)}"></div></div>`}
       <div class="ml-row2"><div class="ml-f"><label>Cantidad máxima de noticias</label><select data-w="max">${[1000, 5000, 20000, 50000].map(v => `<option value="${v}"${+W.max === v ? " selected" : ""}>${nf(v)}</option>`).join("")}</select></div><div class="ml-f"><label>Idioma</label><select data-w="idioma"><option value="spanish"${W.idiomas[0] === "spanish" ? " selected" : ""}>Español</option><option value="english"${W.idiomas[0] === "english" ? " selected" : ""}>Inglés</option></select></div></div>
-      <div class="ml-f"><label>Solo estos medios (dominios separados por coma; vacío = todos)</label><input data-w="medios" value="${esc(W.medios)}" placeholder="milenio.com, elheraldodemexico.com, imagen.com.mx"></div>
+      <div class="ml-f"><label>Solo estos medios (elige de los que ya tienes guardados o escribe un dominio; vacío = todos)</label>${mediosHtml()}</div>
       <div class="ml-f"><label>Servicio de noticias</label><select data-w="proveedor">${Object.keys(pv).map(k => `<option value="${k}"${W.proveedor === k ? " selected" : ""}${pv[k].ok ? "" : " disabled"}>${esc(pv[k].n)}${pv[k].ok ? "" : " — requiere " + esc(pv[k].clave)}</option>`).join("")}</select></div>
       ${pv[W.proveedor] ? `<div class="ml-sem"><span>${esc(pv[W.proveedor].nota)}</span></div>` : ""}
       <button class="ml-btn2" type="button" data-go="estimar">📊 Estimar cantidad de noticias y tiempo</button>
@@ -584,6 +599,11 @@
       else if (k === "zonaGeo" && S.ctx) { if (S.ctx.ent && !W.estados.includes(S.ctx.ent)) W.estados.push(S.ctx.ent); const ci = S.ctx.ciudad || S.ctx.municipio; if (ci && !W.ciudades.includes(ci)) W.ciudades = (W.ciudades ? W.ciudades + ", " : "") + ci; wizard(); }
       else if (k === "volver") { S.entV = null; pintaDet(); } else if (k === "resumen" && S.det && S.det.n) abreDet(S.det.n.id, true); else if (k === "recargaCos") cargaCostos(); return;
     }
+    if (S.modo === "crear") {
+      const mi = t.closest("[data-med]"); if (mi) { medToggle(mi.dataset.med); const q = $("#mlMq"); if (q) { q.value = ""; q.focus(); } medRefresca(); return; }
+      const mx = t.closest("[data-medx]"); if (mx) { medToggle(mx.dataset.medx); return; }
+      const box = t.closest("#mlMdd"); const lst = $("#mlMlist"); if (lst) { if (box) { lst.hidden = false; const q = $("#mlMq"); if (q && !t.closest("#mlMlist")) q.focus(); } else lst.hidden = true; }
+    }
     const gx = t.closest("[data-gx]"); if (gx) { if (gx.dataset.gx === "fuera") { if (t === gx) cierraGestion(); return; } gxAccion(gx.dataset.gx); return; }
     const ge = t.closest("[data-gest]"); if (ge) { abreGestion(ge.dataset.gest); return; }
     const ab = t.closest("[data-abrir]"); if (ab) { e.preventDefault(); selecciona(ab.dataset.abrir); return; }
@@ -607,7 +627,7 @@
     const w2 = t.closest("[data-w2]"); if (w2 && S.W) { const [k, val] = w2.dataset.w2.split(":"); S.W[k] = val; wizard(); }
   }
   let tq; function entrada(e) {
-    const t = e.target; if (t.id === "mlPQ") { S.pq = t.value; clearTimeout(tq); tq = setTimeout(proyectosVista, 200); return; } if (t.id === "mlQ") { clearTimeout(tq); tq = setTimeout(() => { S.f.q = t.value.trim(); consulta(); }, 400); return; }
+    const t = e.target; if (t.id === "mlMq") { const l = $("#mlMlist"); if (l) { l.hidden = false; l.innerHTML = medLista(t.value); } return; } if (t.id === "mlPQ") { S.pq = t.value; clearTimeout(tq); tq = setTimeout(proyectosVista, 200); return; } if (t.id === "mlQ") { clearTimeout(tq); tq = setTimeout(() => { S.f.q = t.value.trim(); consulta(); }, 400); return; }
     if (t.dataset && t.dataset.w && S.W) { const k = t.dataset.w; S.W[k] = t.type === "number" ? +t.value : t.value; if (k === "terminos") { const c = cuentaT(S.W.terminos), s = $(".ml-sem", $("#mlMain")); if (s) s.innerHTML = `<span><b>${nf(c.pos)}</b> términos válidos</span><span>${nf(c.neg)} exclusiones</span><span>${nf(c.dup)} repetidos omitidos</span><span>máx. 20,000</span>`; } }
   }
   function cambio(e) {
@@ -624,6 +644,7 @@
     try { const b = cuerpo(); W.est = await post("/estimar", b); } catch (e) { W.est = null; toast(e.message, true); } W.estimando = false; wizard();
   }
 
+  document.addEventListener("keydown", e => { const t = e.target; if (t && t.id === "mlMq") { if (e.key === "Enter") { e.preventDefault(); if (t.value.trim()) { medToggle(t.value); t.value = ""; medRefresca(); } } else if (e.key === "Escape") { const l = $("#mlMlist"); if (l) l.hidden = true; } else if (e.key === "Backspace" && !t.value) { const a = medSel(); if (a.length) medToggle(a[a.length - 1]); } } });
   /* ───────── arranque ───────── */
   window.medialabInit = async function () {
     host = document.getElementById("medialab-host"); if (!host) return; shell(); lado(); principal();
