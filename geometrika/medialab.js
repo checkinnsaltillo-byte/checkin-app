@@ -367,7 +367,7 @@
     const cuota = `<div class="nk-cu"><div class="bar"><i style="width:${pT}%"></i></div><span>${pT}% de las notas</span></div>`;
     const tarjeta = (cls, ico, lb, val, sub, viz, tip, chico) => `<div class="nk ${cls}" data-tip="${esc(tip)}"><span class="nk-wm">${mi(ico)}</span><span class="nk-ic">${mi(ico)}</span><div class="nk-tx"><span class="lb">${lb}</span><b${chico ? ' class="tx"' : ""}>${val}</b><em>${sub}</em></div><div class="nk-vz">${viz}</div></div>`;
     return `<div class="nr-ks nk-g">${nQ("kpi")}
-      ${tarjeta("nk-a", "news", "Noticias analizadas", nf(K.notas), "de " + nf(tot) + (filtrado ? " noticias del filtro" : " noticias del proyecto"), `<div class="nk-cu"><div class="bar"><i style="width:${tot ? Math.max(K.notas ? 1.5 : 0, K.notas / tot * 100).toFixed(1) : 0}%"></i></div><span>${pA}% ${filtrado ? "del filtro" : "del proyecto"}${filtrado ? " · " + pU + "% del universo (" + nf(uni) + ")" : ""}</span></div>`, tipH("Noticias analizadas", nf(K.notas) + " con análisis de IA", "De " + nf(tot) + (filtrado ? " noticias que cumplen los filtros: " : " noticias del proyecto: ") + pA + " %", filtrado ? "Universo del proyecto: " + nf(uni) + " noticias (" + pU + " % analizado)" : "", sinA ? nf(sinA) + " sin analizar" + (D.pend != null && D.pend < sinA ? " (" + nf(D.pend) + " listas para analizar; el resto no tiene texto suficiente o falló)" : "") : "Todas analizadas"))}
+      ${tarjeta("nk-a", "news", "Noticias analizadas", nf(K.notas), "de " + nf(tot) + (filtrado ? " noticias del filtro" : " noticias del proyecto"), `<div class="nk-cu"><div class="bar"><i style="width:${tot ? Math.max(K.notas ? 1.5 : 0, K.notas / tot * 100).toFixed(1) : 0}%"></i></div><span>${pA}% ${filtrado ? "del filtro" : "del proyecto"}${filtrado ? " · " + pU + "% del universo (" + nf(uni) + ")" : ""}</span></div>`, tipH("Noticias analizadas", nf(K.notas) + " con análisis de IA", "De " + nf(tot) + (filtrado ? " noticias que cumplen los filtros: " : " noticias del proyecto: ") + pA + " %", filtrado ? "Universo del proyecto: " + nf(uni) + " noticias (" + pU + " % analizado)" : "", sinA ? nf(sinA) + " sin analizar" + (D.pend != null && D.pend < sinA ? " (" + nf(D.pend) + " listas para analizar; el resto no tiene texto suficiente o falló)" : "") : "Todas analizadas", D.fallidas ? nf(D.fallidas) + " fallaron al analizarse: usa «Reintentar» arriba" : ""))}
       ${tarjeta("nk-b", "user", "Entidades detectadas", nf(K.entidades), "en 4 tipos", tipos, tipH("Entidades detectadas", nf(K.entidades) + " entidades distintas extraídas por la IA", "La barra muestra su reparto por tipo"))}
       ${tarjeta("nk-c", "clock", "Ráfagas disruptivas", nf(K.rafagas), pR + "% son detonantes", linea, tipH("Ráfagas disruptivas", nf(K.rafagas) + " notas marcadas como evento detonante", "Línea: notas por periodo · puntos: periodos con ráfaga"))}
       ${tarjeta("nk-d", "layers", "Tópico principal", esc(nCorta(K.topico, 26)), nf(K.topicoN) + " notas", cuota, tipH("Tópico principal", K.topico, nf(K.topicoN) + " notas · " + pT + " % del total analizado"), true)}</div>`;
@@ -469,7 +469,7 @@
       svg.addEventListener("dblclick", () => { [x, y, w, h] = v0; set(); });
     });
   }
-  function nrEstado(t) { const e = $("#nrEst"); if (!e) return; const D = S.nar; e.textContent = t || (D && !D.cargando && !D.error ? (D.pend ? `${nf(D.pend)} por analizar · est. US$ ${D.est}` : "") : ""); const b = $("#nrRun"); if (b) { b.disabled = !!S.nrBusy; b.lastChild.textContent = S.nrBusy ? "Analizando…" : (S.nar && S.nar.pend === 0 && S.nar.listas ? "Reanalizar pendientes" : "Analizar con IA"); } }
+  function nrEstado(t) { const e = $("#nrEst"); if (!e) return; const D = S.nar; e.textContent = t || (D && !D.cargando && !D.error ? (D.pend ? `${nf(D.pend)} por analizar · est. US$ ${D.est}` : D.fallidas ? `${nf(D.fallidas)} no se pudieron analizar · reintentar cuesta aprox. US$ ${D.est}` : "") : ""); const b = $("#nrRun"); if (b) { b.disabled = !!S.nrBusy; b.lastChild.textContent = S.nrBusy ? "Analizando…" : (S.nar && S.nar.pend === 0 && S.nar.fallidas ? "Reintentar " + nf(S.nar.fallidas) + " fallidas" : S.nar && S.nar.pend === 0 && S.nar.listas ? "Reanalizar pendientes" : "Analizar con IA"); } }
   async function cargaNarr() {
     const id = S.sel, qs = new URLSearchParams(); Object.entries(S.nrF || {}).forEach(([k, v]) => { if (v) qs.set(k, v); }); S.nar = Object.assign({}, S.nar || {}, { cargando: !S.nar }); if (S.modo === "narr" && S.nar.cargando) narrVista();
     try { const r = await api(`/proyectos/${id}/narrativa${qs.toString() ? "?" + qs : ""}`); if (id !== S.sel) return; S.nar = r; } catch (e) { S.nar = { error: e.message }; }
@@ -478,8 +478,8 @@
   async function narrCorre() {
     if (S.nrBusy) return; const id = S.sel; S.nrBusy = true; nrEstado("Iniciando…");
     try {
-      let seguir = true, sin = 0; while (seguir && S.sel === id && S.modo === "narr") {
-        const r = await post(`/proyectos/${id}/narrativa`, { max: 60 }); nrEstado(`${nf(r.listas)} de ${nf(r.total)} analizadas · quedan ${nf(r.pend)}`);
+      let seguir = true, sin = 0, vueltas = 0; while (seguir && S.sel === id && S.modo === "narr") {
+        const r = await post(`/proyectos/${id}/narrativa`, { max: 60, reintentar: !vueltas++ && !!(S.nar && !S.nar.pend && S.nar.fallidas) }); nrEstado(`${nf(r.listas)} de ${nf(r.total)} analizadas · quedan ${nf(r.pend)}`);
         if (!r.hechas) sin++; else sin = 0; seguir = r.pend > 0 && sin < 2; if (r.error && !r.hechas) { toast(r.error, true); break; }
         await cargaNarr();
       }
