@@ -178,3 +178,15 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-det-on .ml-main{padding-right:33.333vw}.ml-det-on .ml-det,.ml-det-on .ml-det.wide{width:33.333vw}
 .ml-det-on .ml-split .ml-card .im{width:130px}
 @media (max-width:900px){.ml-split .ml-mapcol,.ml-split .ml-cardcol{width:100%}.ml-split .ml-card{flex-direction:column}.ml-split .ml-card .im{width:auto;height:120px;min-height:0}.ml-det-on .ml-main{padding-right:20px}}
+
+.ml-g3{display:block;width:100%;border:1px solid var(--ml-ln);border-radius:12px;margin:6px 0 8px;color:var(--ml-tx);touch-action:none;user-select:none;-webkit-user-select:none;background:radial-gradient(circle at 50% 40%,rgba(148,163,184,.14),rgba(148,163,184,.03) 70%)}
+
+/* ranking de centralidad */
+.ml-cen{display:flex;flex-direction:column;gap:6px;margin:2px 0 8px}
+.ml-cr{display:grid;grid-template-columns:22px 10px minmax(0,1fr) 124px 24px;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--ml-ln);border-radius:12px;background:rgba(148,163,184,.06);cursor:pointer;transition:border-color .15s,background .15s}
+.ml-cr:hover{border-color:var(--ml-bd);background:var(--ml-bdbg)}.ml-cr.on{border-color:var(--ml-bd);background:var(--ml-bdbg);box-shadow:0 0 0 1px var(--ml-bd) inset}
+.ml-cr .rk{font:800 12px system-ui,sans-serif;color:var(--ml-mut);text-align:center}.ml-cr:nth-child(-n+3) .rk{color:var(--ml-tx)}
+.ml-cr .dt{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 3px rgba(148,163,184,.18)}
+.ml-cr .nm{min-width:0}.ml-cr .nm b{display:block;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ml-cr .nm small{display:block;font-size:11px;color:var(--ml-mut);margin-top:1px}
+.ml-cr .bw{display:flex;align-items:center;gap:8px}.ml-cr .bb{flex:1;height:7px;border-radius:99px;background:rgba(148,163,184,.22);overflow:hidden}.ml-cr .bb i{display:block;height:100%;border-radius:99px}.ml-cr .bw em{font-style:normal;font-weight:800;font-size:12px;min-width:38px;text-align:right}
+.ml-cr .go{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:var(--ml-mut);border:1px solid var(--ml-ln)}.ml-cr .go:hover{color:var(--ml-tx);border-color:var(--ml-bd)}.ml-cr .go .ml-ic{margin:0;width:13px;height:13px}
