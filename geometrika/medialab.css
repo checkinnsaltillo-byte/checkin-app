@@ -233,3 +233,7 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-sp-more{background:rgba(15,23,42,.88);text-align:center}
 .ml-card.sel{outline:3px solid var(--ml-bd);outline-offset:2px;animation:mlSel 1s ease-in-out 3}
 @keyframes mlSel{0%,100%{box-shadow:0 0 0 0 rgba(70,110,160,0)}50%{box-shadow:0 0 18px 4px rgba(70,110,160,.55)}}
+
+.ml-af-a{margin-top:10px;padding-top:10px;border-top:1px dashed var(--ml-ln)}.ml-af-a b{display:block;font-size:13.5px;margin:3px 0 5px}
+.ml-af-d{display:flex;align-items:center;gap:4px}.ml-af-d i{width:18px;height:6px;border-radius:99px;background:rgba(148,163,184,.3)}.ml-af-d span{margin-left:6px;font-size:11px;color:var(--ml-mut)}
+.ml-af-s{display:block;font-size:12px;color:var(--ml-mut);margin:4px 0 6px}
