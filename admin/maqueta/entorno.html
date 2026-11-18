@@ -246,6 +246,15 @@
   #tt #lft-cg:hover,#tt #lft-cg.on{background:#4f46e5;color:#fff}
   html.tema-osc #tt #lft-cg{background:rgba(148,163,184,.22);color:#e2e8f0}html.tema-osc #tt #lft-cg:hover,html.tema-osc #tt #lft-cg.on{background:#4f46e5;color:#fff}
   #pry-tg,#pry-pn{display:none!important}
+  /* mapa de Proyectos en tema oscuro: etiquetas, botones y pines con contraste */
+  html.tema-osc #mm-map .mm-tip{background:rgba(15,23,42,.94)!important;color:#f8fafc!important;border:1px solid rgba(148,163,184,.55)!important;box-shadow:0 2px 8px rgba(0,0,0,.5)!important;font-weight:600}
+  html.tema-osc #mm-map .mm-tip::before{border-right-color:rgba(15,23,42,.94)!important;border-left-color:rgba(15,23,42,.94)!important}
+  html.tema-osc #mm-map .leaflet-bar a,html.tema-osc #mm-map .leaflet-bar a:hover{background:#1e293b!important;color:#f8fafc!important;border-bottom-color:rgba(148,163,184,.45)!important}
+  html.tema-osc #mm-map .leaflet-bar{border:1px solid rgba(148,163,184,.6)!important}
+  html.tema-osc #mm-map .leaflet-control-attribution{background:rgba(15,23,42,.8)!important;color:#cbd5e1!important}html.tema-osc #mm-map .leaflet-control-attribution a{color:#93c5fd!important}
+  html.tema-osc .mm-pin{background:#fbbf24;border-color:#fff;box-shadow:0 0 0 2px rgba(15,23,42,.9),0 3px 10px rgba(0,0,0,.7)}html.tema-osc .mm-pin i{background:#0f172a}
+  html.tema-osc .mm-pin.d{background:#22d3ee}html.tema-osc .mm-pin.p{background:#fb7185}
+  html.tema-osc .mm-pin.f{box-shadow:0 0 0 2px rgba(15,23,42,.9),0 0 0 7px rgba(251,191,36,.55),0 3px 10px rgba(0,0,0,.7)}
   /* ventanas de GeoLab semitransparentes (menú izquierdo, paneles y simbología): se deja ver con sutileza el mapa de atrás */
   #dock,#pry-pn,#cap-pn,#lg-col{background:linear-gradient(180deg,rgba(8,13,26,.82),rgba(15,23,42,.78) 60%,rgba(10,16,32,.82))!important;backdrop-filter:blur(14px) saturate(150%)!important;-webkit-backdrop-filter:blur(14px) saturate(150%)!important}
   html:not(.tema-osc) #dock,html:not(.tema-osc) #pry-pn,html:not(.tema-osc) #cap-pn{background:linear-gradient(180deg,rgba(248,250,252,.84),rgba(238,242,255,.8) 60%,rgba(241,245,249,.84))!important}
