@@ -348,10 +348,10 @@
       h += `<div class="nr-ks">${nrKpi("news", "Noticias analizadas", nf(K.notas), D.pend ? nf(D.pend) + " pendientes" : "al día", "Noticias con análisis narrativo dentro de los filtros activos")}${nrKpi("user", "Entidades detectadas", nf(K.entidades), "personas, instituciones, lugares", "Entidades distintas extraídas por la IA")}${nrKpi("clock", "Ráfagas disruptivas", nf(K.rafagas), "eventos detonantes", "Notas marcadas como evento detonante")}${nrKpi("layers", "Tópico principal", esc(nCorta(K.topico, 22)), nf(K.topicoN) + " notas", "Tópico macro más frecuente")}</div>
       <div id="nrSelBar" class="nr-selbar" hidden></div>
       <div class="nr-g">${nPanel("a6", "Dinámica temporal y evolución semántica", `<span class="nr-sel"><button type="button" data-nd="cat" class="${(S.nrDim || "cat") === "cat" ? "on" : ""}">Por categoría</button><button type="button" data-nd="top" class="${S.nrDim === "top" ? "on" : ""}">Por tópico IA</button></span> · notas por periodo · círculos = ráfagas`, nrTemporal(D) + `<div class="nr-fas">${D.fases.map(f => `<span data-tip="${esc(tipH(f.k, f.v + " nota(s) en esta fase"))}"><b>${f.v}</b> ${esc(f.k)}</span>`).join("")}${D.conceptos.slice(0, 8).map(c => `<span class="cc" data-tip="${esc(tipH(c.k, c.v + " mención(es) como concepto clave"))}">${esc(c.k)}</span>`).join("")}${nZ}</div>`)}
-      ${nPanel("a6", "Coocurrencia de entidades", "matriz y red", nrCooc(D))}
-      ${nPanel("b2", "Acciones y posturas", "Causalidad y sentimiento", nrSankey(D))}
-      ${nPanel("b2", "Análisis de encuadre (framing)", "", nrEncuadre(D))}
-      ${nPanel("b2", "Propagación narrativa", "Origen y focos geográficos", nrProp(D))}</div>`;
+      ${nPanel("a4", "Coocurrencia de entidades", "matriz y red", nrCooc(D))}
+      ${nPanel("b2 nr-alto", "Acciones y posturas", "Causalidad y sentimiento", nrSankey(D))}
+      ${nPanel("a4 nr-gde", "Propagación narrativa", "Origen y focos geográficos", nrProp(D))}
+      ${nPanel("b2", "Análisis de encuadre (framing)", "", nrEncuadre(D))}</div>`;
     }
     m.innerHTML = h + `</div><div id="nrTip" class="nr-tip" hidden></div>`; const b = $("#nrRun"); if (b) b.onclick = narrCorre; nrEstado(); nrEventos(); nrZoomInit(); if (D && !D.cargando && !D.vacio && !D.error) nrMapa(D); nrAplica();
     if (foco !== null) { const q = $("#nrQ"); if (q) { q.focus(); try { q.setSelectionRange(foco, foco); } catch (_) { } } }
