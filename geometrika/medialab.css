@@ -135,3 +135,6 @@ a.ml-ent{display:inline-block;margin:0 5px 5px 0;padding:3px 10px;border:1px sol
 .ml-dt{border-top:1px solid var(--ml-ln);padding-top:8px}.ml-dt summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--ml-mut)}.ml-cg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
 .ml-cl b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ml-mut);margin-bottom:4px}.ml-cl>div{display:flex;gap:6px;font-size:11.5px;padding:3px 0;border-bottom:1px dashed var(--ml-ln);opacity:.55}.ml-cl>div.on,.ml-cl>div.tot{opacity:1}.ml-cl span{flex:1}.ml-cl em{font-style:normal;color:var(--ml-mut)}.ml-cl i{font-style:normal;font-weight:800;min-width:30px;text-align:right}.ml-cl .tot{border-bottom:0;font-weight:700}
 @media(max-width:700px){.ml-cg{grid-template-columns:1fr}.ml-rkn{font-size:36px}}
+
+.ml-ic{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:5px;flex:none;opacity:.9}
+.ml-bl h5 .ml-ic,.ml-rkh .ml-ic{color:var(--ml-ac)}.ml-ixh b .ml-ic{width:15px;height:15px;color:var(--ml-ac)}.ml-eq small .ml-ic,.ml-k3 small .ml-ic{width:13px;height:13px}
