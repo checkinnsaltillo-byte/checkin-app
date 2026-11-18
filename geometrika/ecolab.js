@@ -55,6 +55,9 @@
     const l = I.s[I.s.length - 1]; I.quad = l.x == null || l.y == null ? null : l.x >= 0 ? (l.y >= 0 ? "exp" : "des") : (l.y >= 0 ? "rec" : "con");
     I.ciclo = "oficial"; I.cicloDe = C.id; I.cicloNom = C.nombre;
   }
+  const fuenteCorta = I => String(I.fuente || "INEGI").replace(/\s*\d{4}\.?$/, "").replace(/^INEGI\s*Sistema de Cuentas Nacionales de México\.\s*/, "INEGI · SCNM · ").replace(/\.$/, "");
+  const alcance = I => I.code && I.area === "Ciudades" && CBY[I.code] ? "Ciudad: " + CBY[I.code][1] : I.code && ENTBY[I.code] ? "Estado: " + ENTBY[I.code][1] : "Nacional";
+  const serieDesc = I => "Serie " + String(I.id).split("-")[0] + " · " + fuenteCorta(I) + " · " + (I.frecuencia || "").toLowerCase() + " · " + alcance(I) + " · vía API del INEGI (BIE/BISE)";
   function cicloHint(I) {
     if (!I.quad) return "sin ciclo";
     return I.ciclo === "tc" ? "derivado de la tendencia-ciclo oficial del INEGI (filtro HP)" : I.cicloDe ? "ciclo oficial del INEGI · «" + I.cicloNom.replace(/^Ciclo · /, "") + "»" : "ciclo oficial del INEGI";
@@ -311,7 +314,7 @@
   const dotE = I => `<i class="eco-st ${I.est[0]}" title="${I.est[1]} · último dato ${I.last.l}"></i>`;
   const chipY = I => I.last.yoy == null ? "" : `<span class="eco-ch2 ${cc(I.last.yoy)}">${I.last.yoy > 0 ? "▲" : I.last.yoy < 0 ? "▼" : "■"} ${fy(I, I.last.yoy)} anual</span>`;
   function cards(list) {
-    return `<div class="eco-cards">${list.map((I, k) => `<button type="button" class="eco-card" data-go="i:${I.id}" style="--c:${I.col};animation-delay:${k * 40}ms"><div class="ct"><span>${esc(I.nombre)}</span>${dotE(I)}</div><div class="cg">${esc(I.grupo)}</div><div class="cv">${fv(I, I.last.v)}<small>${esc(I.u === "pts" || I.u === "%" ? "" : I.u)}</small></div>${chipY(I)}<div class="cs">${spark(I, 36, 220, 46)}</div><div class="cp">${esc(I.last.l)} · ${esc(I.frecuencia)}</div></button>`).join("")}</div>`;
+    return `<div class="eco-cards">${list.map((I, k) => `<button type="button" class="eco-card" data-go="i:${I.id}" style="--c:${I.col};animation-delay:${k * 40}ms"><div class="ct"><span>${esc(I.nombre)}</span>${dotE(I)}</div><div class="cg">${esc(I.grupo)}</div><div class="cv">${fv(I, I.last.v)}<small>${esc(I.u === "pts" || I.u === "%" ? "" : I.u)}</small></div>${chipY(I)}<div class="cs">${spark(I, 36, 220, 46)}</div><div class="cp">${esc(I.last.l)} · ${esc(I.frecuencia)} · ${esc(alcance(I))}</div></button>`).join("")}</div>`;
   }
   function rank(el, list) {
     const L = list.filter(I => I.last.x != null).map(I => ({ I, z: I.last.x })).sort((a, b) => b.z - a.z), W = Math.max(300, el.clientWidth), rh = 30, H = L.length * rh + 28, mx = Math.max(2, ...L.map(a => Math.abs(a.z))) * 1.05, lw = Math.min(250, W * .42), x0 = lw + (W - lw - 20) / 2, sc = (W - lw - 20) / 2 / mx;
@@ -512,7 +515,7 @@
   }
   function panelSerie(I) {
     const rng = [["1A", 12], ["3A", 36], ["5A", 60], ["10A", 120], ["Todo", 0]].filter(([, m]) => !m || m * I.ppy / 12 < I.s.length); if (!rng.some(([, m]) => m === S.serie.rango)) S.serie.rango = 0;
-    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div id="ecoMain"></div></div>`;
+    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div class="eco-src">${esc(serieDesc(I))}</div><div id="ecoMain"></div></div>`;
   }
   function pintaSerie(I) {
     draws.push(() => drawSerie($("#ecoMain"), I));
@@ -608,6 +611,17 @@
     const rows = SEC.flatMap(sc => secSer(sc).map(s => ({ I: s.yoy, label: s.yoy.nombre, sub: sc.n + " · SCIAN " + s.yoy.scian, v: s.yoy.last.v, col: sc.col, go: "s:" + sc.k }))).filter(r => r.I).sort((a, b) => b.v - a.v);
     draws.push(() => barsH($("#ecoSecBars"), rows.map(r => ({ label: r.label, sub: r.sub, v: r.v, go: r.go })), { rh: 24, lw: 210 }), () => heatM($("#ecoSecHeat"), rows.map(r => ({ label: r.label, I: r.I, go: r.go })), 18, { f: ob => ob.v, lim: 10, rh: 20 }));
   }
+  function fichaSector(sc, I, Y, stK) {
+    const T = I.cicloTC && BYID[I.cicloTC], C = I.cicloDe && BYID[I.cicloDe], st = stK.length ? EST[S.sk || stK[0]] : null, nomSt = st ? METR.find(m => m[0] === (S.sk || stK[0]))[1].replace(" · variación anual", "") : "";
+    const row = (t, d) => `<tr><th>${t}</th><td>${d}</td></tr>`;
+    return `<div class="eco-panel eco-ficha"><div class="eco-ph"><h3>¿De dónde sale cada dato de esta ficha?</h3><span class="eco-hint">todo se descarga de la API del INEGI (Banco de Indicadores: BIE/BISE)</span></div><table class="eco-ft"><tbody>
+      ${row("Índice de volumen físico", `Serie <b>${I.id}</b> · «${esc(I.nombre)}» · ${esc(fuenteCorta(I))} · ${esc(I.frecuencia.toLowerCase())} · <b>nacional</b> · ${esc(I.u)}. Es la serie de la gráfica «Evolución».`)}
+      ${row("Variación anual", `<b>Una sola serie de nivel y dos formas de ver su variación.</b> El KPI «Variación anual» y la gráfica «Variación anual por subsector» usan la serie <b>${Y.id}</b>, que el INEGI publica ya calculada (cambio % contra el mismo mes del año anterior). En la gráfica «Evolución», en cambio, «Nivel» es la serie ${I.id} y «Variación anual» y «Variación periodo previo» <b>las calcula EconoLab a partir de esa misma serie ${I.id}</b>; deben coincidir con la ${Y.id}.`)}
+      ${row("Reloj económico", I.ciclo === "oficial" && C ? `Usa la <b>misma serie ${I.id}</b> y la serie de ciclo oficial <b>${C.id}</b> del INEGI (${esc(C.nombre)}).` : T ? `Usa la <b>misma serie ${I.id}</b>. La fase se calcula en EconoLab a partir de la serie de <b>tendencia-ciclo ${T.id}</b> (${esc(T.nombre)}, publicada por el INEGI) con el filtro Hodrick-Prescott; no es otra actividad, solo la versión suavizada de esta. Nivel = desviación de esa tendencia-ciclo respecto de su tendencia de largo plazo; impulso = su cambio de 3 meses.` : "Este indicador no tiene ciclo oficial ni tendencia-ciclo para derivarlo.")}
+      ${st ? row("Mapa y ranking por estado", `ITAEE (Indicador Trimestral de la Actividad Económica Estatal), serie <b>${st.def.id}</b>: <b>solo ${esc(nomSt)}</b> de cada entidad, variación anual trimestral. Es una serie distinta y trimestral (no es el IGAE nacional). ${stK.length > 1 ? "Elige abajo el subsector." : ""}`) : ""}
+      ${row("Indicadores relacionados", "Todos son <b>nacionales</b> (encuestas de confianza y opinión empresarial, actividad industrial, comercio exterior). EconoLab no tiene estas series por estado ni por ciudad.")}
+    </tbody></table></div>`;
+  }
   function vistaSector(k) {
     const sc = SECBY[k], ss = secSer(sc); if (!ss.length) return `<div class="eco-vacio">Sin datos para este sector.</div>`;
     if (S.sub == null || S.subK !== k) { S.sub = 0; S.subK = k; } const cur = ss[Math.min(S.sub, ss.length - 1)], I = cur.idx, Y = cur.yoy, q = I.quad ? QD[I.quad] : null;
@@ -615,11 +629,12 @@
     if (!stK.includes(S.sk)) S.sk = stK[0];
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="sec">Sectores</a> › ${TIER[sc.t][0]}</div><div class="eco-h"><div><h1>${sc.ic} ${esc(sc.n)}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${sc.col}">${TIER[sc.t][0]}</span>${sc.scian.map(c => `<span class="eco-pill">SCIAN ${c}</span>`).join("")}<span class="eco-pill st-${I.est[0]}">${dotE(I)} ${I.est[1]} · ${esc(I.last.l)}</span></div></div></div>
     ${ss.length > 1 ? `<div class="eco-chips" id="ecoSub">${ss.map((s, i) => `<button type="button" class="eco-chip2${i === S.sub ? " on" : ""}" style="--c:${sc.col}" data-sub="${i}">${esc(s.idx.nombre)}</button>`).join("")}</div>` : ""}
-    <div class="eco-kpis">${kpi("Índice de volumen físico", fv(I, I.last.v), esc(I.last.l), "big")}${kpi("Variación anual", fp(Y.last.v, 1), "IGAE · " + esc(Y.last.l), cc(Y.last.v))}${kpi("Posición histórica", ring(I.pctil, sc.col, nf(I.pctil, 0) + "%"), "percentil del índice")}${kpi("Máximo histórico", fv(I, I.max), esc(I.maxO.l))}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "reloj económico") : ""}</div>
+    <div class="eco-kpis">${kpi("Índice de volumen físico", fv(I, I.last.v), esc(I.last.l) + " · serie " + I.id, "big")}${kpi("Variación anual", fp(Y.last.v, 1), "IGAE · " + esc(Y.last.l) + " · serie " + Y.id, cc(Y.last.v))}${kpi("Posición histórica", ring(I.pctil, sc.col, nf(I.pctil, 0) + "%"), "percentil del índice")}${kpi("Máximo histórico", fv(I, I.max), esc(I.maxO.l))}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "del reloj económico (ver abajo)") : ""}</div>
+    ${fichaSector(sc, I, Y, stK)}
     ${panelSerie(I)}
-    <div class="eco-two">${panel("Variación anual por subsector", "IGAE", '<div id="ecoSLn"></div>')}${panel("Reloj económico", esc(I.nombre) + " · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
-    ${stK.length ? panel("Mapa del sector por estado", "ITAEE trimestral · variación anual" + (stK.length > 1 ? "" : ""), (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
-    ${rel.length ? panel("Indicadores relacionados", "confianza, pedidos, ventas y comercio exterior ligados al sector", cards(rel)) : ""}`;
+    <div class="eco-two">${panel("Variación anual por subsector", "IGAE nacional · serie " + Y.id + " vs. economía total", '<div id="ecoSLn"></div>')}${panel("Reloj económico", "misma serie " + I.id + " · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
+    ${stK.length ? panel("Mapa del sector por estado", "ITAEE · serie " + EST[S.sk].def.id + " · solo " + esc(METR.find(m => m[0] === S.sk)[1].replace(" · variación anual", "")) + " · trimestral · variación anual · 32 entidades", (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
+    ${rel.length ? panel("Indicadores relacionados", "todos son NACIONALES (no del estado ni de la ciudad): confianza, pedidos, ventas y comercio exterior ligados al sector", cards(rel)) : ""}`;
   }
   function pintaSector(k) {
     const sc = SECBY[k], ss = secSer(sc), cur = ss[Math.min(S.sub, ss.length - 1)], I = cur.idx;

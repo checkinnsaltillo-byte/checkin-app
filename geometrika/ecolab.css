@@ -316,3 +316,13 @@
 .eco-emb .gl-back,.eco-emb .mt-logo,.eco-emb .gl-tabs{display:none!important}
 .eco-emb .eco-top{top:var(--tth,0px);height:44px;justify-content:flex-end}
 .eco-emb .eco-side{padding-top:calc(var(--tth,0px) + 44px)!important}
+
+/* fuentes y alcance de cada dato */
+.eco-src{font:500 11.5px system-ui,sans-serif;opacity:.7;margin:-2px 0 8px;line-height:1.4}
+.eco-ft{width:100%;border-collapse:collapse;font:500 12.5px/1.5 system-ui,sans-serif}
+.eco-ft th{width:150px;text-align:left;vertical-align:top;padding:7px 12px 7px 0;font-weight:700;opacity:.9}
+.eco-ft td{padding:7px 0;border-top:1px solid rgba(148,163,184,.2)}
+.eco-ft tr:first-child td,.eco-ft tr:first-child th{border-top:0}
+.eco-ft th{border-top:1px solid rgba(148,163,184,.2)}
+.eco-ft tr:first-child th{border-top:0}
+@media (max-width:640px){.eco-ft th,.eco-ft td{display:block;width:auto}.eco-ft th{padding-bottom:0}}
