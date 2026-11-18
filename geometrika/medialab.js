@@ -199,7 +199,19 @@
   function afeHtml(I) {
     const A = I.afe; if (!A) return "";
     const col = RELCOL[A.relN] || "#64748b", pasos = ["Particular", "Reducido", "Comunidad", "Zona", "Ciudad", "Estado", "Nacional", "Global"];
-    return `<div class="ml-bl ml-afe"><h5>${ic("users")}Población afectada y relevancia</h5><div class="ml-af-top"><div><small>Quiénes</small><b>${esc(A.grupo || A.tipoN || "No determinado")}</b>${A.tipoN ? `<em>${esc(A.tipoN)}</em>` : ""}</div><div><small>Relevancia para evaluar proyectos</small><b style="color:${col}">${esc(A.relN)} <span>${A.rel}/100</span></b><em>Rol: ${esc(A.rolN)}</em></div></div><div class="ml-af-sc" title="Escala de la población afectada">${pasos.map((t, i) => `<span class="${i + 1 === A.esc ? "on" : i + 1 < A.esc ? "pre" : ""}"${i + 1 === A.esc ? ` style="background:${col};border-color:${col}"` : ""}><i></i><u>${t}</u></span>`).join("")}</div><div class="ml-fa">${esc(A.escN)} · ${esc(A.rango)}${I.pob ? ` · estimación de la nota: ${nf(I.pob)} personas` : ""}. Relevancia = tamaño del grupo (65 %) + importancia de su rol económico o social (35 %).</div></div>`;
+    const BANDS = [["Marginal", "#94a3b8"], ["Baja", "#3b82f6"], ["Media", "#f59e0b"], ["Alta", "#f97316"], ["Estratégica", "#dc2626"]];
+    const pt = (v, r) => [(100 - r * Math.cos(Math.PI * v / 100)).toFixed(1), (100 - r * Math.sin(Math.PI * v / 100)).toFixed(1)];
+    const arcos = BANDS.map(([nm, c], i) => { const a = pt(i * 20 + 1.2, 78), b = pt(i * 20 + 18.8, 78); return `<path d="M${a[0]} ${a[1]} A78 78 0 0 1 ${b[0]} ${b[1]}" stroke="${c}" class="${nm === A.relN ? "on" : ""}"/>`; }).join("");
+    const marcas = BANDS.map(([nm], i) => { const p = pt(i * 20 + 10, 98); return `<text x="${p[0]}" y="${p[1]}" text-anchor="middle" class="${nm === A.relN ? "on" : ""}">${nm === "Estratégica" ? "Estrat." : nm}</text>`; }).join("");
+    const gauge = `<svg class="ml-afg" viewBox="0 0 200 122" aria-label="Relevancia ${A.rel} de 100">${arcos}${marcas}<g class="nd" style="--a:${(A.rel * 1.8).toFixed(1)}deg"><path d="M100 100 L42 100" stroke="${col}"/><circle cx="100" cy="100" r="8" fill="${col}"/><circle cx="100" cy="100" r="3" fill="#fff"/></g></svg>`;
+    const escala = pasos.map((t, i) => `<span class="${i + 1 === A.esc ? "on" : i + 1 < A.esc ? "pre" : ""}"><i${i + 1 === A.esc ? ` style="background:${col};border-color:${col};color:${col}"` : ""}></i><u>${t}</u></span>`).join("");
+    return `<div class="ml-bl ml-afe"><h5>${ic("users")}Población afectada y relevancia</h5>
+      <div class="ml-af-top">
+        <div class="ml-af-q"><small>¿Quiénes son los afectados?</small><b>${esc(A.grupo || A.tipoN || "No determinado")}</b>${A.tipoN ? `<em>${ic("users")}${esc(A.tipoN)}</em>` : ""}<div class="ml-af-n"><span style="color:${col}">${esc(A.escN)}</span><i>${esc(A.rango)}</i>${I.pob ? `<i>Estimación de la nota: ${nf(I.pob)} personas</i>` : ""}</div></div>
+        <div class="ml-af-g"><small>Relevancia para evaluar proyectos</small>${gauge}<div class="ml-af-v" style="color:${col}"><b>${A.rel}</b><span>/100</span></div><div class="ml-af-l" style="background:${col}">${esc(A.relN)}</div><em>Rol social: ${esc(A.rolN)}</em></div>
+      </div>
+      <div class="ml-af-sc" title="Escala de la población afectada">${escala}</div>
+      <div class="ml-fa">Relevancia = tamaño del grupo afectado (65 %) + importancia de su rol económico o social (35 %).</div></div>`;
   }
   function riesgoHtml(I) {
     const [nv, col] = NIV(I.risk), por = v => Math.max(0, Math.min(100, v));
