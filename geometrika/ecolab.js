@@ -573,9 +573,9 @@
     const lab = sc < 35 ? ["Debilitamiento", "#fb7185"] : sc < 45 ? ["Moderación", "#fbbf24"] : sc < 55 ? ["Estable", "#94a3b8"] : sc < 65 ? ["Mejora", "#a3e635"] : ["Dinamismo", "#34d399"];
     return { sc, lab, n: xs.length };
   }
-  function panelSerie(I) {
+  function panelSerie(I, tag) {
     const rng = [["1A", 12], ["3A", 36], ["5A", 60], ["10A", 120], ["Todo", 0]].filter(([, m]) => !m || m * I.ppy / 12 < I.s.length); if (!rng.some(([, m]) => m === S.serie.rango)) S.serie.rango = 0;
-    return `<div class="eco-panel"><div class="eco-ph"><h3>Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div class="eco-src">${esc(serieDesc(I))}</div><div id="ecoMain"></div></div>`;
+    return `<div class="eco-panel"><div class="eco-ph"><h3>${tag || ""}Evolución</h3>${serieChecks(I)}<label class="eco-sm" title="Suavizar la serie"><select id="ecoSm" aria-label="Suavizado"><option value="">Sin suavizar</option>${Object.entries(SUAV).map(([k, v]) => `<option value="${k}"${S.serie.suav === k ? " selected" : ""}>${v[0]}</option>`).join("")}</select></label><div class="eco-tabs" id="ecoRng">${rng.map(([t, m]) => `<button data-r="${m}" class="${S.serie.rango === m ? "on" : ""}">${t}</button>`).join("")}</div></div><div class="eco-src">${esc(serieDesc(I))}</div><div id="ecoMain"></div></div>`;
   }
   function pintaSerie(I) {
     draws.push(() => drawSerie($("#ecoMain"), I));
@@ -642,15 +642,16 @@
       return `<div class="eco-kpi"><div class="kl">${n}</div><div class="kv ${cl === "desoc" ? "nu" : v == null ? "" : v >= 0 ? "up" : "dn"}">${v == null ? "—" : pct ? fp(v, 1) : nf(v, 1) + "%"}</div><div class="ks">${u}${I ? " · " + I.last.l : ""}</div><div class="kd">${ds}</div><div class="eco-vs">${nv == null ? "" : `Nacional (${nn}): <b>${pct ? fp(nv, 1) : nf(nv, 1) + "%"}</b> · ${dl == null ? "" : `<span class="${(cl === "desoc" ? -dl : dl) >= 0 ? "up" : "dn"}">${sg(dl, 1)} pp</span>`}`}</div>${rk ? `<div class="eco-rk">Lugar <b>${rk}</b> de 32</div>` : ""}</div>`; }).join("");
     const I0 = EST.itaee_idx && EST.itaee_idx.by[c], q = I0 && I0.quad ? QD[I0.quad] : null;
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a> › <a data-go="z:${e[5]}">${z[0]}</a></div><div class="eco-h"><div><h1>${esc(e[1])}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${z[1]}">${z[0]}</span><span class="eco-pill">Monitor estatal</span>${I0 ? `<span class="eco-pill">ITAEE: ${I0.last.l}</span>` : ""}</div></div></div>
+    ${bandaAmb("edo", "📍 ESTADO", esc(e[1]), "Series estatales del INEGI: ITAEE (actividad económica, trimestral), actividad industrial y manufacturas (mensuales) y desocupación (trimestral). Las comparaciones con el país se rotulan «Nacional».")}
     <div class="eco-kmap"><div class="eco-kgrid">${tiles}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "ITAEE · reloj económico") : ""}</div><div class="eco-mapbox"><div id="ecoMapa2"></div></div></div>
-    ${I0 ? panelSerie(I0) : ""}
-    <div class="eco-two">${panel("Actividad económica: estado vs. nación", "variación anual", '<div id="ecoELn1"></div>')}${panel("Actividad industrial: estado vs. nación", "variación anual (mensual)", '<div id="ecoELn2"></div>')}</div>
-    <div class="eco-two">${panel("¿Qué sectores jalan o frenan?", "ITAEE · variación anual · ◆ = nacional", '<div id="ecoESec"></div>')}${I0 ? panel("Reloj económico", "ITAEE estatal", '<div id="ecoEClock"></div>') : ""}</div>
-    ${panel("El estado en el mapa", "ITAEE · variación anual", '<div id="ecoEMap"></div>')}${ciudadesDe(c)}`;
+    ${I0 ? panelSerie(I0, tagAmb("edo")) : ""}
+    <div class="eco-two">${panel(tagAmb("mix") + "Actividad económica: estado vs. nación", "variación anual", '<div id="ecoELn1"></div>')}${panel(tagAmb("mix") + "Actividad industrial: estado vs. nación", "variación anual (mensual)", '<div id="ecoELn2"></div>')}</div>
+    <div class="eco-two">${panel(tagAmb("edo") + "¿Qué sectores jalan o frenan?", "ITAEE · variación anual · ◆ = nacional", '<div id="ecoESec"></div>')}${I0 ? panel(tagAmb("edo") + "Reloj económico", "ITAEE estatal", '<div id="ecoEClock"></div>') : ""}</div>
+    ${panel(tagAmb("cmp") + "El estado en el mapa", "ITAEE · variación anual", '<div id="ecoEMap"></div>')}${ciudadesDe(c)}`;
   }
   function ciudadesDe(c) {
     const l = CIU.filter(x => x[2] === c); if (!l.length) return "";
-    return panel("Ciudades del estado", "ENOE · tasa de desocupación", `<div class="eco-cards eco-cards2">${l.map(x => { const I = CST.c_desoc && CST.c_desoc.by[x[0]]; return `<button type="button" class="eco-card" data-go="c:${x[0]}" style="--c:${ZONAS[ENTBY[c][5]][1]}"><div class="ct"><span>${esc(x[1])}</span></div><div class="cg">Ciudad · ENOE</div><div class="cv">${I ? nf(I.last.v, 1) + "%" : "—"}<small>desocupación</small></div>${I ? `<div class="cs">${spark(I, 40, 220, 46)}</div><div class="cp">${esc(I.last.l)} · participación ${nf(cmv("c_part", x[0]), 1)}%</div>` : ""}</button>`; }).join("")}</div>`);
+    return bandaAmb("ciu", "🏙️ CIUDADES DEL ESTADO · ENOE", "Mercado laboral de cada ciudad", "Datos de la Encuesta Nacional de Ocupación y Empleo por ciudad (trimestral). Aquí cambia el ámbito: ya no es el estado completo, sino cada ciudad.") + panel(tagAmb("ciu") + "Ciudades del estado", "ENOE · tasa de desocupación", `<div class="eco-cards eco-cards2">${l.map(x => { const I = CST.c_desoc && CST.c_desoc.by[x[0]]; return `<button type="button" class="eco-card" data-go="c:${x[0]}" style="--c:${ZONAS[ENTBY[c][5]][1]}"><div class="ct"><span>${esc(x[1])}</span></div><div class="cg">Ciudad · ENOE</div><div class="cv">${I ? nf(I.last.v, 1) + "%" : "—"}<small>desocupación</small></div>${I ? `<div class="cs">${spark(I, 40, 220, 46)}</div><div class="cp">${esc(I.last.l)} · participación ${nf(cmv("c_part", x[0]), 1)}%</div>` : ""}</button>`; }).join("")}</div>`);
   }
   function pintaEst(c) {
     const xy = ENT_XY[c]; if (xy) draws.push(() => ecoMapa($("#ecoMapa2"), { lat: xy[0], lon: xy[1], zoom: xy[2], pin: { col: ZONAS[ENTBY[c][5]][1], label: ENTBY[c][1] }, puntos: CIU.filter(x => x[2] === c && CIU_XY[x[0]]).map(x => ({ lat: CIU_XY[x[0]][0], lon: CIU_XY[x[0]][1], label: x[1], go: "c:" + x[0], col: "#22d3ee" })) }));
@@ -676,7 +677,9 @@
   }
   function ecoFp(o) { const p = $("#ecoFp"); if (!p) return; if (o && S.ficha) { p.innerHTML = '<button type="button" class="eco-fpx" aria-label="Cerrar">✕</button>' + S.ficha; p.hidden = false; } else { p.hidden = true; p.innerHTML = ""; } }
   /* bandas de ámbito: separan con claridad lo NACIONAL (IGAE) de lo ESTATAL (ITAEE) en la ficha de un sector */
-  const tagAmb = k => k === "est" ? '<span class="eco-tag est">POR ESTADO</span>' : '<span class="eco-tag nac">NACIONAL</span>';
+  const TAGS = { nac: "NACIONAL", est: "POR ESTADO", edo: "ESTADO", ciu: "CIUDAD", cmp: "COMPARATIVO", mix: "ESTADO vs. NACIÓN", mxc: "CIUDAD · ESTADO · NACIÓN", cc: "ENTRE CIUDADES" };
+  const tagAmb = k => `<span class="eco-tag ${k === "mix" || k === "mxc" ? "cmp" : k === "cc" ? "cmp" : k}">${TAGS[k] || k}</span>`;
+  const bandaAmb = (cl, etq, tit, desc) => `<div class="eco-scope ${cl}"><span class="eco-sc-b">${etq}</span><b>${tit}</b><small>${desc}</small></div>`;
   function scopeBand(k, sc, stK) {
     if (k === "est") { const m = EST[S.sk || (stK && stK[0])], nm = m ? METR.find(x => x[0] === (S.sk || stK[0]))[1].replace(" · variación anual", "") : sc.n; return `<div class="eco-scope est"><span class="eco-sc-b">🗺️ DESGLOSE POR ESTADO · ITAEE</span><b>${esc(nm)} en las 32 entidades</b><small>Indicador Trimestral de la Actividad Económica Estatal: solo variación anual, trimestral. Es otra fuente y otra serie que el IGAE de arriba.</small></div>`; }
     return `<div class="eco-scope nac"><span class="eco-sc-b">🇲🇽 NACIONAL · IGAE</span><b>${esc(sc.n)} en todo México</b><small>Indicador Global de la Actividad Económica, mensual. Todo lo que sigue hasta el desglose por estado es del total del país (no depende del estado ni de la ciudad).</small></div>`;
@@ -774,10 +777,11 @@
       return `<div class="eco-kpi"><div class="kl">${n}</div><div class="kv ${cl === "c_ocup" ? (v >= 0 ? "up" : "dn") : "nu"}">${v == null ? "—" : cl === "c_ocup" ? fp(v, 1) : nf(v, 1) + "%"}</div><div class="ks">${u}${I ? " · " + I.last.l : ""}${cl === "c_ocup" && I ? " · " + nf(I.last.v, 0) + " personas" : ""}</div>${ref != null ? `<div class="eco-vs">${rl}: <b>${nf(ref, 1)}%</b> · <span class="${(asc ? -dl : dl) >= 0 ? "up" : "dn"}">${sg(dl, 1)} pp</span></div>` : ""}${rk ? `<div class="eco-rk">Lugar <b>${rk}</b> de 39${asc ? " (menor mejor)" : ""}</div>` : ""}</div>`; }).join("");
     const hm = cmv("c_desoc_h", code), mm = cmv("c_desoc_m", code), brecha = hm != null && mm != null ? mm - hm : null, I0 = g("c_desoc");
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a> › <a data-go="ciu">Ciudades</a> › <a data-go="e:${c[2]}">${esc(st[1])}</a></div><div class="eco-h"><div><h1>${esc(c[1])}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${z[1]}">${z[0]}</span><span class="eco-pill">${esc(st[1])}</span><span class="eco-pill">Ciudad · ENOE</span>${I0 ? `<span class="eco-pill">${I0.last.l}</span>` : ""}</div></div></div>
+    ${bandaAmb("ciu", "🏙️ CIUDAD · ENOE", esc(c[1]), "Mercado laboral de la ciudad (Encuesta Nacional de Ocupación y Empleo, trimestral). El INEGI no publica actividad económica ni industria por ciudad. Las comparaciones con el estado y con el país se rotulan.")}
     <div class="eco-kmap"><div class="eco-kgrid">${tiles}${kpi("Brecha de género", brecha == null ? "—" : sg(brecha, 1) + " pp", "desocupación mujeres − hombres", brecha == null ? "" : brecha > 0 ? "dn" : "up")}</div><div class="eco-mapbox"><div id="ecoMapa2"></div></div></div>
-    ${I0 ? panelSerie(I0) : ""}
-    <div class="eco-two">${panel("Desocupación: ciudad, estado y nación", "tasa trimestral / mensual (nacional)", '<div id="ecoCL1"></div>')}${panel("Mujeres y hombres", "tasa de desocupación", '<div id="ecoCL2"></div>')}</div>
-    <div class="eco-two">${panel("Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div>')}${panel("Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div><div id="ecoCBox"></div>')}</div>`;
+    ${I0 ? panelSerie(I0, tagAmb("ciu")) : ""}
+    <div class="eco-two">${panel(tagAmb("mxc") + "Desocupación: ciudad, estado y nación", "tasa trimestral / mensual (nacional)", '<div id="ecoCL1"></div>')}${panel(tagAmb("ciu") + "Mujeres y hombres", "tasa de desocupación", '<div id="ecoCL2"></div>')}</div>
+    <div class="eco-two">${panel(tagAmb("ciu") + "Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div>')}${panel(tagAmb("cc") + "Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div><div id="ecoCBox"></div>')}</div>`;
   }
   function pintaCiudad(code) {
     const c0 = CBY[code], xy = CIU_XY[code]; if (xy) draws.push(() => ecoMapa($("#ecoMapa2"), { lat: xy[0], lon: xy[1], zoom: 10, pin: { col: ZONAS[ENTBY[c0[2]][5]][1], label: c0[1] }, puntos: CIU.filter(x => x[2] === c0[2] && x[0] !== code && CIU_XY[x[0]]).map(x => ({ lat: CIU_XY[x[0]][0], lon: CIU_XY[x[0]][1], label: x[1], go: "c:" + x[0], col: ZONAS[ENTBY[x[2]][5]][1] })) }));
