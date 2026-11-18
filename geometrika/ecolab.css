@@ -326,3 +326,5 @@
 .eco-ft th{border-top:1px solid rgba(148,163,184,.2)}
 .eco-ft tr:first-child th{border-top:0}
 @media (max-width:640px){.eco-ft th,.eco-ft td{display:block;width:auto}.eco-ft th{padding-bottom:0}}
+
+.eco-tile .eco-pj{filter:drop-shadow(0 0 5px #fbbf24)}
