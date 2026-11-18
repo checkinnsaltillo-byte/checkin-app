@@ -328,3 +328,7 @@
 @media (max-width:640px){.eco-ft th,.eco-ft td{display:block;width:auto}.eco-ft th{padding-bottom:0}}
 
 .eco-tile .eco-pj{filter:drop-shadow(0 0 5px #fbbf24)}
+
+/* la ventana de la derecha es una extensión de la columna izquierda: pegada a ella y a todo el alto */
+.eco-emb .eco-wbar{left:var(--col,404px);right:0;top:0;border-radius:0;border-width:0 0 1px 1px;box-shadow:none}
+.eco-emb .eco-main{left:var(--col,404px);right:0;top:46px;bottom:0;border-radius:0;border-width:0 0 0 1px;box-shadow:-6px 0 30px rgba(0,0,0,.28)}

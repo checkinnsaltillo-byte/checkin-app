@@ -340,3 +340,7 @@ html.emb .dl-app,.dl-emb{background:transparent!important}
 /* encabezado fijo de la maqueta arriba; Data Lab solo muestra su menú debajo */
 .dl-emb .dl-top,.dl-emb .gl-tabs{display:none!important}
 .dl-emb .dl-side{padding-top:calc(var(--tth,0px) + 12px)!important}
+
+/* la ventana de la derecha es una extensión de la columna izquierda: pegada a ella y a todo el alto */
+.dl-emb .dl-wbar{left:var(--col,404px);right:0;top:0;border-radius:0;border-width:0 0 1px 1px;box-shadow:none}
+.dl-emb .dl-main{left:var(--col,404px);right:0;top:46px;bottom:0;border-radius:0;border-width:0 0 0 1px;box-shadow:-6px 0 30px rgba(15,23,42,.22)}
