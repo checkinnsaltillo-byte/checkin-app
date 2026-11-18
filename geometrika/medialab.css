@@ -698,3 +698,7 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-ck.on{background:rgba(124,58,237,.3);color:#fff}.nr-ck.on i{background:#7c3aed;border-color:#a78bfa;color:#fff}.nr-ck em{font-style:normal;color:#94a3b8;font-size:9.5px}
 .nr-mix small{font-size:10px;color:#94a3b8}.nr-mix small u{cursor:pointer;color:#c4b5fd}
 .nr-svg text.rf.qb{fill:#fbbf24}.nr-lt .nr-qbl{color:#fbbf24;background:rgba(251,191,36,.12)}
+
+/* gráfica temporal: puntos con clic que abren la lista lateral de noticias */
+.nr svg .np{cursor:pointer}.nr svg circle.np:hover{stroke:#fff;stroke-width:2.4}
+#mlDet .nr-lst{display:flex;flex-direction:column;gap:10px}#mlDet .nr-lst .ml-card{margin:0;width:auto}
