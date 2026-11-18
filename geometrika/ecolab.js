@@ -907,8 +907,10 @@
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
     $("#ecoSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();
     if (EMB) { $("#ecoWX", host).onclick = () => ecoWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") ecoWin(false); }); } $("#ecoCambia", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
-    const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"; ls.set("eco_tema", c); };
-    tema(ls.get("eco_tema", "oscuro")); $("#ecoTema", host).onclick = () => { tema($("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"); rer(); };
+    const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro (aplica a GeoLab, EconoLab y DataLab)" : "Cambiar a tema claro (aplica a GeoLab, EconoLab y DataLab)"; if (!EMB) ls.set("eco_tema", c); };
+    tema(EMB ? "oscuro" : ls.get("eco_tema", "oscuro"));
+    $("#ecoTema", host).onclick = () => { const nx = $("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"; if (EMB) { try { parent.postMessage({ gl: "tema", v: nx === "oscuro" ? "osc" : "claro" }, location.origin); } catch (_) { } } else { tema(nx); rer(); } };
+    if (EMB) addEventListener("message", e => { if (e.origin !== location.origin || !e.data || e.data.gl !== "tema") return; const c = e.data.v === "osc" ? "oscuro" : "claro"; if (($("#ecoApp").classList.contains("eco-light") ? "claro" : "oscuro") !== c) { tema(c); if (S.sel) rer(); } });
     $("#ecoQ", host).oninput = e => { S.q = e.target.value; arbol(); };
     host.onclick = e => { if (glIr(e)) return; const ck = e.target.closest(".eco-ck"); if (ck) { const k = ck.dataset.k, st = S.serie, vn = st.vn !== false, va = st.va !== false;
         if (k === "nivel" || k === "anual" || k === "mom") { const cur = { nivel: vn, anual: va, mom: st.vm === true }, nx = Object.assign({}, cur, { [k]: !cur[k] }); if (nx.nivel || nx.anual || nx.mom) { st.vn = nx.nivel; st.va = nx.anual; st.vm = nx.mom; } } else if (k === "fc") st.fc = st.fc === false; else if (k === "og") st.og = st.og === false;

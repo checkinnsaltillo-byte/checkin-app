@@ -7,6 +7,9 @@
   const dNotif = o => { try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
   const dlWin = (o, t) => { if (!EMB) return; const a = document.getElementById("dlApp"); if (!a) return; a.classList.toggle("dl-open", o); if (t) { const w = document.getElementById("dlWT"); if (w) w.textContent = t; } dNotif(o); };
   const glIr = e => { const gt = e.target.closest("#glTabs button, #glBack"); if (!gt) return false; try { parent.postMessage({ gl: "tab", v: gt.dataset.v || "geo" }, location.origin); } catch (_) { } return true; };
+  const dlTemaPinta = () => { const b = document.getElementById("dlTema"), o = document.documentElement.classList.contains("dl-dark"); if (b) { b.textContent = o ? "☀️ Claro" : "🌙 Oscuro"; b.title = (o ? "Cambiar a tema claro" : "Cambiar a tema oscuro") + " (aplica a GeoLab, EconoLab y DataLab)"; } };
+  if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "tema") { document.documentElement.classList.toggle("dl-dark", e.data.v === "osc"); dlTemaPinta(); } });
+  if (EMB) document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("#dlTema"); if (b) { try { parent.postMessage({ gl: "tema", v: document.documentElement.classList.contains("dl-dark") ? "claro" : "osc" }, location.origin); } catch (_) { } } });
   if (EMB) addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.gl === "col") { document.documentElement.style.setProperty("--col", e.data.w + "px"); if (e.data.h != null) document.documentElement.style.setProperty("--tth", e.data.h + "px"); } });
   const $ = (s, r) => (r || document).querySelector(s), esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -52,7 +55,7 @@
       </header>
       <div class="dl-body">${EMB ? '<div class="dl-wbar"><b id="dlWT">Data Lab</b><button type="button" class="dl-wx" id="dlWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}
         <aside class="dl-side" id="dlSide" aria-label="Menú de Data Lab">
-          ${glTabs("data")}<div class="dl-side-t">Menú</div>
+          ${glTabs("data")}${EMB ? '<div class="dl-tbar"><button type="button" class="dl-tbtn" id="dlTema"></button></div>' : ""}<div class="dl-side-t">Menú</div>
           <button class="dl-nav on" type="button" data-sec="fuentes" title="Fuente de datos"><span class="ic">🗄️</span><span class="tx">Fuente de datos</span><span class="bd">${tot}</span></button>
           <button class="dl-nav" type="button" data-sec="indicadores" title="Indicadores"><span class="ic">📊</span><span class="tx">Indicadores</span><span class="bd">${INDS_ALL().length}</span></button>
           <div class="dl-side-f">Data Lab · Check Inn</div>
@@ -507,6 +510,7 @@
   window.datalabInit = function () {
     host = document.getElementById("datalab-host"); if (!host || host.dataset.listo) return; host.dataset.listo = "1";
     shell(); eventosDr(host); ir(location.hash === "#indicadores" ? "indicadores" : "fuentes");
+    if (EMB) { dlTemaPinta(); try { parent.postMessage({ gl: "ctx?" }, location.origin); } catch (_) { } }
     cargaCreados().then(ok => { if (ok && CRE.length) { if (sec === "indicadores") indicadores(); else fuentes(); } });
   };
 })();

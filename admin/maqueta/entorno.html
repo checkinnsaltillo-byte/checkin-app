@@ -228,7 +228,8 @@
   #lab-ov{position:fixed;inset:0;z-index:2147483000;display:none;pointer-events:none}#lab-ov.on{display:block}
   #lab-ov iframe{position:absolute;left:0;top:0;width:404px;height:100%;border:0;display:none;background:transparent;pointer-events:auto;color-scheme:normal}#lab-ov iframe.on{display:block}
   body.lab-on #dock,body.lab-on #dock-tg{visibility:hidden!important}
-  body.lab-on #tt{z-index:2147483001!important}
+  body.lab-on #tt{z-index:2147483001!important;background:linear-gradient(180deg,rgba(8,13,26,.86),rgba(8,13,26,.82))}
+  html:not(.tema-osc) body.lab-on #tt{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,250,252,.82))}
   body.lab-on #lg-col,body.lab-on #lg-tg{visibility:hidden!important}
   body.lab-on #tt #lft-nav{display:none!important}
   /* encabezado: logo de Metrika arriba y los logos de GeoLab · EcoLab · DataLab como pestañas */
@@ -284,10 +285,12 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   window.addEventListener('message', function (e) {
     if (e.origin !== location.origin) return; var d = e.data; if (!d) return;
     if (d.gl === 'tab') ir(d.v);
+    else if (d.gl === 'tema') { if (typeof window.temaSet === 'function') window.temaSet(d.v === 'osc' ? 'osc' : 'claro'); }
     else if (d.gl === 'eco-go') { window.__ecoGo = String(d.go || ''); ir('eco'); if (window.__ctxEnvia) setTimeout(window.__ctxEnvia, 150); }
     else if (d.gl === 'win') Object.keys(fr).forEach(function (k) { if (fr[k].contentWindow === e.source) { abierta[k] = !!d.open; medida(); } });
   });
   window.addEventListener('resize', medida);
+  window.__temaEnvia = function () { document.querySelectorAll('#lab-ov iframe').forEach(function (fr) { try { fr.contentWindow.postMessage({ gl: 'tema', v: window.__tema || 'claro' }, location.origin); } catch (e) { } }); };
   window.labTab = ir;
 })();
 
@@ -298,7 +301,7 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   var giro = ''; try { giro = localStorage.getItem('ctx_giro') || ''; } catch (e) { }
   sel.innerHTML = GIROS.map(function (g) { return '<option value="' + g[0] + '"' + (g[0] === giro ? ' selected' : '') + '>' + g[1] + '</option>'; }).join('');
   var ub = null, key = '', intentos = 0, listos = {}; window.__ctxEnvia = function () { envia(); };
-  function envia() { var f = document.querySelector('#lab-ov iframe'); var ctx = { gl: 'ctx', go: window.__ecoGo || '', giro: giro, lat: ub && ub.lat, lng: ub && ub.lng, estado: ub && ub.estado || '', ent: ub && ub.ent || '', municipio: ub && ub.municipio || '', ciudad: ub && ub.ciudad || '' }; window.__ctx = ctx; document.querySelectorAll('#lab-ov iframe').forEach(function (fr) { if (ctx.go && !/s=eco/.test(fr.src)) return; try { fr.contentWindow.postMessage(ctx, location.origin); } catch (e) { } }); if (ctx.go && listos.eco) window.__ecoGo = ''; }
+  function envia() { var f = document.querySelector('#lab-ov iframe'); var ctx = { gl: 'ctx', go: window.__ecoGo || '', giro: giro, lat: ub && ub.lat, lng: ub && ub.lng, estado: ub && ub.estado || '', ent: ub && ub.ent || '', municipio: ub && ub.municipio || '', ciudad: ub && ub.ciudad || '' }; window.__ctx = ctx; if (window.__temaEnvia) window.__temaEnvia(); document.querySelectorAll('#lab-ov iframe').forEach(function (fr) { if (ctx.go && !/s=eco/.test(fr.src)) return; try { fr.contentWindow.postMessage(ctx, location.origin); } catch (e) { } }); if (ctx.go && listos.eco) window.__ecoGo = ''; }
   var EST = { '01': 'Aguascalientes', '02': 'Baja California', '03': 'Baja California Sur', '04': 'Campeche', '05': 'Coahuila', '06': 'Colima', '07': 'Chiapas', '08': 'Chihuahua', '09': 'Ciudad de México', '10': 'Durango', '11': 'Guanajuato', '12': 'Guerrero', '13': 'Hidalgo', '14': 'Jalisco', '15': 'Estado de México', '16': 'Michoacán', '17': 'Morelos', '18': 'Nayarit', '19': 'Nuevo León', '20': 'Oaxaca', '21': 'Puebla', '22': 'Querétaro', '23': 'Quintana Roo', '24': 'San Luis Potosí', '25': 'Sinaloa', '26': 'Sonora', '27': 'Tabasco', '28': 'Tamaulipas', '29': 'Tlaxcala', '30': 'Veracruz', '31': 'Yucatán', '32': 'Zacatecas' };
   function pinta() { if (!ub) { lug.innerHTML = '<i>📍 Sin ubicación aún</i>'; return; } var p = []; if (ub.ciudad) p.push(ub.ciudad); if (ub.municipio && ub.municipio !== ub.ciudad) p.push(ub.municipio); var es = ub.estado || EST[ub.ent]; if (es) p.push(es); lug.innerHTML = p.length ? '📍 ' + p.join(', ') : '<i>📍 ' + (+ub.lat).toFixed(4) + ', ' + (+ub.lng).toFixed(4) + '</i>'; }
   sel.addEventListener('change', function () { giro = sel.value; try { localStorage.setItem('ctx_giro', giro); } catch (e) { } envia(); });
@@ -1275,12 +1278,12 @@ const TOD = { k: 'dia', h: null, hs: {}, bg0: null, bgs: {}, envs: {} };
 // ── tema Claro / Oscuro (sección Herramientas)
 const TEMA = { v: (() => { try { return localStorage.getItem('mq-tema') === 'osc' ? 'osc' : 'claro'; } catch (_) { return 'claro'; } })(), prevTod: null, prevBase: null }; window.__tema = TEMA.v;
 function temaSet(v) {
-  TEMA.v = window.__tema = v; try { localStorage.setItem('mq-tema', v); } catch (_) { } document.documentElement.classList.toggle('tema-osc', v === 'osc'); document.querySelectorAll('.tema-seg button').forEach(b => b.classList.toggle('on', b.dataset.t === v));
+  TEMA.v = window.__tema = v; window.temaSet = temaSet; try { window.__temaEnvia && window.__temaEnvia(); } catch (_) { } try { localStorage.setItem('mq-tema', v); } catch (_) { } document.documentElement.classList.toggle('tema-osc', v === 'osc'); document.querySelectorAll('.tema-seg button').forEach(b => b.classList.toggle('on', b.dataset.t === v));
   try { if (v === 'osc') { if (TOD.k !== 'noche') { TEMA.prevTod = TOD.k; todSet('noche'); } if (mapMesh) mapMesh.material.color.set(0x6a6a6a); if (CITY.on && CITY.base !== 'oscuro') { TEMA.prevBase = CITY.base; CITY.base = 'oscuro'; cgLimpia(); cgUpdate(); } }
     else { if (TEMA.prevTod) { todSet(TEMA.prevTod); TEMA.prevTod = null; } if (mapMesh) mapMesh.material.color.set(0xa8a8a8); if (TEMA.prevBase && CITY.on) { CITY.base = TEMA.prevBase; TEMA.prevBase = null; cgLimpia(); cgUpdate(); } } } catch (_) { }
 }
 function temaSeg(tl) { if (tl.querySelector('.tema-seg')) return; const d = document.createElement('div'); d.className = 'seg tema-seg'; d.style.cssText = 'margin:0 0 6px'; d.innerHTML = `<b>🎨 Tema</b><button data-t="claro"${TEMA.v === 'claro' ? ' class="on"' : ''}>☀️ Claro</button><button data-t="osc"${TEMA.v === 'osc' ? ' class="on"' : ''}>🌙 Oscuro</button>`; d.onclick = e => { const b = e.target.closest('button[data-t]'); if (b) temaSet(b.dataset.t); }; tl.insertBefore(d, tl.firstChild); }
-if (TEMA.v === 'osc') document.documentElement.classList.add('tema-osc'); setTimeout(() => { if (TEMA.v === 'osc') temaSet('osc'); }, 3500);
+window.temaSet = temaSet; if (TEMA.v === 'osc') document.documentElement.classList.add('tema-osc'); setTimeout(() => { if (TEMA.v === 'osc') temaSet('osc'); }, 3500);
 function todBg(k) {
   const p = TODP[k]; if (!p.bg) return TOD.bg0; if (TOD.bgs[k]) return TOD.bgs[k]; const c = document.createElement('canvas'); c.width = 512; c.height = 512; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512); p.bg.forEach((col, i) => gr.addColorStop(i / (p.bg.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
   if (p.stars) { for (let i = 0; i < 260; i++) { const y = Math.pow(Math.random(), 1.7) * 300, r = Math.random() < .08 ? 1.6 : .8; g.fillStyle = `rgba(255,255,255,${.35 + Math.random() * .6})`; g.beginPath(); g.arc(Math.random() * 512, y, r, 0, 7); g.fill(); } }

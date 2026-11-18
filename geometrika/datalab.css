@@ -349,3 +349,10 @@ html.emb .dl-app,.dl-emb{background:transparent!important}
 .dl-emb .dl-side{background:rgba(255,255,255,.82)}
 .dl-emb .dl-wbar{background:rgba(255,255,255,.9)}
 .dl-emb .dl-main{background:rgba(241,245,249,.88)}
+
+/* tema único (lo manda la maqueta): botón en el menú y tema oscuro de Data Lab */
+.dl-emb .dl-tbar{display:flex;justify-content:flex-end;margin:0 0 6px}
+.dl-emb .dl-tbtn{border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:10px;padding:6px 11px;font:600 12.5px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+html.dl-dark .dl-emb .dl-side,html.dl-dark .dl-emb .dl-wbar,html.dl-dark .dl-emb .dl-main{filter:invert(1) hue-rotate(180deg)}
+html.dl-dark .dl-emb .dl-side img,html.dl-dark .dl-emb .dl-wbar img,html.dl-dark .dl-emb .dl-main img{filter:invert(1) hue-rotate(180deg)}
+html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
