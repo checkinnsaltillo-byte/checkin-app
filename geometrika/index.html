@@ -34,17 +34,83 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-eco-logo{width:92px;height:92px;filter:drop-shadow(0 4px 14px rgba(124,58,237,.35))}.gp-eco-t{font:800 30px system-ui,sans-serif;letter-spacing:.5px;background:linear-gradient(90deg,#0891b2,#7c3aed 60%,#db2777);-webkit-background-clip:text;background-clip:text;color:transparent;margin-top:4px}
 .gp-card button:hover{filter:brightness(1.06)}.gp-card button:active{transform:translateY(1px)}
 .gp-login.aut .gp-card input{display:none}.gp-login.aut .gp-card .s::after{content:" · sesión iniciada"}
+
+/* ═══ Landing: Data Lab como base que alimenta a los otros tres sistemas ═══ */
+.gp-login{overflow:auto;overflow-x:hidden;align-items:flex-start;background:#060a1a}
+.gp-bg{position:fixed;inset:0;overflow:hidden;z-index:0;animation:gpHue 36s linear infinite}
+.gp-bg .b{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;mix-blend-mode:screen}
+.gp-bg .b1{width:46vmax;height:46vmax;left:-12vmax;top:-14vmax;background:radial-gradient(circle,#6366f1,transparent 65%);animation:gpB1 22s ease-in-out infinite alternate}
+.gp-bg .b2{width:42vmax;height:42vmax;right:-14vmax;top:8vmax;background:radial-gradient(circle,#06b6d4,transparent 65%);animation:gpB2 26s ease-in-out infinite alternate}
+.gp-bg .b3{width:40vmax;height:40vmax;left:20vmax;bottom:-18vmax;background:radial-gradient(circle,#ec4899,transparent 65%);animation:gpB3 30s ease-in-out infinite alternate}
+.gp-bg .b4{width:30vmax;height:30vmax;right:12vmax;bottom:-8vmax;background:radial-gradient(circle,#f97316,transparent 65%);animation:gpB1 34s ease-in-out infinite alternate-reverse}
+.gp-bg .sh{position:absolute;border:2px solid rgba(255,255,255,.16);opacity:.7}
+.gp-bg .s1{width:120px;height:120px;left:8%;top:22%;border-radius:22px;animation:gpRot 28s linear infinite,gpFloat 9s ease-in-out infinite}
+.gp-bg .s2{width:80px;height:80px;right:10%;top:16%;border-radius:50%;animation:gpFloat 11s ease-in-out infinite;border-color:rgba(34,211,238,.35)}
+.gp-bg .s3{width:0;height:0;border:0;left:14%;bottom:20%;border-left:46px solid transparent;border-right:46px solid transparent;border-bottom:80px solid rgba(236,72,153,.18);animation:gpRot 34s linear infinite reverse}
+.gp-bg .s4{width:150px;height:150px;right:7%;bottom:24%;border-radius:30%;border-color:rgba(249,115,22,.3);animation:gpRot 40s linear infinite}
+.gp-bg .s5{width:56px;height:56px;left:46%;top:9%;transform:rotate(45deg);animation:gpFloat 8s ease-in-out infinite;border-color:rgba(167,139,250,.4)}
+.gp-bg .s6{width:200px;height:200px;left:-60px;bottom:6%;border-radius:50%;animation:gpFloat 14s ease-in-out infinite;border-color:rgba(99,102,241,.3)}
+.gp-grid{position:absolute;inset:-40px;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:56px 56px;animation:gpGrid 18s linear infinite;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 78%)}
+@keyframes gpHue{to{filter:hue-rotate(360deg)}}
+@keyframes gpB1{from{transform:translate(0,0) scale(1)}to{transform:translate(8vmax,6vmax) scale(1.25)}}
+@keyframes gpB2{from{transform:translate(0,0) scale(1.1)}to{transform:translate(-9vmax,5vmax) scale(.9)}}
+@keyframes gpB3{from{transform:translate(0,0) scale(.9)}to{transform:translate(-6vmax,-7vmax) scale(1.2)}}
+@keyframes gpRot{to{transform:rotate(360deg)}}
+@keyframes gpFloat{0%,100%{translate:0 0}50%{translate:0 -22px}}
+@keyframes gpGrid{to{background-position:56px 56px}}
+.gp-land{position:relative;z-index:1;width:100%;max-width:1180px;margin:auto;padding:26px 0 30px}
+.gp-brand{text-align:center;margin:0 0 36px}
+.gp-metrika{height:clamp(84px,12vw,136px);width:auto;max-width:92%;padding:16px 38px;background:#fff;border-radius:28px;box-shadow:0 0 0 1px rgba(255,255,255,.4),0 14px 70px rgba(99,102,241,.55);animation:gpGlow 5s ease-in-out infinite;object-fit:contain}
+@keyframes gpGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,255,255,.4),0 14px 70px rgba(99,102,241,.55)}33%{box-shadow:0 0 0 1px rgba(255,255,255,.4),0 14px 80px rgba(6,182,212,.6)}66%{box-shadow:0 0 0 1px rgba(255,255,255,.4),0 14px 80px rgba(236,72,153,.55)}}
+.gp-tag{margin-top:16px;color:#cbd5e1;font:500 15px/1.4 system-ui,sans-serif;letter-spacing:.02em}.gp-tag b{color:#22d3ee}
+.gp-row{display:flex;gap:22px;justify-content:center;align-items:stretch;position:relative;z-index:2}
+.gp-row .gp-card,.gp-base .gp-card{flex:1 1 0;max-width:360px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;background:rgba(255,255,255,.97);transition:transform .25s,box-shadow .25s;animation:gpFloat 8s ease-in-out infinite}
+.gp-row .gp-card:nth-child(2){animation-delay:-2.7s}.gp-row .gp-card:nth-child(3){animation-delay:-5.3s}
+.gp-row .gp-card:hover{transform:translateY(-6px);box-shadow:0 24px 60px rgba(2,6,23,.55),0 0 40px rgba(129,140,248,.45)}
+.gp-row .gp-card[data-sys=eco]:hover{box-shadow:0 24px 60px rgba(2,6,23,.55),0 0 40px rgba(167,139,250,.55)}
+.gp-row .gp-card[data-sys=media]:hover{box-shadow:0 24px 60px rgba(2,6,23,.55),0 0 40px rgba(249,115,22,.5)}
+.gp-feed{display:inline-block;margin:0 0 16px;padding:3px 11px;border-radius:99px;background:linear-gradient(90deg,rgba(6,182,212,.15),rgba(99,102,241,.15));color:#0e7490;font:700 11px system-ui,sans-serif;letter-spacing:.04em;border:1px solid rgba(6,182,212,.35)}
+.gp-uplab{position:relative;z-index:2;text-align:center;margin:30px 0 6px;color:#e2e8f0;font:600 13.5px system-ui,sans-serif;letter-spacing:.03em}.gp-uplab span{color:#22d3ee;display:inline-block;animation:gpUp 1.6s ease-in-out infinite;letter-spacing:5px}
+@keyframes gpUp{0%,100%{transform:translateY(3px);opacity:.45}50%{transform:translateY(-4px);opacity:1}}
+.gp-base{--a:0deg;position:relative;z-index:2;margin:6px auto 0;width:100%;border-radius:30px;padding:26px 28px;background:linear-gradient(135deg,rgba(8,145,178,.34),rgba(30,64,175,.26) 55%,rgba(14,116,144,.3));box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 34px 90px rgba(6,182,212,.28);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.gp-base::before{content:"";position:absolute;inset:-2px;border-radius:32px;padding:2px;background:conic-gradient(from var(--a),#22d3ee,#6366f1,#ec4899,#f97316,#22d3ee);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:gpSpin 7s linear infinite;pointer-events:none}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes gpSpin{to{--a:360deg}}
+.gp-base-i{display:flex;gap:30px;align-items:center;justify-content:space-between}
+.gp-base-t{flex:1 1 auto;min-width:0;color:#e2e8f0;text-align:left}
+.gp-base-k{display:inline-block;font:800 11px system-ui,sans-serif;letter-spacing:.14em;color:#67e8f9;margin-bottom:4px}
+.gp-base-t h3{margin:0 0 6px;font:800 34px system-ui,sans-serif;background:linear-gradient(90deg,#67e8f9,#a5b4fc,#f9a8d4,#fdba74,#67e8f9);background-size:240% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:gpTxt 8s linear infinite}
+@keyframes gpTxt{to{background-position:240% 0}}
+.gp-base-t p{margin:0 0 12px;font-size:14px;line-height:1.5;color:#cbd5e1;max-width:520px}
+.gp-chips{display:flex;flex-wrap:wrap;gap:7px}.gp-chips i{font-style:normal;font:700 11px system-ui,sans-serif;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e2e8f0;animation:gpChip 6s ease-in-out infinite}
+.gp-chips i:nth-child(2n){animation-delay:-1.5s}.gp-chips i:nth-child(3n){animation-delay:-3s}.gp-chips i:nth-child(5n){animation-delay:-4.5s}
+@keyframes gpChip{0%,100%{background:rgba(255,255,255,.1);transform:translateY(0)}50%{background:rgba(34,211,238,.22);transform:translateY(-3px)}}
+.gp-base .gp-card{flex:0 0 340px;animation:none}
+.gp-flow{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible}
+.gp-flow .fl{fill:none;stroke-width:3;stroke-linecap:round;stroke-dasharray:3 14;animation:gpDash 1.1s linear infinite;opacity:.95}
+.gp-flow .fb{fill:none;stroke-width:9;opacity:.16;stroke-linecap:round}
+@keyframes gpDash{to{stroke-dashoffset:-34}}
+.gp-flow circle{filter:drop-shadow(0 0 6px currentColor)}
+@media (max-width:980px){.gp-row{flex-direction:column;align-items:center}.gp-row .gp-card{max-width:420px;width:100%;flex:none}.gp-base-i{flex-direction:column}.gp-base .gp-card{flex:none;width:100%;max-width:420px}.gp-flow{display:none}.gp-base-t{text-align:center}.gp-chips{justify-content:center}.gp-login{padding:14px}}
+@media (prefers-reduced-motion:reduce){.gp-bg,.gp-bg *,.gp-grid,.gp-metrika,.gp-row .gp-card,.gp-base::before,.gp-base-t h3,.gp-chips i,.gp-uplab span,.gp-flow .fl{animation:none!important}}
 @media (max-width:700px){.gp-wrap{gap:14px}.gp-card{padding:26px 22px 20px}}
 </style>
 </head>
 <body>
 <div id="gpLogin" class="gp-login">
-  <div class="gp-wrap">
+  <div class="gp-bg" aria-hidden="true">
+    <i class="b b1"></i><i class="b b2"></i><i class="b b3"></i><i class="b b4"></i>
+    <i class="sh s1"></i><i class="sh s2"></i><i class="sh s3"></i><i class="sh s4"></i><i class="sh s5"></i><i class="sh s6"></i><div class="gp-grid"></div>
+  </div>
+  <div class="gp-land" id="gpLand">
+    <div class="gp-brand"><img class="gp-metrika" src="metrika-logo.png" alt="Metrika Business Intelligence"><div class="gp-tag">Plataforma integral de inteligencia · <b>Data Lab</b> es la base de todos los sistemas</div></div>
+    <div class="gp-row" id="gpRow">
     <div class="gp-card" data-sys="geo">
       <div>
         <div class="gp-top"><img class="gp-img" src="geometrika-logo.png?v=2409" alt="Geo Lab · GeoMetrika Geo-Intelligence"></div>
         <h2>Sistema de Geo-Inteligencia</h2>
         <p class="s">acceso restringido</p>
+        <span class="gp-feed">⬇ se alimenta de Data Lab</span>
       </div>
       <div>
         <input type="password" id="gpPass" placeholder="Contraseña" autocomplete="current-password" autofocus>
@@ -53,24 +119,12 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <div class="gp-v">v.Beta.2504 · Check Inn</div>
       </div>
     </div>
-    <div class="gp-card dl" data-sys="data">
-      <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=efef31a8" alt="Data Lab"></div>
-        <h2>Sistema de Datos y Fuentes</h2>
-        <p class="s">acceso restringido</p>
-      </div>
-      <div>
-        <input type="password" id="gpPass2" placeholder="Contraseña" autocomplete="current-password">
-        <p class="gp-err" id="gpErr2"></p>
-        <button type="button" id="gpGo2">Entrar a Data Lab</button>
-        <div class="gp-v">v.Beta.1 · Check Inn</div>
-      </div>
-    </div>
     <div class="gp-card eco" data-sys="eco">
       <div>
         <div class="gp-top"><img class="gp-img dl" src="econolab-logo.png" alt="EconoLab"></div>
         <h2>Laboratorio económico</h2>
         <p class="s">acceso restringido</p>
+        <span class="gp-feed">⬇ se alimenta de Data Lab</span>
       </div>
       <div>
         <input type="password" id="gpPass3" placeholder="Contraseña" autocomplete="current-password">
@@ -84,6 +138,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <div class="gp-top"><img class="gp-img dl" src="medialab-logo.png" alt="Media Lab"></div>
         <h2>Monitor masivo de noticias</h2>
         <p class="s">acceso restringido</p>
+        <span class="gp-feed">⬇ se alimenta de Data Lab</span>
       </div>
       <div>
         <input type="password" id="gpPass4" placeholder="Contraseña" autocomplete="current-password">
@@ -92,6 +147,28 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <div class="gp-v">v.Beta.1 · Check Inn</div>
       </div>
     </div>
+    </div>
+    <div class="gp-uplab"><span>⬆ ⬆ ⬆</span> los datos, indicadores y fuentes de Data Lab alimentan a los tres sistemas <span>⬆ ⬆ ⬆</span></div>
+    <div class="gp-base" id="gpBase">
+      <div class="gp-base-i">
+        <div class="gp-base-t"><span class="gp-base-k">LA BASE · INFRAESTRUCTURA DE DATOS</span><h3>Data Lab</h3><p>Catálogo de fuentes, indicadores y series que sustenta a Geo Lab, EconoLab y Media Lab: lo que se mide, de dónde viene y cómo se calcula.</p>
+          <div class="gp-chips"><i>INEGI · BIE/BISE</i><i>Censo 2020</i><i>DENUE</i><i>OpenStreetMap</i><i>Google</i><i>GDELT · Noticias</i><i>Indicadores propios</i></div></div>
+    <div class="gp-card dl" data-sys="data">
+      <div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=efef31a8" alt="Data Lab"></div>
+        <h2>Sistema de Datos y Fuentes</h2>
+        <p class="s">acceso restringido</p>
+      </div>
+      <div>
+        <input type="password" id="gpPass2" placeholder="Contraseña" autocomplete="current-password">
+        <p class="gp-err" id="gpErr2"></p>
+        <button type="button" id="gpGo2">Entrar a Data Lab</button>
+        <div class="gp-v">v.Beta.1 · Check Inn</div>
+      </div>
+    </div>
+      </div>
+    </div>
+    <svg class="gp-flow" id="gpFlow" aria-hidden="true"></svg>
   </div>
 </div>
 <div id="geometrika-host" style="display:none"></div>
@@ -119,8 +196,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "media") {
     document.getElementById("medialab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=243b14ed"; document.head.appendChild(l);
-    gpCarga("medialab.js?v=243b14ed", () => window.medialabInit && window.medialabInit());
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=a8e9be4f"; document.head.appendChild(l);
+    gpCarga("medialab.js?v=a8e9be4f", () => window.medialabInit && window.medialabInit());
   } else if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=24d7e6c5"; document.head.appendChild(l);
@@ -147,6 +224,27 @@ function gpClic(sys) { const n = gpAut(); if (n) { gpNivel(n); gpAbre(sys); } el
 document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data"); document.getElementById("gpGo3").onclick = () => gpClic("eco"); document.getElementById("gpGo4").onclick = () => gpClic("media"); document.getElementById("gpPass4").onkeydown = e => { if (e.key === "Enter") gpClic("media"); };
 document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpClic("geo"); }; document.getElementById("gpPass2").onkeydown = e => { if (e.key === "Enter") gpClic("data"); }; document.getElementById("gpPass3").onkeydown = e => { if (e.key === "Enter") gpClic("eco"); };
 { const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco" || s === "media") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EconoLab →"; document.getElementById("gpGo4").textContent = "Abrir Media Lab →"; } } }
+
+/* flujo animado: de Data Lab (la base) hacia Geo Lab, EconoLab y Media Lab */
+(function () {
+  const NS = "http://www.w3.org/2000/svg", COL = { geo: ["#818cf8", "#6366f1"], eco: ["#c4b5fd", "#22d3ee"], media: ["#fdba74", "#ec4899"] };
+  function flujo() {
+    const land = document.getElementById("gpLand"), svg = document.getElementById("gpFlow"), base = document.getElementById("gpBase"); if (!land || !svg || !base || getComputedStyle(svg).display === "none") return;
+    const L = land.getBoundingClientRect(), B = base.getBoundingClientRect(); svg.setAttribute("viewBox", "0 0 " + L.width + " " + L.height); svg.innerHTML = "";
+    const defs = document.createElementNS(NS, "defs"); svg.appendChild(defs); let n = 0;
+    ["geo", "eco", "media"].forEach((k, i) => {
+      const c = document.querySelector('.gp-row .gp-card[data-sys="' + k + '"]'); if (!c) return; const R = c.getBoundingClientRect(), xe = R.left + R.width / 2 - L.left, ye = R.bottom - L.top, xs = Math.min(B.right - L.left - 60, Math.max(B.left - L.left + 60, xe)), ys = B.top - L.top, dy = ys - ye; if (dy < 20) return;
+      const g = document.createElementNS(NS, "linearGradient"); g.id = "gpg" + k; g.setAttribute("gradientUnits", "userSpaceOnUse"); g.setAttribute("x1", xs); g.setAttribute("y1", ys); g.setAttribute("x2", xe); g.setAttribute("y2", ye); g.innerHTML = '<stop offset="0" stop-color="' + COL[k][0] + '"/><stop offset="1" stop-color="' + COL[k][1] + '"/>'; defs.appendChild(g);
+      const d = "M" + xs + " " + ys + " C" + xs + " " + (ys - dy * .5) + " " + xe + " " + (ye + dy * .5) + " " + xe + " " + ye;
+      const b = document.createElementNS(NS, "path"); b.setAttribute("d", d); b.setAttribute("class", "fb"); b.setAttribute("stroke", "url(#gpg" + k + ")"); svg.appendChild(b);
+      const f = document.createElementNS(NS, "path"); f.setAttribute("d", d); f.setAttribute("class", "fl"); f.setAttribute("stroke", "url(#gpg" + k + ")"); svg.appendChild(f);
+      for (let j = 0; j < 4; j++) { const o = document.createElementNS(NS, "circle"); o.setAttribute("r", j % 2 ? 4 : 6); o.setAttribute("fill", COL[k][j % 2]); o.style.color = COL[k][j % 2]; o.innerHTML = '<animateMotion dur="' + (3.2 + i * .4) + 's" begin="' + (j * 0.8 + i * .3) + 's" repeatCount="indefinite" path="' + d + '" keyPoints="0;1" keyTimes="0;1" calcMode="linear"/>'; svg.appendChild(o); }
+      n++;
+    });
+  }
+  let t; const go = () => { clearTimeout(t); t = setTimeout(flujo, 80); };
+  addEventListener("resize", go); addEventListener("load", go); if (window.ResizeObserver) { const r = new ResizeObserver(go); const l = document.getElementById("gpLand"); if (l) r.observe(l); } setTimeout(flujo, 300); setTimeout(flujo, 1500);
+})();
 </script>
 </body>
 </html>
