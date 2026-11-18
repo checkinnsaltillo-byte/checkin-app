@@ -663,3 +663,12 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 }
 /* el encabezado del menú mide lo mismo que el menú, para que el botón de cerrar quede dentro */
 @media (min-width:761px){.ml-app:not(.ml-emb) .ml-body>.ml-side{width:272px;flex:0 0 272px}.ml-app:not(.ml-emb):not(.ml-sidehide) .ml-top{width:272px}}
+
+/* coocurrencia: entidades vinculadas a la elegida (nr-rel) y las tres de vínculo más fuerte (nr-top) */
+.nr .nr-cooc .nr-rel{opacity:1!important}
+.nr .nr-cooc .nd.nr-rel circle{stroke:#fff;stroke-opacity:.95;stroke-width:1.8}
+.nr .nr-cooc .nd.nr-top circle{stroke:#facc15;stroke-opacity:1;stroke-width:3.2;filter:drop-shadow(0 0 5px rgba(250,204,21,.75))}
+.nr .nr-cooc text.nr-top{font-weight:800;text-decoration:underline;text-decoration-color:#facc15}
+.nr .nr-cooc .nd.nr-top text{font-weight:800}
+.nr .nr-cooc rect.nr-top{stroke:#facc15;stroke-width:2.2}
+.nr .nr-cooc path.lk.nr-top{stroke-opacity:1!important;filter:drop-shadow(0 0 3px rgba(250,204,21,.8))}
