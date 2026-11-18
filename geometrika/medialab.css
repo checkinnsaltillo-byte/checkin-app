@@ -538,3 +538,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-map .leaflet-tile-pane{filter:invert(1) hue-rotate(190deg) brightness(.75) contrast(.95) saturate(.45)}
 .nr-pl .br{grid-template-columns:1fr 46px 22px;gap:5px}.nr-pl .br .n{white-space:normal;line-height:1.15;font-size:10px}
 .nr-pr{grid-template-columns:1fr 1fr}
+.ml-ff>summary .ml-fh{width:28px;height:26px;padding:0;justify-content:center;border:1px solid var(--ml-ln);border-radius:7px;cursor:pointer;flex:none;color:var(--ml-mut);text-transform:none}.ml-ff>summary .ml-fh:hover{color:var(--ml-ac);border-color:var(--ml-ac)}.ml-ff>summary .ml-fh svg{width:15px;height:15px}
