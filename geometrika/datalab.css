@@ -344,3 +344,8 @@ html.emb .dl-app,.dl-emb{background:transparent!important}
 /* la ventana de la derecha es una extensión de la columna izquierda: pegada a ella y a todo el alto */
 .dl-emb .dl-wbar{left:var(--col,404px);right:0;top:0;border-radius:0;border-width:0 0 1px 1px;box-shadow:none}
 .dl-emb .dl-main{left:var(--col,404px);right:0;top:46px;bottom:0;border-radius:0;border-width:0 0 0 1px;box-shadow:-6px 0 30px rgba(15,23,42,.22)}
+
+/* fondos semitransparentes: se deja ver con sutileza el mapa de atrás */
+.dl-emb .dl-side{background:rgba(255,255,255,.82)}
+.dl-emb .dl-wbar{background:rgba(255,255,255,.9)}
+.dl-emb .dl-main{background:rgba(241,245,249,.88)}

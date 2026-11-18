@@ -332,3 +332,13 @@
 /* la ventana de la derecha es una extensión de la columna izquierda: pegada a ella y a todo el alto */
 .eco-emb .eco-wbar{left:var(--col,404px);right:0;top:0;border-radius:0;border-width:0 0 1px 1px;box-shadow:none}
 .eco-emb .eco-main{left:var(--col,404px);right:0;top:46px;bottom:0;border-radius:0;border-width:0 0 0 1px;box-shadow:-6px 0 30px rgba(0,0,0,.28)}
+
+/* fondos semitransparentes: se deja ver con sutileza el mapa de atrás */
+.eco-emb .eco-side{background:linear-gradient(180deg,rgba(8,13,26,.82),rgba(15,23,42,.8))}
+.eco-emb .eco-top{background:linear-gradient(180deg,rgba(8,13,26,.86),rgba(11,18,36,.84))}
+.eco-emb .eco-wbar{background:rgba(13,20,38,.88)}
+.eco-emb .eco-main{background:linear-gradient(160deg,rgba(11,17,34,.88),rgba(10,15,31,.86))}
+.eco-light.eco-emb .eco-side{background:linear-gradient(180deg,rgba(248,250,252,.82),rgba(238,242,255,.8))}
+.eco-light.eco-emb .eco-top{background:rgba(255,255,255,.86)}
+.eco-light.eco-emb .eco-wbar{background:rgba(255,255,255,.9)}
+.eco-light.eco-emb .eco-main{background:rgba(238,242,248,.88)}
