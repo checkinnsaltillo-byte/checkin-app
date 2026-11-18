@@ -303,6 +303,43 @@
   /* ───────── mapa ───────── */
   async function mapaDatos() { const p = qs(); p.set("geo", "1"); S.geo = await api(`/proyectos/${S.sel}/noticias?${p}`); }
   function leafletListo(cb) { if (window.L) return cb(); if (window._rsvEnsureLeaflet_) return window._rsvEnsureLeaflet_(cb); const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(l); const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = cb; document.head.appendChild(s); }
+  /* araña: al pasar el cursor por un pin agrupado, sus noticias se abren en círculo alrededor */
+  function aranaCierra(M) { if (!M) return; if (M._ml_ov) M._ml_ov.remove(); M._ml_ov = null; if (M._ml_off) { M._ml_off(); M._ml_off = null; } }
+  function resaltaCard(id) {
+    const c = $$(".ml-card").find(x => x.dataset.n === id);
+    if (!c) { abreDet(id); return; }
+    $$(".ml-card.sel").forEach(x => x.classList.remove("sel")); void c.offsetWidth; c.classList.add("sel"); c.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(() => c.classList.remove("sel"), 4000);
+  }
+  function arana(M, mapEl, L2, ll) {
+    if (M._ml_ov && M._ml_key === ll.join()) return;
+    aranaCierra(M); M._ml_key = ll.join();
+    const c = M.latLngToContainerPoint(ll), items = L2.slice().sort((a, b) => (b.r == null ? -1 : b.r) - (a.r == null ? -1 : a.r));
+    const rings = [[110, 6], [200, 11], [290, 17]], cap = rings.reduce((t, r) => t + r[1], 0), show = items.slice(0, items.length > cap ? cap - 1 : cap), extra = items.length - show.length;
+    const ov = document.createElement("div"); ov.className = "ml-sp"; ov.innerHTML = "<svg></svg>"; mapEl.appendChild(ov); M._ml_ov = ov; const svg = ov.firstChild;
+    const all = show.map(q => ({ q })); if (extra > 0) all.push({ more: extra });
+    let ix = 0, maxR = 0;
+    rings.forEach(([R, n]) => {
+      const seg = all.slice(ix, ix + n); ix += n; if (!seg.length) return; maxR = R;
+      seg.forEach((o, k) => {
+        const a = -Math.PI / 2 + 2 * Math.PI / seg.length * k, x = c.x + Math.cos(a) * R, y = c.y + Math.sin(a) * R;
+        const ln = document.createElementNS("http://www.w3.org/2000/svg", "line"); ln.setAttribute("x1", c.x); ln.setAttribute("y1", c.y); ln.setAttribute("x2", x); ln.setAttribute("y2", y); svg.appendChild(ln);
+        const ch = document.createElement("div"), q = o.q; ch.style.left = x + "px"; ch.style.top = y + "px";
+        if (q) {
+          const nv = q.r == null ? -1 : q.r >= 75 ? 3 : q.r >= 50 ? 2 : q.r >= 25 ? 1 : 0; ch.className = "ml-sp-ch ml-rk" + nv; ch.title = q.t;
+          ch.innerHTML = `<i style="background:${catCol(q.cat)}"></i><b>${esc(corto(q.t))}</b><small>${esc(q.med)} · ${esc(fechaC(q.f))}</small>`;
+          ch.onclick = ev => { ev.stopPropagation(); resaltaCard(q.id); };
+        } else {
+          ch.className = "ml-sp-ch ml-sp-more"; ch.innerHTML = `<b>+${o.more} más</b><small>ver lista</small>`;
+          ch.onclick = ev => { ev.stopPropagation(); aranaCierra(M); S.det = { lista: { nombre: L2[0].lug || "", items: L2.slice(0, 60) } }; pintaDet(); };
+        }
+        ov.appendChild(ch); requestAnimationFrame(() => ch.classList.add("in"));
+      });
+    });
+    const mv = ev => { const r = mapEl.getBoundingClientRect(), dx = ev.clientX - r.left - c.x, dy = ev.clientY - r.top - c.y; if (Math.hypot(dx, dy) > maxR + 80) aranaCierra(M); };
+    mapEl.addEventListener("mousemove", mv); const mz = () => aranaCierra(M); M.on("movestart zoomstart", mz);
+    M._ml_off = () => { mapEl.removeEventListener("mousemove", mv); M.off("movestart zoomstart", mz); };
+  }
   const p0n = p => p.lug || "";
   const corto = t => { const w = String(t || "").replace(/\s+[-–|]\s+[^-–|]{2,40}$/, "").split(/\s+/); return w.length > 7 ? w.slice(0, 7).join(" ") + "…" : w.join(" "); };
   const CATCOLS = ["#2563eb", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#0d9488", "#9333ea", "#ca8a04", "#4f46e5", "#be185d", "#0369a1", "#15803d"];
@@ -320,6 +357,7 @@
         const ic = L.divIcon({ className: "", html: `<div class="ml-pin" style="background:${col}"><b>${uno ? "" : L2.length > 99 ? "99+" : L2.length}</b></div>`, iconSize: [26, 26], iconAnchor: [13, 28] });
         const mk = L.marker([p0.lat, p0.lng], { icon: ic }).addTo(M);
         mk.bindTooltip(`<b>${esc(corto(top.t))}</b><small>${esc(nom)}${uno ? "" : " · " + L2.length + " noticias"}</small>`, { permanent: true, direction: "right", offset: [12, -14], className: "ml-tip ml-rk" + nvl });
+        if (!uno) mk.on("mouseover", () => arana(M, el2, L2, [p0.lat, p0.lng]));
         mk.on("click", () => { if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]);
       });
       const nl = () => el2.classList.toggle("ml-nolbl", grupos.size > 40 && M.getZoom() < 9); M.on("zoomend", nl); nl();
