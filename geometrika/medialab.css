@@ -582,3 +582,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-ay h5{margin:0 26px 8px 0;font-size:13px;color:#fff}.nr-ay p{margin:0 0 8px}.nr-ay ul{margin:0 0 8px 18px;padding:0}.nr-ay li{margin-bottom:4px}.nr-ay b{color:#fff}.nr-ay .lim{color:#fbbf24}
 .nr-ay .x{position:absolute;top:8px;right:10px;border:0;background:none;color:#94a3b8;font-size:16px;cursor:pointer}
 .nr-map path.nr-foco{filter:drop-shadow(0 0 5px rgba(255,255,255,.75))}
+.nr-ay .ej{margin-top:10px;padding:9px 11px;border-radius:9px;background:rgba(56,189,248,.1);border-left:3px solid #38bdf8;color:#e2e8f0}.nr-ay .ej b{display:block;margin-bottom:3px;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#7dd3fc}
