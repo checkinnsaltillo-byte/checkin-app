@@ -316,8 +316,20 @@
   }
   const dotE = I => `<i class="eco-st ${I.est[0]}" title="${I.est[1]} · último dato ${I.last.l}"></i>`;
   const chipY = I => I.last.yoy == null ? "" : `<span class="eco-ch2 ${cc(I.last.yoy)}">${I.last.yoy > 0 ? "▲" : I.last.yoy < 0 ? "▼" : "■"} ${fy(I, I.last.yoy)} anual</span>`;
-  function cards(list) {
-    return `<div class="eco-cards">${list.map((I, k) => `<button type="button" class="eco-card" data-go="i:${I.id}" style="--c:${I.col};animation-delay:${k * 40}ms"><div class="ct"><span>${esc(I.nombre)}</span>${dotE(I)}</div><div class="cg">${esc(I.grupo)}</div><div class="cv">${fv(I, I.last.v)}<small>${esc(I.u === "pts" || I.u === "%" ? "" : I.u)}</small></div>${chipY(I)}<div class="cs">${spark(I, 36, 220, 46)}</div><div class="cp">${esc(I.last.l)} · ${esc(I.frecuencia)} · ${esc(alcance(I))}</div></button>`).join("")}</div>`;
+  /* indicadores relacionados con un sector: no forman parte de los filtros (lugar/giro), solo se relacionan por sector */
+  const relDe = k => IND.filter(x => x.sectores && x.sectores.includes(k) && !x.scian);
+  const varsRel = (I, list) => list.filter(x => x.id !== I.id && (x.nombre === I.nombre || x.grupo === I.grupo)).map(x => ({ I: x, t: x.nombre !== I.nombre ? x.nombre : x.grupo }));
+  function relMenu(sc) {
+    const l = relDe(sc.k); if (!l.length) return "";
+    return `<div class="eco-relh">Relacionados con ${esc(sc.n)}<small>no son parte del filtro: solo se relacionan con el sector</small></div>` + l.map(I => `<button type="button" class="eco-n eco-n4${S.sel === "i:" + I.id ? " on" : ""}" data-go="i:${I.id}"><span class="tx">${esc(I.nombre === sc.n ? I.grupo : (I.nombre.includes(I.grupo) || I.grupo.includes(I.nombre) ? I.nombre : I.nombre + " · " + I.grupo))}<small>${esc(alcance(I))} · ${esc((I.frecuencia || "").toLowerCase())}</small></span></button>`).join("");
+  }
+  function relNota(sc, rel, stK) {
+    const hay = !!stK.length;
+    return `<div class="eco-relnota"><b>No forman parte de los filtros.</b> El lugar y el giro elegidos no los filtran: se listan aquí solo porque están <b>relacionados con ${esc(sc.n)}</b>. Cada tarjeta muestra el último dato, su variación anual, la mini-serie, el periodo, la frecuencia y el <b>ámbito geográfico</b>; la línea «Variantes» enlaza con la otra versión de la misma serie (por ejemplo nivel y tendencia).
+      <div class="eco-geo"><span class="ok">Nacional ✓ <small>todas estas series</small></span><span class="${hay ? "ok" : "no"}">Estados ${hay ? "✓" : "✗"} <small>${hay ? "ITAEE de " + esc(sc.n) + " (solo variación anual, ver el mapa)" : "sin serie estatal"}</small></span><span class="no">Ciudades ✗ <small>la ENOE no se publica por actividad</small></span></div></div>`;
+  }
+  function cards(list, conRel) {
+    return `<div class="eco-cards">${list.map((I, k) => `<button type="button" class="eco-card" data-go="i:${I.id}" style="--c:${I.col};animation-delay:${k * 40}ms"><div class="ct"><span>${esc(I.nombre)}</span>${dotE(I)}</div><div class="cg">${esc(I.grupo)}</div><div class="cv">${fv(I, I.last.v)}<small>${esc(I.u === "pts" || I.u === "%" ? "" : I.u)}</small></div>${chipY(I)}<div class="cs">${spark(I, 36, 220, 46)}</div><div class="cp">${esc(I.last.l)} · ${esc(I.frecuencia)} · ${esc(alcance(I))}</div>${conRel ? (() => { const v = varsRel(I, list); return `<div class="cvar">${v.length ? "Variantes: " + v.map(q => `<span class="eco-vr" data-go="i:${q.I.id}" title="Abrir esta variante">${esc(q.t)}</span>`).join(" · ") : "Sin otras variantes aquí"}</div>`; })() : ""}</button>`).join("")}</div>`;
   }
   function rank(el, list) {
     const L = list.filter(I => I.last.x != null).map(I => ({ I, z: I.last.x })).sort((a, b) => b.z - a.z), W = Math.max(300, el.clientWidth), rh = 30, H = L.length * rh + 28, mx = Math.max(2, ...L.map(a => Math.abs(a.z))) * 1.05, lw = Math.min(250, W * .42), x0 = lw + (W - lw - 20) / 2, sc = (W - lw - 20) / 2 / mx;
@@ -686,7 +698,7 @@
     ${panelSerie(I)}
     <div class="eco-two">${panel("Variación anual por subsector", "IGAE nacional · serie " + serieRef(Y) + " vs. economía total", '<div id="ecoSLn"></div>')}${panel("Reloj económico", "misma serie del índice · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
     ${stK.length ? panel("Mapa del sector por estado", "ITAEE · «" + esc(EST[S.sk].def.nombre) + "» · solo " + esc(METR.find(m => m[0] === S.sk)[1].replace(" · variación anual", "")) + " · trimestral · variación anual · 32 entidades", (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
-    ${rel.length ? panel("Indicadores relacionados", "todos son NACIONALES (no del estado ni de la ciudad): confianza, pedidos, ventas y comercio exterior ligados al sector", cards(rel)) : ""}`;
+    ${rel.length ? panel("Indicadores relacionados", "no son parte de los filtros · solo relacionados con el sector", relNota(sc, rel, stK) + cards(rel, true)) : ""}`;
   }
   function pintaSector(k) {
     const sc = SECBY[k], ss = secSer(sc), cur = ss[Math.min(S.sub, ss.length - 1)], I = cur.idx;
@@ -933,7 +945,7 @@
     h += `<div class="eco-ar" style="--c:#fbbf24"><div class="eco-n eco-n1${on("sec")}"><button type="button" class="tg" data-tg="SC" aria-label="Desplegar">${opS ? "▾" : "▸"}</button><button type="button" class="nm" data-go="sec"><i></i><span class="tx">Sectores económicos</span><span class="bd">${SEC.length}</span></button></div>`;
     if (opS) [1, 2, 3].forEach(t => { const l = SEC.filter(s => s.t === t && (!q || norm(s.n + " " + TIER[t][0]).includes(q)) && (!F || !F.giro || s.k === F.giro)); if (!l.length) return; const to = q || S.open.has("t:" + t);
       h += `<div class="eco-n eco-n2"><button type="button" class="tg" data-tg="t:${t}" aria-label="Desplegar">${to ? "▾" : "▸"}</button><button type="button" class="nm" data-tg="t:${t}"><span class="tx">${TIER[t][2]} ${TIER[t][0]}</span><span class="bd">${l.length}</span></button></div>`;
-      if (to) l.forEach(s => { h += `<button type="button" class="eco-n eco-n3${on("s:" + s.k)}" data-go="s:${s.k}"><span class="tx">${s.ic} ${esc(s.n)}</span></button>`; }); });
+      if (to) l.forEach(s => { h += `<button type="button" class="eco-n eco-n3${on("s:" + s.k)}" data-go="s:${s.k}"><span class="tx">${s.ic} ${esc(s.n)}<small>Monitor del sector · IGAE</small></span></button>`; if (S.sel === "s:" + s.k || (F && F.giro === s.k)) h += relMenu(s); }); });
     h += `</div>`;
     if (q && h.indexOf('data-go="e:') < 0 && h.indexOf('data-go="s:') < 0 && h.indexOf('data-go="c:') < 0) h += `<div class="eco-nada">Sin resultados para «${esc(S.q)}».</div>`;
     return h;
