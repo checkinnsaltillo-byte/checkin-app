@@ -13864,25 +13864,15 @@ async function huespedesGenerarTicket(recordId) {
   let row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
   if (!row) { alert('No se encontró la información del registro seleccionado.'); return; }
 
-  // Régimen fiscal SIEMPRE fresco: la fila en caché puede traer un régimen viejo o vacío, y de él depende el
-  // concepto (1 = Personas Morales, con retención de ISR e IVA; 2 = el resto, solo IVA). Si falta, se trae todo el
-  // detalle (como antes); si ya existe, solo se actualizan los datos fiscales con lo que haya en el servidor.
+  // Si falta régimen fiscal, lo traemos del detalle (igual que el original)
   const missingRegime = !huValueFlexible(row, ['Régimen fiscal','Regimen fiscal','Tax regime']);
-  try {
-    const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    const tm = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
-    const res = await fetch(`${BACKEND}/huespedes-detail?record_id=${encodeURIComponent(recordId)}`, ctrl ? { signal: ctrl.signal, cache: 'no-store' } : { cache: 'no-store' });
-    if (tm) clearTimeout(tm);
-    const json = await res.json();
-    if (json?.ok && json.record) {
-      if (missingRegime) row = { ...row, ...json.record };
-      else {
-        const fresh = json.record, fiscal = {};
-        ['Régimen fiscal', 'Régimen otro', 'Razón social', 'RFC', 'Código Postal'].forEach(k => { if (fresh[k] !== undefined && String(fresh[k]).trim() !== '') fiscal[k] = fresh[k]; });
-        row = { ...row, ...fiscal };
-      }
-    }
-  } catch (_) {}
+  if (missingRegime) {
+    try {
+      const res = await fetch(`${BACKEND}/huespedes-detail?record_id=${encodeURIComponent(recordId)}`);
+      const json = await res.json();
+      if (json?.ok && json.record) row = { ...row, ...json.record };
+    } catch (_) {}
+  }
 
   // Leer el monto facturado actual del input calculado del card (el valor
   // ya considera el cálculo Airbnb − comisión cuando aplica). El card puede
