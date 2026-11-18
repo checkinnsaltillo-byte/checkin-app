@@ -124,6 +124,17 @@
   async function selecciona(id) {
     S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); await consulta();
   }
+  /* carga automática: al llegar al final de la lista se pide el siguiente grupo de noticias */
+  let ioMasObs = null;
+  let scMas = 0;
+  function chequeaMas() { if (scMas) return; scMas = setTimeout(() => { scMas = 0; const el = $(".ml-more"); if (el && !S.cargando && el.getBoundingClientRect().top < innerHeight + 500) consulta(true); }, 80); }
+  addEventListener("scroll", chequeaMas, { capture: true, passive: true }); addEventListener("resize", chequeaMas);
+  function ioMas() {
+    if (ioMasObs) { ioMasObs.disconnect(); ioMasObs = null; }
+    const el = $(".ml-more"); if (!el || !("IntersectionObserver" in window)) return;
+    ioMasObs = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && !S.cargando) { ioMasObs.disconnect(); consulta(true); } }, { rootMargin: "500px 0px" });
+    ioMasObs.observe(el); chequeaMas();
+  }
   function principal() {
     const m = $("#mlMain"); if (!m) return; S.mapa = null; const qa = document.activeElement && document.activeElement.id === "mlQ" ? document.activeElement.selectionStart : null;
     if (S.modo === "crear") { wizard(); return; }
@@ -138,12 +149,12 @@
     if (d && d.facetas) h += filtros();
     h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : ""}</div><div id="mlProg"></div>`;
     if (p.objetivo) h += `<div class="ml-sem"><span>🎯 ${esc(p.objetivo)}</span></div>`;
-    const cuerpo = !d ? `<div class="ml-vacio">Cargando noticias…</div>` : !d.items.length ? `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>` : `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
+    const cuerpo = !d ? `<div class="ml-vacio">Cargando noticias…</div>` : !d.items.length ? `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>` : `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<div class="ml-more" data-go="mas"><span class="ml-spin"></span>Cargando más noticias… (${nf(d.items.length)} de ${nf(d.total)})</div>` : ""}`;
     if (S.vista === "mapa") h += `<div class="ml-split"><div class="ml-mapcol"><div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div></div><div class="ml-cardcol">${cuerpo}</div></div>`;
     else if (!d) h += `<div class="ml-vacio">Cargando noticias…</div>`;
     else if (!d.items.length) h += `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>`;
-    else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
-    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
+    else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<div class="ml-more" data-go="mas"><span class="ml-spin"></span>Cargando más noticias… (${nf(d.items.length)} de ${nf(d.total)})</div>` : ""}`;
+    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa(); ioMas(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
   }
   const TXC = { 1: ["ok", "📄 Con texto", "Se descargó el cuerpo de la nota"], 2: ["", "🔒 Sin texto", "El medio no permitió descargar el cuerpo (bloqueo o suscripción)"], 0: ["run", "⏳ Texto pendiente", "Aún no se intenta descargar el cuerpo"] };
   const MET = { regla: ["🔎 Texto", "Detectado en el título o la descripción con el catálogo de municipios del INEGI"], ia: ["🤖 IA", "La IA interpretó el lugar del texto de la nota y se ubicó con el catálogo de municipios del INEGI"], places: ["🗺️ Google Places", "Ubicado con la API de Google Places y verificado dentro del estado de la nota"] };
