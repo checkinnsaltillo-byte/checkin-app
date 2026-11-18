@@ -199,3 +199,12 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-af-sc span.pre i{border-color:var(--ml-bd)}.ml-af-sc span.on i{background:inherit;border-color:inherit;box-shadow:0 0 0 3px rgba(148,163,184,.25)}
 .ml-af-sc u{text-decoration:none;font-size:9.5px;color:var(--ml-mut)}.ml-af-sc span.on u{color:var(--ml-tx);font-weight:700}
 .ml-k3 b em{font-style:normal;font-size:11px;font-weight:500;color:var(--ml-mut)}
+
+/* etiquetas del mapa por nivel de riesgo */
+.ml-tip.leaflet-tooltip{color:#fff;border:1px solid rgba(255,255,255,.55);line-height:1.25;padding:5px 9px;backdrop-filter:blur(2px)}
+.ml-tip.leaflet-tooltip b{display:block;font-weight:700;font-size:12px}.ml-tip.leaflet-tooltip small{font-size:9.5px;opacity:.9}
+.ml-tip.leaflet-tooltip:before{display:none}
+.ml-tip.ml-rk-1{background:rgba(71,85,105,.72)}.ml-tip.ml-rk0{background:rgba(22,163,74,.72)}.ml-tip.ml-rk1{background:rgba(217,119,6,.74)}.ml-tip.ml-rk2{background:rgba(234,88,12,.78)}.ml-tip.ml-rk3{background:rgba(220,38,38,.82);animation:mlBlink 1s ease-in-out infinite}
+@keyframes mlBlink{0%,100%{background:rgba(220,38,38,.9);box-shadow:0 0 14px 3px rgba(239,68,68,.75)}50%{background:rgba(220,38,38,.35);box-shadow:0 0 2px 0 rgba(239,68,68,.2)}}
+.ml-pin{background-image:none}
+.ml-tip.leaflet-tooltip{width:max-content;min-width:130px;max-width:210px}
