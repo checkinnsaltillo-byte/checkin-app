@@ -639,3 +639,7 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nk-tp .lg{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;justify-content:initial;font:600 10.5px system-ui,sans-serif}
 .nk-tp .lg span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nk-tp .lg b{font-weight:800}
 .nk-b .nk-tp{padding-top:4px}.nk-cu span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* leyendas de la gráfica temporal: encienden y apagan su capa */
+.nr-lt .chip{cursor:pointer;user-select:none}.nr-lt .chip.off{opacity:.45;text-decoration:line-through}.nr-lt .chip.off i{background:transparent!important;box-shadow:inset 0 0 0 1.5px #94a3b8}
+.nr-lt .chip.todas{border:1px dashed rgba(148,163,184,.6);padding:1px 8px;border-radius:99px;color:#e2e8f0}
