@@ -702,3 +702,9 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 /* gráfica temporal: puntos con clic que abren la lista lateral de noticias */
 .nr svg .np{cursor:pointer}.nr svg circle.np:hover{stroke:#fff;stroke-width:2.4}
 #mlDet .nr-lst{display:flex;flex-direction:column;gap:10px}#mlDet .nr-lst .ml-card{margin:0;width:auto}
+
+/* KPI de entidades: un renglón por tipo con su barra */
+.nk-rn .rn{display:grid;grid-template-columns:104px 1fr 78px;align-items:center;gap:8px;margin-top:5px;font:600 11px system-ui,sans-serif;color:#fff}
+.nk-rn .rn:first-child{margin-top:0}.nk-rn .rn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nk-rn .rn .bar{height:9px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.26)}.nk-rn .rn .bar i{display:block;height:100%;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)}
+.nk-rn .rn em{font-style:normal;text-align:right;white-space:nowrap;font-weight:600}.nk-rn .rn em b{font-weight:800}
