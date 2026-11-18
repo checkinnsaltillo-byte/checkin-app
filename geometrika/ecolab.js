@@ -18,7 +18,7 @@
   const QD = { exp: ["Expansión", "#34d399"], des: ["Desaceleración", "#fbbf24"], con: ["Contracción", "#fb7185"], rec: ["Recuperación", "#60a5fa"] };
   const PPY = { Mensual: 12, Trimestral: 4, Anual: 1 };
   const D = window.ECO_DATA || { indicadores: [] };
-  let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", open: new Set(), serie: { mode: "ambas", rango: 120 } }, draws = [], tipEl;
+  let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", zoom: {}, open: new Set(), serie: { mode: "ambas", rango: 120 } }, draws = [], tipEl;
 
   /* ───────── preparación de datos ───────── */
   /* ───────── ciclo: asignación de coordenadas, filtro HP y derivación desde la tendencia-ciclo ───────── */
@@ -203,10 +203,10 @@
   /* ───────── gráfica principal de la serie ───────── */
   function drawSerie(el, I) {
     const W = Math.max(320, el.clientWidth), H = W < 520 ? 280 : 360, m = { l: 62, r: 20, t: 16, b: 34 }, st = S.serie, vm = st.vm === true && I.ppy > 1 && !I.pct && I.s.some(o => o.mom != null), va = st.va !== false, vn = st.vn !== false || (!va && !vm), mode = vn ? (va || vm ? "ambas" : "nivel") : "anual"; if (mode === "ambas") m.r = 58;
-    const nmax = st.rango ? Math.min(I.s.length, Math.round(st.rango * I.ppy / 12) || I.s.length) : I.s.length, d = I.s.slice(-Math.max(nmax, 6)), n = d.length;
-    const f = mode === "anual" ? (va ? (o => o.yoy) : (o => o.mom)) : (o => o.v), off = I.s.length - d.length, SM = st.suav ? suavizaSerie(I, st.suav) : null, pts = d.map((o, i) => ({ o, i, v: SM ? (mode === "anual" ? (va ? SM.y : SM.m)[off + i] : SM.v[off + i]) : f(o), raw: f(o) })).filter(p => p.v != null), mvArr = vm ? d.map((o, i) => ({ i, v: SM ? SM.m[off + i] : o.mom })).filter(q => q.v != null) : [];
+    const nmax = st.rango ? Math.min(I.s.length, Math.round(st.rango * I.ppy / 12) || I.s.length) : I.s.length, s0 = Math.max(0, I.s.length - Math.max(nmax, 6)), len0 = I.s.length - s0, zk = "s:" + I.id, zz = S.zoom[zk] || [0, 1]; let i0 = s0 + Math.floor(zz[0] * len0), i1 = s0 + Math.ceil(zz[1] * len0); if (i1 - i0 < 6) { i1 = Math.min(I.s.length, i0 + 6); i0 = Math.max(s0, i1 - 6); } const d = I.s.slice(i0, i1), n = d.length, atEnd = i1 >= I.s.length;
+    const f = mode === "anual" ? (va ? (o => o.yoy) : (o => o.mom)) : (o => o.v), off = i0, SM = st.suav ? suavizaSerie(I, st.suav) : null, pts = d.map((o, i) => ({ o, i, v: SM ? (mode === "anual" ? (va ? SM.y : SM.m)[off + i] : SM.v[off + i]) : f(o), raw: f(o) })).filter(p => p.v != null), mvArr = vm ? d.map((o, i) => ({ i, v: SM ? SM.m[off + i] : o.mom })).filter(q => q.v != null) : [];
     if (!pts.length) { el.innerHTML = '<div class="eco-vacio">Sin datos suficientes para esta vista.</div>'; return; }
-    const FC = I.fc && st.fc !== false && !(mode === "anual" && !va) ? prono(I) : null, fcv = (FC || []).map((p, k) => ({ i: n + k, l: p.l, v: mode === "anual" ? p.yoy : p.v, lo: mode === "anual" ? p.ylo : p.lo, hi: mode === "anual" ? p.yhi : p.hi })).filter(q => q.v != null), nn = n + (FC ? FC.length : 0), ALL = pts.concat(fcv.map(q => ({ o: null, i: q.i, v: q.v, fc: q }))); S.curI = I;
+    const FC = I.fc && st.fc !== false && atEnd && !(mode === "anual" && !va) ? prono(I) : null, fcv = (FC || []).map((p, k) => ({ i: n + k, l: p.l, v: mode === "anual" ? p.yoy : p.v, lo: mode === "anual" ? p.ylo : p.lo, hi: mode === "anual" ? p.yhi : p.hi })).filter(q => q.v != null), nn = n + (FC ? FC.length : 0), ALL = pts.concat(fcv.map(q => ({ o: null, i: q.i, v: q.v, fc: q }))); S.curI = I;
     const ext = pts.flatMap(p => [p.v, p.raw]).filter(v => v != null); let lo = Math.min(...ext), hi = Math.max(...ext); fcv.forEach(q => { lo = Math.min(lo, q.lo != null ? q.lo : q.v); hi = Math.max(hi, q.hi != null ? q.hi : q.v); });
     if (mode === "anual" && va && vm) mvArr.forEach(q => { lo = Math.min(lo, q.v); hi = Math.max(hi, q.v); });
     if (mode === "anual") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } else if (I.th50) { lo = Math.min(lo, I.thr); hi = Math.max(hi, I.thr); }
@@ -247,6 +247,7 @@
     }
     s += `<g id="ecoCh" style="display:none"><line class="eco-ch" y1="${m.t}" y2="${H - m.b}"/><circle r="5.5" fill="#0a0f1f" stroke="#fff" stroke-width="2.4"/></g><rect id="ecoHit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/>`;
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(I.nombre)}">${s}</svg>`;
+    brush(el, zk, I.s.slice(s0).map(o => o.v), () => drawSerie(el, I), d[0].l + " – " + d[d.length - 1].l);
     const g = $("#ecoCh", el), ln = $("line", g), dot = $("circle", g), hit = $("#ecoHit", el);
     hit.onmousemove = hit.ontouchmove = e => {
       const r = hit.getBoundingClientRect(), cx = (e.touches ? e.touches[0].clientX : e.clientX), i = Math.round((cx - r.left) / r.width * (nn - 1));
@@ -374,7 +375,7 @@
   function pintaInd(I) {
     const el = $("#ecoMain"); draws.push(() => drawSerie($("#ecoMain"), I), () => drawReloj($("#ecoClock"), I), () => drawEstac($("#ecoEst"), I));
     $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; return; };
-    $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
+    $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; S.zoom["s:" + I.id] = null; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
     $("#ecoCsv").onclick = () => { const t = "periodo,valor,variacion_anual\n" + I.s.map(o => [o.l, o.v, o.yoy == null ? "" : o.yoy.toFixed(3)].join(",")).join("\n"), a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + t], { type: "text/csv" })); a.download = "ecolab_" + I.id + ".csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
     void el;
   }
@@ -442,6 +443,24 @@
   const panel = (t, hint, inner, cl) => `<div class="eco-panel ${cl || ""}"><div class="eco-ph"><h3>${t}</h3>${hint ? `<span class="eco-hint">${hint}</span>` : ""}</div>${inner}</div>`;
 
   /* ───────── gráficas de monitor ───────── */
+  /* boxplot de la distribución entre estados (sustituye a la barra de colores) con el estado del proyecto resaltado */
+  function boxLeg(ok, o, W2) {
+    if (ok.length < 4) return "";
+    const fm = v => o.seq ? nf(v, 1) + "%" : fp(v, 1), xs = ok.map(x => x.v).sort((a, b) => a - b), q = pp => { const i = (xs.length - 1) * pp, a = Math.floor(i), b = Math.ceil(i); return xs[a] + (xs[b] - xs[a]) * (i - a); };
+    const q1 = q(.25), md = q(.5), q3 = q(.75), ir = q3 - q1, wl = Math.min(...xs.filter(v => v >= q1 - 1.5 * ir)), wh = Math.max(...xs.filter(v => v <= q3 + 1.5 * ir));
+    const W = Math.max(280, Math.min(W2, 640)), m = { l: 14, r: 14 }, H = 104, mn = xs[0], mx = xs[xs.length - 1], pad = (mx - mn) * .06 || 1, lo = mn - pad, hi = mx + pad, X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r), cy = 52;
+    const pc = (S.ctx && S.ctx.ent && ok.find(x => x.c === S.ctx.ent)) || (o.sel && ok.find(x => x.c === o.sel)) || null, rkp = pc ? ok.filter(x => x.v > pc.v).length + 1 : 0;
+    let g = "", tk = ticksN(lo, hi, 5), td = tdec(tk);
+    tk.forEach(v => { g += `<line x1="${X(v).toFixed(1)}" x2="${X(v).toFixed(1)}" y1="30" y2="76" class="eco-gr"/><text x="${X(v).toFixed(1)}" y="${H - 6}" class="eco-ax" text-anchor="middle">${nf(v, td)}</text>`; });
+    if (!o.seq && lo < 0 && hi > 0) g += `<line x1="${X(0).toFixed(1)}" x2="${X(0).toFixed(1)}" y1="30" y2="76" stroke="#94a3b8" stroke-opacity=".7"/>`;
+    g += `<line x1="${X(wl).toFixed(1)}" x2="${X(wh).toFixed(1)}" y1="${cy}" y2="${cy}" stroke="#94a3b8" stroke-width="1.6"/><line x1="${X(wl).toFixed(1)}" x2="${X(wl).toFixed(1)}" y1="${cy - 8}" y2="${cy + 8}" stroke="#94a3b8" stroke-width="1.6"/><line x1="${X(wh).toFixed(1)}" x2="${X(wh).toFixed(1)}" y1="${cy - 8}" y2="${cy + 8}" stroke="#94a3b8" stroke-width="1.6"/>`;
+    g += `<rect x="${X(q1).toFixed(1)}" y="${cy - 14}" width="${Math.max(2, X(q3) - X(q1)).toFixed(1)}" height="28" rx="5" fill="#6366f1" fill-opacity=".22" stroke="#6366f1" stroke-width="1.4"/><line x1="${X(md).toFixed(1)}" x2="${X(md).toFixed(1)}" y1="${cy - 14}" y2="${cy + 14}" stroke="#6366f1" stroke-width="2.6"/>`;
+    ok.forEach((x, i) => { if (pc && x.c === pc.c) return; const jy = cy + ((i * 37) % 17 - 8) * 1.4; g += `<circle cx="${X(x.v).toFixed(1)}" cy="${jy.toFixed(1)}" r="2.6" fill="#94a3b8" fill-opacity=".55"/>`; });
+    if (pc) { const px = X(pc.v), lab = "📍 " + ENTBY[pc.c][1] + " " + fm(pc.v), anc = px < 90 ? "start" : px > W - 90 ? "end" : "middle";
+      g += `<line x1="${px.toFixed(1)}" x2="${px.toFixed(1)}" y1="22" y2="${cy - 6}" stroke="#fbbf24" stroke-width="2"/><circle cx="${px.toFixed(1)}" cy="${cy}" r="7" fill="#fbbf24" stroke="#fff" stroke-width="2"/><text x="${px.toFixed(1)}" y="14" text-anchor="${anc}" class="eco-ax" style="fill:#fbbf24;font-weight:800;font-size:12px">${esc(lab)}</text>`; }
+    const nota = `<span>Mediana <b>${fm(md)}</b> · mitad central de los estados entre <b>${fm(q1)}</b> y <b>${fm(q3)}</b>${pc ? ` · ${esc(ENTBY[pc.c][1])}: lugar <b>${rkp}</b> de ${ok.length}` : ""}</span>`;
+    return `<div class="eco-box"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="margin:0 auto;display:block">${g}</svg><div class="eco-boxn">${nota}<span class="eco-boxn2">Distribución de los ${ok.length} estados · el color de cada mosaico va de rojo (menor) a verde (mayor)</span></div></div>`;
+  }
   function tileMap(el, f, o) {
     o = o || {}; const cols = 11, rows = 6, g = 4, W = Math.max(300, Math.min(el.clientWidth, 820)), ts = Math.floor((W - g * (cols - 1)) / cols), H = rows * ts + (rows - 1) * g + 34, W2 = cols * ts + (cols - 1) * g;
     const vals = ENT.map(e => ({ c: e[0], v: f(e[0]) })), ok = vals.filter(x => x.v != null), srt = ok.slice().sort((a, b) => o.seq ? a.v - b.v : b.v - a.v), rk = Object.fromEntries(srt.map((x, i) => [x.c, i + 1]));
@@ -454,7 +473,7 @@
         (pj ? `<text x="${x + ts - 2}" y="${y + 11}" text-anchor="end" style="font-size:11px">📍</text>` : "") + (ts > 40 ? `<text x="${x + ts / 2}" y="${y + ts / 2 + ts * .26}" text-anchor="middle" class="eco-tv" style="font-size:${Math.max(8, ts * .2).toFixed(0)}px">${v == null ? "—" : o.seq ? nf(v, 1) : sg(v, 1)}</text>` : "") + `</g>`;
     });
     const lg = o.seq ? `<span>${nf(o.lo, 1)}%</span><i style="background:linear-gradient(90deg,${cSeq(o.lo, o.lo, o.hi)},${cSeq((o.lo + o.hi) / 2, o.lo, o.hi)},${cSeq(o.hi, o.lo, o.hi)})"></i><span>${nf(o.hi, 1)}%</span>` : `<span>−${o.lim || 6}%</span><i style="background:linear-gradient(90deg,${cDiv(-1, 1)},${cDiv(0, 1)},${cDiv(1, 1)})"></i><span>+${o.lim || 6}%</span>`;
-    el.innerHTML = `<svg viewBox="0 0 ${W2} ${H - 30}" width="${W2}" height="${H - 30}" style="margin:0 auto">${s}</svg><div class="eco-lg" style="justify-content:center">${lg}</div>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W2} ${H - 30}" width="${W2}" height="${H - 30}" style="margin:0 auto">${s}</svg>${boxLeg(ok, o, W2)}`;
     $$(".eco-tile", el).forEach(t => { const c = t.dataset.c, e = ENTBY[c], v = f(c); t.style.cursor = "pointer";
       t.onmousemove = ev => tip(`<b>${esc(e[1])}</b><div class="tp-s">${ZONAS[e[5]][0]}</div><div class="tp-v" style="color:${v == null ? "#94a3b8" : o.seq ? "#fbbf24" : v >= 0 ? "#34d399" : "#fb7185"}">${v == null ? "sin dato" : o.seq ? nf(v, 1) + "%" : fp(v, 1)}</div>${rk[c] ? `<div class="tp-r nu">Lugar ${rk[c]} de ${ok.length}</div>` : ""}${S.ctx && S.ctx.ent === c ? '<div class="tp-r" style="color:#fbbf24">📍 Estado del proyecto</div>' : ""}<div class="tp-r nu">Clic para abrir el monitor del estado</div>`, ev); t.onmouseleave = () => tip(null); t.onclick = () => (o.click || (cc2 => ir("e:" + cc2)))(c); });
   }
@@ -471,20 +490,46 @@
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg>`;
     $$(".eco-hb", el).forEach(b => { const r = rows[+b.dataset.i]; b.onmousemove = e => tip(`<b>${esc(r.label)}</b>${r.sub ? `<div class="tp-s">${esc(r.sub)}</div>` : ""}<div class="tp-v" style="color:${r.v >= 0 ? "#34d399" : "#fb7185"}">${fm(r.v)}</div>${r.ref != null ? `<div class="tp-r nu">Nacional: ${fm(r.ref)}</div>` : ""}${r.go ? '<div class="tp-r nu">Clic para abrir</div>' : ""}`, e); b.onmouseleave = () => tip(null); if (r.go) b.onclick = () => ir(r.go); });
   }
+  /* ───────── selector de periodo («cejitas»): acota el eje del tiempo de una gráfica de series ───────── */
+  function brush(el, key, spark, redraw, label) {
+    let b = el._br; const MIN = .07;
+    if (!b || !b.isConnected) {
+      b = document.createElement("div"); b.className = "eco-brush";
+      b.innerHTML = '<div class="eco-btrack" title="Arrastra las cejitas de los extremos (o la franja) para acotar el periodo"><svg class="eco-bsp" viewBox="0 0 100 24" preserveAspectRatio="none"><path d=""/></svg><div class="eco-bsel"><i class="eco-bh l"></i><i class="eco-bh r"></i></div></div><div class="eco-bt"><span class="eco-bl"></span><button type="button" class="eco-bre">↺ Todo el periodo</button></div>';
+      el.after(b); el._br = b;
+      const tr = $(".eco-btrack", b), z = () => S.zoom[b._key] || [0, 1];
+      const mueve = ev => { const d = b._drag; if (!d) return; const dx = (ev.clientX - d.x0) / d.w; let [a, c] = d.z0;
+        if (d.mode === "l") a = Math.max(0, Math.min(c - MIN, a + dx)); else if (d.mode === "r") c = Math.min(1, Math.max(a + MIN, c + dx)); else { const w = c - a; a = Math.max(0, Math.min(1 - w, a + dx)); c = a + w; }
+        S.zoom[b._key] = a <= .001 && c >= .999 ? null : [a, c]; b._pos(); cancelAnimationFrame(b._raf); b._raf = requestAnimationFrame(() => { el.classList.add("eco-noanim"); b._redraw(); }); };
+      tr.addEventListener("pointerdown", e => { const r = tr.getBoundingClientRect(), z0 = z().slice(), h = e.target.closest(".eco-bh"); let mode;
+        if (h) mode = h.classList.contains("l") ? "l" : "r"; else if (e.target.closest(".eco-bsel")) mode = "m"; else { const x = (e.clientX - r.left) / r.width; mode = Math.abs(x - z0[0]) < Math.abs(x - z0[1]) ? "l" : "r"; z0[mode === "l" ? 0 : 1] = Math.max(0, Math.min(1, x)); }
+        e.preventDefault(); try { tr.setPointerCapture(e.pointerId); } catch (_) { } b._drag = { mode, z0, x0: e.clientX, w: r.width || 1 }; mueve(e); });
+      tr.addEventListener("pointermove", mueve); const fin = () => { b._drag = null; }; tr.addEventListener("pointerup", fin); tr.addEventListener("pointercancel", fin);
+      $(".eco-bre", b).onclick = () => { S.zoom[b._key] = null; b._pos(); el.classList.add("eco-noanim"); b._redraw(); };
+      b._pos = () => { const [a, c] = z(), sl = $(".eco-bsel", b); sl.style.left = a * 100 + "%"; sl.style.width = (c - a) * 100 + "%"; $(".eco-bre", b).style.visibility = S.zoom[b._key] ? "visible" : "hidden"; };
+    }
+    b._key = key; b._redraw = redraw; $(".eco-bl", b).textContent = label || "";
+    const v = (spark || []).filter(x => x != null && isFinite(x)); if (v.length > 1) { const lo = Math.min(...v), hi = Math.max(...v), st = Math.max(1, Math.floor(v.length / 120)); const pts = v.filter((_, i) => i % st === 0 || i === v.length - 1); $(".eco-bsp path", b).setAttribute("d", pts.map((y, i) => (i ? "L" : "M") + (i / (pts.length - 1) * 100).toFixed(1) + " " + (22 - (y - lo) / ((hi - lo) || 1) * 20).toFixed(1)).join("")); }
+    b._pos();
+  }
   function multiLine(el, lines, o) {
     o = o || {}; const L = lines.filter(l => l.pts.length > 1); if (!L.length) { el.innerHTML = '<div class="eco-vacio">Sin datos.</div>'; return; }
-    const W = Math.max(320, el.clientWidth), H = W < 520 ? 260 : 320, m = { l: 48, r: 16, t: 14, b: 28 }, yrs = o.anios || 12, t1 = Math.max(...L.map(l => l.fc && l.fc.length ? l.fc[l.fc.length - 1].t : l.pts[l.pts.length - 1].t)), t0 = t1 - yrs, P = L.map(l => ({ ...l, pts: l.pts.filter(p => p.t >= t0) })).filter(l => l.pts.length > 1);
+    const W = Math.max(320, el.clientWidth), H = W < 520 ? 260 : 320, m = { l: 48, r: 16, t: 14, b: 28 }, yrs = o.anios || 12, T1 = Math.max(...L.map(l => l.fc && l.fc.length ? l.fc[l.fc.length - 1].t : l.pts[l.pts.length - 1].t)), T0 = T1 - yrs, zk = "m:" + (el.id || ""), zz = S.zoom[zk] || [0, 1], t0 = T0 + zz[0] * (T1 - T0), t1 = T0 + zz[1] * (T1 - T0), atEnd = zz[1] >= .999, P = L.map(l => ({ ...l, pts: l.pts.filter(p => p.t >= t0 - 1e-9 && p.t <= t1 + 1e-9), fc: atEnd ? l.fc : null })).filter(l => l.pts.length > 1);
+    if (!P.length) { S.zoom[zk] = null; if (zz[0] !== 0 || zz[1] !== 1) return multiLine(el, lines, o); el.innerHTML = '<div class="eco-vacio">Sin datos.</div>'; return; }
     const vs = P.flatMap(l => l.pts.map(p => p.v).concat((l.fc || []).map(p => p.v))); let lo = Math.min(...vs), hi = Math.max(...vs); if (o.cero !== false) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); } const pad = (hi - lo) * .08 || 1; lo -= pad; hi += pad;
     const X = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b), tk = ticksN(lo, hi, 5), td = tdec(tk), emph = o.sel;
     let s = `<defs><filter id="ecoGl3"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
     tk.forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="eco-gr"/><text x="${m.l - 6}" y="${(Y(v) + 4).toFixed(1)}" class="eco-ax" text-anchor="end">${nf(v, td)}</text>`; });
     if (lo < 0 && hi > 0) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#94a3b8" stroke-opacity=".6"/>`;
-    for (let y = Math.ceil(t0); y <= t1; y += Math.max(1, Math.round(yrs / 7))) s += `<text x="${X(y).toFixed(1)}" y="${H - 8}" class="eco-ax" text-anchor="middle">${y}</text>`;
+    { const sp = t1 - t0, fT = t => MES[Math.min(11, Math.floor((t - Math.floor(t)) * 12 + 1e-6))] + " " + Math.floor(t + 1e-6);
+      if (sp >= 5) for (let y = Math.ceil(t0); y <= t1; y += Math.max(1, Math.round(sp / 7))) s += `<text x="${X(y).toFixed(1)}" y="${H - 8}" class="eco-ax" text-anchor="middle">${y}</text>`;
+      else for (let k = 0; k <= 5; k++) { const t = t0 + sp * k / 5; s += `<text x="${X(t).toFixed(1)}" y="${H - 8}" class="eco-ax" text-anchor="${k === 0 ? "start" : k === 5 ? "end" : "middle"}">${fT(t)}</text>`; } }
     P.forEach((l, i) => { const d = l.pts.map((p, k) => (k ? "L" : "M") + X(p.t).toFixed(1) + " " + Y(p.v).toFixed(1)).join(""); if (l.fc && l.fc.length) { const e0 = l.pts[l.pts.length - 1]; s += `<path d="M${X(e0.t).toFixed(1)} ${Y(e0.v).toFixed(1)}${l.fc.map(p => "L" + X(p.t).toFixed(1) + " " + Y(p.v).toFixed(1)).join("")}" fill="none" stroke="${l.col}" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 7" stroke-opacity="${emph == null || emph === i ? 1 : .35}"/>`; }
       s += `<path d="${d}" pathLength="1" class="eco-ln" fill="none" stroke="${l.col}" stroke-width="${emph == null ? 2.4 : emph === i ? 3.4 : 1.4}" stroke-opacity="${emph == null || emph === i ? 1 : .35}" ${l.dash ? 'stroke-dasharray="5 4"' : ""} stroke-linejoin="round" filter="url(#ecoGl3)" style="animation-delay:${i * 120}ms"/>`; });
     s += `<g id="ecoMl" style="display:none"><line class="eco-ch" y1="${m.t}" y2="${H - m.b}"/></g><rect id="ecoMlH" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/>`;
     const lg = P.map((l, i) => `<span class="eco-lgi" data-i="${i}" style="opacity:${emph == null || emph === i ? 1 : .45}"><i style="background:${l.col}"></i>${esc(l.name)}</span>`).join("");
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg><div class="eco-leg eco-legl">${lg}</div>`;
+    { const fT = t => MES[Math.min(11, Math.floor((t - Math.floor(t)) * 12 + 1e-6))] + " " + Math.floor(t + 1e-6); brush(el, zk, L[0].pts.filter(p => p.t >= T0 - 1e-9).map(p => p.v), () => multiLine(el, lines, o), fT(t0) + " – " + fT(t1)); }
     const hit = $("#ecoMlH", el), g = $("#ecoMl", el), ln = $("line", g);
     hit.onmousemove = e => { const r = hit.getBoundingClientRect(), t = t0 + (e.clientX - r.left) / r.width * (t1 - t0); let best = null; P[0].pts.forEach(p => { if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p; });
       const rows = P.map(l => { let b = null; l.pts.forEach(p => { if (!b || Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; }); return `<div class="tp-r"><i class="eco-dot" style="background:${l.col}"></i>${esc(l.name)}: <b>${b && Math.abs(b.t - t) < 1.2 ? (o.fmt || (v => fp(v, 1)))(b.v) : "—"}</b></div>`; }).join("");
@@ -523,7 +568,7 @@
   function pintaSerie(I) {
     draws.push(() => drawSerie($("#ecoMain"), I));
     $("#ecoMode").onclick = e => { const b = e.target.closest("button"); if (!b) return; return; };
-    $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
+    $("#ecoRng").onclick = e => { const b = e.target.closest("button"); if (!b) return; S.serie.rango = +b.dataset.r; S.zoom["s:" + I.id] = null; $$("#ecoRng button").forEach(x => x.classList.toggle("on", x === b)); drawSerie($("#ecoMain"), I); };
   }
   const ptsE = (I, tipo) => I.s.map(o => ({ t: o.t / I.ppy, l: o.l, v: tipo === "idx" ? o.yoy : o.v })).filter(p => p.v != null);
   const ptsI = I => I.s.filter(o => o.yoy != null).map(o => ({ t: o.t / I.ppy, l: o.l, v: I.pct ? o.v : o.yoy })).filter(p => p.v != null);
@@ -576,10 +621,13 @@
 
   /* ───────── monitor de un estado ───────── */
   function vistaEst(c) {
-    const e = ENTBY[c], z = ZONAS[e[5]], K = [["itaee_yoy", "Actividad económica (ITAEE)", BYID["737145"], "var. anual"], ["ind_yoy", "Actividad industrial", BYID["736526"], "var. anual"], ["man_yoy", "Manufacturas", IGS["31-33"] && IGS["31-33"].yoy, "var. anual"], ["desoc", "Desocupación", BYID["444603"], "% PEA"]];
+    const e = ENTBY[c], z = ZONAS[e[5]], K = [["itaee_yoy", "Actividad económica estatal (ITAEE)", BYID["737145"], "var. anual · trimestral", "Cuánto creció o cayó, contra el mismo trimestre del año anterior, la producción total de bienes y servicios del estado.", "IGAE nacional"],
+      ["ind_yoy", "Actividad industrial estatal", BYID["736526"], "var. anual · mensual", "Variación anual de la producción industrial del estado: minería, energía, construcción y manufacturas.", "actividad industrial nacional"],
+      ["man_yoy", "Manufacturas estatales", IGS["31-33"] && IGS["31-33"].yoy, "var. anual · mensual", "Variación anual de la producción de las fábricas del estado (industrias manufactureras, SCIAN 31-33).", "IGAE manufacturas nacional"],
+      ["desoc", "Tasa de desocupación estatal", BYID["444603"], "% de la PEA · trimestral", "Personas sin empleo que lo buscan, como porcentaje de la población económicamente activa (PEA). Menos es mejor.", "tasa nacional"]];
     const rank = cl => { const vs = ENT.map(x => emv(cl, x[0])).filter(v => v != null), v = emv(cl, c); return v == null ? null : vs.filter(w => cl === "desoc" ? w < v : w > v).length + 1; };
-    const tiles = K.map(([cl, n, nac, u]) => { const v = emv(cl, c), nv = nac ? nac.last.v : null, dl = v != null && nv != null ? v - nv : null, I = EST[cl] && EST[cl].by[c], rk = rank(cl), pct = cl !== "desoc";
-      return `<div class="eco-kpi"><div class="kl">${n}</div><div class="kv ${cl === "desoc" ? "nu" : v == null ? "" : v >= 0 ? "up" : "dn"}">${v == null ? "—" : pct ? fp(v, 1) : nf(v, 1) + "%"}</div><div class="ks">${u}${I ? " · " + I.last.l : ""}</div><div class="eco-vs">${nv == null ? "" : `Nacional: <b>${pct ? fp(nv, 1) : nf(nv, 1) + "%"}</b> · ${dl == null ? "" : `<span class="${(cl === "desoc" ? -dl : dl) >= 0 ? "up" : "dn"}">${sg(dl, 1)} pp</span>`}`}</div>${rk ? `<div class="eco-rk">Lugar <b>${rk}</b> de 32</div>` : ""}</div>`; }).join("");
+    const tiles = K.map(([cl, n, nac, u, ds, nn]) => { const v = emv(cl, c), nv = nac ? nac.last.v : null, dl = v != null && nv != null ? v - nv : null, I = EST[cl] && EST[cl].by[c], rk = rank(cl), pct = cl !== "desoc";
+      return `<div class="eco-kpi"><div class="kl">${n}</div><div class="kv ${cl === "desoc" ? "nu" : v == null ? "" : v >= 0 ? "up" : "dn"}">${v == null ? "—" : pct ? fp(v, 1) : nf(v, 1) + "%"}</div><div class="ks">${u}${I ? " · " + I.last.l : ""}</div><div class="kd">${ds}</div><div class="eco-vs">${nv == null ? "" : `Nacional (${nn}): <b>${pct ? fp(nv, 1) : nf(nv, 1) + "%"}</b> · ${dl == null ? "" : `<span class="${(cl === "desoc" ? -dl : dl) >= 0 ? "up" : "dn"}">${sg(dl, 1)} pp</span>`}`}</div>${rk ? `<div class="eco-rk">Lugar <b>${rk}</b> de 32</div>` : ""}</div>`; }).join("");
     const I0 = EST.itaee_idx && EST.itaee_idx.by[c], q = I0 && I0.quad ? QD[I0.quad] : null;
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="reg">Regiones</a> › <a data-go="z:${e[5]}">${z[0]}</a></div><div class="eco-h"><div><h1>${esc(e[1])}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${z[1]}">${z[0]}</span><span class="eco-pill">Monitor estatal</span>${I0 ? `<span class="eco-pill">ITAEE: ${I0.last.l}</span>` : ""}</div></div></div>
     <div class="eco-kmap"><div class="eco-kgrid">${tiles}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "ITAEE · reloj económico") : ""}</div><div class="eco-mapbox"><div id="ecoMapa2"></div></div></div>
@@ -835,7 +883,7 @@
   const rer = () => { const m = $("#ecoMain2"), st = m.scrollTop; ir(S.sel); m.scrollTop = st; };
   function ir(id) {
     if (id === "home") id = "nac";
-    S.sel = id; ls.set("eco_sel", id); draws = []; tip(null); if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } if (S.cy) S.cy.playing = false; if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
+    S.sel = id; ls.set("eco_sel", id); S.zoom = {}; draws = []; tip(null); if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } if (S.cy) S.cy.playing = false; if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
     const main = $("#ecoMain2"), mo = modo(id); if (mo === "mon") S.lastMon = id; else S.lastCat = id;
     if (mo === "mon") {
       if (id === "reg") { main.innerHTML = vistaReg(null); pintaReg(null); S.open.add("R"); }
