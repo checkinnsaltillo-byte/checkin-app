@@ -383,3 +383,11 @@
 .eco-geo .ok{color:#34d399}.eco-geo .no{color:#94a3b8}.eco-light .eco-geo .ok{color:#047857}
 .eco-card .cvar{font:500 11px/1.4 system-ui,sans-serif;opacity:.8;margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,.2)}
 .eco-vr{text-decoration:underline;cursor:pointer}.eco-vr:hover{color:#22d3ee}
+
+/* ámbito de cada bloque: nacional (cian) vs. por estado (ámbar) */
+.eco-scope{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:18px 0 12px;padding:11px 14px;border-radius:12px;border:1px solid var(--sc);border-left-width:6px;background:color-mix(in srgb,var(--sc) 13%,transparent)}
+.eco-scope.nac{--sc:#22d3ee}.eco-scope.est{--sc:#f59e0b}
+.eco-sc-b{font:800 11px system-ui,sans-serif;letter-spacing:.09em;padding:3px 11px;border-radius:99px;background:var(--sc);color:#04121a}
+.eco-scope b{font-size:15px}.eco-scope small{flex-basis:100%;opacity:.82;font-size:12px;line-height:1.45}
+.eco-tag{display:inline-block;font:800 9.5px system-ui,sans-serif;letter-spacing:.08em;padding:2px 9px;border-radius:99px;margin-right:8px;vertical-align:middle}
+.eco-tag.nac{background:#22d3ee;color:#04121a}.eco-tag.est{background:#f59e0b;color:#1b1203}

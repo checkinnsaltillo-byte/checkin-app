@@ -675,6 +675,12 @@
     draws.push(() => barsH($("#ecoSecBars"), rows.map(r => ({ label: r.label, sub: r.sub, v: r.v, go: r.go })), { rh: 24, lw: 210 }), () => heatM($("#ecoSecHeat"), rows.map(r => ({ label: r.label, I: r.I, go: r.go })), 18, { f: ob => ob.v, lim: 10, rh: 20 }));
   }
   function ecoFp(o) { const p = $("#ecoFp"); if (!p) return; if (o && S.ficha) { p.innerHTML = '<button type="button" class="eco-fpx" aria-label="Cerrar">✕</button>' + S.ficha; p.hidden = false; } else { p.hidden = true; p.innerHTML = ""; } }
+  /* bandas de ámbito: separan con claridad lo NACIONAL (IGAE) de lo ESTATAL (ITAEE) en la ficha de un sector */
+  const tagAmb = k => k === "est" ? '<span class="eco-tag est">POR ESTADO</span>' : '<span class="eco-tag nac">NACIONAL</span>';
+  function scopeBand(k, sc, stK) {
+    if (k === "est") { const m = EST[S.sk || (stK && stK[0])], nm = m ? METR.find(x => x[0] === (S.sk || stK[0]))[1].replace(" · variación anual", "") : sc.n; return `<div class="eco-scope est"><span class="eco-sc-b">🗺️ DESGLOSE POR ESTADO · ITAEE</span><b>${esc(nm)} en las 32 entidades</b><small>Indicador Trimestral de la Actividad Económica Estatal: solo variación anual, trimestral. Es otra fuente y otra serie que el IGAE de arriba.</small></div>`; }
+    return `<div class="eco-scope nac"><span class="eco-sc-b">🇲🇽 NACIONAL · IGAE</span><b>${esc(sc.n)} en todo México</b><small>Indicador Global de la Actividad Económica, mensual. Todo lo que sigue hasta el desglose por estado es del total del país (no depende del estado ni de la ciudad).</small></div>`;
+  }
   function fichaSector(sc, I, Y, stK) {
     const T = I.cicloTC && BYID[I.cicloTC], C = I.cicloDe && BYID[I.cicloDe], st = stK.length ? EST[S.sk || stK[0]] : null, nomSt = st ? METR.find(m => m[0] === (S.sk || stK[0]))[1].replace(" · variación anual", "") : "";
     const row = (t, d) => `<tr><th>${t}</th><td>${d}</td></tr>`;
@@ -693,12 +699,13 @@
     if (!stK.includes(S.sk)) S.sk = stK[0];
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="sec">Sectores</a> › ${TIER[sc.t][0]}</div><div class="eco-h"><div><h1>${sc.ic} ${esc(sc.n)}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${sc.col}">${TIER[sc.t][0]}</span>${sc.scian.map(c => `<span class="eco-pill">SCIAN ${c}</span>`).join("")}<span class="eco-pill st-${I.est[0]}">${dotE(I)} ${I.est[1]} · ${esc(I.last.l)}</span></div></div></div>
     ${ss.length > 1 ? `<div class="eco-chips" id="ecoSub">${ss.map((s, i) => `<button type="button" class="eco-chip2${i === S.sub ? " on" : ""}" style="--c:${sc.col}" data-sub="${i}">${esc(s.idx.nombre)}</button>`).join("")}</div>` : ""}
+    ${scopeBand("nac", sc)}
     <div class="eco-kpis">${kpi("Índice de volumen físico", fv(I, I.last.v), esc(I.last.l) + " · «" + esc(nomOrig(I)) + "»", "big")}${kpi("Variación anual", fp(Y.last.v, 1), "IGAE · " + esc(Y.last.l) + " · «" + esc(nomOrig(Y)) + "»", cc(Y.last.v))}${kpi("Posición histórica", ring(I.pctil, sc.col, nf(I.pctil, 0) + "%"), "percentil del índice")}${kpi("Máximo histórico", fv(I, I.max), esc(I.maxO.l))}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "del reloj económico (ver abajo)") : ""}</div>
     ${(S.ficha = fichaSector(sc, I, Y, stK), EMB ? "" : S.ficha)}
     ${panelSerie(I)}
-    <div class="eco-two">${panel("Variación anual por subsector", "IGAE nacional · serie " + serieRef(Y) + " vs. economía total", '<div id="ecoSLn"></div>')}${panel("Reloj económico", "misma serie del índice · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
-    ${stK.length ? panel("Mapa del sector por estado", "ITAEE · «" + esc(EST[S.sk].def.nombre) + "» · solo " + esc(METR.find(m => m[0] === S.sk)[1].replace(" · variación anual", "")) + " · trimestral · variación anual · 32 entidades", (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
-    ${rel.length ? panel("Indicadores relacionados", "no son parte de los filtros · solo relacionados con el sector", relNota(sc, rel, stK) + cards(rel, true)) : ""}`;
+    <div class="eco-two">${panel(tagAmb("nac") + "Variación anual por subsector", "IGAE nacional · serie " + serieRef(Y) + " vs. economía total", '<div id="ecoSLn"></div>')}${panel(tagAmb("nac") + "Reloj económico", "misma serie del índice · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
+    ${stK.length ? scopeBand("est", sc, stK) + panel(tagAmb("est") + "Mapa del sector por estado", "ITAEE · «" + esc(EST[S.sk].def.nombre) + "» · solo " + esc(METR.find(m => m[0] === S.sk)[1].replace(" · variación anual", "")) + " · trimestral · variación anual · 32 entidades", (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
+    ${rel.length ? panel(tagAmb("nac") + "Indicadores relacionados", "no son parte de los filtros · solo relacionados con el sector", relNota(sc, rel, stK) + cards(rel, true)) : ""}`;
   }
   function pintaSector(k) {
     const sc = SECBY[k], ss = secSer(sc), cur = ss[Math.min(S.sub, ss.length - 1)], I = cur.idx;
