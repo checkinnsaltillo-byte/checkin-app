@@ -14,6 +14,9 @@
   const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   const fecha = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.getDate() + " " + MES[d.getMonth()] + " " + d.getFullYear() + " · " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const fechaC = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.getDate() + " " + MES[d.getMonth()] + " " + d.getFullYear(); };
+  const enCurso = p => { const w = p.estado && p.estado.trabajo; return !!((w && w.fase !== "fin") || (S.extrayendo && S.extrayendo.has(p.id))); };
+  const FASES = { extraccion: "Descargando noticias", texto: "Descargando el texto de las notas", enriquecimiento: "Enriqueciendo con IA (categoría, lugar, personas, síntesis)" };
+  const chipEn = p => { const w = p.estado && p.estado.trabajo; return w && w.fase !== "fin" ? `⏳ ${w.fase === "texto" ? "descargando texto" : w.fase === "enriquecimiento" ? "enriqueciendo" : "extrayendo"} ${nf(w.hecho)}/${nf(w.total)} · ${nf(w.nuevas)} nuevas` : "⏳ iniciando extracción…"; };
   const PER = { manual: "Solo manual", horaria: "Cada hora", "6h": "Cada 6 horas", diaria: "Diaria", semanal: "Semanal" };
   const S = { proy: [], sel: null, modo: "tablero", vista: "lista", f: {}, data: null, det: null, prov: null, W: null, job: null, ctx: null, mapa: null, cargando: false };
   let host, tipEl;
@@ -74,7 +77,7 @@
   function lado() {
     const side = $("#mlSide"); if (!side) return;
     let h = `<div class="ml-seg"><button type="button" data-go="tablero" class="${S.modo === "tablero" ? "on" : ""}">📰 Tablero</button><button type="button" data-go="crear" class="${S.modo === "crear" ? "on" : ""}">➕ Crear proyecto</button></div><div class="ml-h4">Proyectos (${S.proy.length})</div>`;
-    h += S.proy.length ? S.proy.map(p => { const w = p.estado && p.estado.trabajo, en = w && w.fase !== "fin"; return `<div class="ml-pj${p.id === S.sel ? " on" : ""}" data-pj="${p.id}"><b>${esc(p.titulo)}</b><small>${nf(p.estado && p.estado.total)} noticias · ${nf(p.config && p.config.nTerminos)} términos · ${esc(PER[p.config && p.config.periodicidad] || "")}</small>${en ? `<span class="ml-chip run">⏳ extrayendo ${nf(w.hecho)}/${nf(w.total)}</span>` : p.estado && p.estado.ultima ? `<span class="ml-chip ok">✓ ${esc(fechaC(p.estado.ultima))}</span>` : `<span class="ml-chip">sin extraer</span>`}${w && w.ultimoError && !en ? `<span class="ml-chip err" title="${esc(w.ultimoError)}">avisos</span>` : ""}
+    h += S.proy.length ? S.proy.map(p => { const w = p.estado && p.estado.trabajo, en = enCurso(p); return `<div class="ml-pj${p.id === S.sel ? " on" : ""}" data-pj="${p.id}"><b>${esc(p.titulo)}</b><small>${nf(p.estado && p.estado.total)} noticias · ${nf(p.config && p.config.nTerminos)} términos · ${esc(PER[p.config && p.config.periodicidad] || "")}</small>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : p.estado && p.estado.ultima ? `<span class="ml-chip ok">✓ ${esc(fechaC(p.estado.ultima))}</span>` : `<span class="ml-chip">sin extraer</span>`}${w && w.ultimoError && !en ? `<span class="ml-chip err" title="${esc(w.ultimoError)}">avisos</span>` : ""}
         <div class="ml-acc"><button type="button" data-ed="${p.id}">✏️ Editar</button>${en ? "" : `<button type="button" data-ex="${p.id}">↻ Extraer</button>`}<button type="button" data-del="${p.id}">🗑</button></div></div>`; }).join("") : `<div class="ml-vacio">Aún no hay proyectos.<br>Crea el primero con «Crear proyecto».</div>`;
     if (S.modo === "tablero" && S.sel && S.data) h += filtros();
     side.innerHTML = h;
@@ -116,18 +119,24 @@
     if (S.modo === "crear") { wizard(); return; }
     const p = S.proy.find(x => x.id === S.sel);
     if (!p) { m.innerHTML = `<div class="ml-vacio"><h3>Bienvenido a Media Lab</h3>Monitor masivo de noticias. Crea un proyecto con los términos, la zona y el periodo que te interesan, o elige uno de la lista.<br><br><button class="ml-btn" type="button" data-go="crear">➕ Crear proyecto</button></div>`; return; }
-    const d = S.data, w = p.estado && p.estado.trabajo, en = w && w.fase !== "fin";
+    const d = S.data, en = enCurso(p);
     let h = `<div class="ml-kp"><div><b>${nf(d ? d.total : 0)}</b><span>noticias con estos filtros</span></div><div><b>${nf(p.estado && p.estado.total)}</b><span>noticias en el proyecto</span></div><div><b>${nf(p.config && p.config.nTerminos)}</b><span>términos de interés</span></div><div><b>${p.estado && p.estado.ultima ? esc(fechaC(p.estado.ultima)) : "—"}</b><span>última extracción${p.estado && p.estado.proxima ? " · próxima " + esc(fechaC(p.estado.proxima)) : ""}</span></div></div>`;
-    h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run">⏳ ${w.fase === "texto" ? "descargando texto" : w.fase === "enriquecimiento" ? "enriqueciendo" : "extrayendo"} ${nf(w.hecho)}/${nf(w.total)} · ${nf(w.nuevas)} nuevas</span>` : `<button class="ml-btn" type="button" data-ex="${p.id}">↻ Extraer ahora</button>`}</div>`;
-    if (en) h += `<div class="ml-bar"><i style="width:${w.total ? Math.round(w.hecho / w.total * 100) : 0}%"></i></div>`;
+    h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : `<button class="ml-btn" type="button" data-ex="${p.id}">↻ Extraer ahora</button>`}</div><div id="mlProg"></div>`;
     if (p.objetivo) h += `<div class="ml-sem"><span>🎯 ${esc(p.objetivo)}</span></div>`;
     if (S.vista === "mapa") h += `<div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div>`;
     else if (!d) h += `<div class="ml-vacio">Cargando noticias…</div>`;
     else if (!d.items.length) h += `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>`;
     else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
-    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; if (S.det) pintaDet(); if (S.vista === "mapa") mapa();
+    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); if (S.det) pintaDet(); if (S.vista === "mapa") mapa();
   }
   const card = n => `<div class="ml-card${S.det && S.det.id === n.id ? " on" : ""}" data-n="${n.id}">${n.img ? `<div class="im" style="background-image:url('${esc(n.img)}')"></div>` : ""}<div class="bd"><div class="mt"><b>${esc(n.med)}</b><span>${esc(fecha(n.f))}</span></div><h4>${esc(n.t)}</h4><p>${esc(n.res || "")}</p><div><span class="ml-chip">${esc(n.cat)}</span><span class="ml-chip">${esc(n.sub)}</span>${n.lug ? `<span class="ml-chip">📍 ${esc(n.lug.munN ? n.lug.munN + ", " + n.lug.estN : n.lug.estN)}</span>` : ""}</div></div></div>`;
+
+  function pintaProg() {
+    const el = $("#mlProg"), p = S.proy.find(x => x.id === S.sel); if (!el || !p) return; if (!enCurso(p)) { el.innerHTML = ""; return; }
+    const w = p.estado && p.estado.trabajo, act = w && w.fase !== "fin", pct = act && w.total ? Math.min(100, Math.round(w.hecho / w.total * 100)) : 0;
+    el.innerHTML = `<div class="ml-est"><b>⏳ ${act ? (FASES[w.fase] || "Procesando") : "Iniciando la extracción…"}</b><div class="ml-bar${act && w.total ? "" : " ind"}"><i style="width:${act && w.total ? pct : 35}%"></i></div>${act ? `Consultas <b>${nf(w.hecho)}/${nf(w.total)}</b> (${pct} %) · <b>${nf(w.nuevas)}</b> noticias nuevas · ${nf(w.errores)} avisos${w.prov ? " · servicio: " + esc(w.prov === "grss" ? "Google Noticias" : w.prov) : ""}` : `La primera consulta puede tardar hasta un minuto; el avance se actualiza solo.`}${w && w.aviso ? `<div class="ml-warn">ℹ️ ${esc(w.aviso)}</div>` : ""}${act && w.ultimoError && w.errores ? `<div class="ml-sem">Último aviso: ${esc(w.ultimoError)}</div>` : ""}<br><small style="color:var(--ml-mut)">Puedes seguir usando el tablero o cerrar la ventana: la extracción continúa en el servidor.</small></div>`;
+    $$(`[data-chip="${p.id}"]`).forEach(c => { c.textContent = chipEn(p); });
+  }
 
   /* ───────── detalle (columna lateral derecha) ───────── */
   async function abreDet(id, forzarIA) {
@@ -224,10 +233,12 @@
   }
   async function extraer(id) {
     if (S.extrayendo && S.extrayendo.has(id)) { toast("Ya hay una extracción en curso en este proyecto"); return; } (S.extrayendo = S.extrayendo || new Set()).add(id);
+    lado(); if (S.sel === id && S.modo === "tablero") principal(); pintaProg();
+    clearInterval(S.poll); S.poll = setInterval(async () => { await cargaProy(); const p = S.proy.find(x => x.id === id); if (p) { $$(`.ml-pj[data-pj="${id}"] .ml-chip`).forEach(c => { if (c.dataset.chip) c.textContent = chipEn(p); }); pintaProg(); } }, 2500);
     toast("Extracción iniciada…"); try {
-      let r = await post(`/proyectos/${id}/extraer`, {}), a = avance(r); for (let i = 0; i < 2000 && !(a.fase === "fin" || a.fin); i++) { await cargaProy(); lado(); if (S.sel === id && S.modo === "tablero") principal(); await new Promise(res => setTimeout(res, a.ocupado ? 3000 : 800)); r = await post(`/proyectos/${id}/avanzar`, {}); a = avance(r); } const wf = r.proyecto && r.proyecto.estado && r.proyecto.estado.trabajo; if (wf && wf.aviso) toast(wf.aviso);
-      await cargaProy(); toast("Extracción terminada"); if (S.sel === id) { await consulta(); } else lado();
-    } catch (e) { toast(e.message, true); await cargaProy(); lado(); } finally { S.extrayendo.delete(id); }
+      let r = await post(`/proyectos/${id}/extraer`, {}), a = avance(r); for (let i = 0; i < 2000 && !(a.fase === "fin" || a.fin); i++) { await cargaProy(); pintaProg(); await new Promise(res => setTimeout(res, a.ocupado ? 3000 : 800)); r = await post(`/proyectos/${id}/avanzar`, {}); a = avance(r); } const wf = r.proyecto && r.proyecto.estado && r.proyecto.estado.trabajo; if (wf && wf.aviso) toast(wf.aviso);
+      S.extrayendo.delete(id); clearInterval(S.poll); await cargaProy(); toast("Extracción terminada"); if (S.sel === id) { await consulta(); } else lado();
+    } catch (e) { toast(e.message, true); await cargaProy(); lado(); } finally { S.extrayendo.delete(id); clearInterval(S.poll); lado(); if (S.sel === id && S.modo === "tablero") principal(); }
   }
   async function cargaProy() { try { S.proy = (await api("/proyectos")).proyectos || []; } catch (e) { toast(e.message, true); } }
 

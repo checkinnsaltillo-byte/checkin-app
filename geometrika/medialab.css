@@ -88,3 +88,7 @@
 .ml-emb .ml-map{height:calc(100vh - 210px)}
 .ml-emb .gl-tabs,.ml-emb .gl-back{display:none!important}
 @media (max-width:760px){.ml-side{width:100%}.ml-body{flex-direction:column}.ml-det{width:100%}}
+
+.ml-bar.ind i{width:35%;animation:mlInd 1.1s ease-in-out infinite alternate}
+@keyframes mlInd{from{margin-left:0}to{margin-left:65%}}
+#mlProg .ml-est{margin:0 0 12px}
