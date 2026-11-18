@@ -158,7 +158,7 @@
       <dt>Lugar</dt><dd>${L ? esc([L.sitio, L.zona, L.munN, L.estN].filter(Boolean).join(", ")) + ` <small style="color:var(--ml-mut)">(nivel: ${esc(L.nivel)})</small>` : "Sin ubicación detectada"}</dd>
       ${chips("Personas", "pers", ent.pers)}${chips("Instituciones", "inst", ent.inst)}${chips("Tópicos", "top", ent.top)}
       <dt>Idioma</dt><dd>${esc(n.idi || "—")}${n.pais ? " · " + esc(n.pais) : ""}</dd><dt>Proveedor</dt><dd>${esc(n.prov || "—")}${n.ia ? " · enriquecida con IA" : ""}</dd></dl>
-      <a class="ml-btn" style="display:inline-block;text-decoration:none" href="${esc(n.url)}" target="_blank" rel="noopener">Abrir nota original ↗</a>`;
+      <a class="ml-btn" style="display:inline-block;text-decoration:none" href="${esc(n.urlReal || n.url)}" target="_blank" rel="noopener">Abrir nota original ↗</a>`;
   }
 
   /* ───────── mapa ───────── */
