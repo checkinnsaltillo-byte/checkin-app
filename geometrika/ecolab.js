@@ -757,7 +757,7 @@
     <div class="eco-kmap"><div class="eco-kgrid">${tiles}${kpi("Brecha de género", brecha == null ? "—" : sg(brecha, 1) + " pp", "desocupación mujeres − hombres", brecha == null ? "" : brecha > 0 ? "dn" : "up")}</div><div class="eco-mapbox"><div id="ecoMapa2"></div></div></div>
     ${I0 ? panelSerie(I0) : ""}
     <div class="eco-two">${panel("Desocupación: ciudad, estado y nación", "tasa trimestral / mensual (nacional)", '<div id="ecoCL1"></div>')}${panel("Mujeres y hombres", "tasa de desocupación", '<div id="ecoCL2"></div>')}</div>
-    <div class="eco-two">${panel("Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div><div id="ecoCBox"></div>')}${panel("Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div>')}</div>`;
+    <div class="eco-two">${panel("Empleo: población ocupada", "variación anual", '<div id="ecoCL3"></div>')}${panel("Posición entre las 39 ciudades", "tasa de desocupación (la ciudad en cian)", '<div id="ecoCRk"></div><div id="ecoCBox"></div>')}</div>`;
   }
   function pintaCiudad(code) {
     const c0 = CBY[code], xy = CIU_XY[code]; if (xy) draws.push(() => ecoMapa($("#ecoMapa2"), { lat: xy[0], lon: xy[1], zoom: 10, pin: { col: ZONAS[ENTBY[c0[2]][5]][1], label: c0[1] }, puntos: CIU.filter(x => x[2] === c0[2] && x[0] !== code && CIU_XY[x[0]]).map(x => ({ lat: CIU_XY[x[0]][0], lon: CIU_XY[x[0]][1], label: x[1], go: "c:" + x[0], col: ZONAS[ENTBY[x[2]][5]][1] })) }));
