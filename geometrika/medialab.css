@@ -581,3 +581,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-ay{position:fixed;z-index:3100;width:min(440px,92vw);max-height:72vh;overflow:auto;padding:14px 16px;border-radius:12px;background:#0b1226;border:1px solid rgba(148,163,184,.4);box-shadow:0 18px 50px rgba(0,0,0,.6);color:#e2e8f0;font:400 12.5px/1.45 system-ui,sans-serif}
 .nr-ay h5{margin:0 26px 8px 0;font-size:13px;color:#fff}.nr-ay p{margin:0 0 8px}.nr-ay ul{margin:0 0 8px 18px;padding:0}.nr-ay li{margin-bottom:4px}.nr-ay b{color:#fff}.nr-ay .lim{color:#fbbf24}
 .nr-ay .x{position:absolute;top:8px;right:10px;border:0;background:none;color:#94a3b8;font-size:16px;cursor:pointer}
+.nr-map path.nr-foco{filter:drop-shadow(0 0 5px rgba(255,255,255,.75))}
