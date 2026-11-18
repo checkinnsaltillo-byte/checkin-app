@@ -49,6 +49,8 @@
     if (/^\/costos\/tarifas/.test(p)) return j({});
     if (/^\/costos/.test(p)) return j({ tarifas: { ia: { "claude-haiku-5-5": { in: 1, out: 5 }, "claude-sonnet-5": { in: 3, out: 15 }, def: { in: 3, out: 15 } }, places: 0.032, gdelt: 0, grss: 0, newsdata: 0, gnews: 0, texto: 0, gnres: 0 }, servicios: { ia: "IA · Anthropic (Claude)", places: "Google Places (búsqueda de lugares)", gdelt: "GDELT (noticias)", grss: "Google Noticias (RSS)", newsdata: "NewsData.io", gnews: "GNews", texto: "Descarga de páginas de medios", gnres: "Resolución de enlaces de Google Noticias", notas: "Notas nuevas guardadas" }, porSvc: { ia: { n: 42, in: 210000, out: 96000, k: 420, costo: 0.69 }, places: { n: 55, costo: 1.76, in: 0, out: 0, k: 0 }, grss: { n: 120, costo: 0, in: 0, out: 0, k: 0 }, texto: { n: 380, costo: 0, in: 0, out: 0, k: 0 } }, porMes: { "2026-10": { costo: 1.1, llamadas: 300, notas: 210 }, "2026-11": { costo: 2.45, llamadas: 597, notas: 462 } }, porDia: { "2026-11-16": { costo: 0.4, llamadas: 90 }, "2026-11-17": { costo: 1.2, llamadas: 300 }, "2026-11-18": { costo: 0.85, llamadas: 207 } }, porProy: { demo1: { titulo: "Agua y sequía en el noreste", costo: 2.45, llamadas: 597, notas: 462 } }, total: { costo: 2.45, llamadas: 597, in: 210000, out: 96000, notas: 462, ia_notas: 420 } });
     if (p === "/proveedores") return j({ proveedores: { gdelt: { n: "GDELT (gratis)", ok: true, nota: "Cobertura masiva sin clave." }, grss: { n: "Google Noticias (RSS)", ok: true, nota: "Gratis, 100 por consulta." }, newsdata: { n: "NewsData.io", ok: false, clave: "NEWSDATA_API_KEY", nota: "De pago." }, gnews: { n: "GNews", ok: false, clave: "GNEWS_API_KEY", nota: "De pago." } }, ia: true, geocodificar: true, categorias: CATS, estados: { "05": "Coahuila", "19": "Nuevo León", "14": "Jalisco", "09": "Ciudad de México" } });
+    if (/\/narrativa$/.test(p) && m === "GET") { const tp = ["Sequía y agua", "Inversión industrial", "Seguridad pública", "Política local", "Deporte"], ps = ["Apoyo (+)", "Conflicto (-)", "Neutral (0)"], per = Array.from({ length: 12 }, (_, i) => { const d = new Date(2026, 1 + i % 10, 1 + (i * 3) % 27); return d.toISOString().slice(0, 10); }).sort(), ent = ["Gobierno de Coahuila", "CONAGUA", "Alcalde de Saltillo", "Industria automotriz", "Sindicato", "SEMARNAT", "Ciudadanos", "Congreso local", "Aguas de Saltillo", "Empresarios", "Saltillo", "Monterrey"], ps2 = [[25.42, -101], [25.68, -100.31], [19.43, -99.13], [20.67, -103.35], [29.07, -110.95]]; return j({ total: 120, listas: 96, pend: 24, est: 0.11, paso: "mes", tops: tp, serie: per.map((f, i) => ({ f, v: Object.fromEntries(tp.concat(["Otros"]).map((t, k) => [t, Math.max(0, Math.round(6 + 5 * Math.sin(i * .9 + k * 1.3) + (i > 7 ? k === 0 ? 8 : 0 : 0)))])) })), rafagas: [{ f: per[3], n: 4, cc: ["escasez de agua"], t: "Anuncian racionamiento" }, { f: per[7], n: 7, cc: ["crisis de suministro"], t: "Declaran emergencia hídrica" }, { f: per[10], n: 5, cc: ["inversión récord"], t: "Plan industrial" }], fases: [{ k: "Escalada/Ráfaga", v: 31 }, { k: "Saturación/Debate", v: 40 }, { k: "Surgimiento", v: 15 }, { k: "Resolución/Declive", v: 10 }], conceptos: ["escasez", "racionamiento", "pozos", "inversión", "tarifas", "sequía"].map((k, i) => ({ k, v: 30 - i * 3 })), kpis: { notas: 96, entidades: 214, rafagas: 16, topico: tp[0], topicoN: 34, acciones: 188 }, cooc: { nodos: ent.map((n, i) => ({ id: n.toLowerCase(), n, t: ["Institucion", "Institucion", "Persona", "Concepto", "Institucion", "Institucion", "Persona", "Institucion", "Institucion", "Persona", "Lugar", "Lugar"][i], c: 30 - i * 2 })), enlaces: ent.flatMap((a, i) => ent.slice(i + 1).map((b, k) => ({ a: a.toLowerCase(), b: b.toLowerCase(), w: ((i * 7 + k * 5) % 11) + 1 }))).filter(e => e.w > 3) }, acc: { izq: ["Gobierno de Coahuila", "CONAGUA", "Alcalde de Saltillo", "Sindicato", "Empresarios"].map((n, i) => ({ id: n.toLowerCase(), n, v: 40 - i * 6 })), der: ["Ciudadanos", "Industria automotriz", "Aguas de Saltillo", "Congreso local"].map((n, i) => ({ id: n.toLowerCase(), n, v: 36 - i * 7 })), enlaces: ["Gobierno de Coahuila", "CONAGUA", "Alcalde de Saltillo", "Sindicato", "Empresarios"].flatMap((c, i) => ["Ciudadanos", "Industria automotriz", "Aguas de Saltillo", "Congreso local"].map((o, k) => ({ c: c.toLowerCase(), o: o.toLowerCase(), p: ps[(i + k) % 3], v: ((i * 3 + k * 2) % 6) + 1 }))), tipos: [], posturas: [], evidencias: [] }, encuadre: { prom: { Economico: 38, Politico: 27, Social: 24, Ambiental_Tecnico: 11 }, dom: { Economico: 41, Politico: 25, Social: 22, Ambiental_Tecnico: 8 } }, prop: { origen: [{ k: "Declaracion_Oficial", v: 34 }, { k: "Evento_Directo", v: 28 }, { k: "Reaccion_En_Cadena", v: 18 }, { k: "Analisis_Secundario", v: 11 }, { k: "Filtracion_Exclusiva", v: 5 }], focos: [{ n: "Saltillo", c: 40, lat: 25.42, lng: -101, con: ["Monterrey", "Ciudad de México"] }, { n: "Monterrey", c: 22, lat: 25.68, lng: -100.31, con: ["Guadalajara"] }, { n: "Ciudad de México", c: 15, lat: 19.43, lng: -99.13, con: ["Saltillo"] }, { n: "Guadalajara", c: 9, lat: 20.67, lng: -103.35, con: [] }], puntos: Array.from({ length: 60 }, (_, i) => { const q = ps2[i % 5]; return { id: "n" + i, lat: q[0] + Math.sin(i) * .15, lng: q[1] + Math.cos(i * 2) * .15, or: ["Declaracion_Oficial", "Evento_Directo", "Reaccion_En_Cadena", "Analisis_Secundario", "Filtracion_Exclusiva"][i % 5], t: "Nota de ejemplo " + i }; }), mutaciones: [{ id: "n1", t: "Declaran emergencia hídrica", f: per[7], or: "Evento_Directo", mu: "Introduce el ángulo del racionamiento industrial" }, { id: "n2", t: "Empresarios piden prioridad", f: per[8], or: "Reaccion_En_Cadena", mu: "Eco del anuncio con postura empresarial" }] } }); }
+    if (/\/narrativa$/.test(p) && m === "POST") return j({ hechas: 24, pend: 0, total: 120, listas: 120 });
     if (/\/situacion$/.test(p) && m === "POST") { const q0 = mockProy().find(x => x.id === p.split("/")[2]); if (q0) q0.situacion = JSON.parse((o && o.body) || "{}").situacion; return j({ proyecto: q0 }); }
     if (/\/gestion$/.test(p) && m === "POST") { const q0 = mockProy().find(x => x.id === p.split("/")[2]), b0 = JSON.parse((o && o.body) || "{}"); if (q0) Object.assign(q0, { situacion: b0.situacion, visibilidad: b0.visibilidad, usuarios: b0.usuarios, vigencia: b0.vigencia, presupuesto: b0.presupuesto }); return j({ proyecto: q0 }); }
     if (p === "/medios") return j({ medios: [{ d: "milenio.com", nom: "Milenio", n: 214 }, { d: "elheraldodemexico.com", nom: "El Heraldo de México", n: 163 }, { d: "imagen.com.mx", nom: "Imagen", n: 97 }, { d: "mvsnoticias.com", nom: "MVS Noticias", n: 64 }, { d: "noticieros.televisa.com", nom: "Noticieros Televisa", n: 51 }, { d: "elnorte.com", nom: "El Norte", n: 33 }, { d: "elsiglodetorreon.com.mx", nom: "El Siglo de Torreón", n: 12 }] });
@@ -177,15 +179,16 @@
     const pm = S.modo === "proyectos" || S.modo === "crear", f = S.pf || "", dot = k => `<span class="dot s-${k}"></span>`;
     const bProy = it("proy|", mi("grid"), "Todos los proyectos", L.length, S.modo === "proyectos" && !f) + ["activo", "suspendido", "inactivo"].map(k => it("proy|" + k, dot(k), SIT[k][0] + "s", cnt(k), S.modo === "proyectos" && f === k)).join("") + it("nuevo", mi("plus"), "Nuevo proyecto", null, S.modo === "crear");
     const bTab = L.length ? L.map(p => { const sel = p.id === S.sel, on = sel && S.modo === "tablero";
-      return it("tab|" + p.id + "|" + (S.vista || "lista"), dot(sitDe(p)), esc(p.titulo), null, false, "pj" + (sel ? " sel" : "") + (sitDe(p) === "inactivo" ? " ina" : "")) + (sel ? `<div class="ml-nsub">${it("tab|" + p.id + "|lista", mi("news"), "Noticias", null, on && S.vista !== "mapa")}${it("tab|" + p.id + "|mapa", mi("map"), "Mapa", null, on && S.vista === "mapa")}${pjCard(p)}</div>` : ""); }).join("") : `<div class="ml-nv">Aún no hay proyectos.</div>`;
+      return it("tab|" + p.id + "|" + (S.vista || "lista"), dot(sitDe(p)), esc(p.titulo), null, false, "pj" + (sel ? " sel" : "") + (sitDe(p) === "inactivo" ? " ina" : "")) + (sel ? `<div class="ml-nsub">${it("tab|" + p.id + "|lista", mi("news"), "Noticias", null, on && S.vista !== "mapa")}${it("tab|" + p.id + "|mapa", mi("map"), "Mapa", null, on && S.vista === "mapa")}${it("nar|" + p.id, mi("chart"), "Análisis narrativo", null, S.modo === "narr")}${pjCard(p)}</div>` : ""); }).join("") : `<div class="ml-nv">Aún no hay proyectos.</div>`;
     const co = S.modo === "costos", bCos = it("cos|top", mi("chart"), "Resumen de gasto", null, co) + it("cos|mlCosLim", mi("gauge"), "Límite mensual", null, false) + it("cos|mlCosProy", mi("layers"), "Gasto por proyecto", null, false) + it("cos|mlCosTar", mi("tag"), "Tarifas", null, false);
-    return `<nav class="ml-tree" aria-label="Secciones de Media Lab">${grp("proy", mi("folder"), "Proyectos", pm, bProy)}${grp("tab", mi("board"), "Tablero", S.modo === "tablero", bTab)}${grp("cos", mi("coin"), "Costos", co, bCos)}</nav>`;
+    return `<nav class="ml-tree" aria-label="Secciones de Media Lab">${grp("proy", mi("folder"), "Proyectos", pm, bProy)}${grp("tab", mi("board"), "Tablero", (S.modo === "tablero" || S.modo === "narr"), bTab)}${grp("cos", mi("coin"), "Costos", co, bCos)}</nav>`;
   }
   function navTo(v) {
     const [a, b, c] = v.split("|");
     if (a === "g") { if (b === "proy") navTo("proy|" + (S.pf || "")); else if (b === "tab") { const id = S.sel || (S.proy[0] && S.proy[0].id); if (id) navTo("tab|" + id + "|" + (S.vista || "lista")); else navTo("proy|"); } else navTo("cos|top"); return; }
     if (a === "proy") { S.pf = b || ""; S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); }
     else if (a === "nuevo") nuevo();
+    else if (a === "nar") abreNarr(b);
     else if (a === "tab") { S.vista = c || "lista"; if (S.sel !== b) selecciona(b); else { S.modo = "tablero"; S.det = null; titulo((S.proy.find(x => x.id === b) || {}).titulo || "Media Lab"); lado(); principal(); consulta(); } }
     else if (a === "cos") { const go2 = () => { const el = b === "top" ? $("#mlMain") : $("#" + b); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }; if (S.modo !== "costos") abreCostos().then(() => setTimeout(go2, 200)); else go2(); }
   }
@@ -236,9 +239,119 @@
     ioMasObs = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && !S.cargando) { ioMasObs.disconnect(); consulta(true); } }, { rootMargin: "500px 0px" });
     ioMasObs.observe(el); chequeaMas();
   }
+  /* ───────── Análisis narrativo (dashboard de fenómenos) ───────── */
+  const NPAL = ["#a855f7", "#38bdf8", "#2dd4bf", "#4ade80", "#f472b6", "#94a3b8"], NPOS = { "Apoyo (+)": "#34d399", "Conflicto (-)": "#f87171", "Neutral (0)": "#60a5fa" }, NTIPO = { Persona: "#f472b6", Institucion: "#a78bfa", Lugar: "#2dd4bf", Concepto: "#fbbf24" };
+  const NFR = { Economico: ["Económico", "#a855f7"], Politico: ["Político", "#3b82f6"], Social: ["Social", "#22d3ee"], Ambiental_Tecnico: ["Ambiental / técnico", "#4ade80"] };
+  const NOR = { Evento_Directo: "Evento directo", Declaracion_Oficial: "Declaración oficial", Filtracion_Exclusiva: "Filtración exclusiva", Reaccion_En_Cadena: "Reacción en cadena", Analisis_Secundario: "Análisis secundario" };
+  const ORCOL = { Evento_Directo: "#4ade80", Declaracion_Oficial: "#60a5fa", Filtracion_Exclusiva: "#f472b6", Reaccion_En_Cadena: "#fbbf24", Analisis_Secundario: "#a78bfa" };
+  const nCorta = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  const suave = pts => { if (pts.length < 2) return ""; let d = "M" + pts[0][0].toFixed(1) + " " + pts[0][1].toFixed(1); for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2; d += "C" + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + " " + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + "," + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + " " + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + "," + p2[0].toFixed(1) + " " + p2[1].toFixed(1); } return d; };
+  const rampa = t => { const st = [[0, [26, 16, 56]], [.25, [96, 28, 120]], [.5, [190, 52, 100]], [.75, [250, 140, 50]], [1, [253, 224, 120]]]; t = Math.max(0, Math.min(1, t)); for (let i = 1; i < st.length; i++) if (t <= st[i][0]) { const [a, A] = st[i - 1], [b, B] = st[i], u = (t - a) / (b - a); return "rgb(" + A.map((v, k) => Math.round(v + (B[k] - v) * u)).join(",") + ")"; } return "rgb(253,224,120)"; };
+  const nPanel = (cls, t, sub, body) => `<section class="nr-p ${cls}"><h4>${t}${sub ? `<small>${sub}</small>` : ""}</h4>${body}</section>`;
+
+  function nrTemporal(D) {
+    const W = 760, H = 290, pl = 34, pr = 150, pt = 26, pb = 24, S1 = D.serie, tops = D.tops.concat(D.serie.some(r => r.v.Otros) ? ["Otros"] : []);
+    if (S1.length < 2) return `<div class="ml-vacio">Se necesitan al menos dos periodos para dibujar la evolución.</div>`;
+    const tot = S1.map(r => tops.reduce((a, t) => a + (r.v[t] || 0), 0)), mx = Math.max(...tot, 1), X = i => pl + (W - pl - pr) * i / (S1.length - 1), cy = pt + (H - pt - pb) / 2, esc1 = (H - pt - pb) / 2 / mx * .95;
+    const caps = tops.map(() => []); const base = S1.map((r, i) => -tot[i] / 2); const acum = base.slice();
+    tops.forEach((t, k) => { const lo = [], hi = []; S1.forEach((r, i) => { lo.push([X(i), cy + acum[i] * esc1 * 2 / 2]); acum[i] += (r.v[t] || 0); hi.push([X(i), cy + acum[i] * esc1 * 2 / 2]); }); caps[k] = [lo, hi]; });
+    const capas = tops.map((t, k) => { const [lo, hi] = caps[k], d = suave(hi) + "L" + suave(lo.slice().reverse()).slice(1) + "Z"; return `<path d="${d}" fill="${NPAL[k % 6]}" fill-opacity=".72" stroke="${NPAL[k % 6]}" stroke-width="1"/>`; }).join("");
+    const eje = S1.map((r, i) => (i % Math.ceil(S1.length / 8) === 0) ? `<text x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(fechaC(r.f).replace(/ \d{4}$/, ""))}</text>` : "").join("");
+    const idx = f => S1.findIndex(r => r.f === f), raf = D.rafagas.map((b, n) => { const i = idx(b.f); if (i < 0) return ""; const x = X(i), up = n % 2 === 0, y = up ? pt - 6 : H - pb + 2; return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${pt}" y2="${H - pb}" stroke="#fff" stroke-opacity=".28" stroke-dasharray="3 3"/><circle cx="${x.toFixed(1)}" cy="${cy}" r="4.5" fill="#0b1226" stroke="#fff" stroke-width="1.6"><title>${esc(fechaC(b.f))}: ${b.n} ráfaga(s)</title></circle><text x="${x.toFixed(1)}" y="${up ? pt - 10 : H - 28}" text-anchor="middle" class="rf">Ráfaga${b.cc[0] ? " · " + esc(nCorta(b.cc[0], 22)) : ""}</text>`; }).join("");
+    const ult = tops.map((t, k) => { const [lo, hi] = caps[k], a = lo[lo.length - 1][1], b = hi[hi.length - 1][1]; return `<g><circle cx="${W - pr + 8}" cy="${((a + b) / 2).toFixed(1)}" r="3.5" fill="${NPAL[k % 6]}"/><text x="${W - pr + 16}" y="${((a + b) / 2 + 3.5).toFixed(1)}" class="lb">${esc(nCorta(t, 24))}</text></g>`; }).join("");
+    return `<svg class="nr-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución temporal por tópico">${capas}${raf}${ult}${eje}</svg>`;
+  }
+  function nrCooc(D) {
+    const N = D.cooc.nodos.slice(0, 12), idx = new Map(N.map((n, i) => [n.id, i])), M = N.map(() => N.map(() => 0)); let mx = 1;
+    D.cooc.enlaces.forEach(e => { if (idx.has(e.a) && idx.has(e.b)) { const i = idx.get(e.a), j = idx.get(e.b); M[i][j] = M[j][i] = e.w; mx = Math.max(mx, e.w); } });
+    const c = 17, off = 70, hm = N.map((n, i) => `<text x="${off - 4}" y="${off + i * c + 12}" text-anchor="end" class="lb">${esc(nCorta(n.n, 13))}</text>` + N.map((m, j) => `<rect x="${off + j * c}" y="${off - 62 + i * c + 62}" width="${c - 1}" height="${c - 1}" rx="2" fill="${i === j ? "#1b2440" : rampa(M[i][j] / mx)}"><title>${esc(n.n)} ↔ ${esc(m.n)}: ${M[i][j]}</title></rect>`).join("")).join("");
+    const hmH = off + N.length * c + 4, W = 300, cx = 150, cy = 130, R = 100, R2 = N.slice(1);
+    const pos = [[cx, cy]].concat(R2.map((n, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / R2.length; return [cx + R * Math.cos(a), cy + R * Math.sin(a)]; }));
+    const lin = D.cooc.enlaces.filter(e => idx.has(e.a) && idx.has(e.b)).map(e => { const a = pos[idx.get(e.a)], b = pos[idx.get(e.b)]; return a && b ? `<path d="M${a[0].toFixed(1)} ${a[1].toFixed(1)}Q${cx} ${cy} ${b[0].toFixed(1)} ${b[1].toFixed(1)}" fill="none" stroke="${rampa(.45 + e.w / mx * .5)}" stroke-opacity="${(.25 + e.w / mx * .6).toFixed(2)}" stroke-width="${(.6 + e.w / mx * 2.2).toFixed(1)}"/>` : ""; }).join("");
+    const nod = N.map((n, i) => `<g><circle cx="${pos[i][0].toFixed(1)}" cy="${pos[i][1].toFixed(1)}" r="${i ? 4 + Math.min(5, n.c) : 9}" fill="${NTIPO[n.t] || "#94a3b8"}"${i ? "" : ' filter="url(#nrGl)"'}><title>${esc(n.n)} · ${n.c} nota(s)</title></circle>${i ? `<text x="${(pos[i][0] + (pos[i][0] > cx ? 8 : -8)).toFixed(1)}" y="${(pos[i][1] + 3).toFixed(1)}" text-anchor="${pos[i][0] > cx ? "start" : "end"}" class="lb">${esc(nCorta(n.n, 16))}</text>` : `<text x="${cx}" y="${cy + 20}" text-anchor="middle" class="lb b">${esc(nCorta(n.n, 20))}</text>`}</g>`).join("");
+    const leyenda = Object.entries(NTIPO).map(([k, c]) => `<span><i style="background:${c}"></i>${k}</span>`).join("");
+    return `<div class="nr-cooc"><svg class="nr-svg" viewBox="0 0 ${off + N.length * c + 6} ${hmH}" aria-label="Matriz de coocurrencia">${hm}</svg><svg class="nr-svg" viewBox="0 0 ${W} 250" aria-label="Red de entidades"><defs><filter id="nrGl"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${lin}${nod}</svg></div><div class="nr-ley">${leyenda}</div>`;
+  }
+  function nrSankey(D) {
+    const A = D.acc; if (!A.enlaces.length) return `<div class="ml-vacio">Sin acciones con causante e impactado claros.</div>`;
+    const W = 420, H = 270, nw = 9, pt = 10, gap = 8, lx = 100, rx = W - 100 - nw;
+    const lay = L => { const tot = L.reduce((a, n) => a + n.v, 0) || 1, k = (H - 2 * pt - gap * (L.length - 1)) / tot; let y = pt; const m = new Map(); L.forEach(n => { m.set(n.id, { y, h: Math.max(6, n.v * k), cur: 0, n: n.n }); y += Math.max(6, n.v * k) + gap; }); return m; };
+    const Lm = lay(A.izq), Rm = lay(A.der), ls = new Map(), rs = new Map(); A.izq.forEach(n => ls.set(n.id, 0)); A.der.forEach(n => rs.set(n.id, 0));
+    const sumL = new Map(), sumR = new Map(); A.enlaces.forEach(e => { sumL.set(e.c, (sumL.get(e.c) || 0) + e.v); sumR.set(e.o, (sumR.get(e.o) || 0) + e.v); });
+    const rib = A.enlaces.slice().sort((a, b) => b.v - a.v).map(e => { const a = Lm.get(e.c), b = Rm.get(e.o); if (!a || !b) return ""; const ha = a.h * e.v / (sumL.get(e.c) || 1), hb = b.h * e.v / (sumR.get(e.o) || 1), y1 = a.y + a.cur, y2 = b.y + b.cur; a.cur += ha; b.cur += hb; const x1 = lx + nw, x2 = rx, m = (x1 + x2) / 2, col = NPOS[e.p] || "#60a5fa"; return `<path d="M${x1} ${y1.toFixed(1)}C${m} ${y1.toFixed(1)},${m} ${y2.toFixed(1)},${x2} ${y2.toFixed(1)}L${x2} ${(y2 + hb).toFixed(1)}C${m} ${(y2 + hb).toFixed(1)},${m} ${(y1 + ha).toFixed(1)},${x1} ${(y1 + ha).toFixed(1)}Z" fill="${col}" fill-opacity=".42"><title>${esc(a.n)} → ${esc(b.n)} · ${e.p} · ${e.v}</title></path>`; }).join("");
+    const nodos = (M, x, izq) => [...M.values()].map(n => `<rect x="${x}" y="${n.y.toFixed(1)}" width="${nw}" height="${n.h.toFixed(1)}" rx="2" fill="#cbd5e1"/><text x="${izq ? x - 6 : x + nw + 6}" y="${(n.y + n.h / 2 + 3.5).toFixed(1)}" text-anchor="${izq ? "end" : "start"}" class="lb">${esc(nCorta(n.n, 17))}</text>`).join("");
+    const ley = Object.entries(NPOS).map(([k, c]) => `<span><i style="background:${c}"></i>${k}</span>`).join("");
+    return `<svg class="nr-svg" viewBox="0 0 ${W} ${H}" aria-label="Causantes e impactados">${rib}${nodos(Lm, lx, true)}${nodos(Rm, rx, false)}<text x="${lx}" y="8" text-anchor="end" class="hd">Causantes</text><text x="${rx + nw}" y="8" class="hd">Impactados</text></svg><div class="nr-ley">${ley}</div>`;
+  }
+  function nrDonut(vals, cols, centro) {
+    const R = 46, C = 2 * Math.PI * R, tot = vals.reduce((a, b) => a + b, 0) || 1; let off = 0;
+    return `<svg viewBox="0 0 120 120" class="nr-don"><circle cx="60" cy="60" r="${R}" fill="none" stroke="#1b2440" stroke-width="15"/>${vals.map((v, i) => { const l = v / tot * C, s = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${cols[i]}" stroke-width="15" stroke-dasharray="${Math.max(0, l - 1.5).toFixed(2)} ${(C - Math.max(0, l - 1.5)).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`; off += l; return s; }).join("")}<text x="60" y="66" text-anchor="middle" class="dn">${centro}</text></svg>`;
+  }
+  function nrEncuadre(D) {
+    const E = D.encuadre, ks = Object.keys(NFR), pv = ks.map(k => E.prom[k]), dv = ks.map(k => E.dom[k]), tp = pv.reduce((a, b) => a + b, 0) || 1, td = dv.reduce((a, b) => a + b, 0) || 1, mp = Math.max(...pv, 1);
+    const top = ks[pv.indexOf(Math.max(...pv))], topd = ks[dv.indexOf(Math.max(...dv))];
+    return `<div class="nr-fr"><div class="dd"><div>${nrDonut(pv, ks.map(k => NFR[k][1]), Math.round(Math.max(...pv) / tp * 100) + "%")}<small>Peso promedio</small></div><div>${nrDonut(dv, ks.map(k => NFR[k][1]), Math.round(Math.max(...dv) / td * 100) + "%")}<small>Marco dominante</small></div></div>
+      <div class="bars">${ks.map((k, i) => `<div class="br"><span class="n"><i style="background:${NFR[k][1]}"></i>${NFR[k][0]}</span><span class="t"><b style="width:${(pv[i] / mp * 100).toFixed(0)}%;background:${NFR[k][1]}"></b></span><em>${Math.round(pv[i])}%</em></div>`).join("")}</div></div><p class="nr-nota">El prisma principal es <b>${NFR[top][0]}</b>${top !== topd ? `; por número de notas domina <b>${NFR[topd][0]}</b>` : ""}.</p>`;
+  }
+  function nrProp(D) {
+    const P = D.prop, mx = Math.max(...P.origen.map(o => o.v), 1);
+    const lista = P.origen.map(o => `<div class="br"><span class="n"><i style="background:${ORCOL[o.k] || "#94a3b8"}"></i>${NOR[o.k] || o.k}</span><span class="t"><b style="width:${(o.v / mx * 100).toFixed(0)}%;background:${ORCOL[o.k] || "#94a3b8"}"></b></span><em>${o.v}</em></div>`).join("");
+    const mut = P.mutaciones.slice(0, 5).map(m => `<li><b>${esc(nCorta(m.t, 50))}</b><span>${esc(m.mu)}</span></li>`).join("");
+    return `<div class="nr-pr"><div class="nr-map" id="nrMap"></div><div class="nr-pl">${lista}<h5>Mutación narrativa</h5><ul>${mut || "<li><span>Sin datos</span></li>"}</ul></div></div>`;
+  }
+  function nrMapa(D) {
+    const el = $("#nrMap"); if (!el) return; leafletListo(() => {
+      const e2 = $("#nrMap"); if (!e2 || !window.L) return; const L = window.L, M = L.map(e2, { zoomControl: false, attributionControl: false, scrollWheelZoom: false }).setView([23.6, -102.5], 4);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(M); S.nrM = M; const pts = [];
+      (D.prop.puntos || []).forEach(p => { L.circleMarker([p.lat, p.lng], { radius: 4, color: ORCOL[p.or] || "#94a3b8", weight: 1, fillOpacity: .75 }).bindTooltip(nCorta(p.t, 70)).addTo(M); pts.push([p.lat, p.lng]); });
+      const F = D.prop.focos.filter(f => f.lat != null), by = new Map(F.map(f => [f.n.toLowerCase(), f])), top = F[0];
+      F.forEach(f => (f.con || []).forEach(c => { const g = by.get(String(c).toLowerCase()); if (!g || g === f) return; const m = [(f.lat + g.lat) / 2 + Math.abs(f.lng - g.lng) * .18, (f.lng + g.lng) / 2]; const q = []; for (let t = 0; t <= 1.001; t += .1) q.push([(1 - t) * (1 - t) * f.lat + 2 * (1 - t) * t * m[0] + t * t * g.lat, (1 - t) * (1 - t) * f.lng + 2 * (1 - t) * t * m[1] + t * t * g.lng]); L.polyline(q, { color: "#c084fc", weight: 1.6, opacity: .7 }).addTo(M); }));
+      if (top) L.circleMarker([top.lat, top.lng], { radius: 8, color: "#fff", weight: 2, fillColor: "#a855f7", fillOpacity: .9 }).bindTooltip("Foco: " + top.n, { permanent: false }).addTo(M);
+      if (pts.length > 1) M.fitBounds(pts, { padding: [20, 20], maxZoom: 8 }); setTimeout(() => M.invalidateSize(), 150);
+    });
+  }
+  function nrKpi(ico, t, v, sub) { return `<div class="nr-k"><span class="ico">${mi(ico)}</span><div><span class="lb">${t}</span><b>${v}</b><em>${sub || ""}</em></div></div>`; }
+  function narrVista() {
+    const m = $("#mlMain"); if (!m) return; const p = S.proy.find(x => x.id === S.sel), D = S.nar;
+    let h = `<div class="nr"><div class="nr-hd"><div><h3>Explotación de noticias y análisis de fenómenos</h3><span>${p ? esc(p.titulo) : ""}${D && !D.cargando ? ` · ${nf(D.listas)} de ${nf(D.total)} noticias analizadas` : ""}</span></div><div class="nr-act"><span id="nrEst"></span><button class="ml-btn" id="nrRun" type="button">${mi("refresh")}Analizar con IA</button></div></div>`;
+    if (!D || D.cargando) h += `<div class="ml-vacio nr-v">Cargando análisis…</div>`;
+    else if (D.error) h += `<div class="ml-warn">${esc(D.error)}</div>`;
+    else if (D.vacio) h += `<div class="ml-vacio nr-v">Este proyecto aún no tiene noticias con análisis narrativo.<br>Pulsa «Analizar con IA» para procesar las ${nf(D.pend)} noticias pendientes (costo estimado US$ ${D.est}).</div>`;
+    else {
+      const K = D.kpis;
+      h += `<div class="nr-ks">${nrKpi("news", "Noticias analizadas", nf(K.notas), D.pend ? nf(D.pend) + " pendientes" : "al día")}${nrKpi("user", "Entidades detectadas", nf(K.entidades), "personas, instituciones, lugares")}${nrKpi("clock", "Ráfagas disruptivas", nf(K.rafagas), "eventos detonantes")}${nrKpi("layers", "Tópico principal", esc(nCorta(K.topico, 22)), nf(K.topicoN) + " notas")}</div>
+      <div class="nr-g">${nPanel("a4", "Dinámica temporal y evolución semántica", "Notas por tópico · ráfagas marcadas", nrTemporal(D) + `<div class="nr-fas">${D.fases.map(f => `<span><b>${f.v}</b> ${esc(f.k)}</span>`).join("")}${D.conceptos.slice(0, 6).map(c => `<span class="cc">${esc(c.k)}</span>`).join("")}</div>`)}
+      ${nPanel("a2", "Coocurrencia de entidades", "", nrCooc(D))}
+      ${nPanel("b2", "Acciones y posturas", "Causalidad y sentimiento", nrSankey(D))}
+      ${nPanel("b2", "Análisis de encuadre (framing)", "", nrEncuadre(D))}
+      ${nPanel("b2", "Propagación narrativa", "Origen y focos geográficos", nrProp(D))}</div>`;
+    }
+    m.innerHTML = h + `</div>`; const b = $("#nrRun"); if (b) b.onclick = narrCorre; nrEstado(); if (D && !D.cargando && !D.vacio && !D.error) nrMapa(D);
+  }
+  function nrEstado(t) { const e = $("#nrEst"); if (!e) return; const D = S.nar; e.textContent = t || (D && !D.cargando && !D.error ? (D.pend ? `${nf(D.pend)} por analizar · est. US$ ${D.est}` : "") : ""); const b = $("#nrRun"); if (b) { b.disabled = !!S.nrBusy; b.lastChild.textContent = S.nrBusy ? "Analizando…" : (S.nar && S.nar.pend === 0 && S.nar.listas ? "Reanalizar pendientes" : "Analizar con IA"); } }
+  async function cargaNarr() {
+    const id = S.sel; S.nar = Object.assign({}, S.nar || {}, { cargando: !S.nar }); if (S.modo === "narr" && S.nar.cargando) narrVista();
+    try { const r = await api(`/proyectos/${id}/narrativa`); if (id !== S.sel) return; S.nar = r; } catch (e) { S.nar = { error: e.message }; }
+    if (S.modo === "narr") { const sc = ($("#mlMain") || {}).scrollTop; narrVista(); }
+  }
+  async function narrCorre() {
+    if (S.nrBusy) return; const id = S.sel; S.nrBusy = true; nrEstado("Iniciando…");
+    try {
+      let seguir = true, sin = 0; while (seguir && S.sel === id && S.modo === "narr") {
+        const r = await post(`/proyectos/${id}/narrativa`, { max: 60 }); nrEstado(`${nf(r.listas)} de ${nf(r.total)} analizadas · quedan ${nf(r.pend)}`);
+        if (!r.hechas) sin++; else sin = 0; seguir = r.pend > 0 && sin < 2; if (r.error && !r.hechas) { toast(r.error, true); break; }
+        await cargaNarr();
+      }
+    } catch (e) { toast(e.message, true); }
+    S.nrBusy = false; await cargaNarr();
+  }
+  function abreNarr(id) {
+    if (S.sel !== id) { S.sel = id; S.f = {}; S.data = null; S.nar = null; } S.modo = "narr"; S.det = null; const p = S.proy.find(x => x.id === id); titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); cargaNarr();
+  }
   function principal() {
     const m = $("#mlMain"); if (!m) return; S.mapa = null; const qa = document.activeElement && document.activeElement.id === "mlQ" ? document.activeElement.selectionStart : null;
     if (S.modo === "proyectos") { proyectosVista(); return; }
+    if (S.modo === "narr") { narrVista(); return; }
     if (S.modo === "crear") { wizard(); return; }
     if (S.modo === "costos") { costos(); return; }
     const p = S.proy.find(x => x.id === S.sel);
