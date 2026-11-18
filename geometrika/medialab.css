@@ -672,3 +672,16 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr .nr-cooc .nd.nr-top text{font-weight:800}
 .nr .nr-cooc rect.nr-top{stroke:#facc15;stroke-width:2.2}
 .nr .nr-cooc path.lk.nr-top{stroke-opacity:1!important;filter:drop-shadow(0 0 3px rgba(250,204,21,.8))}
+
+/* matriz de coocurrencia: leyenda como filtro de rango con dos manijas */
+.nr-rgo{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin-top:6px;font-size:10px;color:#94a3b8}
+.nr-rgo>span{font-weight:700;color:#cbd5e1}.nr-rgo b{min-width:16px;text-align:center;font-size:11.5px;color:#fff}.nr-rgo small{font-size:10px;color:#94a3b8}
+.nr-rgo button{border:1px solid rgba(148,163,184,.45);background:rgba(148,163,184,.14);color:#e2e8f0;border-radius:99px;padding:1px 8px;font:600 10px system-ui,sans-serif;cursor:pointer}
+.nr-dbl{position:relative;width:190px;height:18px;flex:none}
+.nr-dbl .nr-esc{position:absolute;left:0;right:0;top:5px;width:auto;height:8px;margin:0;border-radius:4px}
+.nr-dbl input{position:absolute;left:0;top:0;width:100%;height:18px;margin:0;padding:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.nr-dbl input::-webkit-slider-runnable-track{background:none;height:18px}
+.nr-dbl input::-moz-range-track{background:none}
+.nr-dbl input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;pointer-events:auto;width:11px;height:18px;border-radius:4px;background:#fff;border:2px solid #7c3aed;box-shadow:0 1px 5px rgba(0,0,0,.6);cursor:ew-resize}
+.nr-dbl input::-moz-range-thumb{pointer-events:auto;width:8px;height:14px;border-radius:4px;background:#fff;border:2px solid #7c3aed;cursor:ew-resize}
+.nr-cooc rect.fr{pointer-events:none}
