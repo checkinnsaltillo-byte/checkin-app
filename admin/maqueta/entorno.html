@@ -256,8 +256,11 @@
   html.tema-osc .mm-pin.d{background:#22d3ee}html.tema-osc .mm-pin.p{background:#fb7185}
   html.tema-osc .mm-pin.f{box-shadow:0 0 0 2px rgba(15,23,42,.9),0 0 0 7px rgba(251,191,36,.55),0 3px 10px rgba(0,0,0,.7)}
   /* ventanas de GeoLab semitransparentes (menú izquierdo, paneles y simbología): se deja ver con sutileza el mapa de atrás */
-  #dock,#pry-pn,#cap-pn,#lg-col{background:linear-gradient(180deg,rgba(8,13,26,.82),rgba(15,23,42,.78) 60%,rgba(10,16,32,.82))!important;backdrop-filter:blur(14px) saturate(150%)!important;-webkit-backdrop-filter:blur(14px) saturate(150%)!important}
-  html:not(.tema-osc) #dock,html:not(.tema-osc) #pry-pn,html:not(.tema-osc) #cap-pn{background:linear-gradient(180deg,rgba(248,250,252,.84),rgba(238,242,255,.8) 60%,rgba(241,245,249,.84))!important}
+  /* mismos parámetros en GeoLab, EconoLab y DataLab: columnas izquierdas .82/.80 y ventanas derechas .88/.86, con el mismo desenfoque */
+  #dock,#pry-pn,#cap-pn{background:linear-gradient(180deg,rgba(8,13,26,.82),rgba(15,23,42,.80))!important}
+  #lg-col{background:linear-gradient(160deg,rgba(11,17,34,.88),rgba(10,15,31,.86))!important}
+  #dock,#pry-pn,#cap-pn,#lg-col,#lab-ov iframe{backdrop-filter:blur(14px) saturate(150%)!important;-webkit-backdrop-filter:blur(14px) saturate(150%)!important}
+  html:not(.tema-osc) #dock,html:not(.tema-osc) #pry-pn,html:not(.tema-osc) #cap-pn{background:linear-gradient(180deg,rgba(248,250,252,.82),rgba(238,242,255,.80))!important}
   body>#tt{background:linear-gradient(180deg,rgba(8,13,26,.88),rgba(8,13,26,.82))!important}
   html:not(.tema-osc) body>#tt{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,250,252,.82))!important}
   /* encabezado: logo de Metrika arriba y los logos de GeoLab · EcoLab · DataLab como pestañas */
