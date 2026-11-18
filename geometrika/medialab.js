@@ -77,7 +77,7 @@
   /* ───────── estructura ───────── */
   function shell() {
     host.innerHTML = `<div class="ml-app${EMB ? " ml-emb" : ""}${window.__mlTema === "osc" ? "" : " ml-light"}" id="mlApp">
-      <header class="ml-top"><button class="ml-ham" id="mlHam" type="button" aria-label="Mostrar u ocultar el menú" title="Mostrar u ocultar el menú"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="ml-sp"></span><button class="ml-theme" id="mlTema" type="button" title="Cambiar tema (aplica a GeoLab, EconoLab, DataLab y Media Lab)">🌙 Oscuro</button></header>
+      <header class="ml-top"><button class="ml-ham" id="mlHam" type="button" aria-label="Cerrar o abrir el menú" title="Cerrar o abrir el menú"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="ml-sp"></span><button class="ml-theme" id="mlTema" type="button" title="Cambiar tema (aplica a GeoLab, EconoLab, DataLab y Media Lab)">🌙 Oscuro</button></header>
       <div class="ml-body"><aside class="ml-side" id="mlSide"></aside>
         <div class="ml-wbar"><b id="mlWT">Media Lab</b><button class="ml-wx" id="mlWX" type="button" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>
         <main class="ml-main" id="mlMain"></main></div></div>`;
@@ -393,7 +393,7 @@
   }
   function narrVista() {
     const m = $("#mlMain"); if (!m) return; const p = S.proy.find(x => x.id === S.sel), D = S.nar, foco = document.activeElement && document.activeElement.id === "nrQ" ? document.activeElement.selectionStart : null;
-    let h = `<div class="nr"><div class="nr-hd"><div><h3>Explotación de noticias y análisis de fenómenos</h3><span>${p ? esc(p.titulo) : ""}${D && !D.cargando && !D.error ? ` · ${nf(D.listas)} de ${nf(D.total)} noticias analizadas` : ""}</span></div><div class="nr-act"><span id="nrEst"></span><button class="ml-btn" id="nrRun" type="button">${mi("refresh")}Analizar con IA</button>${nQ("gen")}</div></div>${D && D.facetas ? nrFiltros(D) : ""}`;
+    let h = `<div class="nr"><div class="nr-fix"><div class="nr-hd"><div><h3>Explotación de noticias y análisis de fenómenos</h3><span>${p ? esc(p.titulo) : ""}${D && !D.cargando && !D.error ? ` · ${nf(D.listas)} de ${nf(D.total)} noticias analizadas` : ""}</span></div><div class="nr-act"><span id="nrEst"></span><button class="ml-btn" id="nrRun" type="button">${mi("refresh")}Analizar con IA</button>${nQ("gen")}</div></div>${D && D.facetas ? nrFiltros(D) : ""}</div>`;
     if (!D || D.cargando) h += `<div class="ml-vacio nr-v">Cargando análisis…</div>`;
     else if (D.error) h += `<div class="ml-warn">${esc(D.error)}</div>`;
     else if (D.vacio) h += `<div class="ml-vacio nr-v">${(Object.keys(S.nrF || {}).some(k => S.nrF[k])) ? "Ninguna noticia analizada coincide con los filtros." : `Este proyecto aún no tiene noticias con análisis narrativo.<br>Pulsa «Analizar con IA» para procesar las ${nf(D.pend)} noticias pendientes (costo estimado US$ ${D.est}).`}</div>`;

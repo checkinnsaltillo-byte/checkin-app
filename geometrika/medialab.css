@@ -643,3 +643,21 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 /* leyendas de la gráfica temporal: encienden y apagan su capa */
 .nr-lt .chip{cursor:pointer;user-select:none}.nr-lt .chip.off{opacity:.45;text-decoration:line-through}.nr-lt .chip.off i{background:transparent!important;box-shadow:inset 0 0 0 1.5px #94a3b8}
 .nr-lt .chip.todas{border:1px dashed rgba(148,163,184,.6);padding:1px 8px;border-radius:99px;color:#e2e8f0}
+
+/* título y filtros del análisis fijos al desplazar */
+.nr-fix{position:sticky;top:0;z-index:25;margin:-12px -12px 10px;padding:12px 12px 2px;border-radius:12px 12px 0 0;background:linear-gradient(160deg,#0b1226,#0f1530);box-shadow:0 12px 18px -14px rgba(0,0,0,.8)}
+.nr-fix .nr-hd{margin-bottom:8px}.nr-fix .nr-f{margin-bottom:8px}
+/* pantalla completa (no incrustada): el menú ocupa todo el alto, con el tema y un botón ✕ arriba;
+   ya no hay franja superior vacía: la ventana central empieza desde arriba. Con el menú cerrado queda solo el botón para abrirlo. */
+@media (min-width:761px){
+.ml-app:not(.ml-emb) .ml-top{position:fixed;left:0;top:0;z-index:40;width:300px;height:52px;padding:0 10px;flex-direction:row-reverse;justify-content:space-between;background:transparent}
+.ml-app:not(.ml-emb) .ml-top .ml-sp{display:none}
+.ml-app:not(.ml-emb) .ml-body{min-height:100vh}
+.ml-app:not(.ml-emb) .ml-body>.ml-side{top:0;height:100vh;max-height:100vh;padding-top:58px}
+.ml-app:not(.ml-emb) .ml-main{padding-top:14px}
+.ml-app:not(.ml-emb):not(.ml-sidehide) .ml-ham svg{display:none}
+.ml-app:not(.ml-emb):not(.ml-sidehide) .ml-ham::after{content:"\2715";font:700 15px/1 system-ui,sans-serif}
+.ml-app:not(.ml-emb).ml-sidehide .ml-top{left:10px;top:10px;width:auto;height:auto;padding:0}
+.ml-app:not(.ml-emb).ml-sidehide .ml-theme{display:none}
+.ml-app:not(.ml-emb).ml-sidehide .ml-main{padding-left:62px}
+}
