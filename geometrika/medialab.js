@@ -24,7 +24,7 @@
   const FASES = { extraccion: "Descargando noticias", texto: "Descargando el texto de las notas", enriquecimiento: "Enriqueciendo con IA (categoría, lugar, personas, síntesis)" };
   const chipEn = p => { const w = p.estado && p.estado.trabajo; return w && w.fase !== "fin" ? `⏳ ${w.fase === "texto" ? "descargando texto" : w.fase === "enriquecimiento" ? "enriqueciendo" : "extrayendo"} ${w.fase === "enriquecimiento" && w.ia ? nf(w.ia.hecho) + "/" + nf(w.ia.hecho + (w.ia.pend || 0)) : nf(w.hecho) + "/" + nf(w.total)} · ${nf(w.nuevas)} nuevas` : "⏳ iniciando extracción…"; };
   const PER = { manual: "Solo manual", horaria: "Cada hora", "6h": "Cada 6 horas", diaria: "Diaria", semanal: "Semanal" };
-  const S = { proy: [], sel: null, modo: "tablero", vista: "lista", f: {}, data: null, det: null, prov: null, W: null, job: null, ctx: null, mapa: null, cargando: false };
+  const S = { proy: [], sel: null, modo: "proyectos", pv: "card", pf: "", pq: "", vista: "lista", f: {}, data: null, det: null, prov: null, W: null, job: null, ctx: null, mapa: null, cargando: false };
   let host, tipEl;
 
   /* ───────── comunicación con la maqueta (columna + ventana) ───────── */
@@ -39,6 +39,7 @@
 
   /* ───────── API ───────── */
   const MOCKDB = { n: 0 };
+  const mockProy = () => MOCKDB.proy || (MOCKDB.proy = (() => { const a0 = { id: "demo1", titulo: "Agua y sequía en el noreste", objetivo: "Monitorear cobertura", creador: "Andrés Carreón", creado: "2026-11-10T16:20:00Z", config: { nTerminos: 1250, periodicidad: "diaria", proveedor: "gdelt", maxNoticias: 5000 }, estado: { total: 120, ultima: new Date().toISOString(), proxima: new Date(Date.now() + 3 * 864e5).toISOString(), rango: ["2026-08-20T05:00:00Z", "2026-11-17T22:00:00Z"], trabajo: null } }; return [Object.assign(a0, { situacion: "activo" }), Object.assign({}, a0, { id: "demo2", titulo: "Inseguridad en Nuevo León", objetivo: "Seguimiento de seguridad y justicia", situacion: "activo", config: Object.assign({}, a0.config, { nTerminos: 9, periodicidad: "manual", zona: { estadosN: ["Nuevo León"] } }), estado: Object.assign({}, a0.estado, { total: 391, proxima: null }) }), Object.assign({}, a0, { id: "demo3", titulo: "Reforma fiscal 2027", objetivo: "Impacto económico y reacciones", situacion: "suspendido", creador: "Lucía Ramos", estado: Object.assign({}, a0.estado, { total: 58, proxima: null }) }), Object.assign({}, a0, { id: "demo4", titulo: "Elecciones 2024 (archivo)", objetivo: "Proyecto concluido", situacion: "inactivo", estado: Object.assign({}, a0.estado, { total: 2210, proxima: null }) })]; })());
   function mockApi(p, o) {
     const j = x => Promise.resolve(Object.assign({ ok: true }, x)), m = (o && o.method) || "GET";
     const CATS = [{ c: "Política", subs: ["Gobierno"] }, { c: "Seguridad y justicia", subs: ["Delincuencia"] }, { c: "Economía y negocios", subs: ["Finanzas", "Empleo"] }, { c: "Deportes", subs: ["Futbol"] }];
@@ -48,7 +49,8 @@
     if (/^\/costos\/tarifas/.test(p)) return j({});
     if (/^\/costos/.test(p)) return j({ tarifas: { ia: { "claude-haiku-5-5": { in: 1, out: 5 }, "claude-sonnet-5": { in: 3, out: 15 }, def: { in: 3, out: 15 } }, places: 0.032, gdelt: 0, grss: 0, newsdata: 0, gnews: 0, texto: 0, gnres: 0 }, servicios: { ia: "IA · Anthropic (Claude)", places: "Google Places (búsqueda de lugares)", gdelt: "GDELT (noticias)", grss: "Google Noticias (RSS)", newsdata: "NewsData.io", gnews: "GNews", texto: "Descarga de páginas de medios", gnres: "Resolución de enlaces de Google Noticias", notas: "Notas nuevas guardadas" }, porSvc: { ia: { n: 42, in: 210000, out: 96000, k: 420, costo: 0.69 }, places: { n: 55, costo: 1.76, in: 0, out: 0, k: 0 }, grss: { n: 120, costo: 0, in: 0, out: 0, k: 0 }, texto: { n: 380, costo: 0, in: 0, out: 0, k: 0 } }, porMes: { "2026-10": { costo: 1.1, llamadas: 300, notas: 210 }, "2026-11": { costo: 2.45, llamadas: 597, notas: 462 } }, porDia: { "2026-11-16": { costo: 0.4, llamadas: 90 }, "2026-11-17": { costo: 1.2, llamadas: 300 }, "2026-11-18": { costo: 0.85, llamadas: 207 } }, porProy: { demo1: { titulo: "Agua y sequía en el noreste", costo: 2.45, llamadas: 597, notas: 462 } }, total: { costo: 2.45, llamadas: 597, in: 210000, out: 96000, notas: 462, ia_notas: 420 } });
     if (p === "/proveedores") return j({ proveedores: { gdelt: { n: "GDELT (gratis)", ok: true, nota: "Cobertura masiva sin clave." }, grss: { n: "Google Noticias (RSS)", ok: true, nota: "Gratis, 100 por consulta." }, newsdata: { n: "NewsData.io", ok: false, clave: "NEWSDATA_API_KEY", nota: "De pago." }, gnews: { n: "GNews", ok: false, clave: "GNEWS_API_KEY", nota: "De pago." } }, ia: true, geocodificar: true, categorias: CATS, estados: { "05": "Coahuila", "19": "Nuevo León", "14": "Jalisco", "09": "Ciudad de México" } });
-    if (p === "/proyectos" && m === "GET") return j({ proyectos: [{ id: "demo1", titulo: "Agua y sequía en el noreste", objetivo: "Monitorear cobertura", creador: "Andrés Carreón", creado: "2026-11-10T16:20:00Z", config: { nTerminos: 1250, periodicidad: "diaria", proveedor: "gdelt", maxNoticias: 5000 }, estado: { total: 120, ultima: new Date().toISOString(), proxima: new Date(Date.now() + 3 * 864e5).toISOString(), rango: ["2026-08-20T05:00:00Z", "2026-11-17T22:00:00Z"], trabajo: null } }] });
+    if (/\/situacion$/.test(p) && m === "POST") { const q0 = mockProy().find(x => x.id === p.split("/")[2]); if (q0) q0.situacion = JSON.parse((o && o.body) || "{}").situacion; return j({ proyecto: q0 }); }
+    if (p === "/proyectos" && m === "GET") return j({ proyectos: mockProy() });
     if (p === "/estimar") return j({ terminos: 1250, excluidos: 3, grupos: 94, consultas: 94, minutos: 9, muestra: [{ q: "(agua OR sequía…)", n: 250, saturado: true }], notasPorGrupo: 180, notasEstimadas: 10000, saturado: true, advertencias: ["Se subdivide por fechas cuando una consulta se satura."] });
     if (p === "/proyectos" && m === "POST") return j({ id: "demo2", nTerminos: 10 });
     if (/\/extraer$|\/avanzar$/.test(p)) { MOCKDB.n++; const fin = MOCKDB.n % 3 === 0; return j({ avance: { fase: fin ? "fin" : "extraccion", hecho: Math.min(MOCKDB.n * 30, 94), total: 94, nuevas: MOCKDB.n * 40, errores: 0 }, proyecto: { id: "demo2", estado: { trabajo: { fase: fin ? "fin" : "extraccion", hecho: Math.min(MOCKDB.n * 30, 94), total: 94, nuevas: MOCKDB.n * 40, errores: 0 } } } }); }
@@ -84,11 +86,43 @@
   const titulo = t => { const w = $("#mlWT"); if (w) w.textContent = t; };
 
   /* ───────── menú izquierdo ───────── */
+  /* ───────── sección Proyectos: alta, listado a pantalla completa y situación (activo / suspendido / inactivo) ───────── */
+  const SIT = { activo: ["Activo", "#16a34a", "Extracción programada y manual"], suspendido: ["Suspendido", "#d97706", "Sin extracción programada; se puede extraer a mano"], inactivo: ["Inactivo", "#64748b", "Archivado: solo consulta, sin extracciones"] };
+  const sitDe = p => SIT[p.situacion] ? p.situacion : "activo";
+  const sitBadge = p => { const k = sitDe(p); return `<span class="ml-sit s-${k}" title="${esc(SIT[k][2])}"><i></i>${SIT[k][0]}</span>`; };
+  const navHtml = () => `<div class="ml-seg ml-nav"><button type="button" data-go="proyectos" class="${S.modo === "proyectos" ? "on" : ""}">📁 Proyectos</button><button type="button" data-go="tablero" class="${S.modo === "tablero" ? "on" : ""}">📰 Tablero</button><button type="button" data-go="costos" class="${S.modo === "costos" ? "on" : ""}">💰 Costos</button></div>`;
+  function proyectosVista() {
+    const m = $("#mlMain"); if (!m) return; const L = S.proy, q = (S.pq || "").trim().toLowerCase(), ak = document.activeElement && document.activeElement.id === "mlPQ" ? document.activeElement.selectionStart : null;
+    const cnt = k => L.filter(p => sitDe(p) === k).length, arr = L.filter(p => (!S.pf || sitDe(p) === S.pf) && (!q || (p.titulo + " " + (p.objetivo || "") + " " + (p.creador || "")).toLowerCase().includes(q)));
+    const zona = p => { const z = p.config && p.config.zona; return z && z.estadosN && z.estadosN.length ? z.estadosN.join(", ") : "Todo México"; };
+    const per = p => PER[p.config && p.config.periodicidad] || "Manual", puede = p => sitDe(p) !== "inactivo" && !enCurso(p);
+    const segSit = p => `<div class="ml-sseg" title="Situación del proyecto">${["activo", "suspendido", "inactivo"].map(k => `<button type="button" data-sit="${esc(p.id)}|${k}" class="s-${k}${sitDe(p) === k ? " on" : ""}" title="${esc(SIT[k][2])}">${SIT[k][0]}</button>`).join("")}</div>`;
+    const kpi = [["", "Todos", L.length, "#2563eb"], ["activo", "Activos", cnt("activo"), SIT.activo[1]], ["suspendido", "Suspendidos", cnt("suspendido"), SIT.suspendido[1]], ["inactivo", "Inactivos", cnt("inactivo"), SIT.inactivo[1]]];
+    let h = `<div class="ml-pv"><div class="ml-pvh">${navHtml()}<span class="ml-sp"></span><button class="ml-btn" type="button" data-go="crear">➕ Nuevo proyecto</button></div>
+      <div class="ml-pvt"><h2>Proyectos de monitoreo</h2><p>Da de alta los proyectos, consulta todos en un solo lugar y define su situación: <b>activo</b> (se extrae solo y a mano), <b>suspendido</b> (solo a mano) o <b>inactivo</b> (archivado, solo consulta).</p></div>
+      <div class="ml-pvk">${kpi.map(([k, t, n, c]) => `<button type="button" data-pf="${k}" class="${(S.pf || "") === k ? "on" : ""}" style="--c:${c}"><b>${nf(n)}</b><span>${t}</span></button>`).join("")}</div>
+      <div class="ml-pvb"><div class="ml-f" style="margin:0;flex:1;min-width:200px"><input type="search" id="mlPQ" placeholder="Buscar proyecto, objetivo o creador…" value="${esc(S.pq || "")}"></div><div class="ml-seg" style="margin:0;width:200px"><button type="button" data-pv="card" class="${S.pv !== "tabla" ? "on" : ""}">▦ Tarjetas</button><button type="button" data-pv="tabla" class="${S.pv === "tabla" ? "on" : ""}">☰ Tabla</button></div></div>`;
+    if (!arr.length) h += `<div class="ml-vacio">${L.length ? "Ningún proyecto coincide con el filtro." : "Aún no hay proyectos.<br>Crea el primero con «Nuevo proyecto»."}</div>`;
+    else if (S.pv === "tabla") h += `<div class="ml-pt"><table><thead><tr><th>Proyecto</th><th>Situación</th><th>Noticias</th><th>Términos</th><th>Periodicidad</th><th>Ámbito</th><th>Última extracción</th><th>Próxima</th><th>Creado por</th><th></th></tr></thead><tbody>${arr.map(p => `<tr class="s-${sitDe(p)}"><td><a href="#" data-abrir="${esc(p.id)}"><b>${esc(p.titulo)}</b></a><small>${esc(p.objetivo || "")}</small></td><td><select data-sitsel="${esc(p.id)}" class="s-${sitDe(p)}">${["activo", "suspendido", "inactivo"].map(k => `<option value="${k}"${sitDe(p) === k ? " selected" : ""}>${SIT[k][0]}</option>`).join("")}</select></td><td class="n">${nf(p.estado && p.estado.total)}</td><td class="n">${nf(p.config && p.config.nTerminos)}</td><td>${esc(per(p))}</td><td>${esc(zona(p))}</td><td>${p.estado && p.estado.ultima ? esc(fechaC(p.estado.ultima)) : "—"}</td><td>${p.estado && p.estado.proxima ? esc(fechaC(p.estado.proxima)) : "—"}</td><td>${p.creador ? esc(p.creador) : "—"}</td><td class="ac"><button type="button" data-abrir="${esc(p.id)}" title="Abrir tablero">📰</button><button type="button" data-ed="${esc(p.id)}" title="Editar">✏️</button>${puede(p) ? `<button type="button" data-ex="${esc(p.id)}" title="Extraer lo nuevo">↻</button>` : ""}<button type="button" data-del="${esc(p.id)}" title="Eliminar">🗑</button></td></tr>`).join("")}</tbody></table></div>`;
+    else h += `<div class="ml-pg">${arr.map(p => `<div class="ml-pc s-${sitDe(p)}"><div class="hd">${sitBadge(p)}<span class="pe">${esc(per(p))}${enCurso(p) ? " · ⏳ extrayendo" : ""}</span></div><h3><a href="#" data-abrir="${esc(p.id)}">${esc(p.titulo)}</a></h3><p class="ob">${esc(p.objetivo || "Sin objetivo definido")}</p>
+      <div class="mx"><div><b>${nf(p.estado && p.estado.total)}</b><span>noticias</span></div><div><b>${nf(p.config && p.config.nTerminos)}</b><span>términos</span></div><div><b>${p.estado && p.estado.ultima ? esc(fechaC(p.estado.ultima)) : "—"}</b><span>última extracción</span></div></div>
+      <div class="mt"><span>📍 ${esc(zona(p))}</span><span>👤 ${p.creador ? esc(p.creador) : "sin registrar"}</span><span>📅 creado ${p.creado ? esc(fechaC(p.creado)) : "—"}</span><span>⏭ próxima ${p.estado && p.estado.proxima ? esc(fechaC(p.estado.proxima)) : "—"}</span></div>
+      ${segSit(p)}<div class="ac"><button class="ml-btn" type="button" data-abrir="${esc(p.id)}">📰 Abrir tablero</button><button class="ml-btn2" type="button" data-ed="${esc(p.id)}">✏️ Editar</button>${puede(p) ? `<button class="ml-btn2" type="button" data-ex="${esc(p.id)}" title="Trae solo lo nuevo">↻ Extraer</button>` : ""}<button class="ml-btn2" type="button" data-del="${esc(p.id)}" title="Eliminar">🗑</button></div></div>`).join("")}</div>`;
+    m.innerHTML = h + `</div>`;
+    if (ak !== null) { const q2 = $("#mlPQ"); if (q2) { q2.focus(); try { q2.setSelectionRange(ak, ak); } catch (_) { } } }
+  }
+  async function cambiaSit(id, v) {
+    const p = S.proy.find(x => x.id === id); if (!p || sitDe(p) === v) { proyectosVista(); return; }
+    if (v === "inactivo" && !confirm("¿Pasar «" + p.titulo + "» a inactivo? Se detiene cualquier extracción en curso y no se podrá extraer hasta reactivarlo; las noticias se conservan.")) { proyectosVista(); return; }
+    try { await post(`/proyectos/${id}/situacion`, { situacion: v }); await cargaProy(); toast("«" + p.titulo + "»: " + SIT[v][0].toLowerCase()); } catch (e) { toast(e.message, true); }
+    lado(); principal();
+  }
   function lado() {
     const side = $("#mlSide"); if (!side) return;
-    let h = `<div class="ml-seg"><button type="button" data-go="tablero" class="${S.modo === "tablero" ? "on" : ""}">📰 Tablero</button><button type="button" data-go="crear" class="${S.modo === "crear" ? "on" : ""}">➕ Crear</button><button type="button" data-go="costos" class="${S.modo === "costos" ? "on" : ""}">💰 Costos</button></div><div class="ml-h4">Proyectos (${S.proy.length})</div>`;
-    h += S.proy.length ? S.proy.map(p => { const w = p.estado && p.estado.trabajo, en = enCurso(p); return `<div class="ml-pj${p.id === S.sel ? " on" : ""}" data-pj="${p.id}"><b>${esc(p.titulo)}</b><small>${nf(p.config && p.config.nTerminos)} términos · ${esc(PER[p.config && p.config.periodicidad] || "")}</small><div class="ml-fp">${datosProy(p).map(([i, l, v]) => `<div title="${esc(l)}"><span>${i} ${esc(l)}</span><b>${v}</b></div>`).join("")}</div>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : p.estado && p.estado.ultima ? `<span class="ml-chip ok">✓ ${esc(fechaC(p.estado.ultima))}</span>` : `<span class="ml-chip">sin extraer</span>`}${w && w.ultimoError && !en ? `<span class="ml-chip err" title="${esc(w.ultimoError)}">avisos</span>` : ""}
-        <div class="ml-acc"><button type="button" data-ed="${p.id}">✏️ Editar</button>${en ? "" : `<button type="button" data-ex="${p.id}" title="Trae solo lo nuevo desde la última extracción (o todo el periodo si el proyecto está vacío)">↻ Extraer</button><button type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado">⟲ Todo</button>`}<button type="button" data-del="${p.id}">🗑</button></div></div>`; }).join("") : `<div class="ml-vacio">Aún no hay proyectos.<br>Crea el primero con «Crear proyecto».</div>`;
+    { const a = $("#mlApp"); if (a) { const pm = S.modo === "proyectos"; if (pm !== S.pmAnt) { S.pmAnt = pm; if (pm) a.classList.add("ml-sidehide"); else { let off = false; try { off = localStorage.getItem("ml_side") === "0"; } catch (_) { } a.classList.toggle("ml-sidehide", off); } setTimeout(() => { if (S.mapa) S.mapa.invalidateSize(); }, 120); } a.classList.toggle("ml-mode-proy", pm); } }
+    let h = navHtml() + `<div class="ml-h4">Proyecto seleccionado</div>`;
+    h += S.proy.some(p => p.id === S.sel) ? S.proy.filter(p => p.id === S.sel).map(p => { const w = p.estado && p.estado.trabajo, en = enCurso(p); return `<div class="ml-pj${p.id === S.sel ? " on" : ""}" data-pj="${p.id}"><b>${esc(p.titulo)}</b><small>${nf(p.config && p.config.nTerminos)} términos · ${esc(PER[p.config && p.config.periodicidad] || "")}</small><div style="margin:5px 0 2px">${sitBadge(p)}</div><div class="ml-fp">${datosProy(p).map(([i, l, v]) => `<div title="${esc(l)}"><span>${i} ${esc(l)}</span><b>${v}</b></div>`).join("")}</div>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : p.estado && p.estado.ultima ? `<span class="ml-chip ok">✓ ${esc(fechaC(p.estado.ultima))}</span>` : `<span class="ml-chip">sin extraer</span>`}${w && w.ultimoError && !en ? `<span class="ml-chip err" title="${esc(w.ultimoError)}">avisos</span>` : ""}
+        <div class="ml-acc"><button type="button" data-ed="${p.id}">✏️ Editar</button>${en || sitDe(p) === "inactivo" ? "" : `<button type="button" data-ex="${p.id}" title="Trae solo lo nuevo desde la última extracción (o todo el periodo si el proyecto está vacío)">↻ Extraer</button><button type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado">⟲ Todo</button>`}<button type="button" data-del="${p.id}">🗑</button></div></div>`; }).join("") : `<div class="ml-vacio">Ningún proyecto seleccionado.<br>Elígelo en <a href="#" data-go="proyectos">📁 Proyectos</a>.</div>`;
     side.innerHTML = h;
   }
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
@@ -137,10 +171,11 @@
   }
   function principal() {
     const m = $("#mlMain"); if (!m) return; S.mapa = null; const qa = document.activeElement && document.activeElement.id === "mlQ" ? document.activeElement.selectionStart : null;
+    if (S.modo === "proyectos") { proyectosVista(); return; }
     if (S.modo === "crear") { wizard(); return; }
     if (S.modo === "costos") { costos(); return; }
     const p = S.proy.find(x => x.id === S.sel);
-    if (!p) { m.innerHTML = `<div class="ml-vacio"><h3>Bienvenido a Media Lab</h3>Monitor masivo de noticias. Crea un proyecto con los términos, la zona y el periodo que te interesan, o elige uno de la lista.<br><br><button class="ml-btn" type="button" data-go="crear">➕ Crear proyecto</button></div>`; return; }
+    if (!p) { m.innerHTML = `<div class="ml-vacio"><h3>Bienvenido a Media Lab</h3>Monitor masivo de noticias. Crea un proyecto con los términos, la zona y el periodo que te interesan, o elige uno de la lista.<br><br><button class="ml-btn" type="button" data-go="proyectos">📁 Ir a Proyectos</button></div>`; return; }
     const d = S.data, en = enCurso(p);
     const tot = (p.estado && p.estado.total) || 0, fil = d ? d.total : 0, pc = tot ? Math.min(100, Math.round(fil / tot * 100)) : 0;
     const KP = [["news", "Noticias con estos filtros", nf(fil), `<div class="ml-kb"><i style="width:${pc}%"></i></div><span>${pc} % del proyecto</span>`, "k1"], ["stack", "Noticias en el proyecto", nf(tot), `<span>${p.estado && p.estado.ultima ? "última carga " + esc(fechaC(p.estado.ultima)) : "sin extracciones"}</span>`, "k2"], ["tag", "Términos de interés", nf(p.config && p.config.nTerminos), `<span>${esc(PER[p.config && p.config.periodicidad] || "")}</span>`, "k3"], ["clock", "Última extracción", p.estado && p.estado.ultima ? esc(fechaC(p.estado.ultima)) : "—", `<span>${p.estado && p.estado.proxima ? "próxima " + esc(fechaC(p.estado.proxima)) : "sin programar"}</span>`, "k4"]];
@@ -485,7 +520,7 @@
     toast("Extracción iniciada…"); try {
       let r = await post(`/proyectos/${id}/extraer`, completa ? { completa: true } : {}), a = avance(r); for (let i = 0; i < 2000 && !(a.fase === "fin" || a.fin); i++) { await cargaProy(); pintaProg(); await new Promise(res => setTimeout(res, a.ocupado ? 3000 : 800)); r = await post(`/proyectos/${id}/avanzar`, {}); a = avance(r); } const wf = r.proyecto && r.proyecto.estado && r.proyecto.estado.trabajo; if (wf && wf.aviso) toast(wf.aviso); if (wf && !wf.nuevas) toast("La extracción terminó sin notas nuevas" + (wf.desde ? " (periodo consultado: " + fechaC(wf.desde) + " → " + fechaC(wf.hasta) + ")" : "") + ". Prueba ampliar el periodo o quitar el filtro de zona estricta.", true);
       S.extrayendo.delete(id); clearInterval(S.poll); await cargaProy(); toast("Extracción terminada"); if (S.sel === id) { await consulta(); } else lado();
-    } catch (e) { toast(e.message, true); await cargaProy(); lado(); } finally { S.extrayendo.delete(id); clearInterval(S.poll); lado(); if (S.sel === id && S.modo === "tablero") principal(); }
+    } catch (e) { toast(e.message, true); await cargaProy(); lado(); } finally { S.extrayendo.delete(id); clearInterval(S.poll); lado(); if (S.sel === id && S.modo === "tablero") principal(); else if (S.modo === "proyectos") proyectosVista(); }
   }
   async function cargaProy() { try { S.proy = (await api("/proyectos")).proyectos || []; } catch (e) { toast(e.message, true); } }
 
@@ -495,13 +530,18 @@
     const hm = t.closest("#mlHam"); if (hm) { const a = $("#mlApp"); if (a) { S.sideAuto = false; a.classList.toggle("ml-sidehide"); try { localStorage.setItem("ml_side", a.classList.contains("ml-sidehide") ? "0" : "1"); } catch (_) { } setTimeout(() => { if (S.mapa) S.mapa.invalidateSize(); }, 120); } return; }
     if (go) {
       const k = go.dataset.go, W = S.W;
-      if (k === "tablero") { S.modo = "tablero"; titulo((S.proy.find(x => x.id === S.sel) || {}).titulo || "Media Lab"); lado(); principal(); if (S.sel && !S.data) consulta(); }
+      if (k === "proyectos") { S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); }
+      else if (k === "tablero") { S.modo = "tablero"; titulo((S.proy.find(x => x.id === S.sel) || {}).titulo || "Media Lab"); lado(); principal(); if (S.sel && !S.data) consulta(); }
       else if (k === "crear") nuevo(); else if (k === "costos") abreCostos(); else if (k === "guardaTar") guardaTarifas(); else if (k === "limpiar") { S.f = {}; consulta(); } else if (k === "mas") consulta(true); else if (k === "cierra") cierraDet();
       else if (k === "sigue") { const er = validaPaso(); if (er) { toast(er, true); return; } W.paso++; wizard(); } else if (k === "atras") { W.paso--; wizard(); }
       else if (k === "estimar") estima(); else if (k === "lanzar") lanzar(); else if (k === "abrir") { const id = W.id; S.W = null; selecciona(id); }
       else if (k === "zonaGeo" && S.ctx) { if (S.ctx.ent && !W.estados.includes(S.ctx.ent)) W.estados.push(S.ctx.ent); const ci = S.ctx.ciudad || S.ctx.municipio; if (ci && !W.ciudades.includes(ci)) W.ciudades = (W.ciudades ? W.ciudades + ", " : "") + ci; wizard(); }
       else if (k === "volver") { S.entV = null; pintaDet(); } else if (k === "resumen" && S.det && S.det.n) abreDet(S.det.n.id, true); else if (k === "recargaCos") cargaCostos(); return;
     }
+    const ab = t.closest("[data-abrir]"); if (ab) { e.preventDefault(); selecciona(ab.dataset.abrir); return; }
+    const st = t.closest("[data-sit]"); if (st) { const [id0, v0] = st.dataset.sit.split("|"); cambiaSit(id0, v0); return; }
+    const pf = t.closest("[data-pf]"); if (pf) { S.pf = pf.dataset.pf; proyectosVista(); return; }
+    const pv2 = t.closest("[data-pv]"); if (pv2) { S.pv = pv2.dataset.pv; proyectosVista(); return; }
     const pj = t.closest("[data-pj]"); if (pj && !t.closest(".ml-acc")) { selecciona(pj.dataset.pj); return; }
     const ed = t.closest("[data-ed]"); if (ed) { editar(ed.dataset.ed); return; } const ex = t.closest("[data-ex]"); if (ex) { extraer(ex.dataset.ex); return; } const exa = t.closest("[data-exall]"); if (exa) { extraer(exa.dataset.exall, true); return; }
     const del = t.closest("[data-del]"); if (del) { const p = S.proy.find(x => x.id === del.dataset.del); if (p && confirm("¿Eliminar el proyecto «" + p.titulo + "» y todas sus noticias?")) api(`/proyectos/${p.id}`, { method: "DELETE" }).then(async () => { if (S.sel === p.id) { S.sel = null; S.data = null; } await cargaProy(); lado(); principal(); toast("Proyecto eliminado"); }).catch(er => toast(er.message, true)); return; }
@@ -519,12 +559,13 @@
     const w2 = t.closest("[data-w2]"); if (w2 && S.W) { const [k, val] = w2.dataset.w2.split(":"); S.W[k] = val; wizard(); }
   }
   let tq; function entrada(e) {
-    const t = e.target; if (t.id === "mlQ") { clearTimeout(tq); tq = setTimeout(() => { S.f.q = t.value.trim(); consulta(); }, 400); return; }
+    const t = e.target; if (t.id === "mlPQ") { S.pq = t.value; clearTimeout(tq); tq = setTimeout(proyectosVista, 200); return; } if (t.id === "mlQ") { clearTimeout(tq); tq = setTimeout(() => { S.f.q = t.value.trim(); consulta(); }, 400); return; }
     if (t.dataset && t.dataset.w && S.W) { const k = t.dataset.w; S.W[k] = t.type === "number" ? +t.value : t.value; if (k === "terminos") { const c = cuentaT(S.W.terminos), s = $(".ml-sem", $("#mlMain")); if (s) s.innerHTML = `<span><b>${nf(c.pos)}</b> términos válidos</span><span>${nf(c.neg)} exclusiones</span><span>${nf(c.dup)} repetidos omitidos</span><span>máx. 20,000</span>`; } }
   }
   function cambio(e) {
     const t = e.target;
     if (t.dataset && t.dataset.cos) { S.cos[t.dataset.cos] = t.value; cargaCostos(); return; }
+    if (t.dataset && t.dataset.sitsel) { cambiaSit(t.dataset.sitsel, t.value); return; }
     if (t.dataset && t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === "cat") S.f.sub = ""; if (t.dataset.f === "est" || t.dataset.f === "reg") S.f.mun = ""; consulta(); return; }
     if (t.id === "mlArch" && t.files && t.files[0]) { const r = new FileReader(); r.onload = () => { S.W.terminos = (S.W.terminos ? S.W.terminos + "\n" : "") + String(r.result || ""); wizard(); toast("Términos importados"); }; r.readAsText(t.files[0]); return; }
     if (t.dataset && t.dataset.w && S.W) { const k = t.dataset.w; if (k === "idioma") S.W.idiomas = [t.value]; else S.W[k] = t.type === "number" ? +t.value : t.value; if (k === "proveedor" || k === "periodicidad" || k === "max") wizard(); }
