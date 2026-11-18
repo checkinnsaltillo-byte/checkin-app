@@ -145,3 +145,10 @@ a.ml-ent{display:inline-block;margin:0 5px 5px 0;padding:3px 10px;border:1px sol
 .ml-card:hover{box-shadow:0 8px 22px rgba(0,0,0,.35)}.ml-card.on{background:linear-gradient(165deg,rgba(100,116,139,.55),rgba(51,65,85,.65))}
 .ml-light .ml-det{background:rgba(226,232,240,.78);border-left-color:rgba(249,115,22,.5);box-shadow:-18px 0 40px rgba(15,23,42,.18);--ml-card:rgba(255,255,255,.7)}
 .ml-light .ml-card{background:#fff;border-color:#cbd5e1;box-shadow:0 1px 6px rgba(15,23,42,.08)}.ml-light .ml-card.on{background:#fff7ed}
+
+/* barra de riesgo semaforizada en las tarjetas */
+.ml-rbw{display:flex;align-items:center;gap:8px;margin:5px 0 7px}.ml-rbw b{font-size:11px;font-weight:800;min-width:64px;text-align:right}
+.ml-rb{position:relative;flex:1;height:9px;border-radius:99px;margin:0;overflow:visible;background:linear-gradient(90deg,rgba(34,197,94,.2) 0 25%,rgba(245,158,11,.2) 25% 50%,rgba(249,115,22,.2) 50% 75%,rgba(239,68,68,.22) 75% 100%);box-shadow:inset 0 0 0 1px rgba(148,163,184,.18)}
+.ml-rb::before,.ml-rb::after{content:"";position:absolute;top:1px;bottom:1px;width:1px;background:rgba(148,163,184,.4)}.ml-rb::before{left:25%}.ml-rb::after{left:50%}
+.ml-rb span{display:block;height:100%;border-radius:99px;background-image:linear-gradient(90deg,#22c55e 0%,#84cc16 25%,#f59e0b 50%,#f97316 75%,#ef4444 100%);background-repeat:no-repeat;position:relative;z-index:1}
+.ml-rb i{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;border:3px solid #22c55e;transform:translate(-50%,-50%);z-index:2;box-shadow:0 1px 4px rgba(0,0,0,.35)}
