@@ -74,9 +74,9 @@
       <div class="ml-body"><aside class="ml-side" id="mlSide"></aside>
         <div class="ml-wbar"><b id="mlWT">Media Lab</b><button class="ml-wx" id="mlWX" type="button" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>
         <main class="ml-main" id="mlMain"></main></div></div>`;
-    const app = $("#mlApp"); if (window.__mlTema) app.classList.toggle("ml-light", window.__mlTema !== "osc"); if (!EMB && !window.__mlTema) app.classList.remove("ml-light");
+    const app = $("#mlApp"); if (window.__mlTema) app.classList.toggle("ml-light", window.__mlTema !== "osc"); if (!EMB && !window.__mlTema) { let g = null; try { g = localStorage.getItem("ml_tema"); } catch (_) { } app.classList.toggle("ml-light", g !== "osc"); }
     temaPinta();
-    $("#mlTema").onclick = () => { const claro = app.classList.contains("ml-light"); if (EMB) { try { parent.postMessage({ gl: "tema", v: claro ? "osc" : "claro" }, location.origin); } catch (_) { } } else { app.classList.toggle("ml-light"); temaPinta(); } };
+    $("#mlTema").onclick = () => { const claro = app.classList.contains("ml-light"); if (EMB) { try { parent.postMessage({ gl: "tema", v: claro ? "osc" : "claro" }, location.origin); } catch (_) { } } else { app.classList.toggle("ml-light"); try { localStorage.setItem("ml_tema", app.classList.contains("ml-light") ? "claro" : "osc"); } catch (_) { } temaPinta(); } };
     $("#mlWX").onclick = () => mlWin(false); document.addEventListener("keydown", e => { if (e.key === "Escape") { if (S.det) cierraDet(); else mlWin(false); } });
     tipEl = null; host.onclick = clic; host.oninput = entrada; host.onchange = cambio;
   }
