@@ -143,6 +143,11 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-cv{position:absolute;inset:0;width:100%;height:100%;opacity:.95}
 .gp-vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(148,163,184,.16) 100%)}
 @media (prefers-reduced-motion:reduce){.gp-glow{animation:none!important}}
+/* tipos de fuentes de Data Lab */
+.gp-types b{display:block;font:800 10px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#0e7490;margin:0 0 8px}
+.gp-types>div{display:flex;flex-wrap:wrap;gap:8px}
+.gp-types span{display:inline-flex;align-items:center;gap:8px;font:600 12.5px system-ui,sans-serif;color:#0f172a;padding:7px 14px 7px 9px;border-radius:99px;background:rgba(255,255,255,.88);border:1px solid rgba(100,116,139,.25);box-shadow:0 1px 3px rgba(15,23,42,.05)}
+.gp-types svg{width:20px;height:20px;padding:3px;border-radius:50%;box-sizing:border-box;background:linear-gradient(135deg,rgba(8,145,178,.16),rgba(99,102,241,.16));fill:none;stroke:#0e7490;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:700px){.gp-wrap{gap:14px}.gp-card{padding:26px 22px 20px}}
 </style>
 </head>
@@ -201,7 +206,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     <div class="gp-base" id="gpBase">
       <div class="gp-base-i">
         <div class="gp-base-t"><span class="gp-base-k">LA BASE · INFRAESTRUCTURA DE DATOS</span><h3>Data Lab</h3><p>Catálogo de las fuentes de datos, indicadores y series que sustentan a Geo Lab, EconoLab y Media Lab: lo que se mide, de dónde viene y cómo se calcula.</p>
-          <div class="gp-chips"><div class="gp-grp"><b>Población y territorio · INEGI</b><div><i>Censo de Población y Vivienda 2020</i><i>Marco Geoestadístico</i><i>Cartografía de servicios y ejes viales</i><i>DENUE</i><i>Encuesta Intercensal 2025</i><i>ENIGH 2024 (ingreso)</i><i>Entorno urbano del Censo 2020</i><i>Inventario Nacional de Viviendas 2020</i></div></div><div class="gp-grp"><b>Mapas, satélite y entorno</b><div><i>OpenStreetMap</i><i>Overpass API</i><i>Nominatim</i><i>Valhalla (isócronas)</i><i>Esri World Imagery</i><i>Huellas de edificios Microsoft</i><i>GHS-BUILT-H (altura)</i><i>GHS-BUILT-S (crecimiento urbano)</i><i>Terrain Tiles (elevación)</i><i>ESA WorldCover</i><i>Sentinel-2</i><i>Open-Meteo (clima y aire)</i></div></div><div class="gp-grp"><b>Servicios de Google</b><div><i>Street View</i><i>Maps Static</i><i>Routes (tráfico)</i><i>Places</i><i>Map Tiles 3D</i><i>APIs ambientales (Solar, aire, polen, clima)</i><i>Vertex AI (Gemini imagen)</i></div></div><div class="gp-grp"><b>Inteligencia artificial</b><div><i>Claude (Anthropic)</i></div></div><div class="gp-grp"><b>Economía · INEGI · BIE/BISE</b><div><i>INPC</i><i>IGAE</i><i>Actividad industrial (IMAI)</i><i>PIB trimestral (OUT)</i><i>ENOE</i><i>Confianza del consumidor</i><i>Opinión empresarial (EMOE)</i><i>Industria manufacturera (EMIM)</i><i>Balanza comercial</i><i>Personal ocupado (IGPOSE)</i><i>Remuneraciones (IGRESE)</i><i>Remuneraciones medias reales</i><i>Industria automotriz</i><i>Viajeros internacionales (EVI)</i><i>Indicadores cíclicos</i><i>ITAEE estatal</i><i>Series por estado y ciudad</i><i>Series desestacionalizadas</i></div></div><div class="gp-grp"><b>Noticias y medios</b><div><i>GDELT</i><i>Google Noticias (RSS)</i><i>NewsData.io</i><i>GNews</i></div></div></div></div>
+          <div class="gp-types"><b>Tipos de fuentes</b><div><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.8.3 5 2.6 5 5.8"/></svg>Censos y demografía</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Cartografía y vialidades</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9l1-5h14l1 5M4 9v11h16V9"/><path d="M4 9c0 1.5 1.5 2 2.7 2S9 10.5 9 9c0 1.5 1.3 2 3 2s3-.5 3-2c0 1.5 1.1 2 2.3 2S20 10.5 20 9M10 20v-5h4v5"/></svg>Directorios de unidades económicas</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v3H8z"/><path d="M6 5H5v16h14V5h-1M9 17v-3M12 17v-6M15 17v-4"/></svg>Encuestas y estadísticas oficiales</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>Indicadores y series económicas</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg>Imágenes satelitales y de calle</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-8A6 6 0 0 1 18 10a4 4 0 0 1 0 8z"/></svg>Clima y calidad ambiental</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2"/><circle cx="18" cy="7" r="2"/><path d="M8 17h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/></svg>Tráfico y movilidad</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V5l8-2v18M13 9h6v12M3 21h18M8 8h2M8 12h2M8 16h2"/></svg>Edificaciones y entorno urbano</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12v16H7a2 2 0 0 1-2-2z"/><path d="M17 8h3v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg>Noticias y medios</span><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></svg>Modelos de inteligencia artificial</span></div></div></div>
     <div class="gp-card dl" data-sys="data">
       <div>
         <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=01e3463c" alt="Data Lab"></div>
@@ -296,23 +301,30 @@ document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpCl
 })();
 </script>
 <script>
-/* Fondo de la landing: corrientes de datos sobre un campo de flujo (ligero, se detiene si no se ve) */
+/* Fondo de la landing: red neuronal tenue; pulsos dorados de activación recorren las conexiones (ligero, se pausa si no se ve) */
 (function () {
-  var cv = document.getElementById("gpCv"); if (!cv || !cv.getContext) return; var cx = cv.getContext("2d"), W = 0, H = 0, P = [], t = 0, stat = false;
+  var cv = document.getElementById("gpCv"); if (!cv || !cv.getContext) return; var cx = cv.getContext("2d"), W = 0, H = 0, N = [], PL = [], stat = false, R = 180;
   try { stat = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { }
-  function ang(x, y) { return (Math.sin(x * .0016 + t * .22) + Math.cos(y * .0023 - t * .17) + Math.sin((x + y) * .0009 + t * .11) * 1.2) * 1.15; }
-  function nuevo(p) { p.x = Math.random() * W; p.y = Math.random() * H; p.v = .5 + Math.random() * .8; p.l = 220 + Math.random() * 420; p.d = Math.random() < .13; p.w = p.d ? 1.1 : .7 + Math.random() * .5; return p; }
-  function dim() { var r = Math.min(window.devicePixelRatio || 1, 1.75), b = cv.getBoundingClientRect(); W = Math.max(320, b.width); H = Math.max(240, b.height); cv.width = W * r; cv.height = H * r; cx.setTransform(r, 0, 0, r, 0, 0); var n = Math.round(Math.min(700, W * H / 2600)); P = []; for (var i = 0; i < n; i++) P.push(nuevo({})); }
+  function dim() { var r = Math.min(window.devicePixelRatio || 1, 2), b = cv.getBoundingClientRect(); W = Math.max(320, b.width); H = Math.max(240, b.height); cv.width = W * r; cv.height = H * r; cx.setTransform(r, 0, 0, r, 0, 0); R = Math.min(200, Math.max(130, W / 8));
+    var n = Math.round(Math.min(58, Math.max(24, W * H / 30000))); N = []; PL = []; for (var i = 0; i < n; i++) N.push({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .16, vy: (Math.random() - .5) * .16, r: 1.3 + Math.random() * 1.8, g: Math.random() < .14, f: 0 }); }
+  function ligas() { var L = []; for (var i = 0; i < N.length; i++) for (var j = i + 1; j < N.length; j++) { var d = Math.hypot(N[i].x - N[j].x, N[i].y - N[j].y); if (d < R) L.push([i, j, d]); } return L; }
+  function pulso(a, b) { PL.push({ a: a, b: b, p: 0, s: .011 + Math.random() * .006 }); }
   function paso() {
-    cx.globalCompositeOperation = "destination-out"; cx.fillStyle = "rgba(0,0,0,.02)"; cx.fillRect(0, 0, W, H); cx.globalCompositeOperation = "source-over"; t += .016;
-    for (var i = 0; i < P.length; i++) { var p = P[i], a = ang(p.x, p.y), nx = p.x + Math.cos(a) * p.v * 1.5, ny = p.y + Math.sin(a) * p.v * 1.5;
-      cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(nx, ny); cx.strokeStyle = p.d ? "rgba(188,147,58,.5)" : "rgba(71,85,105,.26)"; cx.lineWidth = p.w; cx.lineCap = "round"; cx.stroke();
-      p.x = nx; p.y = ny; if (--p.l < 0 || nx < -20 || nx > W + 20 || ny < -20 || ny > H + 20) nuevo(p); }
+    cx.clearRect(0, 0, W, H);
+    for (var i = 0; i < N.length; i++) { var n = N[i]; n.x += n.vx; n.y += n.vy; if (n.x < -30) n.x = W + 30; else if (n.x > W + 30) n.x = -30; if (n.y < -30) n.y = H + 30; else if (n.y > H + 30) n.y = -30; n.f *= .94; }
+    var L = ligas(); cx.lineWidth = .7;
+    for (i = 0; i < L.length; i++) { var l = L[i], a = N[l[0]], b = N[l[1]]; cx.strokeStyle = "rgba(71,85,105," + ((1 - l[2] / R) * .17).toFixed(3) + ")"; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
+    if (!stat && PL.length < 3 && L.length && Math.random() < .018) { var q = L[Math.floor(Math.random() * L.length)]; Math.random() < .5 ? pulso(q[0], q[1]) : pulso(q[1], q[0]); }
+    for (i = PL.length - 1; i >= 0; i--) { var u = PL[i], A = N[u.a], B = N[u.b]; u.p += u.s; var px = A.x + (B.x - A.x) * u.p, py = A.y + (B.y - A.y) * u.p, t0 = Math.max(0, u.p - .22), qx = A.x + (B.x - A.x) * t0, qy = A.y + (B.y - A.y) * t0;
+      var gr = cx.createLinearGradient(qx, qy, px, py); gr.addColorStop(0, "rgba(190,150,62,0)"); gr.addColorStop(1, "rgba(190,150,62,.75)"); cx.strokeStyle = gr; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(qx, qy); cx.lineTo(px, py); cx.stroke(); cx.lineWidth = .7;
+      if (u.p >= 1) { B.f = 1; PL.splice(i, 1); var vec = []; for (var k = 0; k < L.length; k++) { if (L[k][0] === u.b && L[k][1] !== u.a) vec.push(L[k][1]); else if (L[k][1] === u.b && L[k][0] !== u.a) vec.push(L[k][0]); } if (vec.length && Math.random() < .8 && PL.length < 5) pulso(u.b, vec[Math.floor(Math.random() * vec.length)]); } }
+    for (i = 0; i < N.length; i++) { n = N[i]; if (n.f > .05) { var h = cx.createRadialGradient(n.x, n.y, 0, n.x, n.y, 16); h.addColorStop(0, "rgba(214,176,92," + (.42 * n.f).toFixed(3) + ")"); h.addColorStop(1, "rgba(214,176,92,0)"); cx.fillStyle = h; cx.beginPath(); cx.arc(n.x, n.y, 16, 0, 6.2832); cx.fill(); }
+      cx.fillStyle = n.g ? "rgba(184,142,52,.8)" : "rgba(71,85,105,.5)"; cx.beginPath(); cx.arc(n.x, n.y, n.r, 0, 6.2832); cx.fill(); }
   }
   function vivo() { var l = document.getElementById("gpLogin"); if (!l || document.hidden) return false; var cs = getComputedStyle(l); return cs.display !== "none" && cs.visibility !== "hidden" && l.getBoundingClientRect().height > 0; }
   var ult = 0; function bucle(ts) { requestAnimationFrame(bucle); if (ts - ult < 33 || !vivo()) return; ult = ts; paso(); }
   dim(); var rz; window.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(dim, 250); });
-  if (stat) { for (var k = 0; k < 420; k++) paso(); } else requestAnimationFrame(bucle);
+  if (stat) paso(); else requestAnimationFrame(bucle);
 })();
 </script>
 </body>
