@@ -82,7 +82,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-base-t h3{margin:0 0 6px;font:800 34px system-ui,sans-serif;background:linear-gradient(90deg,#67e8f9,#a5b4fc,#f9a8d4,#fdba74,#67e8f9);background-size:240% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:gpTxt 8s linear infinite}
 @keyframes gpTxt{to{background-position:240% 0}}
 .gp-base-t p{margin:0 0 12px;font-size:14px;line-height:1.5;color:#cbd5e1;max-width:520px}
-.gp-chips{display:flex;flex-wrap:wrap;gap:7px}.gp-chips i{font-style:normal;font:700 11px system-ui,sans-serif;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e2e8f0;animation:gpChip 6s ease-in-out infinite}
+.gp-chips{display:flex;flex-direction:column;gap:9px}.gp-grp b{display:block;font:800 10px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#0e7490;margin:0 0 4px}.gp-grp div{display:flex;flex-wrap:wrap;gap:6px}.gp-chips i{font-style:normal;font:700 11px system-ui,sans-serif;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#e2e8f0;animation:gpChip 6s ease-in-out infinite}
 .gp-chips i:nth-child(2n){animation-delay:-1.5s}.gp-chips i:nth-child(3n){animation-delay:-3s}.gp-chips i:nth-child(5n){animation-delay:-4.5s}
 @keyframes gpChip{0%,100%{background:rgba(255,255,255,.1);transform:translateY(0)}50%{background:rgba(34,211,238,.22);transform:translateY(-3px)}}
 .gp-base .gp-card{flex:0 0 340px;animation:none}
@@ -176,11 +176,11 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     <div class="gp-uplab"><span>⬆ ⬆ ⬆</span> los datos, indicadores y fuentes de Data Lab alimentan a los tres sistemas <span>⬆ ⬆ ⬆</span></div>
     <div class="gp-base" id="gpBase">
       <div class="gp-base-i">
-        <div class="gp-base-t"><span class="gp-base-k">LA BASE · INFRAESTRUCTURA DE DATOS</span><h3>Data Lab</h3><p>Catálogo de fuentes, indicadores y series que sustenta a Geo Lab, EconoLab y Media Lab: lo que se mide, de dónde viene y cómo se calcula.</p>
-          <div class="gp-chips"><i>INEGI · BIE/BISE</i><i>Censo 2020</i><i>DENUE</i><i>OpenStreetMap</i><i>Google</i><i>GDELT · Noticias</i><i>Indicadores propios</i></div></div>
+        <div class="gp-base-t"><span class="gp-base-k">LA BASE · INFRAESTRUCTURA DE DATOS</span><h3>Data Lab</h3><p>Catálogo de las fuentes de datos, indicadores y series que sustentan a Geo Lab, EconoLab y Media Lab: lo que se mide, de dónde viene y cómo se calcula.</p>
+          <div class="gp-chips"><div class="gp-grp"><b>Población y territorio · INEGI</b><div><i>Censo de Población y Vivienda 2020</i><i>Marco Geoestadístico</i><i>Cartografía de servicios y ejes viales</i><i>DENUE</i><i>Encuesta Intercensal 2025</i><i>ENIGH 2024 (ingreso)</i><i>Entorno urbano del Censo 2020</i><i>Inventario Nacional de Viviendas 2020</i></div></div><div class="gp-grp"><b>Mapas, satélite y entorno</b><div><i>OpenStreetMap</i><i>Overpass API</i><i>Nominatim</i><i>Valhalla (isócronas)</i><i>Esri World Imagery</i><i>Huellas de edificios Microsoft</i><i>GHS-BUILT-H (altura)</i><i>GHS-BUILT-S (crecimiento urbano)</i><i>Terrain Tiles (elevación)</i><i>ESA WorldCover</i><i>Sentinel-2</i><i>Open-Meteo (clima y aire)</i></div></div><div class="gp-grp"><b>Servicios de Google</b><div><i>Street View</i><i>Maps Static</i><i>Routes (tráfico)</i><i>Places</i><i>Map Tiles 3D</i><i>APIs ambientales (Solar, aire, polen, clima)</i><i>Vertex AI (Gemini imagen)</i></div></div><div class="gp-grp"><b>Inteligencia artificial</b><div><i>Claude (Anthropic)</i></div></div><div class="gp-grp"><b>Economía · INEGI · BIE/BISE</b><div><i>INPC</i><i>IGAE</i><i>Actividad industrial (IMAI)</i><i>PIB trimestral (OUT)</i><i>ENOE</i><i>Confianza del consumidor</i><i>Opinión empresarial (EMOE)</i><i>Industria manufacturera (EMIM)</i><i>Balanza comercial</i><i>Personal ocupado (IGPOSE)</i><i>Remuneraciones (IGRESE)</i><i>Remuneraciones medias reales</i><i>Industria automotriz</i><i>Viajeros internacionales (EVI)</i><i>Indicadores cíclicos</i><i>ITAEE estatal</i><i>Series por estado y ciudad</i><i>Series desestacionalizadas</i></div></div><div class="gp-grp"><b>Noticias y medios</b><div><i>GDELT</i><i>Google Noticias (RSS)</i><i>NewsData.io</i><i>GNews</i></div></div></div></div>
     <div class="gp-card dl" data-sys="data">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=efef31a8" alt="Data Lab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="datalab-logo.png?v=01e3463c" alt="Data Lab"></div>
         <h2>Sistema de Datos y Fuentes</h2>
         <p class="s">acceso restringido</p>
       </div>
@@ -229,8 +229,8 @@ function gpAbre(sys) {
     gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=24d7e6c5", () => window.ecolabInit && window.ecolabInit()));
   } else if (sys === "data") {
     document.getElementById("datalab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=efef31a8"; document.head.appendChild(l);
-    gpCarga("datalab-fuentes.js?v=efef31a8", () => gpCarga("datalab-indicadores.js?v=efef31a8", () => gpCarga("datalab-inegi.js?v=efef31a8", () => gpCarga("datalab-geo.js?v=efef31a8", () => gpCarga("datalab.js?v=efef31a8", () => window.datalabInit && window.datalabInit())))));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "datalab.css?v=01e3463c"; document.head.appendChild(l);
+    gpCarga("datalab-fuentes.js?v=01e3463c", () => gpCarga("datalab-indicadores.js?v=01e3463c", () => gpCarga("datalab-inegi.js?v=01e3463c", () => gpCarga("datalab-geo.js?v=01e3463c", () => gpCarga("datalab.js?v=01e3463c", () => window.datalabInit && window.datalabInit())))));
   } else {
     document.getElementById("geometrika-host").style.display = "";
     gpCarga("geometrika.js?v=2504", () => window.geometrikaInit && window.geometrikaInit());
