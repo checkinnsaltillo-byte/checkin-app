@@ -170,3 +170,11 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-mapcol{flex:none;width:33.333vw;position:sticky;top:8px}.ml-mapcol .ml-map,.ml-emb .ml-mapcol .ml-map{height:calc(100vh - 110px);min-height:360px}
 .ml-cardcol{flex:1;min-width:0}.ml-split .ml-cards{grid-template-columns:repeat(auto-fill,minmax(max(240px,calc(33.333% - 12px)),1fr))}
 @media (max-width:900px){.ml-split{flex-direction:column}.ml-mapcol{width:100%;position:static}.ml-mapcol .ml-map{height:340px;min-height:0}}
+
+/* mapa 1/2 + tarjetas 1/2 (una columna); con el detalle abierto: mapa 1/3, tarjetas 1/3 y detalle 1/3 */
+.ml-split .ml-mapcol{width:calc(50% - 8px)}.ml-split .ml-cardcol{flex:none;width:calc(50% - 8px)}
+.ml-split .ml-cards{grid-template-columns:1fr}
+.ml-split .ml-card{flex-direction:row}.ml-split .ml-card .im{width:200px;height:auto;min-height:140px;flex:none}
+.ml-det-on .ml-main{padding-right:33.333vw}.ml-det-on .ml-det,.ml-det-on .ml-det.wide{width:33.333vw}
+.ml-det-on .ml-split .ml-card .im{width:130px}
+@media (max-width:900px){.ml-split .ml-mapcol,.ml-split .ml-cardcol{width:100%}.ml-split .ml-card{flex-direction:column}.ml-split .ml-card .im{width:auto;height:120px;min-height:0}.ml-det-on .ml-main{padding-right:20px}}
