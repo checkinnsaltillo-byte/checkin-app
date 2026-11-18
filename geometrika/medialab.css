@@ -685,3 +685,7 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-dbl input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;pointer-events:auto;width:11px;height:18px;border-radius:4px;background:#fff;border:2px solid #7c3aed;box-shadow:0 1px 5px rgba(0,0,0,.6);cursor:ew-resize}
 .nr-dbl input::-moz-range-thumb{pointer-events:auto;width:8px;height:14px;border-radius:4px;background:#fff;border:2px solid #7c3aed;cursor:ew-resize}
 .nr-cooc rect.fr{pointer-events:none}
+
+/* gráfica temporal en vista de series */
+.nr svg .ly.sr{fill:none}.nr svg .ly.sr:hover{stroke-width:4.2}.nr-svg .ey{font-size:8px;fill:#94a3b8}
+.nr-p h4 .nr-sel+.nr-sel{margin-left:2px}
