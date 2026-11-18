@@ -133,24 +133,23 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-wave .g1{animation:gpRun 15s linear infinite}.gp-wave .g2{animation:gpRun 21s linear infinite -7s;stroke:rgba(190,150,62,.62)}.gp-wave .g3{animation:gpRun 27s linear infinite -13s;stroke:rgba(190,150,62,.5)}.gp-wave .g4{animation:gpRun 24s linear infinite -4s;stroke:rgba(190,150,62,.5)}
 @keyframes gpRun{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
 @media (prefers-reduced-motion:reduce){.gp-mesh,.gp-scan,.gp-wave,.gp-wave .wg{animation:none!important}}
+/* ═══ Fondo v2: perla con corrientes de datos (campo de flujo) y luz champán que respira ═══ */
+.gp-bg{background:linear-gradient(180deg,#fdfdfd 0%,#f3f5f8 55%,#eceff4 100%)}
+.gp-glow{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none}
+.gp-glow.g1{width:52vmax;height:52vmax;right:-14vmax;top:-20vmax;background:radial-gradient(circle,rgba(226,200,142,.42),transparent 66%);animation:gpBreath 19s ease-in-out infinite alternate}
+.gp-glow.g2{width:46vmax;height:46vmax;left:-16vmax;bottom:-22vmax;background:radial-gradient(circle,rgba(226,200,142,.3),transparent 66%);animation:gpBreath 25s ease-in-out infinite alternate-reverse}
+.gp-glow.g3{width:40vmax;height:40vmax;left:32vmax;top:22vmax;background:radial-gradient(circle,rgba(255,255,255,.95),transparent 64%);animation:gpBreath 30s ease-in-out infinite alternate}
+@keyframes gpBreath{from{transform:translate(0,0) scale(1);opacity:.85}to{transform:translate(4vmax,3vmax) scale(1.14);opacity:1}}
+.gp-cv{position:absolute;inset:0;width:100%;height:100%;opacity:.95}
+.gp-vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(148,163,184,.16) 100%)}
+@media (prefers-reduced-motion:reduce){.gp-glow{animation:none!important}}
 @media (max-width:700px){.gp-wrap{gap:14px}.gp-card{padding:26px 22px 20px}}
 </style>
 </head>
 <body>
 <div id="gpLogin" class="gp-login">
   <div class="gp-bg" aria-hidden="true">
-    <div class="gp-mesh"></div><div class="gp-scan"></div>
-    <svg class="gp-wave" viewBox="0 0 1440 700" preserveAspectRatio="xMidYMax slice" focusable="false">
-      <path class="w w3" pathLength="1000" d="M0 250 C140 214 230 290 360 248 S560 150 690 200 S890 292 1010 232 S1240 140 1350 176 S1420 206 1440 198"/>
-      <path class="w w2" pathLength="1000" d="M0 330 C120 298 220 366 340 330 S520 240 650 286 S860 372 980 316 S1200 236 1320 270 S1410 296 1440 288"/>
-      <path class="w wg g4" pathLength="1000" d="M0 250 C140 214 230 290 360 248 S560 150 690 200 S890 292 1010 232 S1240 140 1350 176 S1420 206 1440 198"/>
-      <path class="w w3" pathLength="1000" d="M0 430 C110 400 190 470 300 436 S470 340 590 380 S760 470 880 420 S1110 330 1230 366 S1380 410 1440 392"/>
-      <path class="w w2" pathLength="1000" d="M0 520 C130 478 210 560 340 520 S520 420 650 470 S840 560 960 500 S1190 410 1310 450 S1410 480 1440 470"/>
-      <path class="w w1" pathLength="1000" d="M0 610 C120 566 220 640 350 600 S540 500 670 552 S880 640 1000 580 S1230 490 1340 528 S1420 556 1440 548"/>
-      <path class="w wg g1" pathLength="1000" d="M0 610 C120 566 220 640 350 600 S540 500 670 552 S880 640 1000 580 S1230 490 1340 528 S1420 556 1440 548"/>
-      <path class="w wg g2" pathLength="1000" d="M0 520 C130 478 210 560 340 520 S520 420 650 470 S840 560 960 500 S1190 410 1310 450 S1410 480 1440 470"/>
-      <path class="w wg g3" pathLength="1000" d="M0 430 C110 400 190 470 300 436 S470 340 590 380 S760 470 880 420 S1110 330 1230 366 S1380 410 1440 392"/>
-    </svg>
+    <div class="gp-glow g1"></div><div class="gp-glow g2"></div><div class="gp-glow g3"></div><canvas class="gp-cv" id="gpCv"></canvas><div class="gp-vig"></div>
   </div>
   <div class="gp-land" id="gpLand">
     <div class="gp-brand"><img class="gp-metrika" src="metrika-logo.png" alt="Metrika Business Intelligence"><div class="gp-tag">Plataforma integral de inteligencia · <b>Data Lab</b> es la base de todos los sistemas</div></div>
@@ -294,6 +293,26 @@ document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpCl
   }
   let t; const go = () => { clearTimeout(t); t = setTimeout(flujo, 80); };
   addEventListener("resize", go); addEventListener("load", go); if (window.ResizeObserver) { const r = new ResizeObserver(go); const l = document.getElementById("gpLand"); if (l) r.observe(l); } setTimeout(flujo, 300); setTimeout(flujo, 1500);
+})();
+</script>
+<script>
+/* Fondo de la landing: corrientes de datos sobre un campo de flujo (ligero, se detiene si no se ve) */
+(function () {
+  var cv = document.getElementById("gpCv"); if (!cv || !cv.getContext) return; var cx = cv.getContext("2d"), W = 0, H = 0, P = [], t = 0, stat = false;
+  try { stat = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { }
+  function ang(x, y) { return (Math.sin(x * .0016 + t * .22) + Math.cos(y * .0023 - t * .17) + Math.sin((x + y) * .0009 + t * .11) * 1.2) * 1.15; }
+  function nuevo(p) { p.x = Math.random() * W; p.y = Math.random() * H; p.v = .5 + Math.random() * .8; p.l = 220 + Math.random() * 420; p.d = Math.random() < .13; p.w = p.d ? 1.1 : .7 + Math.random() * .5; return p; }
+  function dim() { var r = Math.min(window.devicePixelRatio || 1, 1.75), b = cv.getBoundingClientRect(); W = Math.max(320, b.width); H = Math.max(240, b.height); cv.width = W * r; cv.height = H * r; cx.setTransform(r, 0, 0, r, 0, 0); var n = Math.round(Math.min(700, W * H / 2600)); P = []; for (var i = 0; i < n; i++) P.push(nuevo({})); }
+  function paso() {
+    cx.globalCompositeOperation = "destination-out"; cx.fillStyle = "rgba(0,0,0,.02)"; cx.fillRect(0, 0, W, H); cx.globalCompositeOperation = "source-over"; t += .016;
+    for (var i = 0; i < P.length; i++) { var p = P[i], a = ang(p.x, p.y), nx = p.x + Math.cos(a) * p.v * 1.5, ny = p.y + Math.sin(a) * p.v * 1.5;
+      cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(nx, ny); cx.strokeStyle = p.d ? "rgba(188,147,58,.5)" : "rgba(71,85,105,.26)"; cx.lineWidth = p.w; cx.lineCap = "round"; cx.stroke();
+      p.x = nx; p.y = ny; if (--p.l < 0 || nx < -20 || nx > W + 20 || ny < -20 || ny > H + 20) nuevo(p); }
+  }
+  function vivo() { var l = document.getElementById("gpLogin"); if (!l || document.hidden) return false; var cs = getComputedStyle(l); return cs.display !== "none" && cs.visibility !== "hidden" && l.getBoundingClientRect().height > 0; }
+  var ult = 0; function bucle(ts) { requestAnimationFrame(bucle); if (ts - ult < 33 || !vivo()) return; ult = ts; paso(); }
+  dim(); var rz; window.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(dim, 250); });
+  if (stat) { for (var k = 0; k < 420; k++) paso(); } else requestAnimationFrame(bucle);
 })();
 </script>
 </body>
