@@ -177,7 +177,7 @@
 
   /* ───────── asistente: crear / editar proyecto ───────── */
   const PASOS = ["1 · Proyecto", "2 · Términos", "3 · Zona", "4 · Periodo y volumen", "5 · Periodicidad", "6 · Lanzar"];
-  const WNEW = () => ({ paso: 0, id: null, titulo: "", objetivo: "", terminos: "", estados: [], ciudades: "", estricta: false, tipo: "movil", dias: 7, desde: "", hasta: "", max: 5000, idiomas: ["spanish"], medios: "", proveedor: "gdelt", periodicidad: "manual", texto: true, textoMax: 500, ia: true, iaMax: 0, geo: false, est: null, lanzando: null });
+  const WNEW = () => ({ paso: 0, id: null, titulo: "", objetivo: "", terminos: "", estados: [], ciudades: "", estricta: false, tipo: "movil", dias: 7, desde: "", hasta: "", max: 5000, idiomas: ["spanish"], medios: "", proveedor: "grss", periodicidad: "manual", texto: true, textoMax: 500, ia: true, iaMax: 0, geo: false, est: null, lanzando: null });
   function nuevo() { S.W = WNEW(); S.modo = "crear"; titulo("Crear proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); }
   async function cargaProv() { try { S.prov = await api("/proveedores"); } catch (e) { S.prov = { proveedores: {}, estados: {}, error: e.message }; } if (S.modo === "crear") principal(); }
   async function editar(id) {
