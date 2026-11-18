@@ -78,7 +78,7 @@
     const side = $("#mlSide"); if (!side) return;
     let h = `<div class="ml-seg"><button type="button" data-go="tablero" class="${S.modo === "tablero" ? "on" : ""}">📰 Tablero</button><button type="button" data-go="crear" class="${S.modo === "crear" ? "on" : ""}">➕ Crear proyecto</button></div><div class="ml-h4">Proyectos (${S.proy.length})</div>`;
     h += S.proy.length ? S.proy.map(p => { const w = p.estado && p.estado.trabajo, en = enCurso(p); return `<div class="ml-pj${p.id === S.sel ? " on" : ""}" data-pj="${p.id}"><b>${esc(p.titulo)}</b><small>${nf(p.estado && p.estado.total)} noticias · ${nf(p.config && p.config.nTerminos)} términos · ${esc(PER[p.config && p.config.periodicidad] || "")}</small>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : p.estado && p.estado.ultima ? `<span class="ml-chip ok">✓ ${esc(fechaC(p.estado.ultima))}</span>` : `<span class="ml-chip">sin extraer</span>`}${w && w.ultimoError && !en ? `<span class="ml-chip err" title="${esc(w.ultimoError)}">avisos</span>` : ""}
-        <div class="ml-acc"><button type="button" data-ed="${p.id}">✏️ Editar</button>${en ? "" : `<button type="button" data-ex="${p.id}">↻ Extraer</button>`}<button type="button" data-del="${p.id}">🗑</button></div></div>`; }).join("") : `<div class="ml-vacio">Aún no hay proyectos.<br>Crea el primero con «Crear proyecto».</div>`;
+        <div class="ml-acc"><button type="button" data-ed="${p.id}">✏️ Editar</button>${en ? "" : `<button type="button" data-ex="${p.id}" title="Trae solo lo nuevo desde la última extracción (o todo el periodo si el proyecto está vacío)">↻ Extraer</button><button type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado">⟲ Todo</button>`}<button type="button" data-del="${p.id}">🗑</button></div></div>`; }).join("") : `<div class="ml-vacio">Aún no hay proyectos.<br>Crea el primero con «Crear proyecto».</div>`;
     if (S.modo === "tablero" && S.sel && S.data) h += filtros();
     side.innerHTML = h;
   }
@@ -121,7 +121,7 @@
     if (!p) { m.innerHTML = `<div class="ml-vacio"><h3>Bienvenido a Media Lab</h3>Monitor masivo de noticias. Crea un proyecto con los términos, la zona y el periodo que te interesan, o elige uno de la lista.<br><br><button class="ml-btn" type="button" data-go="crear">➕ Crear proyecto</button></div>`; return; }
     const d = S.data, en = enCurso(p);
     let h = `<div class="ml-kp"><div><b>${nf(d ? d.total : 0)}</b><span>noticias con estos filtros</span></div><div><b>${nf(p.estado && p.estado.total)}</b><span>noticias en el proyecto</span></div><div><b>${nf(p.config && p.config.nTerminos)}</b><span>términos de interés</span></div><div><b>${p.estado && p.estado.ultima ? esc(fechaC(p.estado.ultima)) : "—"}</b><span>última extracción${p.estado && p.estado.proxima ? " · próxima " + esc(fechaC(p.estado.proxima)) : ""}</span></div></div>`;
-    h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : `<button class="ml-btn" type="button" data-ex="${p.id}">↻ Extraer ahora</button>`}</div><div id="mlProg"></div>`;
+    h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : `<button class="ml-btn2" type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado y agrega las notas que falten">⟲ Extraer todo el periodo</button> <button class="ml-btn" type="button" data-ex="${p.id}" title="Solo lo nuevo desde la última extracción">↻ Extraer ahora</button>`}</div><div id="mlProg"></div>`;
     if (p.objetivo) h += `<div class="ml-sem"><span>🎯 ${esc(p.objetivo)}</span></div>`;
     if (S.vista === "mapa") h += `<div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div>`;
     else if (!d) h += `<div class="ml-vacio">Cargando noticias…</div>`;
@@ -231,12 +231,12 @@
       await cargaProy(); lado();
     } catch (e) { W.lanzando = Object.assign(W.lanzando || {}, { error: e.message }); if (S.modo === "crear") wizard(); toast(e.message, true); }
   }
-  async function extraer(id) {
+  async function extraer(id, completa) {
     if (S.extrayendo && S.extrayendo.has(id)) { toast("Ya hay una extracción en curso en este proyecto"); return; } (S.extrayendo = S.extrayendo || new Set()).add(id);
     lado(); if (S.sel === id && S.modo === "tablero") principal(); pintaProg();
     clearInterval(S.poll); S.poll = setInterval(async () => { await cargaProy(); const p = S.proy.find(x => x.id === id); if (p) { $$(`.ml-pj[data-pj="${id}"] .ml-chip`).forEach(c => { if (c.dataset.chip) c.textContent = chipEn(p); }); pintaProg(); } }, 2000);
     toast("Extracción iniciada…"); try {
-      let r = await post(`/proyectos/${id}/extraer`, {}), a = avance(r); for (let i = 0; i < 2000 && !(a.fase === "fin" || a.fin); i++) { await cargaProy(); pintaProg(); await new Promise(res => setTimeout(res, a.ocupado ? 3000 : 800)); r = await post(`/proyectos/${id}/avanzar`, {}); a = avance(r); } const wf = r.proyecto && r.proyecto.estado && r.proyecto.estado.trabajo; if (wf && wf.aviso) toast(wf.aviso); if (wf && !wf.nuevas) toast("La extracción terminó sin notas nuevas" + (wf.desde ? " (periodo consultado: " + fechaC(wf.desde) + " → " + fechaC(wf.hasta) + ")" : "") + ". Prueba ampliar el periodo o quitar el filtro de zona estricta.", true);
+      let r = await post(`/proyectos/${id}/extraer`, completa ? { completa: true } : {}), a = avance(r); for (let i = 0; i < 2000 && !(a.fase === "fin" || a.fin); i++) { await cargaProy(); pintaProg(); await new Promise(res => setTimeout(res, a.ocupado ? 3000 : 800)); r = await post(`/proyectos/${id}/avanzar`, {}); a = avance(r); } const wf = r.proyecto && r.proyecto.estado && r.proyecto.estado.trabajo; if (wf && wf.aviso) toast(wf.aviso); if (wf && !wf.nuevas) toast("La extracción terminó sin notas nuevas" + (wf.desde ? " (periodo consultado: " + fechaC(wf.desde) + " → " + fechaC(wf.hasta) + ")" : "") + ". Prueba ampliar el periodo o quitar el filtro de zona estricta.", true);
       S.extrayendo.delete(id); clearInterval(S.poll); await cargaProy(); toast("Extracción terminada"); if (S.sel === id) { await consulta(); } else lado();
     } catch (e) { toast(e.message, true); await cargaProy(); lado(); } finally { S.extrayendo.delete(id); clearInterval(S.poll); lado(); if (S.sel === id && S.modo === "tablero") principal(); }
   }
@@ -255,7 +255,7 @@
       else if (k === "resumen" && S.det && S.det.n) abreDet(S.det.n.id, true); return;
     }
     const pj = t.closest("[data-pj]"); if (pj && !t.closest(".ml-acc")) { selecciona(pj.dataset.pj); return; }
-    const ed = t.closest("[data-ed]"); if (ed) { editar(ed.dataset.ed); return; } const ex = t.closest("[data-ex]"); if (ex) { extraer(ex.dataset.ex); return; }
+    const ed = t.closest("[data-ed]"); if (ed) { editar(ed.dataset.ed); return; } const ex = t.closest("[data-ex]"); if (ex) { extraer(ex.dataset.ex); return; } const exa = t.closest("[data-exall]"); if (exa) { extraer(exa.dataset.exall, true); return; }
     const del = t.closest("[data-del]"); if (del) { const p = S.proy.find(x => x.id === del.dataset.del); if (p && confirm("¿Eliminar el proyecto «" + p.titulo + "» y todas sus noticias?")) api(`/proyectos/${p.id}`, { method: "DELETE" }).then(async () => { if (S.sel === p.id) { S.sel = null; S.data = null; } await cargaProy(); lado(); principal(); toast("Proyecto eliminado"); }).catch(er => toast(er.message, true)); return; }
     const v = t.closest("[data-v]"); if (v) { S.vista = v.dataset.v; S.det = null; principal(); consulta(); return; }
     const n = t.closest("[data-n]"); if (n) { abreDet(n.dataset.n); return; }
