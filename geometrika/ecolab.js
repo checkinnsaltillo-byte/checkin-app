@@ -18,7 +18,7 @@
   const QD = { exp: ["Expansión", "#34d399"], des: ["Desaceleración", "#fbbf24"], con: ["Contracción", "#fb7185"], rec: ["Recuperación", "#60a5fa"] };
   const PPY = { Mensual: 12, Trimestral: 4, Anual: 1 };
   const D = window.ECO_DATA || { indicadores: [] };
-  let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", zoom: {}, open: new Set(), serie: { mode: "ambas", rango: 120 } }, draws = [], tipEl;
+  let host, IND = [], AREAS = [], BYID = {}, S = { sel: "home", q: "", hist: [], zoom: {}, open: new Set(), serie: { mode: "ambas", rango: 120 } }, draws = [], tipEl;
 
   /* ───────── preparación de datos ───────── */
   /* ───────── ciclo: asignación de coordenadas, filtro HP y derivación desde la tendencia-ciclo ───────── */
@@ -908,6 +908,7 @@
   const rer = () => { const m = $("#ecoMain2"), st = m.scrollTop; ir(S.sel); m.scrollTop = st; };
   function ir(id) {
     if (id === "home") id = "nac";
+    if (!S._noPush && S.sel && S.sel !== id && S.sel !== "home") { S.hist.push(S.sel); if (S.hist.length > 40) S.hist.shift(); }
     S.sel = id; ls.set("eco_sel", id); S.zoom = {}; S.ficha = null; draws = []; tip(null); if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } if (S.cy) S.cy.playing = false; if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
     const main = $("#ecoMain2"), mo = modo(id); if (mo === "mon") S.lastMon = id; else S.lastCat = id;
     if (mo === "mon") {
@@ -923,8 +924,9 @@
     else if (id.startsWith("g:")) { const [an, gn] = id.slice(2).split("|"), a = AREAS.find(x => x.n === an), g = a && a.g.find(x => x.n === gn); if (!g) return ir("cat"); S.open.add("a:" + an); main.innerHTML = vistaPano(g.n, `<span class="eco-pill" style="--c:${a.col}">${esc(a.n)}</span><span class="eco-pill">${g.i.length} indicadores</span>`, g.i, `<a data-go="home">Panorama</a> › <a data-go="a:${esc(a.n)}">${esc(a.n)}</a>`); pintaPano(g.i); }
     else if (id.startsWith("a:")) { const a = AREAS.find(x => x.n === id.slice(2)); if (!a) return ir("cat"); S.open.add(id); const l = a.g.flatMap(g => g.i); main.innerHTML = vistaPano(a.n, `<span class="eco-pill" style="--c:${a.col}">${a.g.length} grupos</span><span class="eco-pill">${l.length} indicadores</span>`, l, `<a data-go="home">Panorama</a>`); pintaPano(l); }
     else { S.sel = "cat"; main.innerHTML = vistaHome(); draws.push(() => mapaCiclo($("#ecoMapa"))); }
+    { const fb = fueraBanner(id); if (fb) main.insertAdjacentHTML("afterbegin", fb); }
     draws.forEach(f => f()); main.scrollTop = 0; arbol(); $("#ecoApp").classList.remove("eco-menu");
-    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EconoLab"; const wq = $("#ecoWQ"); if (wq) wq.style.display = S.ficha ? "" : "none"; ecoFp(false); }
+    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EconoLab"; const wq = $("#ecoWQ"); if (wq) wq.style.display = S.ficha ? "" : "none"; ecoFp(false); const wb = $("#ecoWB"); if (wb) wb.style.display = S.hist.length ? "" : "none"; }
   }
   function arbolCat() {
     const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), F = ctxF(), pasa = I => (!F || !F.giro || (I.sectores && I.sectores.includes(F.giro))) && (!ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w)));
@@ -975,11 +977,12 @@
         <span class="eco-chip" title="Datos descargados de la API del INEGI">Datos: ${esc((D.generado || "").slice(0, 10))}</span>
         ${EMB ? '<button class="gl-back" id="glBack" type="button" title="Volver al menú de GeoLab">← Menú</button><img class="mt-logo" src="metrika-logo.png" alt="Metrika Business Intelligence">' : ""}<button class="eco-theme" id="ecoTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="ecoCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="ecoSalir" type="button">Salir</button></header>
       <div class="eco-body"><aside class="eco-side">${glTabs("eco")}<div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
-      ${EMB ? '<div class="eco-wbar"><b id="ecoWT">EconoLab</b><button type="button" class="eco-wq" id="ecoWQ" style="display:none" aria-label="¿De dónde sale cada dato de esta ficha?" title="¿De dónde sale cada dato de esta ficha?">?</button><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<div class="eco-fp" id="ecoFp" hidden></div><main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
+      ${EMB ? '<div class="eco-wbar"><button type="button" class="eco-wb" id="ecoWB" style="display:none" aria-label="Regresar a la vista anterior" title="Regresar a la vista anterior">←</button><b id="ecoWT">EconoLab</b><button type="button" class="eco-wq" id="ecoWQ" style="display:none" aria-label="¿De dónde sale cada dato de esta ficha?" title="¿De dónde sale cada dato de esta ficha?">?</button><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<div class="eco-fp" id="ecoFp" hidden></div><main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
     tipEl = document.createElement("div"); tipEl.className = "eco-tip"; document.body.appendChild(tipEl);
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
     $("#ecoSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();
-    if (EMB) { $("#ecoWQ", host).onclick = e => { e.stopPropagation(); const p = $("#ecoFp"); ecoFp(p && p.hidden); };
+    if (EMB) { $("#ecoWB", host).onclick = () => { const pv = S.hist.pop(); if (pv) { S._noPush = true; try { ir(pv); } finally { S._noPush = false; } } };
+      $("#ecoWQ", host).onclick = e => { e.stopPropagation(); const p = $("#ecoFp"); ecoFp(p && p.hidden); };
       document.addEventListener("click", e => { const p = $("#ecoFp"); if (p && !p.hidden && (e.target.closest("#ecoFp .eco-fpx") || !e.target.closest("#ecoFp, #ecoWQ"))) ecoFp(false); });
       $("#ecoWX", host).onclick = () => ecoWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const p = $("#ecoFp"); if (p && !p.hidden) ecoFp(false); else ecoWin(false); } }); } $("#ecoCambia", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
     const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro (aplica a GeoLab, EconoLab y DataLab)" : "Cambiar a tema claro (aplica a GeoLab, EconoLab y DataLab)"; if (!EMB) ls.set("eco_tema", c); };
@@ -997,10 +1000,18 @@
 
   /* ───────── contexto del proyecto: lugar del pin + giro de interés (los manda el encabezado de GeoLab) ───────── */
   const ctxF = () => S.ctx && S.ctxOn !== false && (S.ctx.ent || S.ctx.giro) ? S.ctx : null;
+  /* vista de origen del filtro (giro, ciudad o estado del proyecto) y aviso cuando se está fuera de ella */
+  function casaCtx() { const c = S.ctx; if (!c || S.ctxOn === false) return null; if (c.giro) return { id: "s:" + c.giro, n: SECBY[c.giro].ic + " " + SECBY[c.giro].n }; if (c.city) return { id: "c:" + c.city, n: CBY[c.city][1] }; if (c.ent) return { id: "e:" + c.ent, n: ENTBY[c.ent][1] }; return null; }
+  function fueraBanner(id) {
+    const c = S.ctx, h = casaCtx(); if (!h || !c) return "";
+    const ok = id === "nac" || id.startsWith("i:") || id === "sec" || id === "reg" || id === "ciu" || id.startsWith("z:") || id.startsWith("g:") || id.startsWith("a:") || id === "cat" || id === h.id || (c.giro && id === "s:" + c.giro) || (c.city && id === "c:" + c.city) || (c.ent && id === "e:" + c.ent) || (id.startsWith("s:") && !c.giro);
+    if (ok) return ""; const q = c.city ? CBY[c.city][1] + ", " + ENTBY[c.ent][1] : c.ent ? ENTBY[c.ent][1] : "", g = c.giro ? SECBY[c.giro].ic + " " + SECBY[c.giro].n : "";
+    return `<div class="eco-fuera"><span>⚠️ Estás viendo una vista <b>fuera de tu filtro</b> (${esc([q, g].filter(Boolean).join(" · "))}).</span><button type="button" data-go="${h.id}">↩ Volver a ${esc(h.n)}</button>${c.city ? `<button type="button" data-go="c:${c.city}">📍 ${esc(CBY[c.city][1])}</button>` : ""}${c.ent ? `<button type="button" data-go="e:${c.ent}">📍 ${esc(ENTBY[c.ent][1])}</button>` : ""}</div>`;
+  }
   function ctxBar() {
     const c = S.ctx; if (!c || !(c.ent || c.giro)) return "";
     const lug = c.ent ? (c.city ? CBY[c.city][1] + ", " : "") + ENTBY[c.ent][1] : "", gi = c.giro && SECBY[c.giro] ? SECBY[c.giro].ic + " " + SECBY[c.giro].n : "", on = S.ctxOn !== false;
-    return `<div class="eco-ctx${on ? " on" : ""}"><div class="eco-ctx-t">${on ? "Filtrado por" : "Filtro desactivado"}</div>${lug ? `<div class="eco-ctx-l">📍 ${esc(lug)}</div>` : ""}${gi ? `<div class="eco-ctx-l">${esc(gi)}</div>` : ""}<button type="button" class="eco-ctx-b" data-ctx="tog">${on ? "Ver todo" : "Aplicar filtro"}</button></div>`;
+    return `<div class="eco-ctx${on ? " on" : ""}"><div class="eco-ctx-t">${on ? "Filtrado por" : "Filtro desactivado"}</div>${lug ? `<div class="eco-ctx-l">📍 ${c.city ? `<button type="button" class="eco-ctx-go" data-go="c:${c.city}" title="Ver la ciudad">${esc(CBY[c.city][1])} ›</button>, ` : ""}<button type="button" class="eco-ctx-go" data-go="e:${c.ent}" title="Ver el estado">${esc(ENTBY[c.ent][1])} ›</button></div>` : ""}${gi ? `<div class="eco-ctx-l"><button type="button" class="eco-ctx-go" data-go="s:${c.giro}" title="Ver el sector">${esc(gi)} ›</button></div>` : ""}<button type="button" class="eco-ctx-b" data-ctx="tog">${on ? "Ver todo" : "Aplicar filtro"}</button></div>`;
   }
   function resuelveCtx(m) {
     const gname = norm(m.estado || ""), ent = m.ent && ENTBY[m.ent] ? ENTBY[m.ent] : gname ? ENT.filter(e => gname.includes(norm(e[1]))).sort((a, b) => b[1].length - a[1].length)[0] : null;
