@@ -161,3 +161,12 @@ a.ml-ent{display:inline-block;margin:0 5px 5px 0;padding:3px 10px;border:1px sol
 .ml-lay button.on{border-color:var(--ml-bd);background:var(--ml-bdbg)}
 .ml-det,.ml-light .ml-det{border-left-color:var(--ml-bd)}
 a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-color:var(--ml-bd)}
+
+/* menú hamburguesa y vista con mapa a la izquierda */
+.ml-ham{display:inline-flex;align-items:center;justify-content:center;width:38px;height:34px;border:1px solid var(--ml-ln);background:rgba(30,41,59,.7);color:var(--ml-tx);border-radius:10px;cursor:pointer;padding:0}.ml-ham:hover{border-color:var(--ml-bd)}.ml-ham svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.ml-light .ml-ham{background:rgba(255,255,255,.85)}.ml-emb .ml-ham{display:none}
+.ml-sidehide .ml-side{display:none}
+.ml-split{display:flex;gap:16px;align-items:flex-start}
+.ml-mapcol{flex:none;width:33.333vw;position:sticky;top:8px}.ml-mapcol .ml-map,.ml-emb .ml-mapcol .ml-map{height:calc(100vh - 110px);min-height:360px}
+.ml-cardcol{flex:1;min-width:0}.ml-split .ml-cards{grid-template-columns:repeat(auto-fill,minmax(max(240px,calc(33.333% - 12px)),1fr))}
+@media (max-width:900px){.ml-split{flex-direction:column}.ml-mapcol{width:100%;position:static}.ml-mapcol .ml-map{height:340px;min-height:0}}

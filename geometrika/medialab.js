@@ -70,11 +70,11 @@
   /* ───────── estructura ───────── */
   function shell() {
     host.innerHTML = `<div class="ml-app${EMB ? " ml-emb" : ""}${window.__mlTema === "osc" ? "" : " ml-light"}" id="mlApp">
-      <header class="ml-top"><span class="ml-sp"></span><button class="ml-theme" id="mlTema" type="button" title="Cambiar tema (aplica a GeoLab, EconoLab, DataLab y Media Lab)">🌙 Oscuro</button></header>
+      <header class="ml-top"><button class="ml-ham" id="mlHam" type="button" aria-label="Mostrar u ocultar el menú" title="Mostrar u ocultar el menú"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="ml-sp"></span><button class="ml-theme" id="mlTema" type="button" title="Cambiar tema (aplica a GeoLab, EconoLab, DataLab y Media Lab)">🌙 Oscuro</button></header>
       <div class="ml-body"><aside class="ml-side" id="mlSide"></aside>
         <div class="ml-wbar"><b id="mlWT">Media Lab</b><button class="ml-wx" id="mlWX" type="button" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>
         <main class="ml-main" id="mlMain"></main></div></div>`;
-    const app = $("#mlApp"); if (window.__mlTema) app.classList.toggle("ml-light", window.__mlTema !== "osc"); if (!EMB && !window.__mlTema) { let g = null; try { g = localStorage.getItem("ml_tema"); } catch (_) { } app.classList.toggle("ml-light", g !== "osc"); }
+    const app = $("#mlApp"); try { if (localStorage.getItem("ml_side") === "0") app.classList.add("ml-sidehide"); } catch (_) { } if (window.__mlTema) app.classList.toggle("ml-light", window.__mlTema !== "osc"); if (!EMB && !window.__mlTema) { let g = null; try { g = localStorage.getItem("ml_tema"); } catch (_) { } app.classList.toggle("ml-light", g !== "osc"); }
     temaPinta();
     $("#mlTema").onclick = () => { const claro = app.classList.contains("ml-light"); if (EMB) { try { parent.postMessage({ gl: "tema", v: claro ? "osc" : "claro" }, location.origin); } catch (_) { } } else { app.classList.toggle("ml-light"); try { localStorage.setItem("ml_tema", app.classList.contains("ml-light") ? "claro" : "osc"); } catch (_) { } temaPinta(); } };
     $("#mlWX").onclick = () => mlWin(false); document.addEventListener("keydown", e => { if (e.key === "Escape") { if (S.det) cierraDet(); else mlWin(false); } });
@@ -115,10 +115,9 @@
   async function consulta(mas) {
     if (!S.sel) return; if (S.cargando) return; S.cargando = true;
     try {
-      if (S.vista === "mapa") { await mapaDatos(); }
-      else { const p = qs(); p.set("n", "40"); p.set("pag", mas ? String(S.pag + 1) : "0"); const r = await api(`/proyectos/${S.sel}/noticias?${p}`); if (mas && S.data) { S.pag++; S.data.items = S.data.items.concat(r.items); S.data.total = r.total; } else { S.pag = 0; S.data = r; } }
+      const p = qs(); p.set("n", "40"); p.set("pag", mas ? String(S.pag + 1) : "0"); const rg = S.vista === "mapa" && !mas ? mapaDatos() : null, r = await api(`/proyectos/${S.sel}/noticias?${p}`);
+      if (mas && S.data) { S.pag++; S.data.items = S.data.items.concat(r.items); S.data.total = r.total; } else { S.pag = 0; S.data = r; } if (rg) await rg;
     } catch (e) { toast(e.message, true); } finally { S.cargando = false; }
-    if (S.vista !== "mapa" || !S.data) { if (S.vista === "mapa" && !S.data) { try { const p = qs(); p.set("n", "1"); S.data = await api(`/proyectos/${S.sel}/noticias?${p}`); } catch (_) { } } }
     lado(); principal();
   }
   async function selecciona(id) {
@@ -135,7 +134,8 @@
     h += `<div class="ml-ficha">${datosProy(p).map(([i, l, v]) => `<div><span>${i} ${esc(l)}</span><b>${v}</b></div>`).join("")}</div>`;
     h += `<div class="ml-tb"><div class="ml-seg" style="margin:0;width:260px"><button type="button" data-v="lista" class="${S.vista === "lista" ? "on" : ""}">📰 Noticias</button><button type="button" data-v="mapa" class="${S.vista === "mapa" ? "on" : ""}">🗺️ Mapa</button></div><span class="ml-sp"></span>${en ? `<span class="ml-chip run" data-chip="${p.id}">${chipEn(p)}</span>` : `<button class="ml-btn2" type="button" data-exall="${p.id}" title="Vuelve a recorrer todo el periodo configurado y agrega las notas que falten">⟲ Extraer todo el periodo</button> <button class="ml-btn" type="button" data-ex="${p.id}" title="Solo lo nuevo desde la última extracción">↻ Extraer ahora</button>`}</div><div id="mlProg"></div>`;
     if (p.objetivo) h += `<div class="ml-sem"><span>🎯 ${esc(p.objetivo)}</span></div>`;
-    if (S.vista === "mapa") h += `<div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div>`;
+    const cuerpo = !d ? `<div class="ml-vacio">Cargando noticias…</div>` : !d.items.length ? `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>` : `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
+    if (S.vista === "mapa") h += `<div class="ml-split"><div class="ml-mapcol"><div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div></div><div class="ml-cardcol">${cuerpo}</div></div>`;
     else if (!d) h += `<div class="ml-vacio">Cargando noticias…</div>`;
     else if (!d.items.length) h += `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>`;
     else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<button class="ml-btn2 ml-more" type="button" data-go="mas">Cargar más (${nf(d.items.length)} de ${nf(d.total)})</button>` : ""}`;
@@ -371,6 +371,7 @@
   /* ───────── eventos ───────── */
   function clic(e) {
     const t = e.target, go = t.closest("[data-go]");
+    const hm = t.closest("#mlHam"); if (hm) { const a = $("#mlApp"); if (a) { a.classList.toggle("ml-sidehide"); try { localStorage.setItem("ml_side", a.classList.contains("ml-sidehide") ? "0" : "1"); } catch (_) { } setTimeout(() => { if (S.mapa) S.mapa.invalidateSize(); }, 120); } return; }
     if (go) {
       const k = go.dataset.go, W = S.W;
       if (k === "tablero") { S.modo = "tablero"; titulo((S.proy.find(x => x.id === S.sel) || {}).titulo || "Media Lab"); lado(); principal(); if (S.sel && !S.data) consulta(); }
