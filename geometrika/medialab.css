@@ -260,3 +260,17 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-ff>summary .ml-btn2{padding:4px 10px;font-size:11.5px}
 .ml-ffg{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 12px;padding:4px 14px 12px;border-top:1px solid var(--ml-ln)}.ml-ffg .ml-f{margin:6px 0 0}
 .ml-ffg .ml-f:first-child{grid-column:span 2}
+
+/* encabezado ejecutivo */
+.ml-kx{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 8px}
+.ml-kx>div{position:relative;display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;color:#fff;overflow:hidden;box-shadow:0 8px 22px -10px rgba(15,23,42,.55)}
+.ml-kx>div:after{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.12)}
+.ml-kx .ico{flex:none;width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.3)}.ml-kx .ico .ml-ic{width:24px;height:24px;margin:0;color:#fff;stroke:#fff}
+.ml-kx>div>div{min-width:0}.ml-kx .lb{display:block;font:700 10.5px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+.ml-kx b{display:block;font-size:30px;line-height:1.1;font-weight:800;letter-spacing:-.02em;margin:2px 0 3px;white-space:nowrap}.ml-kx .k4 b{font-size:21px;margin:7px 0 5px}
+.ml-kx>div>div>span:last-child{font-size:11px;opacity:.88}
+.ml-kb{height:5px;border-radius:99px;background:rgba(255,255,255,.3);margin:2px 0 4px;overflow:hidden}.ml-kb i{display:block;height:100%;border-radius:99px;background:#fff}
+.ml-kx .k1{background:linear-gradient(135deg,#1e3a8a,#2563eb)}.ml-kx .k2{background:linear-gradient(135deg,#0f766e,#14b8a6)}.ml-kx .k3{background:linear-gradient(135deg,#6d28d9,#8b5cf6)}.ml-kx .k4{background:linear-gradient(135deg,#334155,#64748b)}
+.ml-meta{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0 2px 12px;font-size:11.5px;color:var(--ml-mut)}.ml-meta span{white-space:nowrap}.ml-meta em{font-style:normal;margin-right:2px}.ml-meta b{color:var(--ml-tx);font-weight:600}
+@media (max-width:1100px){.ml-kx{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ml-kx>div>div,.ml-kx>div .ico{background:none;border:0;box-shadow:none;padding:0}.ml-kx .ico{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3)}.ml-kx>div>div{flex:1}.ml-kx b,.ml-kx .lb,.ml-kx span{color:#fff}.ml-kx .lb{font-size:10.5px}
