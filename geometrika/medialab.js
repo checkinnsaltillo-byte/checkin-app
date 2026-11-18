@@ -173,7 +173,11 @@
     d.classList.remove("wide");
     d.innerHTML = `<button class="x" type="button" data-go="cierra">✕</button><div class="mt" style="font-size:12px;color:var(--ml-mut)"><b style="color:var(--ml-ac2)">${esc(n.med)}</b> · ${esc(fecha(n.f))}</div><h3>${esc(n.t)}</h3>
       ${n.img ? `<img class="g" src="${esc(n.img)}" alt="" onerror="this.remove()">` : ""}
-      <div class="ml-k3"><div><small>${ic("smile")}Sentimiento</small><b>${I && I.sent != null ? EMO(I.sent) + " " + I.sent + ` <em class="${sb[1]}">(${sb[0]})</em>` : "—"}</b></div><div><small>${ic("net")}Entidades detectadas</small><b>${lista.length}</b></div><div><small>${ic("users")}Población afectada (estimada)</small><b>${I && I.afe ? esc(I.afe.escN) + ` <em>${esc(I.afe.rango)}</em>` : I ? nf(I.pob) : "—"}</b></div></div>${I ? afeHtml(I) : ""}
+      <div class="ml-k3">
+        <div><small>${ic("smile")}Sentimiento</small><b class="v">${I && I.sent != null ? EMO(I.sent) + " " + I.sent + ` <em class="${sb[1]}">${sb[0]}</em>` : "—"}</b>${I && I.sent != null ? `<div class="ml-sb" title="Sentimiento ${I.sent} de 9"><span></span><i style="left:${((I.sent - 1) / 8 * 100).toFixed(1)}%"></i></div><div class="sub">Escala 1 a 9${I.pol != null ? ` · polarización ${I.pol}/10` : ""}</div>` : ""}</div>
+        <div><small>${ic("net")}Entidades detectadas</small><b class="v">${lista.length}</b><div class="ml-eb">${[["pers", "personas"], ["inst", "instituciones"], ["top", "tópicos"]].map(([t, nm]) => { const c = lista.filter(x => x[0] === t).length; return c ? `<span><i style="background:${TCOL[t] || "#22d3ee"}"></i>${c} ${nm}</span>` : ""; }).join("")}</div></div>
+        <div><small>${ic("users")}Población afectada</small><b class="v pb">${I && I.afe ? esc(I.afe.escN) : I ? nf(I.pob) : "—"}</b>${I && I.afe ? `<div class="sub">${esc(I.afe.rango)}</div>` : ""}</div>
+      </div>${I ? afeHtml(I) : ""}
       ${I ? "" : `<div class="ml-warn" style="margin:8px 0">Esta nota aún no tiene el análisis ampliado (sentimiento, riesgo, SCIAN, índices). <button class="ml-btn2" type="button" data-go="resumen" style="margin-left:6px">✨ Analizar con IA</button></div>`}
       <div class="ml-bl"><h5>${ic("pin")}Contexto</h5>
         <div>${L ? [L.estN, L.munN, L.zona, L.sitio].filter(Boolean).map(v => `<span class="ml-chip">${esc(v)}</span>`).join("") + `${metChip(L)}` : `<span class="ml-chip">Sin ubicación detectada</span>`}<span class="ml-chip">${esc(n.cat)}</span><span class="ml-chip">${esc(n.sub)}</span></div>
