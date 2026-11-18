@@ -424,3 +424,87 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 
 .ml-pc .mt span{display:inline-flex;align-items:center;gap:5px}.ml-pc .mt .ml-sv,.ml-meta .ml-sv,.ml-vg .ml-sv{width:13px;height:13px;color:#94a3b8;margin:0}.ml-vg .ml-sv{vertical-align:-2px;margin-right:4px;color:currentColor}
 .ml-meta span{display:inline-flex;align-items:center;gap:5px}
+
+/* filtros + KPIs fijos arriba; KPIs compactos en tono oscuro */
+.ml-fix{position:sticky;top:-16px;z-index:12;margin:-16px -20px 10px;padding:12px 20px 8px;background:var(--ml-bg,#0b1122);box-shadow:0 10px 18px -14px rgba(0,0,0,.55)}
+.ml-light .ml-fix{background:#eef2f8}
+.ml-emb .ml-fix{margin:-16px -18px 10px;padding:12px 18px 8px;background:#0b1122}.ml-light.ml-emb .ml-fix{background:#eef2f8}
+.ml-fix .ml-ff{margin:0 0 8px}
+.ml-fix .ml-ffg{max-height:34vh;overflow:auto}
+.ml-ff>summary{flex-wrap:nowrap}
+.ml-ff>summary .ml-fq{flex:1;min-width:120px;max-width:none;height:30px;padding:0 12px;border:1px solid var(--ml-ln);border-radius:99px;background:rgba(148,163,184,.1);color:inherit;font:500 12.5px system-ui,sans-serif;outline:none}
+.ml-ff>summary .ml-fq:focus{border-color:var(--ml-ac)}
+.ml-ff>summary em{flex:none;white-space:nowrap}
+.ml-fix .ml-k4w{gap:8px;margin:0}
+.ml-fix .ml-k4w .k{gap:10px;padding:9px 12px;border-radius:12px;background:linear-gradient(150deg,#0f172a,#1e293b);border:1px solid #263449;box-shadow:0 6px 14px -10px rgba(0,0,0,.7)}
+.ml-fix .ml-k4w .k:before{height:2px}.ml-fix .ml-k4w .k:after{opacity:.08}
+.ml-fix .ml-k4w .ico{width:34px;height:34px;border-radius:10px;box-shadow:none}.ml-fix .ml-k4w .ml-ic2{width:19px;height:19px}
+.ml-fix .ml-k4w .lb{font-size:9.5px;color:#94a3b8}
+.ml-fix .ml-k4w b{font-size:21px;color:#f1f5f9}.ml-fix .ml-k4w .k4 b{font-size:16px;margin:2px 0}
+.ml-fix .ml-k4w .pill{font-size:10px;padding:1px 7px;color:#e2e8f0;background:rgba(148,163,184,.16)}
+.ml-fix .ml-k4w .kbar{height:4px;background:rgba(148,163,184,.25)}
+.ml-fix .ml-k4w .rg{width:36px;height:36px}.ml-fix .ml-k4w .rg text{fill:#f1f5f9}
+.ml-fix .ml-k4w .tx{gap:1px}
+
+/* ===== pasada minimalista: menos recuadros, letra y espacios compactos, sin elementos encimados ===== */
+.ml-main{padding:14px 18px 32px}
+.ml-fix{margin:-14px -18px 8px;padding:8px 18px 6px}
+.ml-fix .ml-ff{border:0;background:none;border-radius:0;margin:0 0 6px;overflow:visible}
+.ml-ff>summary{padding:2px 0;gap:10px}
+.ml-ff>summary span{font-size:11px}.ml-ff>summary em{font-size:11px}
+.ml-ff>summary .ml-fq{height:26px;font-size:12px}
+.ml-ff>summary .ml-btn2{padding:2px 8px;font-size:11px}
+.ml-ffg{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 10px;padding:6px 0 4px;border-top:1px solid var(--ml-ln);margin-top:6px}
+.ml-ffg .ml-f{margin:4px 0 0}.ml-ffg .ml-f label{font-size:10px;margin-bottom:2px}.ml-ffg .ml-f select,.ml-ffg .ml-f input{height:26px;padding:0 6px;font-size:12px;border-radius:7px}
+.ml-fix .ml-k4w{gap:6px}
+.ml-fix .ml-k4w .k{padding:6px 10px;gap:8px;border-radius:9px}
+.ml-fix .ml-k4w .ico{width:26px;height:26px;border-radius:8px}.ml-fix .ml-k4w .ml-ic2{width:15px;height:15px}
+.ml-fix .ml-k4w .lb{font-size:9px;letter-spacing:.05em}
+.ml-fix .ml-k4w b{font-size:17px}.ml-fix .ml-k4w .k4 b{font-size:13px;margin:0}
+.ml-fix .ml-k4w .pill{font-size:9.5px;padding:0 6px}
+.ml-fix .ml-k4w .kbar{height:3px;margin:1px 0}
+.ml-meta{margin:0 0 8px;font-size:11px;gap:2px 14px}
+.ml-tb{margin:0 0 8px}.ml-tb .ml-seg button,.ml-seg button{padding:5px 12px;font-size:12px}
+.ml-sem{font-size:12px;margin:0 0 8px}
+/* tarjetas de noticia */
+.ml-cards{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.ml-card{border-radius:10px}.ml-card .im{height:96px}.ml-card .bd{padding:8px 10px 9px;gap:4px}
+.ml-card .mt{font-size:10.5px}.ml-card h4{font-size:13px;line-height:1.28}.ml-card p{font-size:11.5px;-webkit-line-clamp:2}
+/* detalle: sin cajas anidadas */
+.ml-det{padding:14px 16px 24px}
+.ml-det h3{font-size:15px;margin:4px 28px 6px 0}
+.ml-det .ml-bl,.ml-bl{border:0;background:none;border-radius:0;padding:10px 0 2px;margin:0 0 6px;border-top:1px solid rgba(148,163,184,.18);font-size:12px}
+.ml-bl h5{font-size:10.5px;margin:0 0 6px}
+.ml-det .ml-k3{gap:0;margin:8px 0}
+.ml-det .ml-k3>div{border:0;background:none;border-radius:0;padding:0 10px;border-left:1px solid rgba(148,163,184,.2)}.ml-det .ml-k3>div:first-child{padding-left:0;border-left:0}
+.ml-k3 small{font-size:10px}.ml-k3 b.v{font-size:17px}.ml-k3 b.pb{font-size:13px}.ml-k3 .sub{font-size:10px}
+.ml-kpop .pi{width:30px;height:30px;border-radius:9px}.ml-kpop .pi .ml-ic{width:17px;height:17px}.ml-kpop .pp b{font-size:12px}.ml-kpop .pp div span{font-size:10px}
+/* población afectada y relevancia */
+.ml-af-top{gap:14px;margin-bottom:8px}
+.ml-af-top>div{padding:0;border:0;background:none;border-radius:0}
+.ml-af-top>div+div{padding-left:14px;border-left:1px solid rgba(148,163,184,.2)}
+.ml-af-top small{font-size:9.5px}
+.ml-af-q b{font-size:13px;margin:3px 0 4px}.ml-af-q em{font-size:10px;padding:1px 7px}
+.ml-af-a{margin-top:6px;padding-top:6px}.ml-af-a b{font-size:12px;margin:2px 0 3px}
+.ml-af-n{margin-top:6px}.ml-af-n span{font-size:14px}.ml-af-n i{font-size:10.5px}
+.ml-afg{max-width:170px;margin:0 auto}.ml-afg text{font-size:9px}
+.ml-af-v b{font-size:22px}.ml-af-v span{font-size:11px}
+.ml-af-l{margin-top:4px;padding:1px 12px;font-size:10.5px;box-shadow:none}.ml-af-g em{font-size:10px;margin-top:3px}
+.ml-af-sc{margin:2px 0 8px;padding-top:6px}.ml-af-sc span{padding-top:16px;min-width:0}
+.ml-af-sc i{width:12px;height:12px;border-width:2px;margin-left:-6px;top:2px}
+.ml-af-sc span.on i{width:16px;height:16px;margin-left:-8px;top:0;box-shadow:0 0 0 3px rgba(148,163,184,.22)}
+.ml-af-sc span:before{top:7px;height:3px}
+.ml-af-sc u{font-size:8.5px;letter-spacing:-.02em;white-space:nowrap;display:block;overflow:visible}.ml-af-sc span.on u{font-size:9px}
+.ml-af-s{font-size:11px}
+/* proyectos y menú */
+.ml-pc{border-radius:10px}
+/* proyectos: tarjetas compactas */
+.ml-pg{grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
+.ml-pc{padding:11px 13px;gap:6px;border-top-width:3px;border-radius:11px;box-shadow:none}
+.ml-pc h3{font-size:14px}.ml-pc .pe,.ml-pc .mt{font-size:10.5px}
+.ml-pj .ml-nsub,.ml-nsub .ml-pj{padding:6px 8px}
+.ml-nsub .ml-pj *{font-size:11px}.ml-nsub .ml-pj b{font-size:11.5px}
+/* barra fija: en modo página el desplazamiento es el de la ventana; en modo incrustado, el del panel */
+.ml-app:not(.ml-emb) .ml-main{overflow:visible}
+.ml-app:not(.ml-emb) .ml-fix{top:0}
+.ml-emb .ml-fix{top:-14px}
