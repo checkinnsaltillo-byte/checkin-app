@@ -29,6 +29,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-card.dl input:focus{border-color:#0891b2;box-shadow:0 0 0 3px rgba(8,145,178,.18)}
 .gp-card.dl button{background:linear-gradient(135deg,#0891b2,#0e7490);box-shadow:0 4px 14px rgba(8,145,178,.35)}
 .gp-card.eco input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.18)}
+.gp-card.media button{background:linear-gradient(135deg,#f97316,#ec4899);box-shadow:0 4px 14px rgba(236,72,153,.35)}.gp-card.media input:focus{border-color:#ec4899;box-shadow:0 0 0 3px rgba(236,72,153,.18)}
 .gp-card.eco button{background:linear-gradient(135deg,#7c3aed,#0891b2);box-shadow:0 4px 14px rgba(124,58,237,.35)}
 .gp-eco-logo{width:92px;height:92px;filter:drop-shadow(0 4px 14px rgba(124,58,237,.35))}.gp-eco-t{font:800 30px system-ui,sans-serif;letter-spacing:.5px;background:linear-gradient(90deg,#0891b2,#7c3aed 60%,#db2777);-webkit-background-clip:text;background-clip:text;color:transparent;margin-top:4px}
 .gp-card button:hover{filter:brightness(1.06)}.gp-card button:active{transform:translateY(1px)}
@@ -77,12 +78,26 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <button type="button" id="gpGo3">Entrar a EconoLab</button>
         <div class="gp-v">v.Beta.1 · Check Inn</div>
       </div>
+    <div class="gp-card media" data-sys="media">
+      <div>
+        <div class="gp-top"><img class="gp-img dl" src="medialab-logo.png" alt="Media Lab"></div>
+        <h2>Monitor masivo de noticias</h2>
+        <p class="s">acceso restringido</p>
+      </div>
+      <div>
+        <input type="password" id="gpPass4" placeholder="Contraseña" autocomplete="current-password">
+        <p class="gp-err" id="gpErr4"></p>
+        <button type="button" id="gpGo4">Entrar a Media Lab</button>
+        <div class="gp-v">v.Beta.1 · Check Inn</div>
+      </div>
+    </div>
     </div>
   </div>
 </div>
 <div id="geometrika-host" style="display:none"></div>
 <div id="datalab-host" style="display:none"></div>
 <div id="ecolab-host" style="display:none"></div>
+<div id="medialab-host" style="display:none"></div>
 <script src="/admin/gm-auth.js?v=2"></script>
 <script>
 const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "4739ee3bd29e4f415da8ba9298a087e0fdc9c61378420ba8fbbab298bd74c4df";  // GP_HASH2: nivel con precios reales
@@ -102,7 +117,11 @@ function gpCarga(src, cb) { const s = document.createElement("script"); s.src = 
 function gpAbre(sys) {
   try { sessionStorage.setItem("gp_sys", sys); } catch (_) { }
   document.getElementById("gpLogin").classList.add("hidden");
-  if (sys === "eco") {
+  if (sys === "media") {
+    document.getElementById("medialab-host").style.display = "";
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=f6663d0f"; document.head.appendChild(l);
+    gpCarga("medialab.js?v=f6663d0f", () => window.medialabInit && window.medialabInit());
+  } else if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=24d7e6c5"; document.head.appendChild(l);
     gpCarga("ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5), () => gpCarga("ecolab.js?v=24d7e6c5", () => window.ecolabInit && window.ecolabInit()));
@@ -116,7 +135,7 @@ function gpAbre(sys) {
   }
 }
 async function gpEntra(sys) {
-  const inp = document.getElementById(sys === "eco" ? "gpPass3" : sys === "data" ? "gpPass2" : "gpPass"), e = document.getElementById(sys === "eco" ? "gpErr3" : sys === "data" ? "gpErr2" : "gpErr"), v = inp.value.trim(); if (!v) { e.textContent = "Captura tu contraseña."; return; }
+  const inp = document.getElementById(sys === "media" ? "gpPass4" : sys === "eco" ? "gpPass3" : sys === "data" ? "gpPass2" : "gpPass"), e = document.getElementById(sys === "media" ? "gpErr4" : sys === "eco" ? "gpErr3" : sys === "data" ? "gpErr2" : "gpErr"), v = inp.value.trim(); if (!v) { e.textContent = "Captura tu contraseña."; return; }
   const h = await gpSha(v), n = h === GP_HASH2 ? "2" : h === GP_HASH ? "1" : "";
   if (n) { try { sessionStorage.setItem("gp_ok", n); localStorage.setItem("gp_ok", n); } catch (_) { } let tk = null; try { const r = await fetch("https://api.check-inn.mx/geometrika/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: v }) }); tk = await r.json(); } catch (_) { }
     if (!(tk && tk.ok && tk.token)) { try { sessionStorage.removeItem("gp_ok"); localStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = "No se pudo validar el acceso con el servidor. Intenta de nuevo."; return; }
@@ -125,9 +144,9 @@ async function gpEntra(sys) {
 }
 // cada tarjeta entra a su sistema; con la sesión ya iniciada basta un clic (la misma contraseña sirve para los dos)
 function gpClic(sys) { const n = gpAut(); if (n) { gpNivel(n); gpAbre(sys); } else gpEntra(sys); }
-document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data"); document.getElementById("gpGo3").onclick = () => gpClic("eco");
+document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data"); document.getElementById("gpGo3").onclick = () => gpClic("eco"); document.getElementById("gpGo4").onclick = () => gpClic("media"); document.getElementById("gpPass4").onkeydown = e => { if (e.key === "Enter") gpClic("media"); };
 document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpClic("geo"); }; document.getElementById("gpPass2").onkeydown = e => { if (e.key === "Enter") gpClic("data"); }; document.getElementById("gpPass3").onkeydown = e => { if (e.key === "Enter") gpClic("eco"); };
-{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EconoLab →"; } } }
+{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco" || s === "media") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EconoLab →"; document.getElementById("gpGo4").textContent = "Abrir Media Lab →"; } } }
 </script>
 </body>
 </html>
