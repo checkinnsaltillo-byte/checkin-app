@@ -191,7 +191,7 @@
       <dl><dt>Texto</dt><dd>${n.texto ? `<span class="ml-chip ok">📄 Descargado</span> ${nf(n.texto.length)} caracteres` : n.txErr ? `<span class="ml-chip">🔒 No accesible</span> el medio no permitió descargarlo` : `<span class="ml-chip run">⏳ Pendiente</span>`}</dd>
       <dt>Lugar</dt><dd>${L ? esc([L.sitio, L.zona, L.munN, L.estN].filter(Boolean).join(", ")) + ` <small style="color:var(--ml-mut)">(nivel: ${esc(L.nivel)})</small><br>${metChip(L)} <small style="color:var(--ml-mut)">${esc((MET[L.met || "regla"] || MET.regla)[1])}</small>` : "Sin ubicación detectada"}</dd>
       <dt>Idioma</dt><dd>${esc(n.idi || "—")}${n.pais ? " · " + esc(n.pais) : ""}</dd><dt>Proveedor</dt><dd>${esc(n.prov || "—")}${n.ia ? " · enriquecida con IA" : ""}</dd></dl>
-      <a class="ml-btn" style="display:inline-block;text-decoration:none" href="${esc(n.urlReal || n.url)}" target="_blank" rel="noopener">Abrir nota original ↗</a>`;
+      <a class="ml-btn" style="display:inline-block;text-decoration:none" href="${esc(n.urlReal || n.url)}" target="_blank" rel="noopener">Abrir nota original ↗</a>${n.lug && n.lug.lat != null ? ` <button class="ml-btn ml-btn-map" type="button" data-vermapa="${esc(n.id)}">${ic("pin")}Ver en mapa</button>` : ""}`;
   }
 
   /* ───────── indicadores: medidor, curva de incidencia y grafos de entidades ───────── */
@@ -360,11 +360,20 @@
   const corto = t => { const w = String(t || "").replace(/\s+[-–|]\s+[^-–|]{2,40}$/, "").split(/\s+/); return w.length > 7 ? w.slice(0, 7).join(" ") + "…" : w.join(" "); };
   const CATCOLS = ["#2563eb", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#0d9488", "#9333ea", "#ca8a04", "#4f46e5", "#be185d", "#0369a1", "#15803d"];
   const catCol = c => { let h = 0; for (const ch of String(c || "")) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return CATCOLS[h % CATCOLS.length]; };
+  /* «Ver en mapa»: centra el mapa en la noticia, resalta su pin y, si está agrupado, abre la araña */
+  function enfocaMapa() {
+    const f = S.foco, M = S.mapa; S.foco = null; if (!f || !M) return; const el = $("#mlMap"); if (!el) return;
+    const g = (S.marcas || []).find(m => m.L2.some(q => q.id === f.id)), ll = g ? g.ll : [f.lat, f.lng];
+    M.invalidateSize(); M.setView(ll, Math.max(M.getZoom(), 13), { animate: false });
+    if (!g) return; const ic2 = g.mk.getElement(); if (ic2) { ic2.classList.remove("ml-foco"); void ic2.offsetWidth; ic2.classList.add("ml-foco"); setTimeout(() => ic2.classList.remove("ml-foco"), 5000); }
+    if (g.L2.length > 1) setTimeout(() => arana(M, el, g.L2, g.ll), 120); resaltaCard(f.id);
+  }
   function mapa() {
     const el = $("#mlMap"); if (!el) return;
     leafletListo(() => {
       const el2 = $("#mlMap"); if (!el2 || !window.L) return; const L = window.L, g = S.geo || { puntos: [], total: 0 }, M = L.map(el2, { zoomControl: true }).setView([23.6, -102.5], 5);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(M); S.mapa = M;
+      S.marcas = [];
       const grupos = new Map(); g.puntos.forEach(p => { const k = p.lat.toFixed(3) + "," + p.lng.toFixed(3); (grupos.get(k) || grupos.set(k, []).get(k)).push(p); });
       const pts = [];
       grupos.forEach(L2 => {
@@ -374,10 +383,10 @@
         const mk = L.marker([p0.lat, p0.lng], { icon: ic }).addTo(M);
         mk.bindTooltip(`<b>${esc(corto(top.t))}</b><small>${esc(nom)}${uno ? "" : " · " + L2.length + " noticias"}</small>`, { permanent: true, direction: "right", offset: [12, -14], className: "ml-tip ml-rk" + nvl });
         if (!uno) mk.on("mouseover", () => arana(M, el2, L2, [p0.lat, p0.lng]));
-        mk.on("click", () => { if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]);
+        mk.on("click", () => { if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]); S.marcas.push({ mk, L2, ll: [p0.lat, p0.lng] });
       });
       const nl = () => el2.classList.toggle("ml-nolbl", grupos.size > 40 && M.getZoom() < 9); M.on("zoomend", nl); nl();
-      if (pts.length) M.fitBounds(pts, { padding: [40, 40], maxZoom: 11 }); setTimeout(() => M.invalidateSize(), 200);
+      if (S.foco) { setTimeout(enfocaMapa, 250); } else if (pts.length) M.fitBounds(pts, { padding: [40, 40], maxZoom: 11 }); setTimeout(() => M.invalidateSize(), 200);
       const n = $("#mlMapN"); if (n) n.innerHTML = `<span>📍 ${nf(g.total)} noticias georreferenciadas en ${nf(grupos.size)} lugares</span><span>Nivel: punto (coordenada), zona/colonia, municipio o estado; los pines agrupan por lugar.</span>` + (g.total > 4000 ? `<span>Se muestran las 4,000 más recientes.</span>` : "");
     });
   }
@@ -482,6 +491,7 @@
     const pj = t.closest("[data-pj]"); if (pj && !t.closest(".ml-acc")) { selecciona(pj.dataset.pj); return; }
     const ed = t.closest("[data-ed]"); if (ed) { editar(ed.dataset.ed); return; } const ex = t.closest("[data-ex]"); if (ex) { extraer(ex.dataset.ex); return; } const exa = t.closest("[data-exall]"); if (exa) { extraer(exa.dataset.exall, true); return; }
     const del = t.closest("[data-del]"); if (del) { const p = S.proy.find(x => x.id === del.dataset.del); if (p && confirm("¿Eliminar el proyecto «" + p.titulo + "» y todas sus noticias?")) api(`/proyectos/${p.id}`, { method: "DELETE" }).then(async () => { if (S.sel === p.id) { S.sel = null; S.data = null; } await cargaProy(); lado(); principal(); toast("Proyecto eliminado"); }).catch(er => toast(er.message, true)); return; }
+    const vm = t.closest("[data-vermapa]"); if (vm && S.det && S.det.n && S.det.n.lug) { const L0 = S.det.n.lug; S.foco = { id: vm.dataset.vermapa, lat: +L0.lat, lng: +L0.lng }; if (S.vista === "mapa" && S.mapa) { enfocaMapa(); return; } S.vista = "mapa"; principal(); consulta(); return; }
     const v = t.closest("[data-v]"); if (v) { S.vista = v.dataset.v; S.det = null; principal(); consulta(); return; }
     const rs = t.closest("[data-g3reset]"); if (rs && S.entV) { S.entV.keep = {}; pintaDet(); return; }
     const gv = t.closest("[data-ver]"); if (gv) { e.preventDefault(); abreEnt(gv.dataset.ver); return; }
