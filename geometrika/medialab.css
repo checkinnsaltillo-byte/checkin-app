@@ -661,3 +661,5 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-app:not(.ml-emb).ml-sidehide .ml-theme{display:none}
 .ml-app:not(.ml-emb).ml-sidehide .ml-main{padding-left:62px}
 }
+/* el encabezado del menú mide lo mismo que el menú, para que el botón de cerrar quede dentro */
+@media (min-width:761px){.ml-app:not(.ml-emb) .ml-body>.ml-side{width:272px;flex:0 0 272px}.ml-app:not(.ml-emb):not(.ml-sidehide) .ml-top{width:272px}}
