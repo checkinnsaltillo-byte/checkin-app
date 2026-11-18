@@ -565,3 +565,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr-lf{background:rgba(8,13,30,.96)!important;color:#e2e8f0!important;border:1px solid rgba(148,163,184,.35)!important;font-size:11px}
 .nr-map{height:260px}
 .nr-f label{min-width:80px}.nr-f label.q{min-width:150px}.nr-f input[type=date]{width:118px}.nr-f select{max-width:130px}
+.nr-esc{display:inline-block;width:70px;height:8px;border-radius:4px;vertical-align:middle;margin:0 4px;background:linear-gradient(90deg,#fff,#c7e9c0 35%,#41ab5d 70%,#005a32)}
