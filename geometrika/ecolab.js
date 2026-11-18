@@ -933,7 +933,7 @@
   }
   function aplicaCtx(m) {
     const n = resuelveCtx(m), o = S.ctx || {}, lugCambia = n.ent !== o.ent || n.city !== o.city, giroCambia = n.giro !== o.giro;
-    S.ctx = n; if (!lugCambia && !giroCambia) return; if (n.ent) { S.open.add("R"); S.open.add("z:" + ENTBY[n.ent][5]); S.open.add("CI"); } if (S.ctxOn === false && (n.ent || n.giro)) S.ctxOn = true;
+    S.ctx = n; if (m.go && /^(i:|reg$|ciu$|nac$)/.test(m.go)) { setTimeout(() => { ir(m.go); ecoWin(true); }, 60); } if (!lugCambia && !giroCambia) return; if (n.ent) { S.open.add("R"); S.open.add("z:" + ENTBY[n.ent][5]); S.open.add("CI"); } if (S.ctxOn === false && (n.ent || n.giro)) S.ctxOn = true;
     if (giroCambia && n.giro && !lugCambia) ir("s:" + n.giro);
     else if (lugCambia && n.city) ir("c:" + n.city); else if (lugCambia && n.ent) ir("e:" + n.ent); else arbol();
   }

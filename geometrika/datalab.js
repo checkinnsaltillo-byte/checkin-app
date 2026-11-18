@@ -165,14 +165,14 @@
   /* ═══ Sección «Indicadores»: catálogo de los indicadores de Geo Lab (sin datos de ningún proyecto) ═══ */
   const CATI = window.DL_INDICADORES || [];
   const FAM = f => { const s = String(f || ""), o = [], add = x => { if (!o.includes(x)) o.push(x); };
-    if (/inegi|censo|denue|eic/i.test(s)) add("INEGI"); if (/open-?meteo|era5/i.test(s)) add("Open-Meteo"); if (/google/i.test(s)) add("Google");
+    if (/bie\/bise|api bie/i.test(s)) add("INEGI · BIE/BISE"); else if (/inegi|censo|denue|eic/i.test(s)) add("INEGI"); if (/banxico|banco de méxico/i.test(s)) add("Banco de México"); if (/open-?meteo|era5/i.test(s)) add("Open-Meteo"); if (/google/i.test(s)) add("Google");
     if (/osm|openstreetmap|red de calles/i.test(s)) add("OpenStreetMap"); if (/terrarium|relieve/i.test(s)) add("Terrain Tiles"); if (/ghsl/i.test(s)) add("GHSL (JRC)");
     if (/worldcover/i.test(s)) add("ESA WorldCover"); if (/\bia\b/i.test(s)) add("Inteligencia artificial");
     if (/propio|propia|supuesto|usuario|configurable|ficha|detecci|selector/i.test(s)) add("Cálculo propio o del usuario"); if (/pendiente/i.test(s)) add("Pendiente");
     if (!o.length) add("Otra"); return o; };
   const TCLS = { "Dato duro": "dd", "Dato calculado": "dc", "Índice": "ix", "Valoración cualitativa": "vl", "Valoración cuantitativa": "vl", "Dato inferido": "di" };
   const prep = (i, c, e) => {
-    i._c = c; i._e = e; const fam = []; (i.vars.length ? i.vars.map(v => v.f) : [i.f]).forEach(f => FAM(f).forEach(x => { if (!fam.includes(x)) fam.push(x); })); i._fam = fam;
+    i._c = c; i._e = e; i._inegi = i.x || null; const fam = []; (i.vars.length ? i.vars.map(v => v.f) : [i.f]).forEach(f => FAM(f).forEach(x => { if (!fam.includes(x)) fam.push(x); })); i._fam = fam;
     i._h = norm([i.n, i.d, i.u, i.m, i.f, i.tipo, e.n, c.n, i._meta ? [i._meta.objetivo, i._meta.res, i._meta.periodicidad, i._meta.instrucciones, i._meta.responsable].join(" ") : "", i.vars.map(v => [v.n, v.d, v.f, v.u, (v.tr || []).map(t => t.n + " " + t.d).join(" ")].join(" ")).join(" ")].join(" "));
     i._pend = /pendiente/i.test(i.f) && !i.vars.length; };
   CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => prep(i, c, e))));
@@ -180,7 +180,7 @@
   const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", aC: new Set(CATI.map(c => c.k || c.id)), aE: new Set(), filas: new Set() };
   const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org);
   function pasaI(i) {
-    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && i._nuevo) return false;
+    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false;
     if (S2.q) { const ws = norm(S2.q).split(/\s+/).filter(Boolean); if (!ws.every(w => i._h.includes(w))) return false; } return true;
   }
   function indicadores() {
@@ -189,7 +189,7 @@
     const tipos = [...new Set(A.map(i => i.tipo))], fams = [...new Set(A.flatMap(i => i._fam))].sort((a, b) => a.localeCompare(b, "es"));
     const enfs = CATI.filter(c => !S2.cat || c.id === S2.cat).flatMap(c => c.an.map(e => [e.id, e.ico + " " + e.n]));
     $("#dlWrap", host).innerHTML = `
-      <div class="dl-h"><div><h1>Indicadores</h1><p>Catálogo de los indicadores que calcula Geo Lab: qué mide cada uno, en qué unidades, cómo se calcula (metodología y fórmula), con qué variables y de qué fuente salen. Es solo un catálogo: aquí no hay datos de ningún proyecto. Toca una fila para ver el detalle.</p></div><div class="dl-hr"><span class="dl-up">Generado desde Geo Lab</span><button class="dl-new" type="button" id="dlNuevo">＋ Crear Indicador</button></div></div>
+      <div class="dl-h"><div><h1>Indicadores</h1><p>Catálogo de los indicadores que calcula Geo Lab y de las series del INEGI (BIE/BISE) que alimentan EconoLab: qué mide cada uno, en qué unidades, cómo se calcula (metodología y fórmula), con qué variables y de qué fuente salen. Es solo un catálogo: aquí no hay datos de ningún proyecto. Toca una fila para ver el detalle.</p></div><div class="dl-hr"><span class="dl-up">Geo Lab + INEGI (BIE/BISE)</span><button class="dl-new" type="button" id="dlNuevo">＋ Crear Indicador</button></div></div>
       <div class="dl-kpis">${kp(CATI.length, "Categorías", "#4f46e5")}${kp(nE, "Enfoques de análisis", "#0891b2")}${kp(A.length, "Indicadores", "#7c3aed")}${kp(nV, "Variables", "#059669")}${kp(nT, "Transformaciones", "#b45309")}</div>
       <div class="dl-fl" id="dlFl">
         <div class="dl-fr">
@@ -198,7 +198,7 @@
           ${opcionesI("enf", "Enfoque", enfs, S2.enf)}
           ${opcionesI("tipo", "Tipo de dato", tipos, S2.tipo)}
           ${opcionesI("fam", "Fuente", fams, S2.fam)}
-          ${opcionesI("org", "Origen", [["geo", "Geo Lab"], ["dl", "Creados en Data Lab"]], S2.org)}
+          ${opcionesI("org", "Origen", [["geo", "Geo Lab"], ["inegi", "INEGI (BIE/BISE)"], ["dl", "Creados en Data Lab"]], S2.org)}
           <button class="dl-ghost" type="button" data-ia="limpiar"${hayI() ? "" : " disabled style=\"opacity:.45;cursor:default\""}>Limpiar</button>
           <button class="dl-ghost pr" type="button" data-ia="abrir">Expandir todo</button>
           <button class="dl-ghost pr" type="button" data-ia="cerrar">Contraer todo</button>
@@ -206,7 +206,7 @@
         <div class="dl-rs" id="dlRs2"></div>
       </div>
       <div id="dlLista2"></div>
-      <div class="dl-foot">Catálogo generado automáticamente a partir de la definición de indicadores de Geo Lab.</div>`;
+      <div class="dl-foot">Catálogo generado automáticamente: indicadores de Geo Lab (definición de la maqueta) y series del INEGI (BIE/BISE) descargadas para EconoLab.</div>`;
     listaI();
   }
   function opcionesI(id, titulo, lista, val) {
@@ -214,7 +214,7 @@
   }
   function listaI() {
     const dest = $("#dlLista2", host); if (!dest) return; const forzar = hayI(), A = INDS_ALL(), vis = A.filter(pasaI);
-    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
+    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : S2.org === "inegi" ? "INEGI (BIE/BISE)" : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
     $("#dlRs2", host).innerHTML = `Mostrando <b>${vis.length}</b> de ${A.length} indicadores ${tg.join("")}`;
     if (!vis.length) { dest.innerHTML = `<div class="dl-empty"><b>No hay indicadores con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-ia="limpiar">Limpiar filtros</button></div>`; return; }
     dest.innerHTML = CATI.map(c => {
@@ -228,8 +228,9 @@
   }
   // «En Geo Lab»: si el indicador se muestra, dónde, cómo se ve en el mapa y una tarjeta de ejemplo real (datalab-geo.js)
   const CUANDO = { P: ["🆕", "Al crear el proyecto", "Se consulta una vez al crear el proyecto y se guarda con él; después solo se lee."], I: ["🔁", "Cada vez que se ingresa", "Se calcula o se consulta de nuevo cada vez que se abre la maqueta o se pulsa «Calcular y actualizar»."], D: ["👆", "Bajo demanda", "Solo se genera cuando alguien pulsa el botón correspondiente; luego queda guardado o en pantalla."], G: ["📦", "Ya guardado en el sistema", "Es un dato de referencia (Censo, DENUE, INEGI, WorldCover…) ya cargado de antemano: no hay que generarlo."], X: ["⏳", "Pendiente de construir", "Todavía no se genera."] };
-  function chipGeo(i) { const g = !i._nuevo && (window.DL_GEO || {})[i._e.id + ":" + i.id]; return g ? `<span class="dl-geo-chip${g.m ? " map" : ""}" title="${g.m ? "Se muestra en Geo Lab y se dibuja en el mapa" : "Se muestra en Geo Lab (tarjeta y ventana); no se dibuja en el mapa"}">${g.m ? "🗺️ En el mapa" : "📋 Solo tarjeta"}</span>${CUANDO[g.w] ? `<span class="dl-geo-chip w${g.w}" title="${esc(CUANDO[g.w][2])}">${CUANDO[g.w][0]} ${esc(CUANDO[g.w][1])}</span>` : ""}` : ""; }
+  function chipGeo(i) { if (i._inegi) return `<span class="dl-geo-chip map" title="Se grafica y monitorea en EconoLab">📈 En EconoLab · ${esc(i._inegi.a)}</span>`; const g = !i._nuevo && (window.DL_GEO || {})[i._e.id + ":" + i.id]; return g ? `<span class="dl-geo-chip${g.m ? " map" : ""}" title="${g.m ? "Se muestra en Geo Lab y se dibuja en el mapa" : "Se muestra en Geo Lab (tarjeta y ventana); no se dibuja en el mapa"}">${g.m ? "🗺️ En el mapa" : "📋 Solo tarjeta"}</span>${CUANDO[g.w] ? `<span class="dl-geo-chip w${g.w}" title="${esc(CUANDO[g.w][2])}">${CUANDO[g.w][0]} ${esc(CUANDO[g.w][1])}</span>` : ""}` : ""; }
   function bloqueGeo(i) {
+    if (i._inegi) { const x = i._inegi, dnd = x.a === "Nacional" ? "Panorama global, Monitores por sector y Catálogo" : x.a === "Estados" ? "Monitores › Regiones y estados" : "Monitores › Ciudades"; return `<div class="wide dl-geo-b"><span>En EconoLab</span><p>Ámbito <b>${esc(x.a)}</b>. Se consulta en EconoLab (${esc(dnd)}), con su gráfica, pronóstico y reloj económico cuando la serie lo permite. Los datos no son de un proyecto: son series oficiales del INEGI descargadas con su API (BIE/BISE).</p><p><button type="button" class="dl-ghost pr" data-eco="${esc(x.g)}">📈 Abrir en EconoLab ↗</button></p></div>`; }
     if (i._nuevo) { const pub = i._meta && i._meta.publicado; return `<div class="wide dl-geo-b"><span>En Geo Lab</span><p>${pub ? "✓ Publicado: aparece en el panel Indicadores y como ventana en Análisis › Indicadores generados." : "Todavía no se muestra en Geo Lab: aparecerá cuando se publique."}</p></div>`; }
     const g = (window.DL_GEO || {})[i._e.id + ":" + i.id]; if (!g) return `<div class="wide dl-geo-b"><span>En Geo Lab</span><p class="dl-mut">Todavía no se muestra en Geo Lab.</p></div>`;
     return `<div class="wide dl-geo-b"><span>En Geo Lab</span><div class="dl-geo-g">
@@ -241,7 +242,7 @@
     const k = i._e.id + ":" + i.id, ab = S2.filas.has(k), fam = i._fam.map(f => `<button type="button" class="dl-c${S2.fam === f ? " on" : ""}" data-ifam="${esc(f)}" title="Filtrar por esta fuente">${esc(f)}</button>`).join("");
     const vars = i.vars.map(v => `<tr><td data-l="Variable"><b>${esc(v.n)}</b></td><td data-l="Unidades">${esc(v.u)}</td><td data-l="Qué es">${esc(v.d)}</td><td data-l="Fuente">${esc(v.f)}${v.cob ? `<div class="dl-mut">Cobertura: ${esc(v.cob)}</div>` : ""}${v.disponible === false ? `<div><span class="dl-b Parcial">Dato por conseguir</span></div>` : ""}${v.nota ? `<div class="dl-mut">${esc(v.nota)}</div>` : ""}</td><td data-l="Transformaciones">${v.tr.length ? `<details class="dl-tr"><summary>${v.tr.length} ${v.tr.length === 1 ? "transformación" : "transformaciones"}</summary>${v.tr.map(t => `<div class="dl-trx"><b>${esc(t.n)}</b><p>${esc(t.d)}</p><code>${esc(t.f)}</code></div>`).join("")}</details>` : `<span class="dl-mut">Dato directo de la fuente</span>`}</td></tr>`).join("");
     return `<tr class="dl-r${ab ? " open" : ""}" data-ir="${esc(k)}" tabindex="0" aria-expanded="${ab}">
-      <td data-l="Indicador"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : "Publicado en Geo Lab"}"></i>`}<b>${esc(i.n)}</b>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></td>
+      <td data-l="Indicador"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<b>${esc(i.n)}</b>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></td>
       <td data-l="Tipo"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span></td>
       <td data-l="Qué mide" class="dl-ob">${esc(i.d)}</td><td data-l="Unidades">${esc(i.u)}</td>
       <td data-l="Variables"><span class="dl-gn">${i.vars.length}</span></td>
@@ -255,6 +256,7 @@
   function clicI(e) {
     const t = e.target, x = t.closest("[data-ix]"); if (x) { S2[x.dataset.ix] = ""; indicadores(); return; }
     const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => { S2.aE.add(en.id); en.ind.forEach(i => S2.filas.add(en.id + ":" + i.id)); }); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); S2.filas.clear(); listaI(); } return; }
+    const eb = t.closest("[data-eco]"); if (eb) { try { parent.postMessage({ gl: "eco-go", go: eb.dataset.eco }, location.origin); } catch (_) { } return; }
     const pb = t.closest("[data-dl-pub]"); if (pb) { publica(pb.dataset.dlPub); return; }
     const del = t.closest("[data-dl-del]"); if (del) { eliminaCreado(del.dataset.dlDel); return; }
     const est = t.closest("[data-dl-est]"); if (est) { cambiaEstado(est.dataset.dlEst, est.dataset.v); return; }
