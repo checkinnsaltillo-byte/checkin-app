@@ -354,7 +354,8 @@
 .eco-bh.l{left:-5px}.eco-bh.r{right:-5px}
 .eco-bt{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:5px 6px 0;font:600 11.5px system-ui,sans-serif;opacity:.8}
 .eco-bre{border:1px solid rgba(148,163,184,.45);background:transparent;color:inherit;border-radius:8px;padding:2px 9px;font:600 11px system-ui,sans-serif;cursor:pointer;visibility:hidden}
-.eco-noanim *{animation:none!important}
+.eco-noanim *{animation-duration:.001s!important;animation-delay:0s!important}
+.eco-noanim .eco-ln{stroke-dashoffset:0!important}
 
 .eco-box{margin:10px auto 0;max-width:640px}
 .eco-boxn{display:flex;flex-direction:column;gap:2px;align-items:center;text-align:center;font:500 12px/1.4 system-ui,sans-serif;margin-top:2px}
