@@ -190,3 +190,12 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-cr .nm{min-width:0}.ml-cr .nm b{display:block;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ml-cr .nm small{display:block;font-size:11px;color:var(--ml-mut);margin-top:1px}
 .ml-cr .bw{display:flex;align-items:center;gap:8px}.ml-cr .bb{flex:1;height:7px;border-radius:99px;background:rgba(148,163,184,.22);overflow:hidden}.ml-cr .bb i{display:block;height:100%;border-radius:99px}.ml-cr .bw em{font-style:normal;font-weight:800;font-size:12px;min-width:38px;text-align:right}
 .ml-cr .go{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:var(--ml-mut);border:1px solid var(--ml-ln)}.ml-cr .go:hover{color:var(--ml-tx);border-color:var(--ml-bd)}.ml-cr .go .ml-ic{margin:0;width:13px;height:13px}
+
+/* población afectada */
+.ml-af-top{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.ml-af-top>div{padding:10px 12px;border:1px solid var(--ml-ln);border-radius:12px;background:rgba(148,163,184,.06)}
+.ml-af-top small{display:block;font-size:11px;color:var(--ml-mut)}.ml-af-top b{display:block;font-size:14px;margin-top:2px}.ml-af-top b span{font-size:11px;font-weight:600;color:var(--ml-mut)}.ml-af-top em{display:block;font-style:normal;font-size:11px;color:var(--ml-mut);margin-top:2px}
+.ml-af-sc{display:flex;margin:4px 0 8px}.ml-af-sc span{flex:1;text-align:center;position:relative;padding-top:14px}.ml-af-sc span:before{content:"";position:absolute;left:0;right:0;top:5px;height:3px;background:rgba(148,163,184,.3)}
+.ml-af-sc span.pre:before{background:var(--ml-bd)}.ml-af-sc i{position:absolute;left:50%;top:0;width:11px;height:11px;margin-left:-6px;border-radius:50%;background:var(--ml-bg,#fff);border:2px solid rgba(148,163,184,.5)}
+.ml-af-sc span.pre i{border-color:var(--ml-bd)}.ml-af-sc span.on i{background:inherit;border-color:inherit;box-shadow:0 0 0 3px rgba(148,163,184,.25)}
+.ml-af-sc u{text-decoration:none;font-size:9.5px;color:var(--ml-mut)}.ml-af-sc span.on u{color:var(--ml-tx);font-weight:700}
+.ml-k3 b em{font-style:normal;font-size:11px;font-weight:500;color:var(--ml-mut)}
