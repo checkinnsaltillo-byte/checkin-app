@@ -662,6 +662,7 @@
     const rows = SEC.flatMap(sc => secSer(sc).map(s => ({ I: s.yoy, label: s.yoy.nombre, sub: sc.n + " · SCIAN " + s.yoy.scian, v: s.yoy.last.v, col: sc.col, go: "s:" + sc.k }))).filter(r => r.I).sort((a, b) => b.v - a.v);
     draws.push(() => barsH($("#ecoSecBars"), rows.map(r => ({ label: r.label, sub: r.sub, v: r.v, go: r.go })), { rh: 24, lw: 210 }), () => heatM($("#ecoSecHeat"), rows.map(r => ({ label: r.label, I: r.I, go: r.go })), 18, { f: ob => ob.v, lim: 10, rh: 20 }));
   }
+  function ecoFp(o) { const p = $("#ecoFp"); if (!p) return; if (o && S.ficha) { p.innerHTML = '<button type="button" class="eco-fpx" aria-label="Cerrar">✕</button>' + S.ficha; p.hidden = false; } else { p.hidden = true; p.innerHTML = ""; } }
   function fichaSector(sc, I, Y, stK) {
     const T = I.cicloTC && BYID[I.cicloTC], C = I.cicloDe && BYID[I.cicloDe], st = stK.length ? EST[S.sk || stK[0]] : null, nomSt = st ? METR.find(m => m[0] === (S.sk || stK[0]))[1].replace(" · variación anual", "") : "";
     const row = (t, d) => `<tr><th>${t}</th><td>${d}</td></tr>`;
@@ -681,7 +682,7 @@
     return `<div class="eco-crumb"><a data-go="nac">Panorama</a> › <a data-go="sec">Sectores</a> › ${TIER[sc.t][0]}</div><div class="eco-h"><div><h1>${sc.ic} ${esc(sc.n)}</h1><div class="eco-sub"><span class="eco-pill" style="--c:${sc.col}">${TIER[sc.t][0]}</span>${sc.scian.map(c => `<span class="eco-pill">SCIAN ${c}</span>`).join("")}<span class="eco-pill st-${I.est[0]}">${dotE(I)} ${I.est[1]} · ${esc(I.last.l)}</span></div></div></div>
     ${ss.length > 1 ? `<div class="eco-chips" id="ecoSub">${ss.map((s, i) => `<button type="button" class="eco-chip2${i === S.sub ? " on" : ""}" style="--c:${sc.col}" data-sub="${i}">${esc(s.idx.nombre)}</button>`).join("")}</div>` : ""}
     <div class="eco-kpis">${kpi("Índice de volumen físico", fv(I, I.last.v), esc(I.last.l) + " · «" + esc(nomOrig(I)) + "»", "big")}${kpi("Variación anual", fp(Y.last.v, 1), "IGAE · " + esc(Y.last.l) + " · «" + esc(nomOrig(Y)) + "»", cc(Y.last.v))}${kpi("Posición histórica", ring(I.pctil, sc.col, nf(I.pctil, 0) + "%"), "percentil del índice")}${kpi("Máximo histórico", fv(I, I.max), esc(I.maxO.l))}${q ? kpi("Fase del ciclo", `<span style="color:${q[1]}">${q[0]}</span>`, "del reloj económico (ver abajo)") : ""}</div>
-    ${fichaSector(sc, I, Y, stK)}
+    ${(S.ficha = fichaSector(sc, I, Y, stK), EMB ? "" : S.ficha)}
     ${panelSerie(I)}
     <div class="eco-two">${panel("Variación anual por subsector", "IGAE nacional · serie " + serieRef(Y) + " vs. economía total", '<div id="ecoSLn"></div>')}${panel("Reloj económico", "misma serie del índice · " + esc(cicloHint(I)), '<div id="ecoSClock"></div>')}</div>
     ${stK.length ? panel("Mapa del sector por estado", "ITAEE · «" + esc(EST[S.sk].def.nombre) + "» · solo " + esc(METR.find(m => m[0] === S.sk)[1].replace(" · variación anual", "")) + " · trimestral · variación anual · 32 entidades", (stK.length > 1 ? `<div class="eco-chips">${stK.map(c => `<button type="button" class="eco-chip2${S.sk === c ? " on" : ""}" style="--c:${sc.col}" data-sk="${c}">${esc(METR.find(m => m[0] === c)[1].replace(" · variación anual", ""))}</button>`).join("")}</div>` : "") + '<div class="eco-grid2b"><div id="ecoSMap"></div><div id="ecoSRank"></div></div>') : ""}
@@ -884,7 +885,7 @@
   const rer = () => { const m = $("#ecoMain2"), st = m.scrollTop; ir(S.sel); m.scrollTop = st; };
   function ir(id) {
     if (id === "home") id = "nac";
-    S.sel = id; ls.set("eco_sel", id); S.zoom = {}; draws = []; tip(null); if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } if (S.cy) S.cy.playing = false; if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
+    S.sel = id; ls.set("eco_sel", id); S.zoom = {}; S.ficha = null; draws = []; tip(null); if (S.cyRaf) { cancelAnimationFrame(S.cyRaf); S.cyRaf = 0; } if (S.cy) S.cy.playing = false; if (S.map) { try { S.map.remove(); } catch (_) { } S.map = null; }
     const main = $("#ecoMain2"), mo = modo(id); if (mo === "mon") S.lastMon = id; else S.lastCat = id;
     if (mo === "mon") {
       if (id === "reg") { main.innerHTML = vistaReg(null); pintaReg(null); S.open.add("R"); }
@@ -900,7 +901,7 @@
     else if (id.startsWith("a:")) { const a = AREAS.find(x => x.n === id.slice(2)); if (!a) return ir("cat"); S.open.add(id); const l = a.g.flatMap(g => g.i); main.innerHTML = vistaPano(a.n, `<span class="eco-pill" style="--c:${a.col}">${a.g.length} grupos</span><span class="eco-pill">${l.length} indicadores</span>`, l, `<a data-go="home">Panorama</a>`); pintaPano(l); }
     else { S.sel = "cat"; main.innerHTML = vistaHome(); draws.push(() => mapaCiclo($("#ecoMapa"))); }
     draws.forEach(f => f()); main.scrollTop = 0; arbol(); $("#ecoApp").classList.remove("eco-menu");
-    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EconoLab"; }
+    if (EMB) { const h1 = main.querySelector("h1"), wt = $("#ecoWT"); if (wt) wt.textContent = h1 ? h1.textContent : "EconoLab"; const wq = $("#ecoWQ"); if (wq) wq.style.display = S.ficha ? "" : "none"; ecoFp(false); }
   }
   function arbolCat() {
     const q = norm(S.q.trim()), ws = q.split(/\s+/).filter(Boolean), F = ctxF(), pasa = I => (!F || !F.giro || (I.sectores && I.sectores.includes(F.giro))) && (!ws.length || ws.every(w => norm(I.nombre + " " + I.descripcion + " " + I.grupo + " " + I.area + " " + I.tema + " " + I.id).includes(w)));
@@ -951,11 +952,13 @@
         <span class="eco-chip" title="Datos descargados de la API del INEGI">Datos: ${esc((D.generado || "").slice(0, 10))}</span>
         ${EMB ? '<button class="gl-back" id="glBack" type="button" title="Volver al menú de GeoLab">← Menú</button><img class="mt-logo" src="metrika-logo.png" alt="Metrika Business Intelligence">' : ""}<button class="eco-theme" id="ecoTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="ecoCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="ecoSalir" type="button">Salir</button></header>
       <div class="eco-body"><aside class="eco-side">${glTabs("eco")}<div class="eco-seg"><button type="button" data-mode="mon">📊 Monitores</button><button type="button" data-mode="cat">🗂️ Catálogo</button></div><div class="eco-srch"><input id="ecoQ" type="search" placeholder="Buscar indicador, tema o ID…" autocomplete="off"></div><div class="eco-tree" id="ecoTree"></div><div class="eco-sf">Fuente: INEGI · Banco de Indicadores</div></aside>
-      ${EMB ? '<div class="eco-wbar"><b id="ecoWT">EconoLab</b><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
+      ${EMB ? '<div class="eco-wbar"><b id="ecoWT">EconoLab</b><button type="button" class="eco-wq" id="ecoWQ" style="display:none" aria-label="¿De dónde sale cada dato de esta ficha?" title="¿De dónde sale cada dato de esta ficha?">?</button><button type="button" class="eco-wx" id="ecoWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}<div class="eco-fp" id="ecoFp" hidden></div><main class="eco-main" id="ecoMain2"></main></div><div class="eco-ov" id="ecoOv"></div></div>`;
     tipEl = document.createElement("div"); tipEl.className = "eco-tip"; document.body.appendChild(tipEl);
     $("#ecoBurger", host).onclick = () => $("#ecoApp").classList.toggle("eco-menu"); $("#ecoOv", host).onclick = () => $("#ecoApp").classList.remove("eco-menu");
     $("#ecoSalir", host).onclick = () => window.DL_SALIR && window.DL_SALIR();
-    if (EMB) { $("#ecoWX", host).onclick = () => ecoWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") ecoWin(false); }); } $("#ecoCambia", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
+    if (EMB) { $("#ecoWQ", host).onclick = e => { e.stopPropagation(); const p = $("#ecoFp"); ecoFp(p && p.hidden); };
+      document.addEventListener("click", e => { const p = $("#ecoFp"); if (p && !p.hidden && (e.target.closest("#ecoFp .eco-fpx") || !e.target.closest("#ecoFp, #ecoWQ"))) ecoFp(false); });
+      $("#ecoWX", host).onclick = () => ecoWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") { const p = $("#ecoFp"); if (p && !p.hidden) ecoFp(false); else ecoWin(false); } }); } $("#ecoCambia", host).onclick = () => window.DL_CAMBIAR && window.DL_CAMBIAR();
     const tema = c => { $("#ecoApp").classList.toggle("eco-light", c === "claro"); $("#ecoTema").textContent = c === "claro" ? "🌙 Oscuro" : "☀️ Claro"; $("#ecoTema").title = c === "claro" ? "Cambiar a tema oscuro (aplica a GeoLab, EconoLab y DataLab)" : "Cambiar a tema claro (aplica a GeoLab, EconoLab y DataLab)"; if (!EMB) ls.set("eco_tema", c); };
     tema(EMB ? "oscuro" : ls.get("eco_tema", "oscuro"));
     $("#ecoTema", host).onclick = () => { const nx = $("#ecoApp").classList.contains("eco-light") ? "oscuro" : "claro"; if (EMB) { try { parent.postMessage({ gl: "tema", v: nx === "oscuro" ? "osc" : "claro" }, location.origin); } catch (_) { } } else { tema(nx); rer(); } };
