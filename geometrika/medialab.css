@@ -751,3 +751,6 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 
 /* buscador de texto sobre el combobox de entidades */
 .ml-entq{display:block;width:100%;box-sizing:border-box;margin-bottom:5px}
+
+/* botones Noticias/Mapa y objetivo dentro del encabezado fijo */
+.ml-fix .ml-tb{margin:8px 0 0;align-items:center;gap:10px}.ml-fix .ml-obj{margin:0;min-width:0;flex:1}.ml-fix .ml-obj span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
