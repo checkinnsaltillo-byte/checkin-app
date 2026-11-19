@@ -673,6 +673,10 @@
     };
     const es = $("#qcEst"); if (es) es.onchange = () => { Q.est = es.value; Q.lim = 0; Q.sel.clear(); cargaCal(); };
     const mn = $("#qcMin"); if (mn) { mn.oninput = () => { const n = $("#qcMinN"); if (n) n.textContent = mn.value; }; mn.onchange = () => { Q.min = +mn.value; cargaCal(); }; }
+    const tw = $(".qc-tw"); if (tw && D && D.nTotal > D.notas.length) tw.onscroll = async () => {
+      if (Q.mas || tw.scrollTop + tw.clientHeight < tw.scrollHeight - 160) return; Q.mas = true; const top = tw.scrollTop, y = (($("#mlMain") || {}).scrollTop) || 0;
+      try { Q.lim = Math.min(2000, D.notas.length + 200); await cargaCal(); } finally { Q.mas = false; } const t2 = $(".qc-tw"); if (t2) t2.scrollTop = top; const mm = $("#mlMain"); if (mm) mm.scrollTop = y;
+    };
     const mo = $("#qcMinOb"); if (mo) { mo.oninput = () => { const n = $("#qcMinObN"); if (n) n.textContent = mo.value; }; mo.onchange = () => { Q.minOb = +mo.value; Q.lim = 0; cargaCal(); }; }
     
   }
