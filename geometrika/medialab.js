@@ -227,18 +227,22 @@
       <div class="ml-f"><label>Relevancia para el objetivo</label><div class="ml-ck${(cxGet(), S.cj) ? " on" : ""}" data-cj="1" title="Muestra, bajo cada noticia evaluada, la explicación de por qué es relevante para el objetivo"><i>✓</i>Mostrar la justificación</div></div>
       <div class="ml-f"><label>Texto de la nota</label><select data-f="tx"><option value="">Todas</option>${[["1", "📄 Con texto"], ["2", "🔒 Sin texto (no accesible)"], ["0", "⏳ Texto pendiente"]].map(([v, t]) => `<option value="${v}"${f.tx === v ? " selected" : ""}>${t} (${nf(((F.tx || []).find(x => x.v === v) || {}).n || 0)})</option>`).join("")}</select></div>
       <div class="ml-f"><label>Fecha desde</label><input type="date" data-f="desde" value="${esc(f.desde || "")}"></div><div class="ml-f"><label>Fecha hasta</label><input type="date" data-f="hasta" value="${esc(f.hasta || "")}"></div>
-      <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><input type="search" id="mlEntQ" class="ml-entq" placeholder="Buscar entidad…" value="${esc(S.entQ || "")}" autocomplete="off"><select data-f="ent" id="mlEntS">${eo}</select></div>
+      <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><div class="ml-cb" id="mlCb"><input type="text" id="mlEntQ" class="ml-entq" placeholder="Todas · escribe para buscar…" value="${esc(S.entQ != null ? S.entQ : (f.ent || "").split(/:(.+)/)[1] || "")}" autocomplete="off" role="combobox" aria-expanded="false"><button type="button" class="ml-cbx${f.ent ? "" : " hid"}" data-ente="" title="Quitar el filtro de entidad" aria-label="Quitar el filtro de entidad">✕</button><div class="ml-cbl" id="mlEntS" hidden>${eo}</div></div></div>
     </div></details>`;
   }
 
   /* ───────── tablero ───────── */
   /* opciones del combobox de entidades, filtradas por el texto del buscador (sin acentos ni mayúsculas); la elegida nunca se oculta */
   function entOps(q) {
-    const f = S.f, ws = norm(q).split(/\s+/).filter(Boolean); let n = 0;
-    const h = (S.entL || []).map(([t, k, L]) => { const M = (L || []).filter(x => f.ent === k + ":" + x.v || !ws.length || ws.every(w => norm(x.v).includes(w))); n += M.length; return M.length ? `<optgroup label="${t}">` + M.map(x => `<option value="${k}:${esc(x.v)}"${f.ent === k + ":" + x.v ? " selected" : ""}>${esc(x.v)} (${nf(x.n)})</option>`).join("") + `</optgroup>` : ""; }).join("");
-    return `<option value="">${ws.length ? (n ? n + " coincidencia(s): elige una" : "Sin coincidencias") : "Todas"}</option>` + h;
+    const f = S.f, ws = norm(q).split(/\s+/).filter(Boolean); let n = 0; const MAXG = 60;
+    const h = (S.entL || []).map(([t, k, L]) => { const M = (L || []).filter(x => f.ent === k + ":" + x.v || !ws.length || ws.every(w => norm(x.v).includes(w))); n += M.length; return M.length ? `<div class="ml-cbg">${t}</div>` + M.slice(0, MAXG).map(x => `<div class="ml-cbo${f.ent === k + ":" + x.v ? " on" : ""}" data-ente="${k}:${esc(x.v)}" role="option"><span>${esc(x.v)}</span><em>${nf(x.n)}</em></div>`).join("") + (M.length > MAXG ? `<div class="ml-cbm">y ${nf(M.length - MAXG)} más: escribe para afinar la búsqueda</div>` : "") : ""; }).join("");
+    return `<div class="ml-cbo${f.ent ? "" : " on"}" data-ente=""><span>${ws.length ? (n ? n + " coincidencia(s)" : "Sin coincidencias") : "Todas las entidades"}</span></div>` + h;
   }
-  document.addEventListener("input", e => { if (e.target && e.target.id === "mlEntQ") { S.entQ = e.target.value; const s = $("#mlEntS"); if (s) s.innerHTML = entOps(S.entQ); } });
+  document.addEventListener("input", e => { if (e.target && e.target.id === "mlEntQ") { S.entQ = e.target.value; const l = $("#mlEntS"); if (l) { l.innerHTML = entOps(S.entQ); l.hidden = false; } e.target.setAttribute("aria-expanded", "true"); } });
+  document.addEventListener("focusin", e => { if (e.target && e.target.id === "mlEntQ") { const l = $("#mlEntS"); if (l) { if (S.f.ent && S.entQ == null) { e.target.select(); S.entQ = ""; } l.innerHTML = entOps(S.entQ || ""); l.hidden = false; } e.target.setAttribute("aria-expanded", "true"); } });
+  document.addEventListener("mousedown", e => { const c = e.target.closest && e.target.closest("#mlCb"); if (!c) { const l = $("#mlEntS"); if (l && !l.hidden) { l.hidden = true; S.entQ = null; const i = $("#mlEntQ"); if (i) { i.value = (S.f.ent || "").split(/:(.+)/)[1] || ""; i.setAttribute("aria-expanded", "false"); } } } });
+  document.addEventListener("keydown", e => { if (e.target && e.target.id === "mlEntQ" && e.key === "Escape") { e.target.blur(); const l = $("#mlEntS"); if (l) l.hidden = true; S.entQ = null; e.target.value = (S.f.ent || "").split(/:(.+)/)[1] || ""; } });
+  document.addEventListener("click", e => { const o = e.target.closest && e.target.closest("[data-ente]"); if (!o || !$("#mlCb")) return; e.preventDefault(); e.stopPropagation(); S.f.ent = o.dataset.ente; S.entQ = null; consulta(); }, true);
   const qs = () => { const f = S.f, p = new URLSearchParams(); Object.keys(f).forEach(k => { if (f[k]) p.set(k, f[k]); }); return p; };
   async function consulta(mas) {
     if (!S.sel) return; if (S.cargando) return; S.cargando = true;
