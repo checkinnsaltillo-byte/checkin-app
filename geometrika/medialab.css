@@ -821,3 +821,10 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-rkx .ml-rc{margin-top:12px;padding:11px 12px;border:1px solid var(--ml-ln);border-radius:12px;background:rgba(148,163,184,.06)}.ml-rch{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;margin-bottom:4px}.ml-rch b svg{width:14px;height:14px;vertical-align:-2px;margin-right:5px}.ml-rch span{font-weight:800;font-size:12px}
 .ml-rsub{margin:10px 0 4px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ml-mut)}
 .ml-cmp{margin-top:8px;font-size:11.5px;border:1px solid var(--ml-ln);border-radius:9px;overflow:hidden}.ml-cmp>div{display:grid;grid-template-columns:1.25fr 1.5fr 44px 44px 50px;gap:6px;padding:6px 9px;border-top:1px solid rgba(148,163,184,.18);align-items:center}.ml-cmp>div:first-child{border-top:0}.ml-cmp .h{background:rgba(148,163,184,.14);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ml-mut)}.ml-cmp em,.ml-cmp i{font-style:normal;text-align:right}.ml-cmp i{font-weight:800}.ml-cmp .tot{background:rgba(148,163,184,.12);font-weight:800}
+
+/* componentes del riesgo: cada uno con su tonalidad (--cc) en el cuadro de la ecuación y en su tarjeta */
+.ml-cc{--cb:color-mix(in srgb,var(--cc) 9%,transparent);--cl:color-mix(in srgb,var(--cc) 34%,transparent)}
+.ml-eq>.ml-cc{background:var(--cb)!important;border-color:var(--cl)!important}.ml-eq>.ml-cc small{color:var(--cc)!important;font-weight:800}.ml-eq>.ml-cc u{background:color-mix(in srgb,var(--cc) 20%,transparent)!important}.ml-eq>.ml-cc u i{background:var(--cc)!important}.ml-eq>.ml-cc .ml-hzn{color:var(--cc)}
+.ml-rkx .ml-rc.ml-cc{background:var(--cb);border-color:var(--cl)}
+.ml-rc.ml-cc small,.ml-rc.ml-cc .ml-rsub,.ml-rc.ml-cc .ml-tr>small,.ml-rc.ml-cc .ml-af-q>small,.ml-rc.ml-cc .ml-cmp .h,.ml-rc.ml-cc summary{color:var(--cc);font-weight:800;filter:saturate(1.25) brightness(.92)}
+.ml-rc.ml-cc .ml-cmp{border-color:var(--cl)}.ml-rc.ml-cc .ml-cmp .h{background:var(--cb)}.ml-rc.ml-cc .ml-cmp .tot{background:var(--cb)}.ml-rc.ml-cc .ml-tr span{border-color:var(--cl);background:var(--cb)}
