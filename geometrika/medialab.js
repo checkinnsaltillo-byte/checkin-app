@@ -112,7 +112,7 @@
   const sitBadge = p => { const k = sitDe(p); return `<span class="ml-sit s-${k}" title="${esc(SIT[k][2])}"><i></i>${SIT[k][0]}</span>`; };
   const navHtml = () => `<div class="ml-seg ml-nav"><button type="button" data-go="proyectos" class="${S.modo === "proyectos" ? "on" : ""}">📁 Proyectos</button><button type="button" data-go="tablero" class="${S.modo === "tablero" ? "on" : ""}">📰 Tablero</button><button type="button" data-go="costos" class="${S.modo === "costos" ? "on" : ""}">💰 Costos</button></div>`;
   function proyectosVista() {
-    const m = $("#mlMain"); if (!m) return; const L = S.proy, q = (S.pq || "").trim().toLowerCase(), ak = document.activeElement && document.activeElement.id === "mlPQ" ? document.activeElement.selectionStart : null;
+    const m = $("#mlMain"); if (!m) return; const L = proyC(), q = (S.pq || "").trim().toLowerCase(), ak = document.activeElement && document.activeElement.id === "mlPQ" ? document.activeElement.selectionStart : null;
     const cnt = k => L.filter(p => sitDe(p) === k).length, arr = L.filter(p => (!S.pf || sitDe(p) === S.pf) && (!q || (p.titulo + " " + (p.objetivo || "") + " " + (p.creador || "")).toLowerCase().includes(q)));
     const zona = p => { const z = p.config && p.config.zona; return z && z.estadosN && z.estadosN.length ? z.estadosN.join(", ") : "Todo México"; };
     const per = p => PER[p.config && p.config.periodicidad] || "Manual", puede = p => sitDe(p) !== "inactivo" && !enCurso(p);
@@ -185,7 +185,7 @@
         <div class="ml-acc"><button type="button" data-gest="${p.id}" title="Gestionar: situación, acceso, vigencia y presupuesto" aria-label="Gestionar">${mi("sliders")}</button><button type="button" data-ed="${p.id}" title="Editar el proyecto" aria-label="Editar">${mi("edit")}</button>${en || sitDe(p) === "inactivo" ? "" : `<button type="button" data-ex="${p.id}" title="Extraer lo nuevo desde la última extracción (o todo si el proyecto está vacío)" aria-label="Extraer lo nuevo">${mi("refresh")}</button><button type="button" data-exall="${p.id}" title="Volver a recorrer todo el periodo configurado" aria-label="Extraer todo el periodo">${mi("refreshAll")}</button>`}</div></div>`;
   }
   function treeHtml() {
-    const L = S.proy, C = S.navC || {}, cnt = k => L.filter(p => sitDe(p) === k).length;
+    const L = proyC(), C = S.navC || {}, cnt = k => L.filter(p => sitDe(p) === k).length;
     const it = (nav, ico, lab, extra, on, cls) => `<a href="#" class="ml-ni${on ? " on" : ""}${cls ? " " + cls : ""}" data-nav="${esc(nav)}"><span class="i">${ico}</span><span class="t">${lab}</span>${extra !== null && extra !== undefined ? `<em>${extra}</em>` : ""}</a>`;
     const grp = (k, ico, lab, on, body) => `<div class="ml-ng${C[k] ? " c" : ""}"><div class="ml-nh${on ? " on" : ""}"><a href="#" class="ml-nhl" data-nav="g|${k}"><span class="i">${ico}</span><span class="t">${lab}</span></a><button type="button" class="ml-nc" data-navc="${k}" aria-label="Plegar o desplegar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="ml-nb">${body}</div></div>`;
     const pm = S.modo === "proyectos" || S.modo === "crear", f = S.pf || "", dot = k => `<span class="dot s-${k}"></span>`;
@@ -197,7 +197,7 @@
   }
   function navTo(v) {
     const [a, b, c] = v.split("|");
-    if (a === "g") { if (b === "proy") navTo("proy|" + (S.pf || "")); else if (b === "tab") { const id = S.sel || (S.proy[0] && S.proy[0].id); if (id) navTo("tab|" + id + "|" + (S.vista || "lista")); else navTo("proy|"); } else navTo("cos|top"); return; }
+    if (a === "g") { if (b === "proy") navTo("proy|" + (S.pf || "")); else if (b === "tab") { const id = S.sel || (proyC()[0] && proyC()[0].id); if (id) navTo("tab|" + id + "|" + (S.vista || "lista")); else navTo("proy|"); } else navTo("cos|top"); return; }
     if (a === "proy") { S.pf = b || ""; S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); }
     else if (a === "nuevo") nuevo();
     else if (a === "nar") abreNarr(b);
@@ -207,8 +207,12 @@
   }
   function lado() {
     const side = $("#mlSide"); if (!side) return;
-    const sc = side.scrollTop; side.innerHTML = verChip() + treeHtml(); side.scrollTop = sc;
+    const sc = side.scrollTop; side.innerHTML = verChip() + canalHtml() + treeHtml(); side.scrollTop = sc;
   }
+  const esSocial = p => !!(p && p.config && p.config.proveedor === "fbgoogle");
+  const canalGet = () => { if (!S.canal) { let v = ""; try { v = localStorage.getItem("ml_canal") || ""; } catch (_) { } S.canal = v === "social" ? "social" : "noticias"; } return S.canal; };
+  const proyC = () => (S.proy || []).filter(p => esSocial(p) === (canalGet() === "social"));
+  const canalHtml = () => { const c = canalGet(); return `<div class="ml-cn" role="tablist" aria-label="Sección de Media Lab"><button type="button" role="tab" data-canal="noticias" class="${c === "noticias" ? "on" : ""}">📰 Noticias</button><button type="button" role="tab" data-canal="social" class="${c === "social" ? "on" : ""}">📱 Social Media</button></div>`; };
   const verChip = () => { let v = window.__gpV || ""; try { if (v) throw 0; const sc = [...document.scripts].find(x => /geometrika\.js\?v=/.test(x.src)); v = sc ? sc.src.split("v=")[1].split("&")[0] : ""; } catch (_) { } return v ? `<div class="ml-ver"><span class="ml-vchip" title="Versión del sistema">v.Beta.${esc(v)} · Check Inn</span></div>` : ""; };
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
   function filtros() {
@@ -261,7 +265,7 @@
     lado(); principal();
   }
   async function selecciona(id) {
-    S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); calResumen(id, true); await consulta();
+    S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); if (p) { S.canal = esSocial(p) ? "social" : "noticias"; try { localStorage.setItem("ml_canal", S.canal); } catch (_) { } } titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); calResumen(id, true); await consulta();
   }
   /* carga automática: al llegar al final de la lista se pide el siguiente grupo de noticias */
   let ioMasObs = null;
@@ -722,7 +726,7 @@
     else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<div class="ml-more" data-go="mas"><span class="ml-spin"></span>Cargando más noticias… (${nf(d.items.length)} de ${nf(d.total)})</div>` : ""}`;
     m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa(); if (S.vista === "tl" && d) tlEventos(); ioMas(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
   }
-  const PROVN = { grss: "Google Noticias", gdelt: "GDELT", newsdata: "NewsData.io", gnews: "GNews" }, provN = v => PROVN[v] || v;
+  const PROVN = { grss: "Google Noticias", gdelt: "GDELT", newsdata: "NewsData.io", gnews: "GNews", fbgoogle: "Facebook" }, provN = v => PROVN[v] || v;
   const TXC = { 1: ["ok", "📄 Con texto", "Se descargó el cuerpo de la nota"], 2: ["", "🔒 Sin texto", "El medio no permitió descargar el cuerpo (bloqueo o suscripción)"], 0: ["run", "⏳ Texto pendiente", "Aún no se intenta descargar el cuerpo"] };
   const MET = { regla: ["🔎 Texto", "Detectado en el título o la descripción con el catálogo de municipios del INEGI"], ia: ["🤖 IA", "La IA interpretó el lugar del texto de la nota y se ubicó con el catálogo de municipios del INEGI"], places: ["🗺️ Google Places", "Ubicado con la API de Google Places y verificado dentro del estado de la nota"] };
   const metChip = L => L ? `<span class="ml-chip" title="${esc((MET[L.met || "regla"] || MET.regla)[1])}">${(MET[L.met || "regla"] || MET.regla)[0]}</span>` : "";
@@ -1159,7 +1163,7 @@
   function medRefresca() { const c = $("#mlMch"), l = $("#mlMlist"), q = $("#mlMq"); if (c) c.innerHTML = medChips(); if (l) l.innerHTML = medLista(q ? q.value : ""); }
   function medToggle(d) { d = String(d).trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""); if (!d || !S.W) return; const a = medSel(), i = a.indexOf(d); i >= 0 ? a.splice(i, 1) : a.push(d); S.W.medios = a.join(", "); if (!(S.medios || []).some(m => m.d === d)) (S.medios = S.medios || []).push({ d, nom: d, n: 0 }); medRefresca(); }
   async function cargaMedios() { try { S.medios = (await api("/medios")).medios || []; } catch (_) { S.medios = S.medios || []; } if (S.modo === "crear") { const l = $("#mlMlist"); if (l) { const q = $("#mlMq"); l.innerHTML = medLista(q ? q.value : ""); const c = $("#mlMch"); if (c) c.innerHTML = medChips(); } } }
-  function nuevo() { S.W = WNEW(); S.modo = "crear"; titulo("Crear proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); cargaMedios(); }
+  function nuevo() { S.W = WNEW(); if (canalGet() === "social") S.W.proveedor = "fbgoogle"; S.modo = "crear"; titulo("Crear proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); cargaMedios(); }
   async function cargaProv() { try { S.prov = await api("/proveedores"); } catch (e) { S.prov = { proveedores: {}, estados: {}, error: e.message }; } if (S.modo === "crear") principal(); }
   async function editar(id) {
     cargaMedios();
@@ -1186,7 +1190,7 @@
       ${W.tipo === "movil" ? `<div class="ml-f"><label>Días hacia atrás</label><input type="number" min="1" max="3650" data-w="dias" value="${W.dias}"></div>` : `<div class="ml-row2"><div class="ml-f"><label>Desde</label><input type="date" data-w="desde" value="${esc(W.desde)}"></div><div class="ml-f"><label>Hasta</label><input type="date" data-w="hasta" value="${esc(W.hasta)}"></div></div>`}
       <div class="ml-row2"><div class="ml-f"><label>Cantidad máxima de noticias</label><select data-w="max">${[1000, 5000, 20000, 50000].map(v => `<option value="${v}"${+W.max === v ? " selected" : ""}>${nf(v)}</option>`).join("")}</select></div><div class="ml-f"><label>Idioma</label><select data-w="idioma"><option value="spanish"${W.idiomas[0] === "spanish" ? " selected" : ""}>Español</option><option value="english"${W.idiomas[0] === "english" ? " selected" : ""}>Inglés</option></select></div></div>
       <div class="ml-f"><label>Solo estos medios (elige de los que ya tienes guardados o escribe un dominio; vacío = todos)</label>${mediosHtml()}</div>
-      <div class="ml-f"><label>Servicio de noticias</label><select data-w="proveedor">${Object.keys(pv).map(k => `<option value="${k}"${W.proveedor === k ? " selected" : ""}${pv[k].ok ? "" : " disabled"}>${esc(pv[k].n)}${pv[k].ok ? "" : " — requiere " + esc(pv[k].clave)}</option>`).join("")}</select></div>
+      <div class="ml-f"><label>${canalGet() === "social" ? "Fuente de publicaciones" : "Servicio de noticias"}</label><select data-w="proveedor">${Object.keys(pv).filter(k => !!pv[k].social === (canalGet() === "social")).map(k => `<option value="${k}"${W.proveedor === k ? " selected" : ""}${pv[k].ok ? "" : " disabled"}>${esc(pv[k].n)}${pv[k].ok ? "" : " — requiere " + esc(pv[k].clave)}</option>`).join("")}</select></div>
       ${pv[W.proveedor] ? `<div class="ml-sem"><span>${esc(pv[W.proveedor].nota)}</span></div>` : ""}
       <button class="ml-btn2" type="button" data-go="estimar">📊 Estimar cantidad de noticias y tiempo</button>
       ${W.estimando ? `<div class="ml-est">Estimando con una muestra real…</div>` : e ? `<div class="ml-est"><b>${nf(e.terminos)}</b> términos → <b>${nf(e.grupos)}</b> grupos de consulta (~${nf(e.consultas)} consultas, ≈ <b>${nf(e.minutos)} min</b>).<br>Muestra: ${e.muestra.map(x => `${nf(x.n)}${x.saturado ? "+" : ""} notas`).join(" · ") || "—"} · estimado total ≈ <b>${nf(e.notasEstimadas)}</b>${e.saturado ? " (consultas saturadas: se subdividen por fechas)" : ""}.${(e.advertencias || []).map(a => `<div class="ml-warn">${esc(a)}</div>`).join("")}</div>` : ""}</div>`; }
@@ -1263,6 +1267,7 @@
     const gv = t.closest("[data-ver]"); if (gv) { e.preventDefault(); abreEnt(gv.dataset.ver); return; }
     const ly = t.closest("[data-lay]"); if (ly && S.entV) { S.entV.lay = ly.dataset.lay; pintaDet(); return; }
     const gn = t.closest("[data-gn]"); if (gn && S.entV) { S.entV.sel = gn.dataset.gn; pintaDet(); return; }
+    const cnb = t.closest("[data-canal]"); if (cnb) { const c = cnb.dataset.canal === "social" ? "social" : "noticias"; if (c !== canalGet()) { S.canal = c; try { localStorage.setItem("ml_canal", c); } catch (_) { } const p = S.proy.find(x => x.id === S.sel); if (!p || esSocial(p) !== (c === "social")) { S.sel = null; S.data = null; } S.pf = ""; S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); } return; }
     const fdp = t.closest("[data-fdup]"); if (fdp) { S.f.nodup = S.f.nodup ? "" : "1"; consulta(); return; }
       const dpd = t.closest("[data-dupde]"); if (dpd) { verDups(dpd.dataset.dupde); return; }
       const cxe = t.closest("[data-cx]"); if (cxe) { const c = cxGet(), k = cxe.dataset.cx; if (c.has(k)) c.delete(k); else c.add(k); try { localStorage.setItem("ml_cx", JSON.stringify([...c])); } catch (_) { } cxe.classList.toggle("on", c.has(k)); const rw = $(`.ml-rg[data-rg="${k}"]`); if (rw) rw.hidden = !c.has(k); ixRefresca(); if (!c.has(k) && rgGet(S.f.rg)[k]) { const m = rgGet(S.f.rg); delete m[k]; S.f.rg = Object.keys(m).map(x => x + ":" + m[x][0] + "-" + m[x][1]).join(","); consulta(); } return; }
