@@ -214,7 +214,7 @@
     const F = S.data.facetas || {}, f = S.f, ents = [["Personas", "pers", F.pers], ["Instituciones", "inst", F.inst], ["Tópicos", "top", F.top]];
     S.entL = ents; const eo = entOps(S.entQ || "");
     const act = Object.keys(f).filter(k => f[k]).length;
-    return `<details class="ml-ff"${S.ffC ? "" : " open"}><summary><span class="ml-fh" role="button" tabindex="0" title="Mostrar u ocultar filtros" aria-label="Mostrar u ocultar filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span><span>${ic("bar")}Filtros</span><input type="search" id="mlQ" class="ml-fq" placeholder="Buscar en todos los campos: título, resumen, texto, lugar, medio, personas…" value="${esc(f.q || "")}"><em>${nf(S.data.total)} de ${nf(S.data.de)} noticias${act ? ` · ${act} activo${act > 1 ? "s" : ""}` : ""}</em><button class="ml-btn2" type="button" data-go="limpiar">Limpiar filtros</button></summary><div class="ml-ffg">
+    return `<details class="ml-ff"${S.ffC ? "" : " open"}><summary><span class="ml-fh" role="button" tabindex="0" title="Mostrar u ocultar filtros" aria-label="Mostrar u ocultar filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span><span>${ic("bar")}Filtros</span><input type="search" id="mlQ" class="ml-fq" placeholder="Buscar en todos los campos: título, resumen, texto, lugar, medio, personas…" value="${esc(f.q || "")}"><em>${nf(S.data.total)} de ${nf(S.data.de)} noticias${act ? ` · ${act} activo${act > 1 ? "s" : ""}` : ""}</em><button class="ml-btn2" type="button" data-go="limpiar">Limpiar filtros</button></summary><div class="ml-ix"><b>Índices que aparecen en la tarjeta</b>${IXS.map(([k, nom]) => `<span class="ml-ck${cxGet().has(k) ? " on" : ""}" data-cx="${k}"><i>✓</i>${nom}</span>`).join("")}</div><div class="ml-ffg">
       <div class="ml-f"><label>Categoría</label><select data-f="cat">${opt(F.cat, f.cat)}</select></div>
       <div class="ml-f"><label>Subcategoría</label><select data-f="sub">${opt(F.sub, f.sub)}</select></div>
       <div class="ml-f"><label>Lugar · zona del país</label><select data-f="reg">${opt(F.reg, f.reg)}</select></div>
@@ -224,6 +224,7 @@
       <div class="ml-f"><label>Medio</label><select data-f="med">${opt(F.med, f.med)}</select></div>
       ${F.prov && F.prov.length ? `<div class="ml-f"><label>Fuente de extracción</label><select data-f="prov"><option value="">Todas</option>${F.prov.map(x => `<option value="${esc(x.v)}"${f.prov === x.v ? " selected" : ""}>${esc(provN(x.v))} (${nf(x.n)})</option>`).join("")}</select><div class="ml-prv">${F.prov.map(x => `<span class="ml-chip pv-${esc(x.v)}">${esc(provN(x.v))} <b>${nf(x.n)}</b></span>`).join("")}</div></div>` : ""}
       <div class="ml-f"><label>Posibles duplicadas${S.data && S.data.dups ? ` (${nf(S.data.dups)})` : ""}</label><div class="ml-ck${f.nodup ? " on" : ""}" data-fdup="1" title="Deja solo la nota recomendada de cada grupo de noticias parecidas"><i>✓</i>Ocultar posibles duplicadas</div></div>
+      <div class="ml-f"><label>Relevancia para el objetivo</label><div class="ml-ck${(cxGet(), S.cj) ? " on" : ""}" data-cj="1" title="Muestra, bajo cada noticia evaluada, la explicación de por qué es relevante para el objetivo"><i>✓</i>Mostrar la justificación</div></div>
       <div class="ml-f"><label>Texto de la nota</label><select data-f="tx"><option value="">Todas</option>${[["1", "📄 Con texto"], ["2", "🔒 Sin texto (no accesible)"], ["0", "⏳ Texto pendiente"]].map(([v, t]) => `<option value="${v}"${f.tx === v ? " selected" : ""}>${t} (${nf(((F.tx || []).find(x => x.v === v) || {}).n || 0)})</option>`).join("")}</select></div>
       <div class="ml-f"><label>Fecha desde</label><input type="date" data-f="desde" value="${esc(f.desde || "")}"></div><div class="ml-f"><label>Fecha hasta</label><input type="date" data-f="hasta" value="${esc(f.hasta || "")}"></div>
       <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><input type="search" id="mlEntQ" class="ml-entq" placeholder="Buscar entidad…" value="${esc(S.entQ || "")}" autocomplete="off"><select data-f="ent" id="mlEntS">${eo}</select></div>
@@ -800,6 +801,7 @@
   }
 
   /* eliminar una noticia del proyecto (se descarta: sale de todas las vistas y se puede restaurar desde Control de calidad › Descartadas) */
+  function ixRefresca() { if (!S.data || !S.data.items) return; $$(".ml-cards:not(.nr-lst)").forEach(el => { el.innerHTML = S.data.items.map(card).join(""); }); }
   async function elimina(id, btn) {
     if (!btn.classList.contains("sure")) { btn.classList.add("sure"); btn.title = "Clic de nuevo para confirmar"; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.classList.remove("sure"); btn.title = "Eliminar del proyecto"; }, 3500); return; }
     btn.disabled = true; const pid = S.sel;
@@ -913,7 +915,13 @@
   }
 
   const SB = v => v >= 7 ? ["POS", "ok"] : v >= 4 ? ["NEU", ""] : ["NEG", "bad"], EMO = v => v >= 7 ? "🙂" : v >= 4 ? "😐" : "🙁", BAR = v => v >= 66 ? "#ef4444" : v >= 33 ? "#f59e0b" : "#22c55e";
-  const anCard = n => n.an ? `<div class="ml-an"><span class="ml-chip">${EMO(n.an.s)} sent <b>${n.an.s}</b></span><span class="ml-chip">riesgo <b>${n.an.r}</b></span><span class="ml-chip">expo <b>${Math.round(n.an.e)}</b></span></div>${(() => { const r = Math.max(0, Math.min(100, n.an.r)), w = Math.max(3, r), [nv, col] = NIV(r); return `<div class="ml-rbw" title="Riesgo ${r} · ${nv}"><div class="ml-rb"><span style="width:${w}%;background-size:${(10000 / w).toFixed(1)}% 100%"></span><i style="left:${w}%;border-color:${col}"></i></div><b style="color:${col}">${nv}</b></div>`; })()}` : "";
+  const IXS = [["o", "Relevancia para el objetivo"], ["r", "Riesgo"], ["i", "Impacto"], ["g", "Gravedad"], ["vi", "Violencia"], ["p", "Polarización"]];
+  const cxGet = () => { if (!S.cx) { let v = null; try { v = JSON.parse(localStorage.getItem("ml_cx") || "null"); } catch (_) { } S.cx = new Set(Array.isArray(v) ? v : ["r"]); try { S.cj = localStorage.getItem("ml_cj") === "1"; } catch (_) { } } return S.cx; };
+  const OBN = v => v >= 80 ? "Central" : v >= 60 ? "Relevante" : v >= 40 ? "Contexto útil" : v >= 20 ? "Tangencial" : "Sin relación";
+  const ixBar = (k, nom, v, n) => { const r = Math.max(0, Math.min(100, +v || 0)), w = Math.max(3, r), ob = k === "o", [nv, col] = ob ? [OBN(r), "#6366f1"] : NIV(r), ant = ob && n.ob && !n.ob.a; return `<div class="ml-rbw${ob ? " ob" : ""}${ant ? " ant" : ""}" title="${esc(nom)} ${Math.round(r)} · ${nv}${ant ? " (evaluada con un objetivo anterior)" : ""}"><small class="ml-ixl">${esc(nom)}</small><div class="ml-rb"><span style="width:${w}%;background-size:${(10000 / w).toFixed(1)}% 100%"></span><i style="left:${w}%;border-color:${col}"></i></div><b style="color:${col}">${Math.round(r)} · ${nv}</b></div>`; };
+  const anCard = n => { const cx = cxGet(); let h = n.an ? `<div class="ml-an"><span class="ml-chip">${EMO(n.an.s)} sent <b>${n.an.s}</b></span><span class="ml-chip">riesgo <b>${n.an.r}</b></span><span class="ml-chip">expo <b>${Math.round(n.an.e)}</b></span></div>` : "";
+    IXS.forEach(([k, nom]) => { if (!cx.has(k)) return; const v = k === "o" ? (n.ob ? n.ob.v : null) : n.an ? n.an[k] : null; if (v != null) h += ixBar(k, nom, v, n); });
+    if (S.cj && n.ob && n.ob.j) h += `<small class="ml-oj${n.ob.a ? "" : " ant"}">🎯 ${esc(n.ob.j)}</small>`; return h; };
   function gauge(v) {
     const R = 78, cx = 100, cy = 100, pt = (f, r) => { const a = Math.PI * (1 - f); return [cx + (r || R) * Math.cos(a), cy - (r || R) * Math.sin(a)]; }, arc = (a, b, c) => { const [x0, y0] = pt(a), [x1, y1] = pt(b); return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" stroke="${c}" stroke-width="14" fill="none"/>`; }, [nx, ny] = pt(Math.min(1, Math.max(0, v / 100)), R - 14);
     return `<svg viewBox="0 0 200 130" class="ml-gau">${arc(0, .33, "#22c55e")}${arc(.33, .66, "#f59e0b")}${arc(.66, 1, "#ef4444")}<line x1="100" y1="100" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="currentColor"/><text x="100" y="124" text-anchor="middle" font-size="20" font-weight="800" fill="currentColor">${v}</text><text x="14" y="120" font-size="9" fill="currentColor" opacity=".6">0</text><text x="176" y="120" font-size="9" fill="currentColor" opacity=".6">100</text></svg>`;
@@ -1231,6 +1239,8 @@
     const gn = t.closest("[data-gn]"); if (gn && S.entV) { S.entV.sel = gn.dataset.gn; pintaDet(); return; }
     const fdp = t.closest("[data-fdup]"); if (fdp) { S.f.nodup = S.f.nodup ? "" : "1"; consulta(); return; }
       const dpd = t.closest("[data-dupde]"); if (dpd) { verDups(dpd.dataset.dupde); return; }
+      const cxe = t.closest("[data-cx]"); if (cxe) { const c = cxGet(), k = cxe.dataset.cx; if (c.has(k)) c.delete(k); else c.add(k); try { localStorage.setItem("ml_cx", JSON.stringify([...c])); } catch (_) { } cxe.classList.toggle("on", c.has(k)); ixRefresca(); return; }
+      const cje = t.closest("[data-cj]"); if (cje) { cxGet(); S.cj = !S.cj; try { localStorage.setItem("ml_cj", S.cj ? "1" : "0"); } catch (_) { } cje.classList.toggle("on", S.cj); ixRefresca(); return; }
       const dl = t.closest("[data-del]"); if (dl) { e.stopPropagation(); elimina(dl.dataset.del, dl); return; }
       const n = t.closest("[data-n]"); if (n) { abreDet(n.dataset.n); return; }
     const en = t.closest("[data-ent]"); if (en) { S.f.ent = en.dataset.ent; consulta(); return; }
