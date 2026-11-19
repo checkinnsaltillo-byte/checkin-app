@@ -774,6 +774,19 @@
     const box = $("#tlBox"); if (!box) return; const sc = $("#tlSc"), l = sc ? sc.scrollLeft : 0, t = sc ? sc.scrollTop : 0; box.innerHTML = tlHtml(); const s2 = $("#tlSc"); if (!s2) return;
     if (irHoy || !sc) { const h = s2.querySelector("th.hoy") || [...s2.querySelectorAll("th[data-k]")].pop(); if (h) s2.scrollLeft = Math.max(0, h.offsetLeft - s2.clientWidth + 260); } else { s2.scrollLeft = l; s2.scrollTop = t; }
   }
+
+  /* clic en una celda: sus noticias aparecen en el panel derecho (la tabla del Timeline se queda a la izquierda) */
+  function tlAbreCelda(rk, col) {
+    const G = S.tlG || "d", [c, sb] = rk.split("\u0001"), [d0, d1] = tlRango(col, G), tit = rk === "*" ? "Todas las clasificaciones" : (sb && sb !== "(sin subcategoría)" ? c + " › " + sb : c), cuando = G === "d" ? col : G === "s" ? "semana del " + col : G === "m" ? MESN[+col.slice(5, 7) - 1] + " " + col.slice(0, 4) : col;
+    S.tlBack = null; S.entV = null; S.det = { lista: { full: true, tl: { rk, d0, d1, c: rk === "*" ? "" : c, sb: sb && sb !== "(sin subcategoría)" ? sb : "", sinSub: sb === "(sin subcategoría)" }, ico: "🗓️", nombre: tit + " · " + cuando, items: [], total: 0, cargando: true } }; pintaDet(); tlCelda(false);
+  }
+  async function tlCelda(mas) {
+    const x = S.det, L = x && x.lista; if (!L || !L.tl || L.busy) return; L.busy = true; const t = L.tl, id = S.sel;
+    try {
+      const p = qs(); p.set("n", "40"); p.set("pag", String(mas ? Math.floor(L.items.length / 40) : 0)); p.set("desde", t.d0); p.set("hasta", t.d1); if (t.c) p.set("cat", t.c); if (t.sb) p.set("sub", t.sb);
+      const r = await api(`/proyectos/${id}/noticias?${p}`); if (id !== S.sel || S.det !== x) return; L.items = mas ? L.items.concat(r.items) : r.items; L.total = r.total; L.cargando = false; L.sub = `${nf(L.items.length)}${L.total > L.items.length ? " de " + nf(L.total) : ""} noticia(s) · clic en una para ver el detalle`;
+    } catch (e) { L.cargando = false; L.error = e.message; } finally { L.busy = false; } if (S.det === x) pintaDet();
+  }
   function tlEventos() {
     const box = $("#tlBox"); if (!box) return; tlPinta(true);
     box.onclick = e => {
@@ -782,7 +795,7 @@
       if (b.dataset.tlx) { const o = S.tlOpen = new Set(b.dataset.tlx === "1" && S.tl ? S.tl.items.map(x => x.c) : []); return tlPinta(); }
       if (b.dataset.tlhoy) return tlPinta(true);
       if (b.dataset.tlr) { const o = S.tlOpen || (S.tlOpen = new Set()), k = b.dataset.tlr; if (o.has(k)) o.delete(k); else o.add(k); return tlPinta(); }
-      if (b.dataset.tlc) { const k = b.dataset.tlc, [c, sb] = k.split("\u0001"), [d0, d1] = tlRango(b.dataset.col, S.tlG || "d"); S.f = Object.assign({}, S.f, { desde: d0, hasta: d1 }); if (k !== "*") { S.f.cat = c; if (sb && sb !== "(sin subcategoría)") S.f.sub = sb; else delete S.f.sub; } S.vista = "lista"; S.det = null; principal(); consulta(); }
+      if (b.dataset.tlc) tlAbreCelda(b.dataset.tlc, b.dataset.col);
     };
   }
   function pintaProg() {
@@ -794,17 +807,23 @@
 
   /* ───────── detalle (columna lateral derecha) ───────── */
   async function abreDet(id, forzarIA) {
+    if (S.vista === "tl" && S.det && S.det.lista && S.det.lista.tl) { S.det.lista.st = ($("#mlDet") || {}).scrollTop || 0; S.tlBack = S.det; }
     S.entV = null; S.det = { id, cargando: true }; pintaDet(); $$(".ml-card").forEach(c => c.classList.toggle("on", c.dataset.n === id));
     try { const r = await api(`/proyectos/${S.sel}/noticia/${id}${forzarIA ? "?ia=1" : ""}`); S.det = { id, n: r.noticia }; } catch (e) { S.det = { id, error: e.message }; } pintaDet();
   }
-  function layDet(on) { const a = $("#mlApp"); if (!a) return; const act = !!on && S.vista === "mapa"; a.classList.toggle("ml-det-on", act); if (act) { if (!a.classList.contains("ml-sidehide")) { a.classList.add("ml-sidehide"); S.sideAuto = true; } } else if (S.sideAuto) { a.classList.remove("ml-sidehide"); S.sideAuto = false; } setTimeout(() => { if (S.mapa) S.mapa.invalidateSize(); }, 160); }
+  function layDet(on) { const a = $("#mlApp"); if (!a) return; const act = !!on && (S.vista === "mapa" || S.vista === "tl"); a.classList.toggle("ml-det-on", act); if (act) { if (!a.classList.contains("ml-sidehide")) { a.classList.add("ml-sidehide"); S.sideAuto = true; } } else if (S.sideAuto) { a.classList.remove("ml-sidehide"); S.sideAuto = false; } setTimeout(() => { if (S.mapa) S.mapa.invalidateSize(); }, 160); }
   async function verDups(id) {
     const L = { full: true, ico: "🧬", nombre: "Posibles duplicadas", sub: "", items: [], cargando: true }; S.det = { lista: L }; pintaDet();
     try { const r = await api(`/proyectos/${S.sel}/noticias?dupDe=${encodeURIComponent(id)}`); L.items = r.items || []; L.sub = `${L.items.length} noticia(s) muy parecidas a la que se conserva · clic en una para ver el detalle · se descartan en Control de calidad`; } catch (e) { L.error = e.message; }
     L.cargando = false; if (S.det && S.det.lista === L) pintaDet();
   }
-  function cierraDet() { layDet(false); S.det = null; S.entV = null; const d = $("#mlDet"); if (d) d.hidden = true; $$(".ml-card.on").forEach(c => c.classList.remove("on")); }
+  function cierraDet() { layDet(false); S.det = null; S.tlBack = null; S.entV = null; const d = $("#mlDet"); if (d) d.hidden = true; $$(".ml-card.on").forEach(c => c.classList.remove("on")); }
   function pintaDet() {
+    pintaDet0(); const d = $("#mlDet"), x = S.det; if (!d || !x || S.vista !== "tl" || S.entV) return;
+    if (S.tlBack && !x.lista) d.insertAdjacentHTML("afterbegin", `<button type="button" class="ml-btn2 tl-vol" data-go="tlvolver">← Volver a la lista</button>`);
+    if (x.lista && x.lista.tl) { if (!x.lista.cargando && !x.lista.error && x.lista.items.length < x.lista.total) d.insertAdjacentHTML("beforeend", `<button type="button" class="ml-btn2 tl-mas" data-go="tlmas">Cargar más (${nf(x.lista.items.length)} de ${nf(x.lista.total)})</button>`); if (x.lista.st) { d.scrollTop = x.lista.st; x.lista.st = 0; } }
+  }
+  function pintaDet0() {
     const d = $("#mlDet"); if (!d || !S.det) return; d.hidden = false; layDet(true); const x = S.det; if (S.entV) { pintaEnt(d); return; }
     if (x.lista && x.lista.full) { const L = x.lista; d.innerHTML = `<div class="nr-lh"><button class="x" type="button" data-go="cierra">✕</button><h3>${L.ico} ${esc(L.nombre)}</h3>` + (L.cargando ? `</div><div class="ml-vacio">Cargando noticias…</div>` : L.error ? `</div><div class="ml-warn">${esc(L.error)}</div>` : `<div class="ml-sem"><span>${L.sub != null ? esc(L.sub) : `${L.items.length}${L.total > L.items.length ? " de " + L.total : ""} noticia(s) analizadas del periodo${S.nrF && Object.values(S.nrF).some(Boolean) ? ", con los filtros activos" : ""} · clic en una para ver el detalle`}</span></div></div><div class="ml-cards nr-lst">${L.items.map(card).join("")}</div>${L.items.length ? "" : `<div class="ml-vacio">Sin noticias para este punto.</div>`}`); return; }
     if (x.lista) { d.innerHTML = `<button class="x" type="button" data-go="cierra">✕</button><h3>📍 ${esc(x.lista.nombre)}</h3><div class="ml-sem"><span>${x.lista.items.length} noticias en este lugar</span></div>` + x.lista.items.map(n => `<div class="ml-card" data-n="${n.id}" style="margin:0 0 10px"><div class="bd"><div class="mt"><b>${esc(n.med)}</b><span>${esc(fecha(n.f))}</span></div><h4>${esc(n.t)}</h4><div><span class="ml-chip">${esc(n.cat)}</span></div></div></div>`).join(""); return; }
@@ -1165,7 +1184,9 @@
     const nc = t.closest("[data-navc]"); if (nc) { S.navC = S.navC || {}; S.navC[nc.dataset.navc] = !S.navC[nc.dataset.navc]; lado(); return; }
     if (go) {
       const k = go.dataset.go, W = S.W;
-      if (k === "proyectos") { S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); }
+      if (k === "tlvolver") { if (S.tlBack) { S.det = S.tlBack; S.tlBack = null; S.entV = null; pintaDet(); } }
+      else if (k === "tlmas") { tlCelda(true); }
+      else if (k === "proyectos") { S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); }
       else if (k === "tablero") { S.modo = "tablero"; titulo((S.proy.find(x => x.id === S.sel) || {}).titulo || "Media Lab"); lado(); principal(); if (S.sel && !S.data) consulta(); }
       else if (k === "crear") nuevo(); else if (k === "costos") abreCostos(); else if (k === "guardaTar") guardaTarifas(); else if (k === "limpiar") { S.f = {}; consulta(); } else if (k === "mas") consulta(true); else if (k === "cierra") cierraDet();
       else if (k === "sigue") { const er = validaPaso(); if (er) { toast(er, true); return; } W.paso++; wizard(); } else if (k === "atras") { W.paso--; wizard(); }
