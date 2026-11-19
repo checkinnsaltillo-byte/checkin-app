@@ -763,3 +763,10 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 /* editor de proyecto: aviso de cambios sin guardar */
 .ml-wsv{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:9px 14px;border-radius:12px;border:1px solid #f59e0b;background:rgba(69,39,6,.96);color:#fde68a;font-size:12.5px;font-weight:600}
 .ml-wsv[hidden]{display:none}.ml-light .ml-wsv{background:#fffbeb;color:#92400e}.ml-wsv .ml-btn{padding:6px 14px}
+
+/* Control de calidad: relevancia para el objetivo del proyecto */
+.qc-k.f{background:linear-gradient(135deg,#ec4899,#9333ea)}
+.qc-ob{display:flex;flex-direction:column;gap:3px;padding:9px 12px;border-radius:10px;border:1px solid rgba(236,72,153,.5);background:rgba(236,72,153,.1);font-size:12.5px;margin-bottom:8px}.qc-ob b{font-size:11px;color:#f472b6}
+.qc-obn{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.qc-obn .qc-tg{font-size:11px;padding:3px 10px}.qc-obn .ml-btn2{padding:4px 10px;font-size:11.5px;margin-left:4px}
+.qc-t td small.qc-j{font-size:11px;color:var(--ml-mut);font-style:italic;line-height:1.35;margin-top:3px;max-width:560px}.qc-t td small.qc-j.vj{opacity:.6;text-decoration:line-through dotted}
+.qc-rl.vj{opacity:.5}
