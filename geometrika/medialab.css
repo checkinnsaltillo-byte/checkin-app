@@ -772,3 +772,5 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .qc-rl.vj{opacity:.5}
 
 .qc-t th.qc-so{cursor:pointer;user-select:none}.qc-t th.qc-so:hover,.qc-t th.qc-so.on{color:var(--ml-tx,#f1f5f9)}
+
+.qc-mas{display:flex;align-items:center;gap:12px;margin-top:10px}
