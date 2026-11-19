@@ -209,7 +209,7 @@
     const side = $("#mlSide"); if (!side) return;
     const sc = side.scrollTop; side.innerHTML = verChip() + treeHtml(); side.scrollTop = sc;
   }
-  const verChip = () => { let v = ""; try { const sc = [...document.scripts].find(x => /geometrika\.js\?v=/.test(x.src)); v = sc ? sc.src.split("v=")[1].split("&")[0] : ""; } catch (_) { } return v ? `<div class="ml-ver"><span class="ml-vchip" title="Versión del sistema">v.Beta.${esc(v)} · Check Inn</span></div>` : ""; };
+  const verChip = () => { let v = window.__gpV || ""; try { if (v) throw 0; const sc = [...document.scripts].find(x => /geometrika\.js\?v=/.test(x.src)); v = sc ? sc.src.split("v=")[1].split("&")[0] : ""; } catch (_) { } return v ? `<div class="ml-ver"><span class="ml-vchip" title="Versión del sistema">v.Beta.${esc(v)} · Check Inn</span></div>` : ""; };
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
   function filtros() {
     const F = S.data.facetas || {}, f = S.f, ents = [["Personas", "pers", F.pers], ["Instituciones", "inst", F.inst], ["Tópicos", "top", F.top]];
