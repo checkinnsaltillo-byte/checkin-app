@@ -770,3 +770,5 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .qc-obn{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.qc-obn .qc-tg{font-size:11px;padding:3px 10px}.qc-obn .ml-btn2{padding:4px 10px;font-size:11.5px;margin-left:4px}
 .qc-t td small.qc-j{font-size:11px;color:var(--ml-mut);font-style:italic;line-height:1.35;margin-top:3px;max-width:560px}.qc-t td small.qc-j.vj{opacity:.6;text-decoration:line-through dotted}
 .qc-rl.vj{opacity:.5}
+
+.qc-t th.qc-so{cursor:pointer;user-select:none}.qc-t th.qc-so:hover,.qc-t th.qc-so.on{color:var(--ml-tx,#f1f5f9)}
