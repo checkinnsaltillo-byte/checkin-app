@@ -828,3 +828,5 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-rkx .ml-rc.ml-cc{background:var(--cb);border-color:var(--cl)}
 .ml-rc.ml-cc small,.ml-rc.ml-cc .ml-rsub,.ml-rc.ml-cc .ml-tr>small,.ml-rc.ml-cc .ml-af-q>small,.ml-rc.ml-cc .ml-cmp .h,.ml-rc.ml-cc summary{color:var(--cc);font-weight:800;filter:saturate(1.25) brightness(.92)}
 .ml-rc.ml-cc .ml-cmp{border-color:var(--cl)}.ml-rc.ml-cc .ml-cmp .h{background:var(--cb)}.ml-rc.ml-cc .ml-cmp .tot{background:var(--cb)}.ml-rc.ml-cc .ml-tr span{border-color:var(--cl);background:var(--cb)}
+
+.tl-c.on .tl-nn{position:absolute;top:5px;right:6px;display:inline-flex;align-items:center;gap:2px;font-style:normal;font-size:10px;font-weight:700;opacity:.62;line-height:1}.tl-c.on .tl-nn svg{flex:none}
