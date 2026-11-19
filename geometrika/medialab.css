@@ -744,3 +744,7 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 /* fuente de extracción de la nota */
 .ml-chip.pv-grss{background:rgba(66,133,244,.2);color:#8ab4f8;border-color:rgba(66,133,244,.45)}.ml-chip.pv-gdelt{background:rgba(20,184,166,.2);color:#5eead4;border-color:rgba(20,184,166,.45)}
 .ml-light .ml-chip.pv-grss{color:#1a56c4}.ml-light .ml-chip.pv-gdelt{color:#0f766e}.ml-prv{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+
+/* Noticias: posibles duplicadas */
+.ml-dupb{display:inline-block;margin:0 0 7px;padding:3px 10px;font-size:11px;border-color:rgba(248,113,113,.55);color:#fca5a5}.ml-light .ml-dupb{color:#b91c1c}
+.ml-chip.ml-dups{background:rgba(248,113,113,.18);color:#f87171;border-color:rgba(248,113,113,.4);margin-bottom:7px}
