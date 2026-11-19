@@ -801,3 +801,6 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .tl{--tlbA:rgba(15,23,42,.72);--tlrA:rgba(30,41,59,.8);--tlhA:rgba(30,41,59,.85)}.ml-light .tl{--tlbA:rgba(248,250,252,.72);--tlrA:rgba(226,232,240,.8);--tlhA:rgba(238,242,247,.85)}
 .tl-n{background:var(--tlbA)!important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}.tl-row.tot .tl-n{background:var(--tlrA)!important}.tl-row.cat .tl-n:hover{background:var(--tlhA)!important}
 .tl-t thead th{z-index:4}.tl-corner{z-index:6!important}.tl-n{z-index:2}
+
+.ml-card{position:relative}.ml-del{position:absolute;top:6px;right:6px;z-index:2;width:26px;height:26px;border-radius:7px;border:0;background:rgba(15,23,42,.55);color:#e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;padding:0}.ml-card:hover .ml-del,.ml-del.sure{opacity:1}.ml-del svg{width:15px;height:15px}.ml-del:hover{background:rgba(220,38,38,.85);color:#fff}.ml-del.sure{background:#dc2626;color:#fff;width:auto;padding:0 8px}.ml-del.sure::after{content:"¿Eliminar?";font-size:11px;font-weight:700;margin-left:5px}.ml-del:disabled{opacity:.5}
+@media (hover:none){.ml-del{opacity:.85}}

@@ -713,7 +713,7 @@
   const TXC = { 1: ["ok", "📄 Con texto", "Se descargó el cuerpo de la nota"], 2: ["", "🔒 Sin texto", "El medio no permitió descargar el cuerpo (bloqueo o suscripción)"], 0: ["run", "⏳ Texto pendiente", "Aún no se intenta descargar el cuerpo"] };
   const MET = { regla: ["🔎 Texto", "Detectado en el título o la descripción con el catálogo de municipios del INEGI"], ia: ["🤖 IA", "La IA interpretó el lugar del texto de la nota y se ubicó con el catálogo de municipios del INEGI"], places: ["🗺️ Google Places", "Ubicado con la API de Google Places y verificado dentro del estado de la nota"] };
   const metChip = L => L ? `<span class="ml-chip" title="${esc((MET[L.met || "regla"] || MET.regla)[1])}">${(MET[L.met || "regla"] || MET.regla)[0]}</span>` : "";
-  const card = n => `<div class="ml-card${S.det && S.det.id === n.id ? " on" : ""}" data-n="${n.id}">${n.img ? `<div class="im" style="background-image:url('${esc(n.img)}')"></div>` : ""}<div class="bd"><div class="mt"><b>${esc(n.med)}</b><span>${esc(fecha(n.f))}</span></div><h4>${esc(n.t)}</h4><p>${esc(n.res || "")}</p>${n.dupN ? `<button type="button" class="ml-btn2 ml-dupb" data-dupde="${esc(n.id)}" title="Noticias con título muy parecido publicadas en fechas cercanas">🧬 Ver ${n.dupN} posible(s) duplicada(s)</button>` : n.dupS ? `<span class="ml-chip ml-dups" title="Hay otra nota muy parecida que se recomienda conservar en su lugar">🧬 Posible duplicada</span>` : ""}${anCard(n)}<div><span class="ml-chip ${TXC[n.tx || 0][0]}" title="${TXC[n.tx || 0][2]}">${TXC[n.tx || 0][1]}</span><span class="ml-chip">${esc(n.cat)}</span><span class="ml-chip">${esc(n.sub)}</span>${n.prov ? `<span class="ml-chip pv-${esc(n.prov)}" title="Servicio del que se extrajo la nota">${esc(provN(n.prov))}</span>` : ""}${n.lug ? `<span class="ml-chip">📍 ${esc(n.lug.munN ? n.lug.munN + ", " + n.lug.estN : n.lug.estN)}</span>${metChip(n.lug)}` : ""}</div></div></div>`;
+  const card = n => `<div class="ml-card${S.det && S.det.id === n.id ? " on" : ""}" data-n="${n.id}"><button type="button" class="ml-del" data-del="${esc(n.id)}" title="Eliminar del proyecto" aria-label="Eliminar noticia">${mi("trash")}</button>${n.img ? `<div class="im" style="background-image:url('${esc(n.img)}')"></div>` : ""}<div class="bd"><div class="mt"><b>${esc(n.med)}</b><span>${esc(fecha(n.f))}</span></div><h4>${esc(n.t)}</h4><p>${esc(n.res || "")}</p>${n.dupN ? `<button type="button" class="ml-btn2 ml-dupb" data-dupde="${esc(n.id)}" title="Noticias con título muy parecido publicadas en fechas cercanas">🧬 Ver ${n.dupN} posible(s) duplicada(s)</button>` : n.dupS ? `<span class="ml-chip ml-dups" title="Hay otra nota muy parecida que se recomienda conservar en su lugar">🧬 Posible duplicada</span>` : ""}${anCard(n)}<div><span class="ml-chip ${TXC[n.tx || 0][0]}" title="${TXC[n.tx || 0][2]}">${TXC[n.tx || 0][1]}</span><span class="ml-chip">${esc(n.cat)}</span><span class="ml-chip">${esc(n.sub)}</span>${n.prov ? `<span class="ml-chip pv-${esc(n.prov)}" title="Servicio del que se extrajo la nota">${esc(provN(n.prov))}</span>` : ""}${n.lug ? `<span class="ml-chip">📍 ${esc(n.lug.munN ? n.lug.munN + ", " + n.lug.estN : n.lug.estN)}</span>${metChip(n.lug)}` : ""}</div></div></div>`;
 
 
   /* ───────── Timeline: clasificaciones (renglones) por día, semana, mes o año (columnas), con color por variable ───────── */
@@ -797,6 +797,20 @@
       if (b.dataset.tlr) { const o = S.tlOpen || (S.tlOpen = new Set()), k = b.dataset.tlr; if (o.has(k)) o.delete(k); else o.add(k); return tlPinta(); }
       if (b.dataset.tlc) tlAbreCelda(b.dataset.tlc, b.dataset.col);
     };
+  }
+
+  /* eliminar una noticia del proyecto (se descarta: sale de todas las vistas y se puede restaurar desde Control de calidad › Descartadas) */
+  async function elimina(id, btn) {
+    if (!btn.classList.contains("sure")) { btn.classList.add("sure"); btn.title = "Clic de nuevo para confirmar"; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.classList.remove("sure"); btn.title = "Eliminar del proyecto"; }, 3500); return; }
+    btn.disabled = true; const pid = S.sel;
+    try { await api(`/proyectos/${pid}/calidad/accion`, { method: "POST", body: JSON.stringify({ tipo: "descartar", ids: [id] }) }); } catch (e) { btn.disabled = false; return toast(e.message, true); }
+    if (pid !== S.sel) return; $$(`.ml-card[data-n="${CSS.escape(id)}"]`).forEach(c => c.remove());
+    if (S.data && S.data.items) { const k = S.data.items.length; S.data.items = S.data.items.filter(x => x.id !== id); if (S.data.items.length < k) S.data.total = Math.max(0, (S.data.total || 1) - 1); }
+    if (S.det && S.det.lista && S.det.lista.items) { const L = S.det.lista, k = L.items.length; L.items = L.items.filter(x => x.id !== id); if (L.items.length < k) { L.total = Math.max(0, L.total - 1); if (L.tl) L.sub = `${nf(L.items.length)}${L.total > L.items.length ? " de " + nf(L.total) : ""} noticia(s) · clic en una para ver el detalle`; } }
+    if (S.tlBack && S.tlBack.lista) S.tlBack.lista.items = S.tlBack.lista.items.filter(x => x.id !== id);
+    if (S.det && S.det.id === id) { if (S.tlBack) { S.det = S.tlBack; S.tlBack = null; pintaDet(); } else cierraDet(); }
+    toast("Noticia eliminada del proyecto (se puede restaurar en Control de calidad › Descartadas)");
+    if (S.vista === "tl") { try { await cargaTl(); tlPinta(); } catch (_) { } if (S.det && S.det.lista && S.det.lista.tl) pintaDet(); } else if (S.data) principal();
   }
   function pintaProg() {
     const el = $("#mlProg"), p = S.proy.find(x => x.id === S.sel); if (!el || !p) return; if (!enCurso(p)) { el.innerHTML = ""; return; }
@@ -1217,6 +1231,7 @@
     const gn = t.closest("[data-gn]"); if (gn && S.entV) { S.entV.sel = gn.dataset.gn; pintaDet(); return; }
     const fdp = t.closest("[data-fdup]"); if (fdp) { S.f.nodup = S.f.nodup ? "" : "1"; consulta(); return; }
       const dpd = t.closest("[data-dupde]"); if (dpd) { verDups(dpd.dataset.dupde); return; }
+      const dl = t.closest("[data-del]"); if (dl) { e.stopPropagation(); elimina(dl.dataset.del, dl); return; }
       const n = t.closest("[data-n]"); if (n) { abreDet(n.dataset.n); return; }
     const en = t.closest("[data-ent]"); if (en) { S.f.ent = en.dataset.ent; consulta(); return; }
     const edo = t.closest("[data-edo]"); if (edo && S.W) { const k = edo.dataset.edo, a = S.W.estados, i = a.indexOf(k); i >= 0 ? a.splice(i, 1) : a.push(k); edo.classList.toggle("on", i < 0); return; }
