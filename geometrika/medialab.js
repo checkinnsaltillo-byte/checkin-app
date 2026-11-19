@@ -210,7 +210,7 @@
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
   function filtros() {
     const F = S.data.facetas || {}, f = S.f, ents = [["Personas", "pers", F.pers], ["Instituciones", "inst", F.inst], ["Tópicos", "top", F.top]];
-    const eo = ents.map(([t, k, L]) => (L && L.length) ? `<optgroup label="${t}">` + L.map(x => `<option value="${k}:${esc(x.v)}"${f.ent === k + ":" + x.v ? " selected" : ""}>${esc(x.v)} (${nf(x.n)})</option>`).join("") + `</optgroup>` : "").join("");
+    S.entL = ents; const eo = entOps(S.entQ || "");
     const act = Object.keys(f).filter(k => f[k]).length;
     return `<details class="ml-ff"${S.ffC ? "" : " open"}><summary><span class="ml-fh" role="button" tabindex="0" title="Mostrar u ocultar filtros" aria-label="Mostrar u ocultar filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span><span>${ic("bar")}Filtros</span><input type="search" id="mlQ" class="ml-fq" placeholder="Buscar en todos los campos: título, resumen, texto, lugar, medio, personas…" value="${esc(f.q || "")}"><em>${nf(S.data.total)} de ${nf(S.data.de)} noticias${act ? ` · ${act} activo${act > 1 ? "s" : ""}` : ""}</em><button class="ml-btn2" type="button" data-go="limpiar">Limpiar filtros</button></summary><div class="ml-ffg">
       <div class="ml-f"><label>Categoría</label><select data-f="cat">${opt(F.cat, f.cat)}</select></div>
@@ -224,11 +224,18 @@
       <div class="ml-f"><label>Posibles duplicadas${S.data && S.data.dups ? ` (${nf(S.data.dups)})` : ""}</label><div class="ml-ck${f.nodup ? " on" : ""}" data-fdup="1" title="Deja solo la nota recomendada de cada grupo de noticias parecidas"><i>✓</i>Ocultar posibles duplicadas</div></div>
       <div class="ml-f"><label>Texto de la nota</label><select data-f="tx"><option value="">Todas</option>${[["1", "📄 Con texto"], ["2", "🔒 Sin texto (no accesible)"], ["0", "⏳ Texto pendiente"]].map(([v, t]) => `<option value="${v}"${f.tx === v ? " selected" : ""}>${t} (${nf(((F.tx || []).find(x => x.v === v) || {}).n || 0)})</option>`).join("")}</select></div>
       <div class="ml-f"><label>Fecha desde</label><input type="date" data-f="desde" value="${esc(f.desde || "")}"></div><div class="ml-f"><label>Fecha hasta</label><input type="date" data-f="hasta" value="${esc(f.hasta || "")}"></div>
-      <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><select data-f="ent"><option value="">Todas</option>${eo}</select></div>
+      <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><input type="search" id="mlEntQ" class="ml-entq" placeholder="Buscar entidad…" value="${esc(S.entQ || "")}" autocomplete="off"><select data-f="ent" id="mlEntS">${eo}</select></div>
     </div></details>`;
   }
 
   /* ───────── tablero ───────── */
+  /* opciones del combobox de entidades, filtradas por el texto del buscador (sin acentos ni mayúsculas); la elegida nunca se oculta */
+  function entOps(q) {
+    const f = S.f, ws = norm(q).split(/\s+/).filter(Boolean); let n = 0;
+    const h = (S.entL || []).map(([t, k, L]) => { const M = (L || []).filter(x => f.ent === k + ":" + x.v || !ws.length || ws.every(w => norm(x.v).includes(w))); n += M.length; return M.length ? `<optgroup label="${t}">` + M.map(x => `<option value="${k}:${esc(x.v)}"${f.ent === k + ":" + x.v ? " selected" : ""}>${esc(x.v)} (${nf(x.n)})</option>`).join("") + `</optgroup>` : ""; }).join("");
+    return `<option value="">${ws.length ? (n ? n + " coincidencia(s): elige una" : "Sin coincidencias") : "Todas"}</option>` + h;
+  }
+  document.addEventListener("input", e => { if (e.target && e.target.id === "mlEntQ") { S.entQ = e.target.value; const s = $("#mlEntS"); if (s) s.innerHTML = entOps(S.entQ); } });
   const qs = () => { const f = S.f, p = new URLSearchParams(); Object.keys(f).forEach(k => { if (f[k]) p.set(k, f[k]); }); return p; };
   async function consulta(mas) {
     if (!S.sel) return; if (S.cargando) return; S.cargando = true;
