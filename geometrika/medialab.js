@@ -226,6 +226,7 @@
       ${F.prov && F.prov.length ? `<div class="ml-f"><label>Fuente de extracción</label><select data-f="prov"><option value="">Todas</option>${F.prov.map(x => `<option value="${esc(x.v)}"${f.prov === x.v ? " selected" : ""}>${esc(provN(x.v))} (${nf(x.n)})</option>`).join("")}</select><div class="ml-prv">${F.prov.map(x => `<span class="ml-chip pv-${esc(x.v)}">${esc(provN(x.v))} <b>${nf(x.n)}</b></span>`).join("")}</div></div>` : ""}
       <div class="ml-f"><label>Posibles duplicadas${S.data && S.data.dups ? ` (${nf(S.data.dups)})` : ""}</label><div class="ml-ck${f.nodup ? " on" : ""}" data-fdup="1" title="Deja solo la nota recomendada de cada grupo de noticias parecidas"><i>✓</i>Ocultar posibles duplicadas</div></div>
       <div class="ml-f"><label>Relevancia para el objetivo</label><div class="ml-ck${(cxGet(), S.cj) ? " on" : ""}" data-cj="1" title="Muestra, bajo cada noticia evaluada, la explicación de por qué es relevante para el objetivo"><i>✓</i>Mostrar la justificación</div></div>
+      <div class="ml-f ml-rgw"><label>Índices de la tarjeta · rango</label>${IXS.map(([k, nom]) => { const r = rgGet(f.rg)[k] || [0, 100]; return `<div class="ml-rg${r[0] > 0 || r[1] < 100 ? " act" : ""}" data-rg="${k}"><span>${esc(nom)}</span><div class="ml-rgs"><input type="range" min="0" max="100" step="1" value="${r[0]}" data-rgl="${k}" aria-label="${esc(nom)} mínimo"><input type="range" min="0" max="100" step="1" value="${r[1]}" data-rgh="${k}" aria-label="${esc(nom)} máximo"></div><b>${r[0]} – ${r[1]}</b></div>`; }).join("")}</div>
       <div class="ml-f"><label>Texto de la nota</label><select data-f="tx"><option value="">Todas</option>${[["1", "📄 Con texto"], ["2", "🔒 Sin texto (no accesible)"], ["0", "⏳ Texto pendiente"]].map(([v, t]) => `<option value="${v}"${f.tx === v ? " selected" : ""}>${t} (${nf(((F.tx || []).find(x => x.v === v) || {}).n || 0)})</option>`).join("")}</select></div>
       <div class="ml-f"><label>Fecha desde</label><input type="date" data-f="desde" value="${esc(f.desde || "")}"></div><div class="ml-f"><label>Fecha hasta</label><input type="date" data-f="hasta" value="${esc(f.hasta || "")}"></div>
       <div class="ml-f"><label>Entidad (personas, instituciones, tópicos)</label><div class="ml-cb" id="mlCb"><input type="text" id="mlEntQ" class="ml-entq" placeholder="Todas · escribe para buscar…" value="${esc(S.entQ != null ? S.entQ : (f.ent || "").split(/:(.+)/)[1] || "")}" autocomplete="off" role="combobox" aria-expanded="false"><button type="button" class="ml-cbx${f.ent ? "" : " hid"}" data-ente="" title="Quitar el filtro de entidad" aria-label="Quitar el filtro de entidad">✕</button><div class="ml-cbl" id="mlEntS" hidden>${eo}</div></div></div>
@@ -244,6 +245,14 @@
   document.addEventListener("mousedown", e => { const c = e.target.closest && e.target.closest("#mlCb"); if (!c) { const l = $("#mlEntS"); if (l && !l.hidden) { l.hidden = true; S.entQ = null; const i = $("#mlEntQ"); if (i) { i.value = (S.f.ent || "").split(/:(.+)/)[1] || ""; i.setAttribute("aria-expanded", "false"); } } } });
   document.addEventListener("keydown", e => { if (e.target && e.target.id === "mlEntQ" && e.key === "Escape") { e.target.blur(); const l = $("#mlEntS"); if (l) l.hidden = true; S.entQ = null; e.target.value = (S.f.ent || "").split(/:(.+)/)[1] || ""; } });
   document.addEventListener("click", e => { const o = e.target.closest && e.target.closest("[data-ente]"); if (!o || !$("#mlCb")) return; e.preventDefault(); e.stopPropagation(); S.f.ent = o.dataset.ente; S.entQ = null; consulta(); }, true);
+  const rgGet = t => { const o = {}; String(t || "").split(",").forEach(x => { const m = /^(o|r|i|g|vi|p):(\d+)-(\d+)$/.exec(x); if (m) o[m[1]] = [+m[2], +m[3]]; }); return o; };
+  function rgLive(t, fin) {
+    const k = t.dataset.rgl || t.dataset.rgh, w = t.closest(".ml-rg"); if (!w) return; const lo = w.querySelector("[data-rgl]"), hi = w.querySelector("[data-rgh]");
+    if (t === lo && +lo.value > +hi.value) lo.value = hi.value; if (t === hi && +hi.value < +lo.value) hi.value = lo.value;
+    w.querySelector("b").textContent = lo.value + " – " + hi.value; w.classList.toggle("act", +lo.value > 0 || +hi.value < 100);
+    if (!fin) return; const m = rgGet(S.f.rg); if (+lo.value > 0 || +hi.value < 100) m[k] = [+lo.value, +hi.value]; else delete m[k];
+    S.f.rg = Object.keys(m).map(x => x + ":" + m[x][0] + "-" + m[x][1]).join(","); consulta();
+  }
   const qs = () => { const f = S.f, p = new URLSearchParams(); Object.keys(f).forEach(k => { if (f[k]) p.set(k, f[k]); }); return p; };
   async function consulta(mas) {
     if (!S.sel) return; if (S.cargando) return; S.cargando = true;
@@ -1270,11 +1279,12 @@
     const w2 = t.closest("[data-w2]"); if (w2 && S.W) { const [k, val] = w2.dataset.w2.split(":"); S.W[k] = val; wizard(); }
   }
   let tq; function entrada(e) {
-    const t = e.target; if (t.id === "mlMq") { const l = $("#mlMlist"); if (l) { l.hidden = false; l.innerHTML = medLista(t.value); } return; } if (t.id === "mlPQ") { S.pq = t.value; clearTimeout(tq); tq = setTimeout(proyectosVista, 200); return; } if (t.id === "mlQ") { clearTimeout(tq); tq = setTimeout(() => { S.f.q = t.value.trim(); consulta(); }, 400); return; }
+    const t = e.target; if (t.dataset && (t.dataset.rgl || t.dataset.rgh)) { rgLive(t); return; } if (t.id === "mlMq") { const l = $("#mlMlist"); if (l) { l.hidden = false; l.innerHTML = medLista(t.value); } return; } if (t.id === "mlPQ") { S.pq = t.value; clearTimeout(tq); tq = setTimeout(proyectosVista, 200); return; } if (t.id === "mlQ") { clearTimeout(tq); tq = setTimeout(() => { S.f.q = t.value.trim(); consulta(); }, 400); return; }
     if (t.dataset && t.dataset.w && S.W) { const k = t.dataset.w; S.W[k] = t.type === "number" ? +t.value : t.value; if (k === "terminos") { const c = cuentaT(S.W.terminos), s = $(".ml-sem", $("#mlMain")); if (s) s.innerHTML = `<span><b>${nf(c.pos)}</b> términos válidos</span><span>${nf(c.neg)} exclusiones</span><span>${nf(c.dup)} repetidos omitidos</span><span>máx. 20,000</span>`; } wsvPinta(); }
   }
   function cambio(e) {
     const t = e.target;
+    if (t.dataset && (t.dataset.rgl || t.dataset.rgh)) { rgLive(t, true); return; }
     if (t.dataset && t.dataset.cos) { S.cos[t.dataset.cos] = t.value; cargaCostos(); return; }
     if (t.dataset && t.dataset.gxrol !== undefined && S.gx) { S.gx.usuarios[+t.dataset.gxrol].rol = t.value; return; }
     if (t.dataset && t.dataset.sitsel) { cambiaSit(t.dataset.sitsel, t.value); return; }
