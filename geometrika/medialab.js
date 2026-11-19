@@ -933,7 +933,7 @@
   }
 
   const SB = v => v >= 7 ? ["POS", "ok"] : v >= 4 ? ["NEU", ""] : ["NEG", "bad"], EMO = v => v >= 7 ? "🙂" : v >= 4 ? "😐" : "🙁", BAR = v => v >= 66 ? "#ef4444" : v >= 33 ? "#f59e0b" : "#22c55e";
-  const IXS = [["o", "Relevancia para el objetivo"], ["r", "Riesgo"], ["g", "Gravedad"], ["vi", "Violencia"], ["p", "Polarización"]];
+  const IXS = [["o", "Relevancia para el objetivo"], ["r", "Riesgo"], ["i", "Impacto"], ["g", "Gravedad"], ["vi", "Violencia"], ["p", "Polarización"]];
   const cxGet = () => { if (!S.cx) { let v = null; try { v = JSON.parse(localStorage.getItem("ml_cx") || "null"); } catch (_) { } S.cx = new Set(Array.isArray(v) ? v : ["r"]); try { S.cj = localStorage.getItem("ml_cj") === "1"; } catch (_) { } } return S.cx; };
   const OBN = v => v >= 80 ? "Central" : v >= 60 ? "Relevante" : v >= 40 ? "Contexto útil" : v >= 20 ? "Tangencial" : "Sin relación";
   const ixBar = (k, nom, v, n) => { const r = Math.max(0, Math.min(100, +v || 0)), w = Math.max(3, r), ob = k === "o", [nv, col] = ob ? [OBN(r), "#6366f1"] : NIV(r), ant = ob && n.ob && !n.ob.a; return `<div class="ml-rbw${ob ? " ob" : ""}${ant ? " ant" : ""}" title="${esc(nom)} ${Math.round(r)} · ${nv}${ant ? " (evaluada con un objetivo anterior)" : ""}"><small class="ml-ixl">${esc(nom)}</small><div class="ml-rb"><span style="width:${w}%;background-size:${(10000 / w).toFixed(1)}% 100%"></span><i style="left:${w}%;border-color:${col}"></i></div><b style="color:${col}">${Math.round(r)} · ${nv}</b></div>`; };
