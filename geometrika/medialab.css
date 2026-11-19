@@ -795,3 +795,9 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .tl-c.on{padding:5px 8px 6px;vertical-align:middle}.tl-c.on b{display:block;font-size:19px;line-height:22px;padding:0;min-width:0;margin-bottom:6px}
 .tl-bs{display:flex;flex-direction:column;gap:3px}.tl-bs i{display:block;height:6px;border-radius:3px;background:currentColor;position:relative;overflow:hidden}.tl-bs i.nd{opacity:.18}.tl-bs i:not(.nd){background:transparent;box-shadow:inset 0 0 0 1px currentColor}.tl-bs u{display:block;height:100%;background:currentColor;border-radius:3px;text-decoration:none}
 .tl-vol{margin:0 0 10px;display:inline-flex;gap:6px;align-items:center;font-weight:700}.tl-mas{display:block;margin:12px auto}.ml-det-on .tl-sc{max-height:calc(100vh - 340px)}
+
+/* encabezado opaco (el fin de semana ya no deja ver las celdas de abajo) y primera columna semitransparente */
+.tl-t thead th.tl-h.fin{background:linear-gradient(rgba(148,163,184,.22),rgba(148,163,184,.22)),var(--tlb)!important}
+.tl{--tlbA:rgba(15,23,42,.72);--tlrA:rgba(30,41,59,.8);--tlhA:rgba(30,41,59,.85)}.ml-light .tl{--tlbA:rgba(248,250,252,.72);--tlrA:rgba(226,232,240,.8);--tlhA:rgba(238,242,247,.85)}
+.tl-n{background:var(--tlbA)!important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}.tl-row.tot .tl-n{background:var(--tlrA)!important}.tl-row.cat .tl-n:hover{background:var(--tlhA)!important}
+.tl-t thead th{z-index:4}.tl-corner{z-index:6!important}.tl-n{z-index:2}
