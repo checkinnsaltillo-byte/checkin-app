@@ -831,3 +831,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 
 .tl-c.on .tl-nn{position:absolute;top:5px;right:6px;display:inline-flex;align-items:center;gap:2px;font-style:normal;font-size:10px;font-weight:700;opacity:.62;line-height:1}.tl-c.on .tl-nn svg{flex:none}
 .ml-rkc{margin:8px 0 4px;padding:10px 12px}.ml-rkc .ml-eq{margin:10px 0 2px}.ml-rkc .ml-rkh{margin-bottom:6px}
+.ml-ver{margin:0 0 10px}.ml-vchip{display:inline-block;font:700 10.5px system-ui,sans-serif;letter-spacing:.03em;color:var(--ml-mut);border:1px solid var(--ml-ln);border-radius:99px;padding:3px 10px;background:rgba(148,163,184,.1)}
