@@ -754,9 +754,9 @@
     /* celdas */
     const celda = (rk, col, nom) => {
       const a = (ag.rows.get(rk) || new Map()).get(col), wd = G === "d" && [0, 6].includes(tlUtc(col).getUTCDay()); if (!a) return `<td class="tl-c${wd ? " fin" : ""}${col === hk ? " hoy" : ""}"></td>`;
-      const val = tlVal(a, V, A), c = val == null ? { bg: "#e2e8f0", fg: "#475569" } : tlColor(V, val, dom), r = tlVal(a, "r", A), o = tlVal(a, "o", A);
+      const val = tlVal(a, V, A), c = val == null ? { bg: "#e2e8f0", fg: "#475569" } : tlColor(V, val, dom), o = tlVal(a, "o", A);
       const tip = `${nom} · ${G === "d" ? col : G === "s" ? "semana del " + col : G === "m" ? MESN[+col.slice(5, 7) - 1] + " " + col.slice(0, 4) : col}\n${a.n} noticia(s)\nRiesgo ${fmt(tlVal(a, "r", A))} · Relevancia objetivo ${fmt(o)}\nImpacto ${fmt(tlVal(a, "i", A))} · Sentimiento ${fmt(tlVal(a, "e", A))}${A === "max" ? "\n(valores máximos)" : "\n(promedios)"}\nClic: ver estas noticias`;
-      return `<td class="tl-c on${col === hk ? " hoy" : ""}" data-tlc="${esc(rk)}" data-col="${col}" style="background:${c.bg};color:${c.fg}" title="${esc(tip)}"><b>${a.n}</b><div class="tl-bs"><i class="${r == null ? "nd" : ""}"><u style="width:${r == null ? 0 : Math.max(4, Math.min(100, r))}%"></u></i><i class="${o == null ? "nd" : ""}"><u style="width:${o == null ? 0 : Math.max(4, Math.min(100, o))}%"></u></i></div></td>`;
+      return `<td class="tl-c on${col === hk ? " hoy" : ""}" data-tlc="${esc(rk)}" data-col="${col}" style="background:${c.bg};color:${c.fg}" title="${esc(tip)}"><b>${val == null ? "—" : V === "n" ? nf(a.n) : fmt(val)}</b><div class="tl-bs"><i class="${val == null ? "nd" : ""}"><u style="width:${val == null ? 0 : Math.max(4, Math.min(100, (val - dom[0]) / ((dom[1] - dom[0]) || 1) * 100))}%"></u></i></div></td>`;
     };
     const fila = (rk, nom, cls, ico, tot) => `<tr class="tl-row ${cls}"><th class="tl-n" ${cls.includes("cat") ? `data-tlr="${esc(rk)}"` : ""}>${ico}<span title="${esc(nom)}">${esc(nom)}</span><em>${nf(tot)}</em></th>${cols.map(c => celda(rk, c, nom)).join("")}</tr>`;
     const cats = [...ag.cat].sort((a, b) => b[1].n - a[1].n);
@@ -767,7 +767,7 @@
       <div class="tl-gp"><small>Columnas</small><div class="ml-seg tl-sg">${Object.keys(TLG).map(k => bt("tlg", k, TLG[k], k === G)).join("")}</div></div>
       <div class="tl-gp${V === "n" ? " off" : ""}"><small>Valor por celda</small><div class="ml-seg tl-sg">${bt("tla", "avg", "Promedio", A === "avg")}${bt("tla", "max", "Máximo", A === "max")}</div></div>
       <div class="tl-gp"><small>&nbsp;</small><div class="ml-seg tl-sg"><button type="button" data-tlx="1">Desplegar todo</button><button type="button" data-tlx="0">Contraer todo</button><button type="button" data-tlhoy="1">Ir a hoy</button></div></div></div>
-      <div class="tl-lg"><span>${esc(TLV[V][1])}${V === "n" ? "" : A === "max" ? " · máximo de las noticias de la celda" : " · promedio de las noticias de la celda"}</span><i style="background:${grad}"></i><em>${V === "n" ? "0" : dom[0]}</em><em class="d">${V === "n" ? nf(dom[1]) : dom[1]}</em><span class="tl-mu">En cada celda: el número de noticias y dos barras, la de arriba es el <b>riesgo</b> y la de abajo la <b>relevancia para el objetivo</b> (0 a 100; sin barra = sin dato). Toca un clasificador para desplegar sus subcategorías.</span></div>
+      <div class="tl-lg"><span>${esc(TLV[V][1])}${V === "n" ? "" : A === "max" ? " · máximo de las noticias de la celda" : " · promedio de las noticias de la celda"}</span><i style="background:${grad}"></i><em>${V === "n" ? "0" : dom[0]}</em><em class="d">${V === "n" ? nf(dom[1]) : dom[1]}</em><span class="tl-mu">Cada celda muestra el valor de la variable elegida y una barra con su proporción en la escala (sin barra y «—» = sin dato); el detalle de todos los índices aparece al pasar el cursor. Toca un clasificador para desplegar sus subcategorías.</span></div>
       <div class="tl-sc" id="tlSc"><table class="tl-t" style="--tlw:${TLW[G]}px"><thead>${h1}${h2}</thead><tbody>${body}</tbody></table></div></div>`;
   }
   function tlPinta(irHoy) {
