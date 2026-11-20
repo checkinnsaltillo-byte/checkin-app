@@ -940,3 +940,6 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .nr.so .tq-bk{background:#141b35;color:#e2e8f0;border-color:rgba(148,163,184,.35)}.nr.so .tq-w{height:300px}.nr.so .so-top,.nr.so .so-bars{scrollbar-width:thin}
 .nr.so .so-ib{fill:#60a5fa}.nr.so .so-il{stroke:#fbbf24}.nr.so .so-ip{fill:#fbbf24}
 @media (max-width:1100px){.nr.so .nr-p{order:0!important}}
+/* gráficas del tablero social: textos sutiles, como el resto de la ventana */
+.nr.so .so-ax{font:400 9px system-ui,sans-serif;fill:#8793a8}.nr.so .so-at{font:500 9.5px system-ui,sans-serif;fill:#8793a8;letter-spacing:.02em}.nr.so .so-lb{font:500 10px system-ui,sans-serif;fill:#cbd5e1}.nr.so .so-zt{font:700 8.5px system-ui,sans-serif;letter-spacing:.1em;opacity:.65}.nr.so .so-qd{font:600 8.5px system-ui,sans-serif;letter-spacing:.04em;opacity:.6}
+.nr.so .so-pt circle{fill-opacity:.38;stroke-width:1.4}.nr.so .so-sc .so-pt:hover circle{stroke-width:2;filter:drop-shadow(0 0 5px var(--cc))}.nr.so .so-sc .so-pt:hover .so-lb{font-size:10.5px;font-weight:700;fill:#fff}.nr.so .so-zn{fill-opacity:.07}.nr.so .so-md{stroke-width:.8}
