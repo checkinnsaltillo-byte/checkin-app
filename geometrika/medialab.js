@@ -33,7 +33,7 @@
     if (e.origin !== location.origin || !e.data) return; const d = e.data;
     if (d.gl === "col") { document.documentElement.style.setProperty("--col", d.w + "px"); if (d.h != null) document.documentElement.style.setProperty("--tth", d.h + "px"); if (d.ww) document.documentElement.style.setProperty("--win", d.ww + "px"); if (S.mapaBg) setTimeout(() => { try { S.mapaBg.invalidateSize(); } catch (_) { } }, 120); }
     else if (d.gl === "tema") { const a = $("#mlApp"); if (a) { a.classList.toggle("ml-light", d.v !== "osc"); temaPinta(); } else window.__mlTema = d.v; }
-    else if (d.gl === "ctx") { const antes = S.ctx; S.ctx = d; if (S.mapaBg && isFinite(+d.lat) && d.lat != null && (!antes || antes.lat !== d.lat || antes.lng !== d.lng)) { try { S.mapaBg.setView([+d.lat, +d.lng], 10, { animate: false }); } catch (_) { } } }
+    else if (d.gl === "ctx") { const antes = S.ctx; S.ctx = d; try { embAuto(); } catch (_) { } if (S.mapaBg && isFinite(+d.lat) && d.lat != null && (!antes || antes.lat !== d.lat || antes.lng !== d.lng)) { try { S.mapaBg.setView([+d.lat, +d.lng], 10, { animate: false }); } catch (_) { } } }
   });
   const temaPinta = () => { const a = $("#mlApp"), b = $("#mlTema"); if (a && b) b.textContent = a.classList.contains("ml-light") ? "🌙 Oscuro" : "☀️ Claro"; };
 
@@ -242,6 +242,12 @@
     [n, ...n.querySelectorAll("[title],[placeholder],[aria-label]")].forEach(e => { if (e.closest(PUBX)) return; ["title", "placeholder", "aria-label"].forEach(a => { const v = e.getAttribute && e.getAttribute(a); if (v && pubRe.test(v)) { const v2 = pubTxt(v); if (v2 !== v) e.setAttribute(a, v2); } }); });
   }
   function pubObserva() { const a = $("#mlApp"); if (!a) return; if (S.pubObs) S.pubObs.disconnect(); S.pubObs = new MutationObserver(ms => { if (!pubCtx()) return; ms.forEach(m => { if (m.type === "characterData") pubWalk(m.target); else m.addedNodes.forEach(pubWalk); }); }); S.pubObs.observe(a, { childList: true, subtree: true, characterData: true }); }
+  const GIROS_ML = [["agro", "Agropecuario"], ["mineria_energia", "Minería y energía"], ["construccion", "Construcción"], ["manufacturas", "Manufacturas"], ["comercio", "Comercio"], ["transporte_info", "Transportes e información"], ["finanzas_inmob", "Finanzas e inmobiliario"], ["servicios_neg", "Servicios profesionales y de negocios"], ["turismo", "Turismo, esparcimiento y alimentos"], ["social", "Educación, salud y gobierno"]];
+  /* dentro de GeoLab: al abrir un proyecto (o al cambiar el lugar o el giro de la maqueta) se filtran las notas por el estado, el municipio y el giro de la maqueta */
+  function embAuto() {
+    if (!EMB || !S.ctx || !S.sel || S.modo === "crear") return; const c = S.ctx, key = [S.sel, c.ent || "", c.municipio || c.ciudad || "", c.giro || ""].join("|"); if (S.autoK === key) return; S.autoK = key;
+    S.f = S.f || {}; S.f.est = c.ent || ""; S.f.mun = ""; S.f.reg = ""; S.autoMun = norm(c.municipio || c.ciudad || ""); S.f.scian = c.giro ? "g:" + c.giro : ""; if (S.cargando) S.autoPend = true; else consulta();
+  }
   const verChip = () => { let v = window.__gpV || ""; try { if (v) throw 0; const sc = [...document.scripts].find(x => /geometrika\.js\?v=/.test(x.src)); v = sc ? sc.src.split("v=")[1].split("&")[0] : ""; } catch (_) { } return v ? `<div class="ml-ver"><span class="ml-vchip" title="Versión del sistema">v.Beta.${esc(v)} · Check Inn</span></div>` : ""; };
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
   function filtros() {
@@ -256,6 +262,7 @@
       <div class="ml-f"><label>Lugar · ciudad o municipio</label><select data-f="mun">${opt(F.mun, f.mun, null, x => x.nom || x.v)}</select></div>
       ${(F.zona && F.zona.length) ? `<div class="ml-f"><label>Lugar · colonia o zona</label><select data-f="zona">${opt(F.zona, f.zona)}</select></div>` : ""}
       <div class="ml-f"><label>Medio</label><select data-f="med">${opt(F.med, f.med)}</select></div>
+      <div class="ml-f"><label title="Sector económico relacionado con la nota; solo lo tienen las notas clasificadas con IA">Actividad económica (SCIAN)</label><select data-f="scian"><option value="">Todas</option><optgroup label="Giros">${GIROS_ML.map(([k, t]) => `<option value="g:${k}"${f.scian === "g:" + k ? " selected" : ""}>${t}</option>`).join("")}</optgroup><optgroup label="Sectores SCIAN">${(F.scian || []).map(x => `<option value="${esc(x.v)}"${f.scian === x.v ? " selected" : ""}>${esc(x.v)} · ${esc(nCorta(x.nom, 48))} (${nf(x.n)})</option>`).join("")}</optgroup></select></div>
       ${F.prov && F.prov.length ? `<div class="ml-f"><label>Fuente de extracción</label><select data-f="prov"><option value="">Todas</option>${F.prov.map(x => `<option value="${esc(x.v)}"${f.prov === x.v ? " selected" : ""}>${esc(provN(x.v))} (${nf(x.n)})</option>`).join("")}</select></div>` : ""}
       ${esSocial((S.proy || []).find(x => x.id === S.sel)) ? `<div class="ml-f"><label>Reacciones mínimas</label><select data-f="rmin">${[["", "Todas"], ["1", "Con al menos 1"], ["10", "10 o más"], ["50", "50 o más"], ["100", "100 o más"], ["500", "500 o más"], ["1000", "1,000 o más"]].map(([v, t]) => `<option value="${v}"${(f.rmin || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>` : ""}
       <div class="ml-f"><label>Texto de la nota</label><select data-f="tx"><option value="">Todas</option>${[["1", "📄 Con texto"], ["2", "🔒 Sin texto (no accesible)"], ["0", "⏳ Texto pendiente"]].map(([v, t]) => `<option value="${v}"${f.tx === v ? " selected" : ""}>${t} (${nf(((F.tx || []).find(x => x.v === v) || {}).n || 0)})</option>`).join("")}</select></div>
@@ -292,6 +299,8 @@
       const p = qs(); p.set("n", "40"); p.set("pag", mas ? String(S.pag + 1) : "0"); const rg = (S.vista === "mapa" || EMB) && !mas ? mapaDatos() : null, r = await api(`/proyectos/${S.sel}/noticias?${p}`);
       if (mas && S.data) { S.pag++; S.data.items = S.data.items.concat(r.items); S.data.total = r.total; } else { S.pag = 0; S.data = r; } if (rg) await rg; if (S.vista === "tl") await cargaTl();
     } catch (e) { toast(e.message, true); } finally { S.cargando = false; }
+    if (EMB && S.autoPend) { S.autoPend = false; return consulta(); }
+    if (EMB && S.autoMun && S.data && S.data.facetas) { const q = S.autoMun; S.autoMun = ""; const m0 = (S.data.facetas.mun || []).find(x => norm(x.nom || "").split(",")[0].trim() === q) || (S.data.facetas.mun || []).find(x => norm(x.nom || "").startsWith(q)); if (m0 && !S.f.mun) { S.f.mun = m0.v; return consulta(); } }
     lado(); principal();
   }
   /* embebido en GeoLab: manda a la maqueta los pines del proyecto (agrupados por lugar, como en el mapa de Media Lab) */
@@ -302,7 +311,7 @@
   }
   async function selecciona(id) {
     embPins(id);
-    S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); S.tabSel = null; titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); calResumen(id, true); await consulta();
+    S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); S.tabSel = null; titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); calResumen(id, true); if (EMB && S.ctx) { S.autoK = null; embAuto(); } else await consulta();
   }
   /* carga automática: al llegar al final de la lista se pide el siguiente grupo de noticias */
   let ioMasObs = null;
