@@ -924,3 +924,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .tq-i b{display:block;font:800 12px/1.2 system-ui,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,.35);overflow:hidden;text-overflow:ellipsis}.tq-i span{display:block;font-size:10.5px;opacity:.9;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tq.gr .tq-i b{font-size:17px}.tq.gr .tq-i span{font-size:12px}.tq.ch .tq-i{padding:3px 4px}.tq.ch .tq-i b{font-size:9px;white-space:nowrap}.tq.ch .tq-i span{display:none}
 .tq-i u{position:absolute;right:7px;top:7px;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.85)}.so-tip .a{color:#7dd3fc;margin-top:3px}
 @keyframes tqIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+.so-top{max-height:460px;overflow:auto;padding-right:4px}
