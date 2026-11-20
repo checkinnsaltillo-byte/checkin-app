@@ -303,12 +303,12 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
 (function () {
   var ov = document.getElementById('lab-ov'), tabs = document.getElementById('lab-tabs'), URL = { eco: '/geometrika/index.html?s=eco&emb=1', data: '/geometrika/index.html?s=data&emb=1', media: '/geometrika/index.html?s=media&emb=1' }, fr = {}, abierta = {};
   function col() { var d = document.getElementById('dock'), w = d ? Math.round(d.getBoundingClientRect().width) : 0; return w > 200 ? w : 404; }
-  function ancho(k) { var c = col(), w = Math.max(520, Math.min(k === 'media' ? 1300 : 1050, Math.round((innerWidth - c) * (k === 'media' ? 0.82 : 0.7)))); return abierta[k] ? Math.min(innerWidth, c + w) : c; }
-  function medida() { var c = col(), t = document.getElementById('tt'), h = t ? Math.ceil(t.getBoundingClientRect().height) : 0; Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; try { fr[k].contentWindow.postMessage({ gl: 'col', w: c, h: h }, location.origin); } catch (e) { } }); }
+  function ancho(k) { if (k === 'media') return innerWidth; var c = col(), w = Math.max(520, Math.min(k === 'media' ? 1300 : 1050, Math.round((innerWidth - c) * (k === 'media' ? 0.82 : 0.7)))); return abierta[k] ? Math.min(innerWidth, c + w) : c; }
+  function medida() { var c = col(), t = document.getElementById('tt'), h = t ? Math.ceil(t.getBoundingClientRect().height) : 0; Object.keys(fr).forEach(function (k) { fr[k].style.width = ancho(k) + 'px'; try { fr[k].contentWindow.postMessage({ gl: 'col', w: c, h: h, ww: Math.max(520, Math.min(1300, Math.round((innerWidth - c) * 0.82))) }, location.origin); } catch (e) { } }); }
   function ir(v) {
     if (v !== 'geo' && !URL[v]) return;
     if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EconoLab' : v === 'media' ? 'MediaLab' : 'DataLab'; f.setAttribute('allowtransparency', 'true'); f.addEventListener('load', medida); ov.appendChild(f); fr[v] = f; medida(); }
-    Object.keys(fr).forEach(function (k) { fr[k].classList.toggle('on', k === v); }); try { if (window.__mlpOn) window.__mlpOn(v === 'media'); } catch (e) { }
+    Object.keys(fr).forEach(function (k) { fr[k].classList.toggle('on', k === v); });
     ov.classList.toggle('on', v !== 'geo'); document.body.classList.toggle('lab-on', v !== 'geo'); medida();
     if (tabs) [].forEach.call(tabs.querySelectorAll('button'), function (b) { var on = b.dataset.lab === v; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   }

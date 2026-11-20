@@ -31,9 +31,9 @@
   const mlWin = o => { if (!EMB) return; const a = $("#mlApp"); if (!a) return; a.classList.toggle("ml-open", o); try { parent.postMessage({ gl: "win", open: o }, location.origin); } catch (_) { } };
   if (EMB) addEventListener("message", e => {
     if (e.origin !== location.origin || !e.data) return; const d = e.data;
-    if (d.gl === "col") { document.documentElement.style.setProperty("--col", d.w + "px"); if (d.h != null) document.documentElement.style.setProperty("--tth", d.h + "px"); }
+    if (d.gl === "col") { document.documentElement.style.setProperty("--col", d.w + "px"); if (d.h != null) document.documentElement.style.setProperty("--tth", d.h + "px"); if (d.ww) document.documentElement.style.setProperty("--win", d.ww + "px"); if (S.mapaBg) setTimeout(() => { try { S.mapaBg.invalidateSize(); } catch (_) { } }, 120); }
     else if (d.gl === "tema") { const a = $("#mlApp"); if (a) { a.classList.toggle("ml-light", d.v !== "osc"); temaPinta(); } else window.__mlTema = d.v; }
-    else if (d.gl === "ctx") { S.ctx = d; }
+    else if (d.gl === "ctx") { const antes = S.ctx; S.ctx = d; if (S.mapaBg && isFinite(+d.lat) && d.lat != null && (!antes || antes.lat !== d.lat || antes.lng !== d.lng)) { try { S.mapaBg.setView([+d.lat, +d.lng], 10, { animate: false }); } catch (_) { } } }
   });
   const temaPinta = () => { const a = $("#mlApp"), b = $("#mlTema"); if (a && b) b.textContent = a.classList.contains("ml-light") ? "🌙 Oscuro" : "☀️ Claro"; };
 
@@ -90,7 +90,7 @@
   function shell() {
     host.innerHTML = `<div class="ml-app${EMB ? " ml-emb" : ""}${window.__mlTema === "osc" ? "" : " ml-light"}" id="mlApp">
       <header class="ml-top"><button class="ml-ham" id="mlHam" type="button" aria-label="Cerrar o abrir el menú" title="Cerrar o abrir el menú"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="ml-sp"></span><button class="ml-theme" id="mlTema" type="button" title="Cambiar tema (aplica a GeoLab, EconoLab, DataLab y Media Lab)">🌙 Oscuro</button></header>
-      <div class="ml-body"><aside class="ml-side" id="mlSide"></aside>
+      <div class="ml-body">${EMB ? `<div class="ml-bg"><div class="ml-map" id="mlMapBg"></div></div>` : ""}<aside class="ml-side" id="mlSide"></aside>
         <div class="ml-wbar"><b id="mlWT">Media Lab</b><button class="ml-wx" id="mlWX" type="button" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>
         <main class="ml-main" id="mlMain"></main></div></div>`;
     pubObserva();
@@ -289,7 +289,7 @@
   async function consulta(mas) {
     if (!S.sel) return; if (S.cargando) return; S.cargando = true;
     try {
-      const p = qs(); p.set("n", "40"); p.set("pag", mas ? String(S.pag + 1) : "0"); const rg = S.vista === "mapa" && !mas ? mapaDatos() : null, r = await api(`/proyectos/${S.sel}/noticias?${p}`);
+      const p = qs(); p.set("n", "40"); p.set("pag", mas ? String(S.pag + 1) : "0"); const rg = (S.vista === "mapa" || EMB) && !mas ? mapaDatos() : null, r = await api(`/proyectos/${S.sel}/noticias?${p}`);
       if (mas && S.data) { S.pag++; S.data.items = S.data.items.concat(r.items); S.data.total = r.total; } else { S.pag = 0; S.data = r; } if (rg) await rg; if (S.vista === "tl") await cargaTl();
     } catch (e) { toast(e.message, true); } finally { S.cargando = false; }
     lado(); principal();
@@ -867,7 +867,7 @@
     if (S.sel !== id) { S.sel = id; S.f = {}; S.data = null; S.nar = null; S.nrF = {}; S.nrSel = null; } S.modo = "narr"; S.det = null; const p = S.proy.find(x => x.id === id); titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); cargaNarr();
   }
   function principal() {
-    const m = $("#mlMain"); if (!m) return; S.mapa = null; const qa = document.activeElement && document.activeElement.id === "mlQ" ? document.activeElement.selectionStart : null;
+    const m = $("#mlMain"); if (!m) return; S.mapa = EMB ? (S.mapaBg || null) : null; { const ap = $("#mlApp"); if (ap) ap.classList.toggle("ml-vmapa", EMB && S.modo === "tablero" && S.vista === "mapa"); } if (EMB && !S.mapaBg) setTimeout(mapa, 0); const qa = document.activeElement && document.activeElement.id === "mlQ" ? document.activeElement.selectionStart : null;
     if (S.modo === "proyectos") { proyectosVista(); return; }
     if (S.modo === "narr") { narrVista(); return; }
     if (S.modo === "soc") { socVista(); return; }
@@ -885,12 +885,13 @@
     h += `<div class="ml-meta">${datosProy(p).filter(x => !/^(Noticias|Última extracción|Próxima extracción)$/.test(x[1])).map(([i, l, v]) => `<span title="${esc(l)}">${emoSv(i)} <em>${esc(l)}</em> <b>${v}</b></span>`).join("")}</div>`;
     h += `<div id="mlProg"></div>`;
     const cuerpo = !d ? `<div class="ml-vacio">Cargando noticias…</div>` : !d.items.length ? `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>` : `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<div class="ml-more" data-go="mas"><span class="ml-spin"></span>Cargando más noticias… (${nf(d.items.length)} de ${nf(d.total)})</div>` : ""}`;
-    if (S.vista === "mapa") h += `<div class="ml-split"><div class="ml-mapcol"><div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div></div><div class="ml-cardcol">${cuerpo}</div></div>`;
+    if (S.vista === "mapa" && EMB) h += `<div class="ml-sem" id="mlMapN" style="margin:0 0 8px"></div>${cuerpo}`;
+    else if (S.vista === "mapa") h += `<div class="ml-split"><div class="ml-mapcol"><div class="ml-map" id="mlMap"></div><div class="ml-sem" id="mlMapN"></div></div><div class="ml-cardcol">${cuerpo}</div></div>`;
     else if (S.vista === "tl") h += d ? `<div id="tlBox"></div>` : `<div class="ml-vacio">Cargando noticias…</div>`;
     else if (!d) h += `<div class="ml-vacio">Cargando noticias…</div>`;
     else if (!d.items.length) h += `<div class="ml-vacio">${p.estado && p.estado.total ? "Ninguna noticia coincide con los filtros." : "Este proyecto aún no tiene noticias. Pulsa «Extraer ahora»."}</div>`;
     else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<div class="ml-more" data-go="mas"><span class="ml-spin"></span>Cargando más noticias… (${nf(d.items.length)} de ${nf(d.total)})</div>` : ""}`;
-    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa(); if (S.vista === "tl" && d) tlEventos(); ioMas(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
+    m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa" || EMB) mapa(); if (S.vista === "tl" && d) tlEventos(); ioMas(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
   }
   const PROVN = { grss: "Google Noticias", gdelt: "GDELT", newsdata: "NewsData.io", gnews: "GNews", fbgoogle: "Facebook", fbapify: "Facebook", fbmix: "Facebook" }, provN = v => PROVN[v] || v;
   const TXC = { 1: ["ok", "📄 Con texto", "Se descargó el cuerpo de la nota"], 2: ["", "🔒 Sin texto", "El medio no permitió descargar el cuerpo (bloqueo o suscripción)"], 0: ["run", "⏳ Texto pendiente", "Aún no se intenta descargar el cuerpo"] };
@@ -1254,9 +1255,12 @@
     if (g.L2.length > 1) setTimeout(() => arana(M, el, g.L2, g.ll), 120); resaltaCard(f.id);
   }
   function mapa() {
-    const el = $("#mlMap"); if (!el) return;
+    const MID = EMB ? "#mlMapBg" : "#mlMap", el = $(MID); if (!el) return;
     leafletListo(() => {
-      const el2 = $("#mlMap"); if (!el2 || !window.L) return; const L = window.L, g = S.geo || { puntos: [], total: 0 }, M = L.map(el2, { zoomControl: true }).setView([23.6, -102.5], 5);
+      const el2 = $(MID); if (!el2 || !window.L) return; const L = window.L, g = S.geo || { puntos: [], total: 0 };
+      let vista0 = null; if (EMB && S.mapaBg) { try { vista0 = [S.mapaBg.getCenter(), S.mapaBg.getZoom()]; S.mapaBg.remove(); } catch (_) { } S.mapaBg = null; }
+      if (EMB && el2._leaflet_id) return;
+      const M = L.map(el2, { zoomControl: !EMB }).setView([23.6, -102.5], 5); if (EMB) { L.control.zoom({ position: "bottomright" }).addTo(M); S.mapaBg = M; }
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(M); S.mapa = M;
       S.marcas = [];
       const grupos = new Map(); g.puntos.forEach(p => { const k = p.lat.toFixed(3) + "," + p.lng.toFixed(3); (grupos.get(k) || grupos.set(k, []).get(k)).push(p); });
@@ -1268,10 +1272,10 @@
         const mk = L.marker([p0.lat, p0.lng], { icon: ic }).addTo(M);
         mk.bindTooltip(`<b>${esc(corto(top.t))}</b><small>${esc(nom)}${uno ? "" : " · " + L2.length + " noticias"}</small>`, { permanent: true, direction: "right", offset: [12, -14], className: "ml-tip ml-rk" + nvl });
         if (!uno) mk.on("mouseover", () => arana(M, el2, L2, [p0.lat, p0.lng]));
-        mk.on("click", () => { if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]); S.marcas.push({ mk, L2, ll: [p0.lat, p0.lng] });
+        mk.on("click", () => { if (EMB) { if (S.modo !== "tablero" || !$("#mlDet")) { S.modo = "tablero"; S.vista = "mapa"; lado(); principal(); } mlWin(true); } if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]); S.marcas.push({ mk, L2, ll: [p0.lat, p0.lng] });
       });
       const nl = () => el2.classList.toggle("ml-nolbl", grupos.size > 40 && M.getZoom() < 9); M.on("zoomend", nl); nl();
-      if (S.foco) { setTimeout(enfocaMapa, 250); } else if (pts.length) M.fitBounds(pts, { padding: [40, 40], maxZoom: 11 }); setTimeout(() => M.invalidateSize(), 200);
+      if (S.foco) { setTimeout(enfocaMapa, 250); } else if (EMB && vista0 && S.bgProy === S.sel) M.setView(vista0[0], vista0[1], { animate: false }); else if (EMB && S.ctx && isFinite(+S.ctx.lat) && isFinite(+S.ctx.lng) && S.ctx.lat != null) M.setView([+S.ctx.lat, +S.ctx.lng], 10, { animate: false }); else if (pts.length) M.fitBounds(pts, { padding: [40, 40], maxZoom: 11 }); if (EMB) S.bgProy = S.sel; setTimeout(() => M.invalidateSize(), 200);
       const n = $("#mlMapN"); if (n) n.innerHTML = `<span>📍 ${nf(g.total)} noticias georreferenciadas en ${nf(grupos.size)} lugares</span><span>Nivel: punto (coordenada), zona/colonia, municipio o estado; los pines agrupan por lugar.</span>` + (g.total > 4000 ? `<span>Se muestran las 4,000 más recientes.</span>` : "");
     });
   }
