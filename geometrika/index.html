@@ -253,8 +253,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "media") {
     document.getElementById("medialab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=c5493b45"; document.head.appendChild(l);
-    gpCarga("medialab.js?v=c5493b45", () => window.medialabInit && window.medialabInit());
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=cd8843bc"; document.head.appendChild(l);
+    gpCarga("medialab.js?v=cd8843bc", () => window.medialabInit && window.medialabInit());
   } else if (sys === "eco") {
     document.getElementById("ecolab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "ecolab.css?v=24d7e6c5"; document.head.appendChild(l);

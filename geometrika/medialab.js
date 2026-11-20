@@ -1287,7 +1287,8 @@
         if (!uno) mk.on("mouseover", () => arana(M, el2, L2, [p0.lat, p0.lng]));
         mk.on("click", () => { if (EMB) { if (S.modo !== "tablero" || !$("#mlDet")) { S.modo = "tablero"; S.vista = "lista"; lado(); principal(); } mlWin(true); } if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]); S.marcas.push({ mk, L2, ll: [p0.lat, p0.lng] });
       });
-      const nl = () => el2.classList.toggle("ml-nolbl", grupos.size > 40 && M.getZoom() < 9); M.on("zoomend", nl); nl();
+      /* etiquetas: solo con acercamiento suficiente (zoom 12 o más); con pocos lugares (8 o menos) desde zoom 9. Alejado se ven solo los pines; al pasar por un pin agrupado se abren sus cuadros */
+      const nl = () => { const z = M.getZoom(); el2.classList.toggle("ml-nolbl", !(z >= 12 || (grupos.size <= 8 && z >= 9))); }; M.on("zoomend", nl); nl();
       if (S.foco) { setTimeout(enfocaMapa, 250); } else if (EMB && vista0 && S.bgProy === S.sel) M.setView(vista0[0], vista0[1], { animate: false }); else if (EMB && S.ctx && isFinite(+S.ctx.lat) && isFinite(+S.ctx.lng) && S.ctx.lat != null) M.setView([+S.ctx.lat, +S.ctx.lng], 10, { animate: false }); else if (pts.length) M.fitBounds(pts, { padding: [40, 40], maxZoom: 11 }); if (EMB) S.bgProy = S.sel; setTimeout(() => M.invalidateSize(), 200);
       const n = $("#mlMapN"); if (n) n.innerHTML = `<span>📍 ${nf(g.total)} noticias georreferenciadas en ${nf(grupos.size)} lugares</span><span>Nivel: punto (coordenada), zona/colonia, municipio o estado; los pines agrupan por lugar.</span>` + (g.total > 4000 ? `<span>Se muestran las 4,000 más recientes.</span>` : "");
     });
