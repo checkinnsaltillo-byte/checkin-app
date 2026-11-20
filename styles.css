@@ -7007,3 +7007,6 @@ input.gmw-rng::-moz-range-thumb{background:#6366f1;box-shadow:0 0 0 1px #6366f1}
 .gmc-ay{margin-top:10px!important}
 
 .gmc-cv.ruta .gmc-n{opacity:.26;transition:opacity .18s}.gmc-cv.ruta .gmc-n.hi{opacity:1}.gmc-n.sel{outline:2.5px solid #4f46e5;outline-offset:3px;box-shadow:0 12px 30px rgba(79,70,229,.35)}.gmc-cv.ruta .gmc-fp{opacity:.1}.gmc-cv.ruta .gmc-ft{opacity:.12}.gmc-cv.ruta .gmc-fl.hi .gmc-fp{opacity:1;stroke-width:2.8;stroke:#4338ca}.gmc-cv.ruta .gmc-fl.hi .gmc-ft{opacity:1;fill:#4338ca}
+
+/* GeoMetrika · «Mis proyectos», asistente y detalle usan todo el ancho de la pantalla */
+.gm .gm-w,.gm .gm-main,.gm .gmw,.gm .gmw:has(.gmc-cv){max-width:none!important}
