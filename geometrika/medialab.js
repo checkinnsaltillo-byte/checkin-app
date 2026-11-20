@@ -448,7 +448,7 @@
     const P = D.prop, mx = Math.max(...P.origen.map(o => o.v), 1), tot = P.origen.reduce((a, b) => a + b.v, 0) || 1;
     const lista = P.origen.map(o => `<div class="br"${nA("or:" + o.k, tipH(NOR[o.k] || o.k, o.v + " nota(s) · " + Math.round(o.v / tot * 100) + " %", "Clic para resaltar en el mapa"))}><span class="n"><i style="background:${ORCOL[o.k] || "#94a3b8"}"></i>${NOR[o.k] || o.k}</span><span class="t"><b style="width:${(o.v / mx * 100).toFixed(0)}%;background:${ORCOL[o.k] || "#94a3b8"}"></b></span><em>${o.v}</em></div>`).join("");
     const mut = P.mutaciones.slice(0, 5).map(m => `<li data-tip="${esc(tipH(m.t, fechaC(m.f), NOR[m.or] || "", m.mu))}"><b>${esc(nCorta(m.t, 50))}</b><span>${esc(m.mu)}</span></li>`).join("");
-    return `${nrTemaSel(D)}<div class="nr-pr"><div class="nr-map" id="nrMap"></div><div class="nr-pl"><h5>Propagación por etapas</h5>${nrFlujo(D) || lista}<h5 title="Cómo cambia el relato: el ángulo nuevo o el eco que aporta cada nota respecto al hecho original">Cómo cambia el relato</h5><ul>${mut || "<li><span>Sin datos</span></li>"}</ul></div></div>`;
+    return `${nrTemaSel(D)}<div class="nr-pr"><div class="nr-map" id="nrMap"></div><div class="nr-pl"><h5 title="Cada nota del tema en orden de fecha, con su etapa de propagación y el ángulo nuevo que aporta al relato">Línea de propagación</h5>${nrLinea(D) || lista}</div></div>`;
   }
   /* treemap de propagación: una columna por etapa (en orden de propagación), ancho según sus notas, y dentro un bloque por medio */
   const NORD = ["Evento_Directo", "Declaracion_Oficial", "Filtracion_Exclusiva", "Reaccion_En_Cadena", "Analisis_Secundario", "Sin_origen"];
@@ -468,6 +468,15 @@
       g.hojas.forEach(o => { const nm = String(o.x.m).replace(/^Facebook · /, ""); svg += `<rect x="${XL}" y="${o.y.toFixed(1)}" width="${NW}" height="${o.h.toFixed(1)}" rx="2" fill="${c}" class="sk-n" data-tmo="${esc(g.e.or)}"${o.x.otros ? "" : ` data-tmm="${esc(o.x.m)}"`}><title>${esc(o.x.m)} · ${o.x.n} publicación(es)</title></rect><text x="${XL + NW + 5}" y="${(o.y + o.h / 2 + 3.5).toFixed(1)}" class="sk-l"${o.x.otros ? ` data-tmo="${esc(g.e.or)}"` : ` data-tmo="${esc(g.e.or)}" data-tmm="${esc(o.x.m)}"`}>${esc(nCorta(nm, 22))} · ${nf(o.x.n)}</text>`; }); });
     svg = `<rect x="${XT}" y="${yT0.toFixed(1)}" width="${NW}" height="${hT.toFixed(1)}" rx="2" fill="#64748b" class="sk-n" data-tmo=""><title>${esc(sel.k || "Todos los temas")} · ${sel.n} publicación(es)</title></rect><text x="${XT}" y="${(yT0 + hT + 11).toFixed(1)}" class="sk-s">${nf(sel.n)}</text>` + svg;
     return `<svg class="sk" viewBox="0 0 ${W} ${Math.ceil(H)}" role="img" aria-label="Diagrama de propagación">${svg}</svg>`;
+  }
+  /* línea de tiempo vertical: cada nota con su fecha, el día relativo al primer hecho, su etapa y cómo cambia el relato */
+  function nrLinea(D) {
+    const Ln = D.prop && D.prop.linea; if (!Ln || !Ln.items.length) return ""; const it = Ln.items, t0 = new Date(it[0].f).getTime(), FM = f => { const d = new Date(f); return d.getUTCDate() + " " + MESN[d.getUTCMonth()].slice(0, 3); };
+    const cnt = {}; it.forEach(x => { cnt[x.or] = (cnt[x.or] || 0) + 1; });
+    const leyenda = NORD.filter(k => cnt[k === "Sin_origen" ? "" : k]).map(k => `<span><i style="background:${ORCOL[k] || "#94a3b8"}"></i>${k === "Sin_origen" ? "Sin etapa" : NOR[k]} <b>${cnt[k === "Sin_origen" ? "" : k]}</b></span>`).join("");
+    const fila = (x, i) => { const c = ORCOL[x.or] || "#94a3b8", dd = Math.round((new Date(x.f).getTime() - t0) / 864e5), nom = x.or ? (NOR[x.or] || x.or) : "Sin etapa", ant = i ? Math.round((new Date(x.f).getTime() - new Date(it[i - 1].f).getTime()) / 864e5) : 0;
+      return `<div class="vt-i" data-n="${esc(x.id)}" style="--cc:${c}" title="Clic para abrir la nota"><div class="vt-d"><b>${esc(FM(x.f))}</b><small>${i ? "Día " + dd : "Inicio"}</small></div><div class="vt-r"><i></i></div><div class="vt-c"><div class="vt-e"><span style="color:${c};border-color:${c}">${esc(nom)}</span>${x.rf ? `<em title="Ráfaga: evento detonante">⚡</em>` : ""}<small>${esc(nCorta(String(x.med || "").replace(/^Facebook · /, ""), 28))}${i && ant ? " · +" + ant + " d" : ""}</small></div><h6>${esc(nCorta(x.t, 120))}</h6>${x.mu ? `<p>↳ ${esc(x.mu)}</p>` : ""}</div></div>`; };
+    return `<div class="vt"><div class="vt-lg">${leyenda}</div><div class="vt-l">${it.map(fila).join("")}</div>${Ln.n > it.length ? `<div class="vt-m">Se muestran las primeras ${it.length} de ${nf(Ln.n)} notas, en orden de fecha.</div>` : ""}</div>`;
   }
   const nrTemaSel = D => { const T = (D.prop && D.prop.temas) || []; return T.length ? `<div class="tm-top"><label>Tema</label><select id="nrTmSel">${T.map(x => `<option value="${esc(x.k)}"${x.k === (S.nrTema || "") ? " selected" : ""}>${x.k ? esc(x.k) : "Todos los temas"} · ${nf(x.n)} · ${nf(x.med)} medio(s)</option>`).join("")}</select></div>` : ""; };
   async function nrNotasTema(tm, or, med) {
