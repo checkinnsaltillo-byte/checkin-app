@@ -302,7 +302,7 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   #tt .lab-tabs button.lt-dl{background:#cfd8e3!important;color:#1e293b!important;opacity:1!important}#tt .lab-tabs button.lt-dl .lt-osc{display:none}
   html.tema-osc #tt .lab-tabs button.lt-dl{background:#b8c4d3!important;color:#0f172a!important}
   #tt .lab-tabs button.lt-dl.on{outline:2px solid #6366f1;outline-offset:1px}
-  body.ind-lab #dk-tabs{display:none!important}
+  html body.ind-lab #dock #dk-tabs,html body.ind-lab #dock #dk-bus,html body.ind-lab #dock #dk-lista{display:none!important}
 </style>
 <div id="lab-ov"></div>
 <script>
@@ -3759,7 +3759,7 @@ function dkSuelta(id) {   /* saca el análisis del panel y lo deja como ventana 
   const r = PW.m.get(id); if (!r || !r.el.classList.contains('dk')) return; const el = r.el; el.classList.remove('dk'); document.body.appendChild(el); const x0 = pwLeft() + 20 + (PW.n++ % 4) * 26, y0 = 72 + (PW.n % 6) * 34; el.style.left = x0 + 'px'; el.style.top = y0 + 'px'; el.style.zIndex = ++PW.z; dkCierra();
   setTimeout(() => { try { if (window.MM && MM.map) MM.map.invalidateSize(); } catch (_) { } }, 80);
 }
-window.__indAbre = () => { DK.indLab = true; pwShow('ind', true); }; window.__indOff = () => { if (DK.indLab) { DK.indLab = false; try { pwShow('ind', false); } catch (_) { } } };
+window.__indAbre = () => { try { if (DK.cur && DK.cur !== 'ind') pwShow(DK.cur, false); } catch (_) { } DK.indLab = true; document.body.classList.add('ind-lab'); pwShow('ind', true); document.body.classList.add('ind-lab'); }; window.__indOff = () => { if (DK.indLab) { DK.indLab = false; try { pwShow('ind', false); } catch (_) { } } };
 function dkCierra() { if (DK.indLab) { DK.indLab = false; document.body.classList.remove('ind-lab'); setTimeout(() => { try { window.labTab('data'); } catch (_) { } }, 0); } DK.cur = null; if (DK.tab === 'I') dkTab('K'); const L = $('dk-lista'); if (L) { L.style.display = ''; $('dk-bus').style.display = ''; dkLista(); }
   const o = DK.origen; if (o) { DK.origen = null; dkTab(o.tab); const e = o.id && $(o.id); if (e) { e.dataset.col = '0'; e.classList.remove('col'); setTimeout(() => { try { e.scrollIntoView({ block: 'start' }); } catch (_) { } }, 60); } } }
 function pwShow(id, on) { const r = pwMake(id); r.chip.style.display = ''; if (on === undefined) on = true; const was = r.el.classList.contains('on'); if (on && !(id === 'mapa' && window.__mmEmb)) dkAbre(id, r); r.el.classList.toggle('on', on); if (on && !was && PW_ABRE[id]) { try { PW_ABRE[id](); } catch (_) { } } if (was && !on && PW_CIERRA[id]) { try { PW_CIERRA[id](); } catch (_) { } } if (!on && DK.cur === id) dkCierra(); if (on) { r.el.classList.remove('min'); r.el.style.zIndex = ++PW.z; r.chip.classList.remove('dot'); } r.chip.classList.toggle('on', on); dkRefresca(); }
