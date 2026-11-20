@@ -408,3 +408,4 @@
 .eco-light .eco-relg{color:#0e7490}
 .eco-relsec{display:flex;flex-direction:column;gap:1px;margin:14px 0 8px;padding-left:10px;border-left:4px solid #22d3ee}.eco-relsec b{font-size:14px}.eco-relsec small{opacity:.75;font-size:12px}
 .eco-emb #ecoTema{display:none!important}
+.eco-emb .eco-top{display:none!important}.eco-emb .eco-side{padding-top:calc(var(--tth,0px) + 4px)!important}
