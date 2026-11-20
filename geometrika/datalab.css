@@ -356,3 +356,4 @@ html.emb .dl-app,.dl-emb{background:transparent!important}
 html.dl-dark .dl-emb .dl-side,html.dl-dark .dl-emb .dl-wbar,html.dl-dark .dl-emb .dl-main{filter:invert(1) hue-rotate(180deg)}
 html.dl-dark .dl-emb .dl-side img,html.dl-dark .dl-emb .dl-wbar img,html.dl-dark .dl-emb .dl-main img{filter:invert(1) hue-rotate(180deg)}
 html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
+.dl-emb .dl-tbar{display:none!important}
