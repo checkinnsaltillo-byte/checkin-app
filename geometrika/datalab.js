@@ -55,7 +55,7 @@
       </header>
       <div class="dl-body">${EMB ? '<div class="dl-wbar"><b id="dlWT">Data Lab</b><button type="button" class="dl-wx" id="dlWX" aria-label="Cerrar ventana" title="Cerrar">✕</button></div>' : ""}
         <aside class="dl-side" id="dlSide" aria-label="Menú de Data Lab">
-          ${glTabs("data")}${EMB ? '<div class="dl-tbar"><button type="button" class="dl-tbtn" id="dlTema"></button></div>' : ""}<div class="dl-side-t">Menú</div>
+          ${glTabs("data")}${EMB ? '<div class="dl-tbar"><button type="button" class="dl-tbtn" id="dlTema"></button></div>' : ""}<div class="dl-side-t">Menú</div>${EMB ? `<button class="dl-nav dl-nav-ind" type="button" data-sec="__ind" title="Indicadores del proyecto de GeoLab"><span class="ic">📋</span><span class="tx">Indicadores del proyecto</span></button>` : ""}
           <button class="dl-nav on" type="button" data-sec="fuentes" title="Fuente de datos"><span class="ic">🗄️</span><span class="tx">Fuente de datos</span><span class="bd">${tot}</span></button>
           <button class="dl-nav" type="button" data-sec="indicadores" title="Indicadores"><span class="ic">📊</span><span class="tx">Indicadores</span><span class="bd">${INDS_ALL().length}</span></button>
           <div class="dl-side-f">Data Lab · Check Inn</div>
@@ -70,7 +70,7 @@
     $("#dlMain", host).addEventListener("scroll", () => { const f = $(".dl-fl", host); if (f) f.classList.toggle("st", $("#dlMain", host).scrollTop > 140); }, { passive: true });
     host.addEventListener("click", clic); host.addEventListener("input", entrada); host.addEventListener("change", cambia);
     // en pantallas angostas el menú es un cajón: se cierra al elegir una sección
-    $("#dlSide", host).addEventListener("click", e => { const n = e.target.closest(".dl-nav"); if (!n) return; ir(n.dataset.sec); if (EMB) dlWin(true, n.title || "Data Lab"); else if (innerWidth < 900) app.classList.add("dl-off"); });
+    $("#dlSide", host).addEventListener("click", e => { const n = e.target.closest(".dl-nav"); if (!n) return; if (n.dataset.sec === "__ind") { try { parent.postMessage({ gl: "ind" }, location.origin); } catch (_) { } return; } ir(n.dataset.sec); if (EMB) dlWin(true, n.title || "Data Lab"); else if (innerWidth < 900) app.classList.add("dl-off"); });
     if (EMB) { $("#dlWX", host).onclick = () => dlWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") dlWin(false); }); }
   }
 
