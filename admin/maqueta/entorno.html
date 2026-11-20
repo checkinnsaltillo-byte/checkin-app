@@ -298,9 +298,9 @@ setTimeout(function () { var t = document.getElementById('ld-txt'); if (!window.
 setInterval(function () { var t = document.getElementById('ld-txt'), p = document.getElementById('ld-pct'); if (!t || !p || !window.__mq) return; var v = p.textContent; if (window.__ldV === v) { if (++window.__ldN >= 6) t.dataset.lento = '1', t.innerHTML = 'Está tardando más de lo normal en ' + (window.__ldPaso || 'cargar') + '…<br>Si no avanza, recarga con Cmd+Shift+R.'; } else { window.__ldV = v; window.__ldN = 0; } }, 5000);
 </script>
 <style>
-  /* DataLab: al final de la fila y en color de contraste (oscuro con tema claro, claro con tema oscuro) */
-  #tt .lab-tabs button.lt-dl{background:#0f172a!important;color:#f8fafc!important;opacity:1!important;box-shadow:0 2px 8px rgba(2,6,23,.45)}#tt .lab-tabs button.lt-dl .lt-cla{display:none}
-  html.tema-osc #tt .lab-tabs button.lt-dl{background:#f8fafc!important;color:#0f172a!important}html.tema-osc #tt .lab-tabs button.lt-dl .lt-osc{display:none}html.tema-osc #tt .lab-tabs button.lt-dl .lt-cla{display:inline}
+  /* DataLab: al final de la fila y en un tono un poco más oscuro que las demás pestañas */
+  #tt .lab-tabs button.lt-dl{background:#cfd8e3!important;color:#1e293b!important;opacity:1!important}#tt .lab-tabs button.lt-dl .lt-osc{display:none}
+  html.tema-osc #tt .lab-tabs button.lt-dl{background:#b8c4d3!important;color:#0f172a!important}
   #tt .lab-tabs button.lt-dl.on{outline:2px solid #6366f1;outline-offset:1px}
   body.ind-lab #dk-tabs{display:none!important}
 </style>
