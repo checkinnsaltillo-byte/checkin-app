@@ -471,12 +471,15 @@
   }
   /* línea de tiempo vertical: cada nota con su fecha, el día relativo al primer hecho, su etapa y cómo cambia el relato */
   function nrLinea(D) {
-    const Ln = D.prop && D.prop.linea; if (!Ln || !Ln.items.length) return ""; const it = Ln.items, t0 = new Date(it[0].f).getTime(), FM = f => { const d = new Date(f); return d.getUTCDate() + " " + MESN[d.getUTCMonth()].slice(0, 3); };
-    const cnt = {}; it.forEach(x => { cnt[x.or] = (cnt[x.or] || 0) + 1; });
-    const leyenda = NORD.filter(k => cnt[k === "Sin_origen" ? "" : k]).map(k => `<span><i style="background:${ORCOL[k] || "#94a3b8"}"></i>${k === "Sin_origen" ? "Sin etapa" : NOR[k]} <b>${cnt[k === "Sin_origen" ? "" : k]}</b></span>`).join("");
-    const fila = (x, i) => { const c = ORCOL[x.or] || "#94a3b8", dd = Math.round((new Date(x.f).getTime() - t0) / 864e5), nom = x.or ? (NOR[x.or] || x.or) : "Sin etapa", ant = i ? Math.round((new Date(x.f).getTime() - new Date(it[i - 1].f).getTime()) / 864e5) : 0;
+    const Ln = D.prop && D.prop.linea; if (!Ln) return ""; const FM = f => { const d = new Date(f); return d.getUTCDate() + " " + MESN[d.getUTCMonth()].slice(0, 3); };
+    const fila = (x, i, it, t0) => { const c = ORCOL[x.or] || "#94a3b8", dd = Math.round((new Date(x.f).getTime() - t0) / 864e5), nom = x.or ? (NOR[x.or] || x.or) : "Sin etapa", ant = i ? Math.round((new Date(x.f).getTime() - new Date(it[i - 1].f).getTime()) / 864e5) : 0;
       return `<div class="vt-i" data-n="${esc(x.id)}" style="--cc:${c}" title="Clic para abrir la nota"><div class="vt-d"><b>${esc(FM(x.f))}</b><small>${i ? "Día " + dd : "Inicio"}</small></div><div class="vt-r"><i></i></div><div class="vt-c"><div class="vt-e"><span style="color:${c};border-color:${c}">${esc(nom)}</span>${x.rf ? `<em title="Ráfaga: evento detonante">⚡</em>` : ""}<small>${esc(nCorta(String(x.med || "").replace(/^Facebook · /, ""), 28))}${i && ant ? " · +" + ant + " d" : ""}</small></div><h6>${esc(nCorta(x.t, 120))}</h6>${x.mu ? `<p>↳ ${esc(x.mu)}</p>` : ""}</div></div>`; };
-    return `<div class="vt"><div class="vt-lg">${leyenda}</div><div class="vt-l">${it.map(fila).join("")}</div>${Ln.n > it.length ? `<div class="vt-m">Se muestran las primeras ${it.length} de ${nf(Ln.n)} notas, en orden de fecha.</div>` : ""}</div>`;
+    const lista = it => { if (!it.length) return ""; const t0 = new Date(it[0].f).getTime(); return it.map((x, i) => fila(x, i, it, t0)).join(""); };
+    const leyenda = it => { const cnt = {}; it.forEach(x => { cnt[x.or] = (cnt[x.or] || 0) + 1; }); return NORD.filter(k => cnt[k === "Sin_origen" ? "" : k]).map(k => `<span><i style="background:${ORCOL[k] || "#94a3b8"}"></i>${k === "Sin_origen" ? "Sin etapa" : NOR[k]} <b>${cnt[k === "Sin_origen" ? "" : k]}</b></span>`).join(""); };
+    if (Ln.temas) { if (!Ln.temas.length) return ""; /* sin tema elegido: un bloque por tema */
+      return `<div class="vt"><div class="vt-l">${Ln.temas.map(t => `<section class="vt-b"><button type="button" class="vt-th" data-tmsel="${esc(t.k)}" title="Ver solo este tema"><b>${esc(nCorta(t.k, 60))}</b><small>${nf(t.n)} nota(s) · ${nf(t.med)} medio(s)</small></button><div class="vt-lg">${leyenda(t.items)}</div>${lista(t.items)}${t.n > t.items.length ? `<div class="vt-m">Primeras ${t.items.length} de ${nf(t.n)} · elige el tema para verlas todas</div>` : ""}</section>`).join("")}</div></div>`; }
+    if (!Ln.items.length) return "";
+    return `<div class="vt"><div class="vt-lg">${leyenda(Ln.items)}</div><div class="vt-l">${lista(Ln.items)}</div>${Ln.n > Ln.items.length ? `<div class="vt-m">Se muestran las primeras ${Ln.items.length} de ${nf(Ln.n)} notas, en orden de fecha.</div>` : ""}</div>`;
   }
   const nrTemaSel = D => { const T = (D.prop && D.prop.temas) || []; return T.length ? `<div class="tm-top"><label>Tema</label><select id="nrTmSel">${T.map(x => `<option value="${esc(x.k)}"${x.k === (S.nrTema || "") ? " selected" : ""}>${x.k ? esc(x.k) : "Todos los temas"} · ${nf(x.n)} · ${nf(x.med)} medio(s)</option>`).join("")}</select></div>` : ""; };
   async function nrNotasTema(tm, or, med) {
@@ -1354,6 +1357,7 @@
     const edo = t.closest("[data-edo]"); if (edo && S.W) { const k = edo.dataset.edo, a = S.W.estados, i = a.indexOf(k); i >= 0 ? a.splice(i, 1) : a.push(k); edo.classList.toggle("on", i < 0); return; }
     if (t.closest("[data-wsv]")) { guardaCambios(); return; }
     const rdc = t.closest("[data-rd]"); if (rdc && S.W) { const a = S.W.redes || (S.W.redes = []), k = rdc.dataset.rd, i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); wizard(); return; }
+    const tms = t.closest("[data-tmsel]"); if (tms && S.modo === "narr") { S.nrTema = tms.dataset.tmsel; const m = $("#mlMain"), st = m ? m.scrollTop : 0; cargaNarr().then(() => { const m2 = $("#mlMain"); if (m2) m2.scrollTop = st; }); return; }
     const tmc = t.closest("[data-tmo]"); if (tmc && S.modo === "narr") { nrNotasTema(S.nrTema || "", tmc.dataset.tmo, tmc.dataset.tmm || ""); return; }
     const tg = t.closest("[data-tg]"); if (tg && S.W) { S.W[tg.dataset.tg] = !S.W[tg.dataset.tg]; wizard(); return; }
     const w2 = t.closest("[data-w2]"); if (w2 && S.W) { const [k, val] = w2.dataset.w2.split(":"); S.W[k] = val; wizard(); }
