@@ -1174,7 +1174,7 @@
   function nuevo() { S.W = WNEW(); S.modo = "crear"; titulo("Crear proyecto"); lado(); mlWin(true); principal(); if (!S.prov) cargaProv(); cargaMedios(); }
   async function cargaProv() { try { S.prov = await api("/proveedores"); } catch (e) { S.prov = { proveedores: {}, estados: {}, error: e.message }; } if (S.modo === "crear") principal(); }
   async function nuevoSocial(pid) {
-    const pp = S.proy.find(x => x.id === pid); if (!pp) return; if (!confirm("Activar Redes Sociales para «" + pp.titulo + "»: se creará la configuración con los mismos términos, zona y periodo; podrás ajustarlos antes de lanzar la extracción.")) return;
+    const pp = S.proy.find(x => x.id === pid); if (!pp) return; if (!confirm("Activar Redes Sociales en «" + pp.titulo + "».\n\nSigue siendo el mismo proyecto: no aparecerá otro en tu lista. Solo se agrega su pestaña «Redes sociales», con los mismos términos, zona y periodo (puedes ajustarlos antes de lanzar la extracción).")) return;
     await editar(pid); if (!S.W) return; S.W.id = null; S.W.padre = pid; S.W.proveedor = "fbapify"; S.W.texto = false; S.W.paso = 3; S.W0 = null; titulo("Redes Sociales · " + pp.titulo); principal();
   }
   async function editar(id) {
