@@ -308,7 +308,7 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   function ir(v) {
     if (v !== 'geo' && !URL[v]) return;
     if (v !== 'geo' && !fr[v]) { var f = document.createElement('iframe'); f.src = URL[v]; f.title = v === 'eco' ? 'EconoLab' : v === 'media' ? 'MediaLab' : 'DataLab'; f.setAttribute('allowtransparency', 'true'); f.addEventListener('load', medida); ov.appendChild(f); fr[v] = f; medida(); }
-    Object.keys(fr).forEach(function (k) { fr[k].classList.toggle('on', k === v); });
+    Object.keys(fr).forEach(function (k) { fr[k].classList.toggle('on', k === v); }); try { if (window.__mlpOn) window.__mlpOn(v === 'media'); } catch (e) { }
     ov.classList.toggle('on', v !== 'geo'); document.body.classList.toggle('lab-on', v !== 'geo'); medida();
     if (tabs) [].forEach.call(tabs.querySelectorAll('button'), function (b) { var on = b.dataset.lab === v; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
   }
@@ -6036,6 +6036,30 @@ function cmpSt() {
   const e = cmpQ('.cmp-st'), b = cmpQ('.cmp-save'); if (!e || !b) return; const n0 = cmpSinRol(), d = cmpDirty(); b.disabled = CMP.busy || n0 > 0 || !d; b.style.opacity = b.disabled ? .5 : 1;
   e.textContent = CMP.msg || (n0 ? `Falta clasificar ${n0} punto${n0 > 1 ? 's' : ''}` : d ? 'Hay cambios sin guardar' : CMP.savedAt ? 'Guardado ' + new Date(CMP.savedAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 }
+/* Media Lab en la maqueta: los pines y etiquetas del mapa de Media Lab se dibujan sobre la maqueta (los envía el iframe de MediaLab por postMessage) */
+const MLP = { pts: [], g: null, raf: 0, key: '', w: null, on: false };
+function mlpQuita() { if (MLP.g) { try { cmpDisp(MLP.g); } catch (_) { } MLP.g = null; } }
+function mlpDibuja() {
+  mlpQuita(); const S = curS; MLP.w = world; MLP.key = S ? [S.lat, S.lng].join('|') : ''; if (!MLP.on || !world || !S || S.lat == null || !MLP.pts.length) return;
+  const kx = 111320 * Math.cos(+S.lat * Math.PI / 180), dist = p => Math.hypot((p.lng - S.lng) * kx, (p.lat - S.lat) * 111320), cerca = MLP.pts.filter(p => dist(p) <= 60000).sort((a, b) => (b.k || 1) - (a.k || 1)).slice(0, 150); if (!cerca.length) return;
+  const G = new THREE.Group(), pg = new THREE.CylinderGeometry(1, 1, 1, 8), sg = new THREE.SphereGeometry(1, 16, 12), mats = {}, mat = c => mats[c] || (mats[c] = new THREE.MeshBasicMaterial({ color: c, transparent: true, depthTest: false }));
+  cerca.forEach((p, i) => { const x = (p.lng - S.lng) * kx, z = -(p.lat - S.lat) * 111320, H = 80, col = p.c || '#f97316', pin = new THREE.Group(); pin.position.set(x, 0, z); pin.userData.pin = 1; pin.userData.noPick = 1;
+    const pole = new THREE.Mesh(pg, mat(col)); pole.scale.set(2.4, H, 2.4); pole.position.set(0, H / 2, 0); pole.userData.noPick = 1; pole.renderOrder = 90; pin.add(pole);
+    const ball = new THREE.Mesh(sg, mat(col)); ball.scale.setScalar(11); ball.position.set(0, H + 6, 0); ball.userData.noPick = 1; ball.renderOrder = 91; pin.add(ball);
+    if (i < 60) { const c = document.createElement('canvas'); c.width = 512; c.height = 72; const g = c.getContext('2d'), t = '📰 ' + ((p.k || 1) > 1 ? p.k + ' · ' : '') + String(p.n || ''); g.font = '700 28px Inter,sans-serif'; let tx = t; while (g.measureText(tx).width > 468 && tx.length > 6) tx = tx.slice(0, -2); if (tx !== t) tx += '…';
+      g.fillStyle = 'rgba(15,23,42,.9)'; g.beginPath(); g.roundRect(4, 6, 504, 60, 18); g.fill(); g.lineWidth = 4; g.strokeStyle = col; g.stroke(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, 256, 38);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, depthTest: false })); sp.scale.set(200, 200 * .140625, 1); sp.position.set(0, H + 38, 0); sp.renderOrder = 100; sp.userData.noPick = 1; sp.userData.lab = 1; pin.add(sp); }
+    G.add(pin); });
+  G.userData.mlp = 1; G.userData.keep = true; world.add(G); MLP.g = G;
+}
+function mlpTick() {
+  if (!MLP.on) { MLP.raf = 0; return; }
+  try { const S = curS; if (MLP.pts.length && S && world && (MLP.w !== world || MLP.key !== [S.lat, S.lng].join('|') || (MLP.g && MLP.g.parent !== world))) mlpDibuja();
+    if (MLP.g && camera) MLP.g.children.forEach(pin => { if (!pin.userData.pin) return; const d = camera.position.distanceTo(pin.position), k = Math.min(30, Math.max(1, d / 1800)); pin.scale.setScalar(k); const ls = Math.max(1 / k, .6); pin.children.forEach(o => { if (o.userData.lab) o.scale.set(200 * ls, 200 * .140625 * ls, 1); }); }); } catch (_) { }
+  MLP.raf = requestAnimationFrame(mlpTick);
+}
+window.__mlpOn = v => { MLP.on = !!v; if (!MLP.on) mlpQuita(); else { try { mlpDibuja(); } catch (_) { } if (!MLP.raf) mlpTick(); } };
+window.addEventListener('message', e => { if (e.origin !== location.origin || !e.data || e.data.gl !== 'ml-pins') return; MLP.pts = (Array.isArray(e.data.pts) ? e.data.pts : []).filter(p => p && isFinite(+p.lat) && isFinite(+p.lng)).map(p => ({ lat: +p.lat, lng: +p.lng, n: String(p.n || '').slice(0, 90), k: +p.k || 1, c: /^#[0-9a-f]{3,8}$/i.test(p.c || '') ? p.c : '#f97316' })); if (MLP.on) { try { mlpDibuja(); } catch (_) { } } });
 // marcadores en la maqueta: poste + esfera + etiqueta (azul referencia, rojo competencia, ámbar sin clasificar)
 function cmpDisp(g) { if (g.parent) g.parent.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
 function cmpQuita() { if (CMP.g) { cmpDisp(CMP.g); CMP.g = null; } cmpQuitaPv(); cmpQuitaSel(); }

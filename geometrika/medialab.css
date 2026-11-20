@@ -963,3 +963,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 @media(max-width:900px){.ml-t3{grid-template-columns:1fr}.ml-tc+.ml-tc{border-left:0;padding-left:0;border-top:1px dashed var(--ml-ln);padding-top:14px}}
 .qc-pg{flex:1 1 100%;display:grid;grid-template-columns:auto minmax(120px,1fr) auto;align-items:center;gap:6px 12px;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.4)}.qc-pg b{font-size:13px}.qc-pg em{font-style:normal;font-weight:800;font-size:13px}.qc-pg small{grid-column:1/-1;font-size:11px;color:var(--ml-mut)}.qc-pg .ml-bar{margin:0}
 .qc-bar{flex-wrap:wrap}
+.ml-emb .ml-logo,.ml-emb .ml-ver{display:none}

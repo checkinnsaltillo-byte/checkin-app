@@ -294,7 +294,14 @@
     } catch (e) { toast(e.message, true); } finally { S.cargando = false; }
     lado(); principal();
   }
+  /* embebido en GeoLab: manda a la maqueta los pines del proyecto (agrupados por lugar, como en el mapa de Media Lab) */
+  async function embPins(id) {
+    if (!EMB) return; try { const g = await api(`/proyectos/${id}/noticias?geo=1`); if (id !== S.sel) return; const grupos = new Map(); (g.puntos || []).forEach(p => { const k = p.lat.toFixed(3) + "," + p.lng.toFixed(3); (grupos.get(k) || grupos.set(k, []).get(k)).push(p); });
+      const pts = [...grupos.values()].map(L2 => { const top = L2.reduce((m, q) => (q.r != null && (m.r == null || q.r > m.r)) ? q : m, L2[0]), cc = {}; L2.forEach(q => cc[q.cat || ""] = (cc[q.cat || ""] || 0) + 1); const cat = Object.keys(cc).sort((a, b) => cc[b] - cc[a])[0]; return { lat: L2[0].lat, lng: L2[0].lng, n: corto(top.t), k: L2.length, c: catCol(cat) }; }).sort((a, b) => b.k - a.k).slice(0, 400);
+      parent.postMessage({ gl: "ml-pins", pid: id, pts }, location.origin); } catch (_) { }
+  }
   async function selecciona(id) {
+    embPins(id);
     S.sel = id; S.modo = "tablero"; S.f = {}; S.data = null; S.det = null; S.pag = 0; const p = S.proy.find(x => x.id === id); S.tabSel = null; titulo(p ? p.titulo : "Media Lab"); lado(); mlWin(true); principal(); calResumen(id, true); await consulta();
   }
   /* carga automática: al llegar al final de la lista se pide el siguiente grupo de noticias */
