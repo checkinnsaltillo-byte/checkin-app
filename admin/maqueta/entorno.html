@@ -6036,6 +6036,20 @@ function cmpSt() {
   const e = cmpQ('.cmp-st'), b = cmpQ('.cmp-save'); if (!e || !b) return; const n0 = cmpSinRol(), d = cmpDirty(); b.disabled = CMP.busy || n0 > 0 || !d; b.style.opacity = b.disabled ? .5 : 1;
   e.textContent = CMP.msg || (n0 ? `Falta clasificar ${n0} punto${n0 > 1 ? 's' : ''}` : d ? 'Hay cambios sin guardar' : CMP.savedAt ? 'Guardado ' + new Date(CMP.savedAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 }
+/* recorte al tamaño de la maqueta: lo que una capa dibuja fuera del cuadro de la maqueta no se muestra (p. ej. la vialidad coloreada por el tráfico).
+   Quedan fuera del recorte el mapa de fondo, el modelo 3D de Google y las cartografías de análisis a escala de ciudad (demografía, manzanas, colonias, DENUE, negocios, lugares, riesgos y los análisis sin capa propia). */
+const MQC = { R: 0, planes: null, no: new Set(['mapa', 'mapa3d', 'demografia', 'manzanas', 'manzanas_cont', 'denue_man', 'colonias', 'riesgos', 'negocios', 'neg_noche', 'neg_dia', 'lugares']) };
+function mqRecorta() {
+  try {
+    const R = +window.__RAD; if (!world || !renderer || !(R > 0)) return;
+    if (MQC.R !== R) { MQC.R = R; const r = R + 1; MQC.planes = [new THREE.Plane(new THREE.Vector3(1, 0, 0), r), new THREE.Plane(new THREE.Vector3(-1, 0, 0), r), new THREE.Plane(new THREE.Vector3(0, 0, 1), r), new THREE.Plane(new THREE.Vector3(0, 0, -1), r)]; }
+    renderer.localClippingEnabled = true;
+    const pone = m => { if (!m || m.userData.mqc === R || (m.clippingPlanes && m.clippingPlanes.length && m.clippingPlanes !== m.userData.mqp)) return; m.clippingPlanes = MQC.planes; m.clipIntersection = false; m.userData.mqc = R; m.userData.mqp = MQC.planes; m.needsUpdate = true; };
+    const baja = (o, cat) => { const c = (o.userData && o.userData.cat) || cat; if (o.userData && (o.userData.cmp || o.userData.mlp)) return; if (c && !MQC.no.has(c) && o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(pone); const ch = o.children; for (let i = 0; i < ch.length; i++) baja(ch[i], c); };
+    baja(world, '');
+  } catch (_) { }
+}
+setInterval(mqRecorta, 1500);
 /* Media Lab en la maqueta: los pines y etiquetas del mapa de Media Lab se dibujan sobre la maqueta (los envía el iframe de MediaLab por postMessage) */
 const MLP = { pts: [], g: null, raf: 0, key: '', w: null, on: false };
 function mlpQuita() { if (MLP.g) { try { cmpDisp(MLP.g); } catch (_) { } MLP.g = null; } }
