@@ -246,7 +246,7 @@
   /* dentro de GeoLab: al abrir un proyecto (o al cambiar el lugar o el giro de la maqueta) se filtran las notas por el estado, el municipio y el giro de la maqueta */
   function embAuto() {
     if (!EMB || !S.ctx || !S.sel || S.modo === "crear") return; const c = S.ctx, key = [S.sel, c.ent || "", c.municipio || c.ciudad || "", c.giro || ""].join("|"); if (S.autoK === key) return; S.autoK = key;
-    S.f = S.f || {}; S.f.est = c.ent || ""; S.f.mun = ""; S.f.reg = ""; S.autoMun = norm(c.municipio || c.ciudad || ""); S.f.scian = c.giro ? "g:" + c.giro : ""; if (S.cargando) S.autoPend = true; else consulta();
+    S.f = S.f || {}; S.f.est = ""; S.f.mun = ""; S.f.reg = ""; S.autoMun = ""; S.f.cerca = isFinite(+c.lat) && isFinite(+c.lng) && c.lat != null ? (+c.lat).toFixed(4) + "," + (+c.lng).toFixed(4) + ",40" : ""; if (!S.f.cerca) S.f.est = c.ent || ""; S.f.scian = c.giro ? "g:" + c.giro : ""; if (S.cargando) S.autoPend = true; else consulta();
   }
   const verChip = () => { let v = window.__gpV || ""; try { if (v) throw 0; const sc = [...document.scripts].find(x => /geometrika\.js\?v=/.test(x.src)); v = sc ? sc.src.split("v=")[1].split("&")[0] : ""; } catch (_) { } return v ? `<div class="ml-ver"><span class="ml-vchip" title="Versión del sistema">v.Beta.${esc(v)} · Check Inn</span></div>` : ""; };
   const opt = (arr, val, vf, tf) => `<option value="">Todas</option>` + (arr || []).map(x => `<option value="${esc(vf ? vf(x) : x.v)}"${String(vf ? vf(x) : x.v) === String(val || "") ? " selected" : ""}>${esc(tf ? tf(x) : x.v)} (${nf(x.n)})</option>`).join("");
@@ -262,6 +262,7 @@
       <div class="ml-f"><label>Lugar · ciudad o municipio</label><select data-f="mun">${opt(F.mun, f.mun, null, x => x.nom || x.v)}</select></div>
       ${(F.zona && F.zona.length) ? `<div class="ml-f"><label>Lugar · colonia o zona</label><select data-f="zona">${opt(F.zona, f.zona)}</select></div>` : ""}
       <div class="ml-f"><label>Medio</label><select data-f="med">${opt(F.med, f.med)}</select></div>
+      ${EMB && S.ctx && S.ctx.lat != null ? `<div class="ml-f"><label>Zona de la maqueta</label><div class="ml-ck${f.cerca ? " on" : ""}" data-fcerca="1" title="Deja solo las notas ubicadas a 40 km o menos del lugar de la maqueta: la ciudad con sus municipios vecinos"><i>✓</i>A 40 km de ${esc(S.ctx.ciudad || S.ctx.municipio || "la maqueta")}</div></div>` : ""}
       <div class="ml-f"><label title="Sector económico relacionado con la nota; solo lo tienen las notas clasificadas con IA">Actividad económica (SCIAN)</label><select data-f="scian"><option value="">Todas</option><optgroup label="Giros">${GIROS_ML.map(([k, t]) => `<option value="g:${k}"${f.scian === "g:" + k ? " selected" : ""}>${t}</option>`).join("")}</optgroup><optgroup label="Sectores SCIAN">${(F.scian || []).map(x => `<option value="${esc(x.v)}"${f.scian === x.v ? " selected" : ""}>${esc(x.v)} · ${esc(nCorta(x.nom, 48))} (${nf(x.n)})</option>`).join("")}</optgroup></select></div>
       ${F.prov && F.prov.length ? `<div class="ml-f"><label>Fuente de extracción</label><select data-f="prov"><option value="">Todas</option>${F.prov.map(x => `<option value="${esc(x.v)}"${f.prov === x.v ? " selected" : ""}>${esc(provN(x.v))} (${nf(x.n)})</option>`).join("")}</select></div>` : ""}
       ${esSocial((S.proy || []).find(x => x.id === S.sel)) ? `<div class="ml-f"><label>Reacciones mínimas</label><select data-f="rmin">${[["", "Todas"], ["1", "Con al menos 1"], ["10", "10 o más"], ["50", "50 o más"], ["100", "100 o más"], ["500", "500 o más"], ["1000", "1,000 o más"]].map(([v, t]) => `<option value="${v}"${(f.rmin || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select></div>` : ""}
@@ -1239,7 +1240,7 @@
         if (q) {
           const nv = q.r == null ? -1 : q.r >= 75 ? 3 : q.r >= 50 ? 2 : q.r >= 25 ? 1 : 0; ch.className = "ml-sp-ch ml-rk" + nv; ch.title = q.t;
           ch.innerHTML = `<i style="background:${catCol(q.cat)}"></i><b>${esc(corto(q.t))}</b><small>${esc(q.med)} · ${esc(fechaC(q.f))}</small>`;
-          ch.onclick = ev => { ev.stopPropagation(); resaltaCard(q.id); };
+          ch.onclick = ev => { ev.stopPropagation(); resaltaCard(q.id); if (EMB) { mlWin(true); abreDet(q.id); } };
         } else {
           ch.className = "ml-sp-ch ml-sp-more"; ch.innerHTML = `<b>+${o.more} más</b><small>ver lista</small>`;
           ch.onclick = ev => { ev.stopPropagation(); aranaCierra(M); S.det = { lista: { nombre: L2[0].lug || "", items: L2.slice(0, 60) } }; pintaDet(); };
@@ -1494,6 +1495,7 @@
     const ly = t.closest("[data-lay]"); if (ly && S.entV) { S.entV.lay = ly.dataset.lay; pintaDet(); return; }
     const gn = t.closest("[data-gn]"); if (gn && S.entV) { S.entV.sel = gn.dataset.gn; pintaDet(); return; }
     const rtb = t.closest("[data-rt]"); if (rtb) { const sp = S.proy.find(x => x.id === S.sel), pid = sp ? (esSocial(sp) ? sp.padre : sp.id) : ""; if (!pid) return; if (rtb.dataset.rt === "redes") { const c = socDe(pid); if (c) navTo("tab|" + c.id + "|" + (S.vista || "lista")); else { S.tabSel = "redes"; lado(); } } else { S.tabSel = null; navTo("tab|" + pid + "|" + (S.vista || "lista")); } return; }
+    const fce = t.closest("[data-fcerca]"); if (fce && S.ctx) { S.f.cerca = S.f.cerca ? "" : (+S.ctx.lat).toFixed(4) + "," + (+S.ctx.lng).toFixed(4) + ",40"; consulta(); return; }
     const fdp = t.closest("[data-fdup]"); if (fdp) { S.f.nodup = S.f.nodup ? "" : "1"; consulta(); return; }
       const dpd = t.closest("[data-dupde]"); if (dpd) { verDups(dpd.dataset.dupde); return; }
       const cxe = t.closest("[data-cx]"); if (cxe) { const c = cxGet(), k = cxe.dataset.cx; if (c.has(k)) c.delete(k); else c.add(k); try { localStorage.setItem("ml_cx", JSON.stringify([...c])); } catch (_) { } cxe.classList.toggle("on", c.has(k)); const rw = $(`.ml-rg[data-rg="${k}"]`); if (rw) rw.hidden = !c.has(k); ixRefresca(); if (!c.has(k) && rgGet(S.f.rg)[k]) { const m = rgGet(S.f.rg); delete m[k]; S.f.rg = Object.keys(m).map(x => x + ":" + m[x][0] + "-" + m[x][1]).join(","); consulta(); } return; }
