@@ -983,3 +983,4 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-app.ml-emb .ml-fix .ml-k4w b,.ml-app.ml-emb .ml-fix .ml-k4w .k4 b{font-size:13px;line-height:1.2;margin:1px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* GeoLab: sin botón de tema propio (sigue el tema de GeoLab) y sin el hueco que dejaba */
 .ml-app.ml-emb .ml-top{display:none}.ml-app.ml-emb .ml-body>.ml-side{padding-top:calc(var(--tth,0px) + 10px)}
+.ml-ff>summary em{display:none}.ml-ff>summary .ml-fq{flex:1 1 auto;min-width:60px;width:auto}
