@@ -242,9 +242,9 @@
   #tt .tt-prj.open .tt-prj-b{display:block}
   #tt-prj-b #pdi .dh{display:none!important}#tt-prj-b #pdi .db,#tt-prj-b #pdi.col .db{display:block!important;max-height:none!important;overflow:visible!important}#tt-prj-b #pdi{display:block!important;background:transparent!important;box-shadow:none!important;padding:0!important;margin:0!important;width:auto!important;color:inherit}
   html.tema-osc #tt-prj-b #pdi,html.tema-osc #tt-prj-b #pdi *{color:#e2e8f0}html.tema-osc #tt-prj-b #pdi small{color:#94a3b8!important}
-  #tt #lft-cg{all:unset;cursor:pointer;box-sizing:border-box;position:absolute;top:42px;right:14px;z-index:5;font:700 14px/1 system-ui,sans-serif;width:30px;height:26px;display:flex;align-items:center;justify-content:center;padding:0;border-radius:8px;background:#e2e8f0;color:#334155;white-space:nowrap;text-transform:none;pointer-events:auto}
+  #tt #lft-cg{all:unset;cursor:pointer;box-sizing:border-box;position:absolute;top:12px;left:14px;right:auto;z-index:5;font:700 14px/1 system-ui,sans-serif;width:28px;height:26px;display:flex;align-items:center;justify-content:center;padding:0;border-radius:8px;background:transparent;color:#64748b;white-space:nowrap;text-transform:none;pointer-events:auto}
   #tt #lft-cg:hover,#tt #lft-cg.on{background:#4f46e5;color:#fff}
-  html.tema-osc #tt #lft-cg{background:rgba(148,163,184,.22);color:#e2e8f0}html.tema-osc #tt #lft-cg:hover,html.tema-osc #tt #lft-cg.on{background:#4f46e5;color:#fff}
+  html.tema-osc #tt #lft-cg{background:transparent;color:#94a3b8}html.tema-osc #tt #lft-cg:hover,html.tema-osc #tt #lft-cg.on{background:#4f46e5;color:#fff}
   #pry-tg,#pry-pn{display:none!important}
   /* mapa de Proyectos en tema oscuro: etiquetas, botones y pines con contraste */
   html.tema-osc #mm-map .mm-tip{background:rgba(15,23,42,.94)!important;color:#f8fafc!important;border:1px solid rgba(148,163,184,.55)!important;box-shadow:0 2px 8px rgba(0,0,0,.5)!important;font-weight:600}
@@ -8033,7 +8033,7 @@ setTimeout(() => { igCarga(); }, 2500);
   if (nav) { nav.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.classList.contains('nh')) { ocultar(); capPnSync(); window.dispatchEvent(new Event('resize')); } else if (b.dataset.v === 'config') { vista = 'config'; mostrar(); clickTab('C'); capPnSync(); window.dispatchEvent(new Event('resize')); } else if (b.dataset.v === 'proyectos') { sk = 'pdi'; va('capas'); } else if (b.dataset.v) { if (b.dataset.v === 'capas' && sk === 'pdi') sk = 'cap'; va(b.dataset.v); } }); capb.onclick = () => { sk = 'cap'; va('capas'); }; cfgb.onclick = () => { vista = 'config'; mostrar(); clickTab('C'); capPnSync(); window.dispatchEvent(new Event('resize')); }; abre.onclick = () => { if (vista === 'config') { mostrar(); clickTab('C'); capPnSync(); window.dispatchEvent(new Event('resize')); } else va(vista); }; }
   ptg.onclick = () => pulsa('proyectos'); ctg.onclick = () => pulsa('capas'); itg.onclick = () => pulsa('ind');
   if (tt) {
-    const cg = document.createElement('button'); cg.id = 'lft-cg'; cg.type = 'button'; cg.textContent = '⚙️'; cg.title = 'Configuración';
+    const cg = document.createElement('button'); cg.id = 'lft-cg'; cg.type = 'button'; cg.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>'; cg.setAttribute('aria-label', 'Configuración'); cg.title = 'Configuración';
     cg.onclick = () => { if (document.body.classList.contains('lab-on') && window.labTab) window.labTab('geo'); vista = 'config'; mostrar(); clickTab('C'); capPnSync(); window.dispatchEvent(new Event('resize')); };
     tt.appendChild(cg); window.__cfgBtn = cg;
     const ph = $('tt-prj-h'), pw = $('tt-prj');
