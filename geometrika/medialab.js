@@ -33,7 +33,7 @@
     if (e.origin !== location.origin || !e.data) return; const d = e.data;
     if (d.gl === "col") { document.documentElement.style.setProperty("--col", d.w + "px"); if (d.h != null) document.documentElement.style.setProperty("--tth", d.h + "px"); if (d.ww) document.documentElement.style.setProperty("--win", d.ww + "px"); if (S.mapaBg) setTimeout(() => { try { S.mapaBg.invalidateSize(); } catch (_) { } }, 120); }
     else if (d.gl === "tema") { const a = $("#mlApp"); if (a) { a.classList.toggle("ml-light", d.v !== "osc"); temaPinta(); } else window.__mlTema = d.v; }
-    else if (d.gl === "ctx") { const antes = S.ctx; S.ctx = d; try { embAuto(); } catch (_) { } if (S.mapaBg && isFinite(+d.lat) && d.lat != null && (!antes || antes.lat !== d.lat || antes.lng !== d.lng)) { try { S.mapaBg.setView([+d.lat, +d.lng], 10, { animate: false }); } catch (_) { } } }
+    else if (d.gl === "ctx") { const antes = S.ctx; S.ctx = d; try { embAuto(); } catch (_) { } if (S.mapaBg && isFinite(+d.lat) && d.lat != null && (!antes || antes.lat !== d.lat || antes.lng !== d.lng)) { try { S.mapaBg.setView([+d.lat, +d.lng], 10, { animate: false }); if (S.refMk) S.refMk.setLatLng([+d.lat, +d.lng]); else mapa(); } catch (_) { } } }
   });
   const temaPinta = () => { const a = $("#mlApp"), b = $("#mlTema"); if (a && b) b.textContent = a.classList.contains("ml-light") ? "🌙 Oscuro" : "☀️ Claro"; };
 
@@ -1292,6 +1292,8 @@
         mk.on("click", () => { if (EMB) { if (S.modo !== "tablero" || !$("#mlDet")) { S.modo = "tablero"; S.vista = "lista"; lado(); principal(); } mlWin(true); } if (uno) abreDet(p0.id); else { S.det = { lista: { nombre: nom, items: L2.slice(0, 60) } }; pintaDet(); } }); pts.push([p0.lat, p0.lng]); S.marcas.push({ mk, L2, ll: [p0.lat, p0.lng] });
       });
       /* etiquetas: solo con acercamiento suficiente (zoom 12 o más); con pocos lugares (8 o menos) desde zoom 9. Alejado se ven solo los pines; al pasar por un pin agrupado se abren sus cuadros */
+      /* dentro de GeoLab: el punto de referencia de la maqueta, distinto de los pines de las notas */
+      S.refMk = null; if (EMB && S.ctx && S.ctx.lat != null && isFinite(+S.ctx.lat) && isFinite(+S.ctx.lng)) { const ri = L.divIcon({ className: "", html: `<div class="ml-ref"><i></i></div>`, iconSize: [34, 44], iconAnchor: [17, 42] }); S.refMk = L.marker([+S.ctx.lat, +S.ctx.lng], { icon: ri, zIndexOffset: 5000, interactive: true }).addTo(M); S.refMk.bindTooltip(`<b>${esc(S.ctx.nombre || "Punto de referencia")}</b><small>Punto de referencia de la maqueta</small>`, { permanent: true, direction: "top", offset: [0, -40], className: "ml-tip ml-reft" }); }
       const nl = () => { const z = M.getZoom(); el2.classList.toggle("ml-nolbl", !(z >= 12 || (grupos.size <= 8 && z >= 9))); }; M.on("zoomend", nl); nl();
       if (S.foco) { setTimeout(enfocaMapa, 250); } else if (EMB && vista0 && S.bgProy === S.sel) M.setView(vista0[0], vista0[1], { animate: false }); else if (EMB && S.ctx && isFinite(+S.ctx.lat) && isFinite(+S.ctx.lng) && S.ctx.lat != null) M.setView([+S.ctx.lat, +S.ctx.lng], 10, { animate: false }); else if (pts.length) M.fitBounds(pts, { padding: [40, 40], maxZoom: 11 }); if (EMB) S.bgProy = S.sel; setTimeout(() => M.invalidateSize(), 200);
       const n = $("#mlMapN"); if (n) n.innerHTML = `<span>📍 ${nf(g.total)} noticias georreferenciadas en ${nf(grupos.size)} lugares</span><span>Nivel: punto (coordenada), zona/colonia, municipio o estado; los pines agrupan por lugar.</span>` + (g.total > 4000 ? `<span>Se muestran las 4,000 más recientes.</span>` : "");
