@@ -236,10 +236,10 @@
   const pubTxt = t => PUBR.reduce((a, [r, v]) => a.replace(r, v), t), pubRe = /[Nn]oticia|[Nn]ota/;
   function pubWalk(n) {
     if (!n) return; const el = n.nodeType === 3 ? n.parentNode : n; if (!el || !el.closest || el.closest(PUBX)) return;
-    if (n.nodeType === 3) { if (pubRe.test(n.nodeValue)) n.nodeValue = pubTxt(n.nodeValue); return; }
+    if (n.nodeType === 3) { if (pubRe.test(n.nodeValue)) { const v = pubTxt(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; } return; }
     const w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT); let x; const L = []; while ((x = w.nextNode())) L.push(x);
-    L.forEach(t => { if (pubRe.test(t.nodeValue) && t.parentNode && !t.parentNode.closest(PUBX)) t.nodeValue = pubTxt(t.nodeValue); });
-    [n, ...n.querySelectorAll("[title],[placeholder],[aria-label]")].forEach(e => { if (e.closest(PUBX)) return; ["title", "placeholder", "aria-label"].forEach(a => { const v = e.getAttribute && e.getAttribute(a); if (v && pubRe.test(v)) e.setAttribute(a, pubTxt(v)); }); });
+    L.forEach(t => { if (pubRe.test(t.nodeValue) && t.parentNode && !t.parentNode.closest(PUBX)) { const v = pubTxt(t.nodeValue); if (v !== t.nodeValue) t.nodeValue = v; } });
+    [n, ...n.querySelectorAll("[title],[placeholder],[aria-label]")].forEach(e => { if (e.closest(PUBX)) return; ["title", "placeholder", "aria-label"].forEach(a => { const v = e.getAttribute && e.getAttribute(a); if (v && pubRe.test(v)) { const v2 = pubTxt(v); if (v2 !== v) e.setAttribute(a, v2); } }); });
   }
   function pubObserva() { const a = $("#mlApp"); if (!a) return; if (S.pubObs) S.pubObs.disconnect(); S.pubObs = new MutationObserver(ms => { if (!pubCtx()) return; ms.forEach(m => { if (m.type === "characterData") pubWalk(m.target); else m.addedNodes.forEach(pubWalk); }); }); S.pubObs.observe(a, { childList: true, subtree: true, characterData: true }); }
   const verChip = () => { let v = window.__gpV || ""; try { if (v) throw 0; const sc = [...document.scripts].find(x => /geometrika\.js\?v=/.test(x.src)); v = sc ? sc.src.split("v=")[1].split("&")[0] : ""; } catch (_) { } return v ? `<div class="ml-ver"><span class="ml-vchip" title="Versión del sistema">v.Beta.${esc(v)} · Check Inn</span></div>` : ""; };
