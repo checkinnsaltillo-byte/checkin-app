@@ -303,6 +303,10 @@ setInterval(function () { var t = document.getElementById('ld-txt'), p = documen
   html.tema-osc #tt .lab-tabs button.lt-dl{background:#b8c4d3!important;color:#0f172a!important}
   #tt .lab-tabs button.lt-dl.on{outline:2px solid #6366f1;outline-offset:1px}
   html body.ind-lab #dock #dk-tabs,html body.ind-lab #dock #dk-bus,html body.ind-lab #dock #dk-lista{display:none!important}
+  /* fila Capas · Análisis · Indicadores: en GeoLab solo Capas y Análisis; en DataLab › Indicadores del proyecto, solo Indicadores */
+  html body:not(.ind-lab) #tt #lft-nav .nb[data-v="ind"],html body:not(.ind-lab) #dk-tabs button[data-t="I"]{display:none!important}
+  html body.ind-lab #tt #lft-nav .nb[data-v="capas"],html body.ind-lab #tt #lft-nav .nb[data-v="analisis"],html body.ind-lab #tt #lft-nav .nb[data-v="proyectos"]{display:none!important}
+  html body.ind-lab #tt #lft-nav .nb[data-v="ind"]{color:#0f172a!important;border-bottom-color:#3b82f6!important;pointer-events:none}html.tema-osc body.ind-lab #tt #lft-nav .nb[data-v="ind"]{color:#f8fafc!important}
 </style>
 <div id="lab-ov"></div>
 <script>
@@ -3666,7 +3670,7 @@ function uiInit() {
 function laminaInit() { const d = $('dock'); if (!d || $('dk-rep')) return; const s = document.createElement('div'); s.id = 'dk-rep'; s.innerHTML = '<h4>Documento</h4><p>Genera una lámina visual con los resultados más importantes del proyecto, lista para imprimir o guardar en PDF.</p><button id="dk-lam" type="button">📄 Generar lámina del proyecto</button>'; d.appendChild(s); $('dk-lam').onclick = laminaGenera; }
 
 function dkInit() {
-  const d = $('dock'); if (!d || $('dk-tabs')) return; const tb = document.createElement('div'); tb.id = 'dk-tabs'; tb.innerHTML = '<button data-t="K">🧩 Capas</button><button data-t="A">📊 Análisis</button><button data-t="C" title="Configuración" aria-label="Configuración">⚙️</button>';
+  const d = $('dock'); if (!d || $('dk-tabs')) return; const tb = document.createElement('div'); tb.id = 'dk-tabs'; tb.innerHTML = '<button data-t="K">🧩 Capas</button><button data-t="A">📊 Análisis</button><button data-t="I">📋 Indicadores</button><button data-t="C" title="Configuración" aria-label="Configuración">⚙️</button>';
   const an = document.createElement('div'); an.id = 'dk-an'; an.innerHTML = '<div id="dk-bus"><input id="dk-q" type="search" placeholder="🔍 Buscar análisis…" autocomplete="off"></div><div id="dk-lista"></div><div id="dk-det"></div>'; const tt = $('tt'); d.insertBefore(tb, tt ? tt.nextSibling : d.firstChild); d.insertBefore(an, tb.nextSibling);
   tb.onclick = e => { const b = e.target.closest('button'); if (b) { if (DK.cur && !(b.dataset.t === 'I' && DK.cur === 'ind')) pwShow(DK.cur, false); if (b.dataset.t === 'I') pwShow('ind', true); else dkTab(b.dataset.t); } }; $('dk-q').oninput = () => dkLista(); $('dk-lista').onclick = e => { const sb = e.target.closest('.dk-sb'); if (sb) { DK.secSel = +sb.dataset.sec; dkLista(); return; } const b = e.target.closest('.dk-it'); if (b) pwShow(b.dataset.id, true); }; dkTab(DK.tab);
 }
