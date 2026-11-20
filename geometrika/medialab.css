@@ -928,3 +928,15 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .so-p.s6{grid-column:1/-1}.so-ib{fill:#6366f1;fill-opacity:.55;transition:fill-opacity .12s;cursor:pointer}.so-ib:hover{fill-opacity:1}.so-il{fill:none;stroke:#f97316;stroke-width:2;stroke-linejoin:round}.so-ip{fill:#f97316}
 .so-te{margin:0 0 10px}.so-te b{display:block;font:800 20px/1.2 system-ui,sans-serif}.so-te span{font-size:11.5px;color:var(--ml-mut)}.so-pc{margin:0 0 10px}.so-pc small{display:block;font:800 10px system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--ml-mut);margin:0 0 5px}
 .ml-pcd{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}.ml-pcd small{display:block;font-size:10.5px;color:var(--ml-mut)}.ml-pcd b{font-size:13px}
+/* Tablero social con el diseño del Análisis narrativo */
+.nr.so .so-o1{order:1}.nr.so .so-o2{order:2}.nr.so .so-o3{order:3}.nr.so .so-o4{order:4}.nr.so .so-o5{order:5}.nr.so .so-o6{order:6}.nr.so .so-o7{order:7}.nr.so .so-o8{order:8}.nr.so .so-o9{order:9}
+.nr.so .nk{cursor:help}.nr.so .nk-tx b small{font-size:14px;font-weight:700;opacity:.85;margin-left:2px}.nr.so .nk-cu{width:96px}
+.nr.so .so-ax,.nr.so .so-at{fill:#94a3b8}.nr.so .so-lb{fill:#e2e8f0}.nr.so .so-qd{fill:#94a3b8}.nr.so .so-gr{stroke:rgba(148,163,184,.18)}.nr.so .so-md{stroke:rgba(148,163,184,.5)}.nr.so .so-zn{fill-opacity:.1}
+.nr.so .so-nt,.nr.so .so-ql,.nr.so .so-lg,.nr.so .tq-nav{color:#94a3b8;font-size:10.5px}.nr.so .so-ql b,.nr.so .tq-nav b{color:#e2e8f0}.nr.so .so-av{color:#fbbf24;font-size:10.5px}
+.nr.so .so-br{grid-template-columns:minmax(0,118px) 1fr 38px auto;gap:6px;margin:5px 0;font-size:11px}.nr.so .so-br span{color:#cbd5e1;font-weight:500}.nr.so .so-br i{height:6px;background:rgba(148,163,184,.2)}.nr.so .so-br b{color:#fff;font-size:11px}.nr.so .so-br em{color:#94a3b8;font-size:10px}
+.nr.so .so-pc small,.nr.so .so-te span{color:#94a3b8}.nr.so .so-te b{font-size:18px}
+.nr.so .so-sel select{background:#141b35;color:#e2e8f0;border-color:rgba(148,163,184,.35)}
+.nr.so .so-tr{border-bottom-color:rgba(148,163,184,.14);grid-template-columns:34px 1fr}.nr.so .so-tr:hover{background:rgba(148,163,184,.1)}.nr.so .so-tr>b{color:#99f6e4;font-size:14px}.nr.so .so-tr span{color:#e2e8f0;font-size:11.5px}.nr.so .so-tr small{color:#94a3b8}
+.nr.so .tq-bk{background:#141b35;color:#e2e8f0;border-color:rgba(148,163,184,.35)}.nr.so .tq-w{height:300px}.nr.so .so-top,.nr.so .so-bars{scrollbar-width:thin}
+.nr.so .so-ib{fill:#60a5fa}.nr.so .so-il{stroke:#fbbf24}.nr.so .so-ip{fill:#fbbf24}
+@media (max-width:1100px){.nr.so .nr-p{order:0!important}}
