@@ -862,3 +862,14 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-chip.pv-fbapify{background:rgba(24,119,242,.18);color:#8ab4f8;border-color:rgba(24,119,242,.5)}.ml-light .ml-chip.pv-fbapify{color:#1558c0}
 .ml-soc{display:flex;gap:14px;align-items:center;margin:5px 0 3px;font-size:12px;color:var(--ml-mut)}.ml-soc b{color:var(--ml-tx,inherit);font-weight:800}.ml-soc span{cursor:help;white-space:nowrap}
 .ml-socd{margin:8px 0}.ml-socd .ml-soc{font-size:14px}.ml-socr{display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0;font-size:12.5px}.ml-socd .sub{font-size:11.5px;color:var(--ml-mut)}
+/* menú lateral con el diseño de GeoLab: logo, proyecto, datos generales, pestañas y opciones */
+.ml-logo{background:#fff;border-radius:14px;padding:10px 16px;text-align:center;margin:0 0 10px;box-shadow:0 1px 6px rgba(15,23,42,.18)}.ml-logo img{height:38px;max-width:100%;display:inline-block}
+.ml-psel{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid var(--ml-ln);background:rgba(148,163,184,.12);color:var(--ml-tx,inherit);font:700 13px system-ui,sans-serif}.ml-light .ml-psel{background:#fff}
+.ml-box{margin:12px 0;padding:14px;border-radius:16px;background:linear-gradient(160deg,#0f172a,#1e293b);color:#e2e8f0;border:1px solid #263449;box-shadow:0 8px 20px -12px rgba(0,0,0,.6)}
+.ml-bt{display:block;font:800 16px/1.25 system-ui,sans-serif;color:#fff;margin-bottom:4px}.ml-bs{font-size:12px;color:#cbd5e1;margin:2px 0}.ml-bh{height:1px;background:rgba(148,163,184,.3);margin:10px 0}
+.ml-box .ml-pj{background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}.ml-box .ml-pj small,.ml-box .ml-fp span{color:#94a3b8!important}.ml-box .ml-fp b{color:#f1f5f9!important}
+.ml-box .ml-acc button{background:rgba(148,163,184,.12);border-color:#334155;color:#e2e8f0}
+.ml-tabs{display:flex;gap:4px;border-bottom:1px solid var(--ml-ln);margin:0 0 10px}.ml-tabs button{flex:1;border:0;background:none;color:var(--ml-mut);font:700 13px system-ui,sans-serif;padding:9px 6px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}.ml-tabs button.on{color:var(--ml-ac);border-bottom-color:var(--ml-ac)}
+.ml-rws{display:flex;flex-direction:column;gap:8px}.ml-rw{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--ml-ln);background:rgba(148,163,184,.1);color:var(--ml-tx,inherit);font:700 13.5px system-ui,sans-serif;text-decoration:none}.ml-light .ml-rw{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.08)}
+.ml-rw .i svg{width:20px;height:20px}.ml-rw .t{flex:1}.ml-rw em{font-style:normal;font-size:11px;color:#b45309}.ml-rw>svg{width:16px;height:16px;color:var(--ml-mut)}.ml-rw:hover,.ml-rw.on{border-color:var(--ml-ac)}.ml-rw.on{box-shadow:0 0 0 1px var(--ml-ac)}
+.ml-rsv{padding:14px;border:1px dashed var(--ml-ln);border-radius:12px;font-size:12.5px;color:var(--ml-mut)}.ml-rsv p{margin:0 0 10px}
