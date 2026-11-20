@@ -298,6 +298,10 @@ setTimeout(function () { var t = document.getElementById('ld-txt'); if (!window.
 setInterval(function () { var t = document.getElementById('ld-txt'), p = document.getElementById('ld-pct'); if (!t || !p || !window.__mq) return; var v = p.textContent; if (window.__ldV === v) { if (++window.__ldN >= 6) t.dataset.lento = '1', t.innerHTML = 'Está tardando más de lo normal en ' + (window.__ldPaso || 'cargar') + '…<br>Si no avanza, recarga con Cmd+Shift+R.'; } else { window.__ldV = v; window.__ldN = 0; } }, 5000);
 </script>
 <style>
+  /* el nombre del proyecto (encabezado del recuadro oscuro) es el desplegable de proyectos; se quita la barra «Proyectos» de arriba */
+  #tt .tt-prj-h{display:none!important}#tt .tt-prj{margin:0!important;height:0}#tt .tt-prj-b{top:46px!important}
+  #tt .tt-pj #tt-pry{cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:2px 6px;margin:-2px -6px;transition:background .15s}#tt .tt-pj #tt-pry:hover{background:rgba(148,163,184,.22)}
+  #tt .tt-pj #tt-pry::after{content:"▾";font-size:11px;opacity:.75;letter-spacing:0}#tt:has(.tt-prj.open) .tt-pj #tt-pry::after{content:"▴"}
   /* DataLab: al final de la fila y en un tono un poco más oscuro que las demás pestañas */
   #tt .lab-tabs button.lt-dl{background:#cfd8e3!important;color:#1e293b!important;opacity:1!important}#tt .lab-tabs button.lt-dl .lt-osc{display:none}
   html.tema-osc #tt .lab-tabs button.lt-dl{background:#b8c4d3!important;color:#0f172a!important}
@@ -8065,6 +8069,7 @@ setTimeout(() => { igCarga(); }, 2500);
     cg.onclick = () => { if (document.body.classList.contains('lab-on') && window.labTab) window.labTab('geo'); vista = 'config'; mostrar(); clickTab('C'); capPnSync(); window.dispatchEvent(new Event('resize')); };
     tt.appendChild(cg); window.__cfgBtn = cg;
     const ph = $('tt-prj-h'), pw = $('tt-prj');
+    { const nm = $('tt-pry'); if (nm && ph && pw) { nm.setAttribute('role', 'button'); nm.setAttribute('tabindex', '0'); nm.title = 'Cambiar de proyecto'; nm.onclick = e => { e.stopPropagation(); ph.click(); }; nm.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ph.click(); } }; document.addEventListener('click', e => { if (pw.classList.contains('open') && !e.target.closest('#tt-prj') && !e.target.closest('#tt-pry')) ph.click(); }); } }
     if (ph && pw) ph.onclick = () => { const o = !pw.classList.contains('open'); pw.classList.toggle('open', o); ph.setAttribute('aria-expanded', o ? 'true' : 'false'); ph.querySelector('b').textContent = o ? '▾' : '▸'; capPnSync(); setTimeout(() => { try { MM.map && MM.map.invalidateSize(); } catch (_) { } }, 200); };
   }
   if (dtg0) dtg0.addEventListener('click', e => { if (paso || !matchMedia('(min-width:761px)').matches) return; e.stopImmediatePropagation(); e.preventDefault(); pulsa('analisis'); }, true);
