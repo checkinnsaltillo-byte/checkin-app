@@ -1217,9 +1217,11 @@
   function leafletListo(cb) { if (window.L) return cb(); if (window._rsvEnsureLeaflet_) return window._rsvEnsureLeaflet_(cb); const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(l); const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = cb; document.head.appendChild(s); }
   /* araña: al pasar el cursor por un pin agrupado, sus noticias se abren en círculo alrededor */
   function aranaCierra(M) { if (!M) return; if (M._ml_ov) M._ml_ov.remove(); M._ml_ov = null; if (M._ml_off) { M._ml_off(); M._ml_off = null; } }
-  function resaltaCard(id) {
-    const c = $$(".ml-card").find(x => x.dataset.n === id);
-    if (!c) { abreDet(id); return; }
+  async function resaltaCard(id) {
+    const busca = () => $$(".ml-card").find(x => x.dataset.n === id); let c = busca();
+    /* la tarjeta puede no estar cargada aún (la lista trae 40 por tanda): se piden más tandas hasta encontrarla */
+    for (let i = 0; !c && i < 15 && S.data && S.data.items && S.data.items.length < S.data.total && S.modo === "tablero"; i++) { const n0 = S.data.items.length; await consulta(true); if (S.data.items.length === n0) break; c = busca(); }
+    if (!c) { if (!EMB) abreDet(id); return; }
     $$(".ml-card.sel").forEach(x => x.classList.remove("sel")); void c.offsetWidth; c.classList.add("sel"); c.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(() => c.classList.remove("sel"), 4000);
   }
