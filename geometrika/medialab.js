@@ -187,7 +187,7 @@
   }
   function treeHtml() {
     const fl = (nav, ic0, lab, on) => `<a href="#" class="ml-rw ml-rwg${on ? " on" : ""}" data-nav="${nav}"><span class="i">${mi(ic0)}</span><span class="t">${lab}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></a>`;
-    return treeHtml0() + `<div class="ml-gen"><small>General</small><div class="ml-rws">${fl("proy|", "folder", "Todos los proyectos", S.modo === "proyectos")}${fl("cos|top", "coin", "Costos", S.modo === "costos")}</div></div>`;
+    return treeHtml0() + `<div class="ml-gen"><small>General</small><div class="ml-rws">${fl("cos|top", "coin", "Costos", S.modo === "costos")}</div></div>`;
   }
   function treeHtml0() {
     const L = proyC(), edW = S.modo === "crear" && S.W && (S.W.id || S.W.padre), sp = (S.proy || []).find(x => x.id === (edW ? (S.W.id || S.W.padre) : S.sel)), rsSel = !!(sp && esSocial(sp)), par = sp ? (rsSel ? sp.padre : sp.id) : "", pp = L.find(x => x.id === par);
@@ -209,7 +209,7 @@
   function navTo(v) {
     const [a, b, c] = v.split("|");
     if (a === "g") { if (b === "proy") navTo("proy|" + (S.pf || "")); else if (b === "tab") { const id = S.sel || (proyC()[0] && proyC()[0].id); if (id) navTo("tab|" + id + "|" + (S.vista || "lista")); else navTo("proy|"); } else if (b === "rs") { const c = (S.proy || []).find(esSocial); if (c) navTo("tab|" + c.id + "|" + (S.vista || "lista")); else toast("Aún no hay proyectos con Redes Sociales: pulsa «+ activar» en un proyecto."); } else navTo("cos|top"); return; }
-    if (a === "proy") { S.pf = b || ""; S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); principal(); }
+    if (a === "proy") { S.pf = b || ""; S.modo = "proyectos"; S.det = null; titulo("Proyectos"); lado(); mlWin(true); principal(); }
     else if (a === "nuevo") nuevo();
     else if (a === "rs") nuevoSocial(b);
     else if (a === "nar") abreNarr(b);
