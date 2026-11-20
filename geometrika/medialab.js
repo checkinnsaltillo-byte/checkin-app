@@ -215,7 +215,7 @@
     const side = $("#mlSide"); if (!side) return;
     const sc = side.scrollTop; side.innerHTML = verChip() + treeHtml(); side.scrollTop = sc;
   }
-  const esSocial = p => !!(p && p.config && (p.config.proveedor === "fbapify" || p.config.proveedor === "fbgoogle"));
+  const esSocial = p => !!(p && p.config && /^fb/.test(p.config.proveedor || ""));
   const canalGet = () => { if (!S.canal) { let v = ""; try { v = localStorage.getItem("ml_canal") || ""; } catch (_) { } S.canal = v === "social" ? "social" : "noticias"; } return S.canal; };
   const proyC = () => (S.proy || []).filter(p => !esSocial(p));
   const socDe = id => (S.proy || []).find(p => esSocial(p) && p.padre === id);
@@ -763,7 +763,7 @@
     else h += `<div class="ml-cards">${d.items.map(card).join("")}</div>${d.items.length < d.total ? `<div class="ml-more" data-go="mas"><span class="ml-spin"></span>Cargando más noticias… (${nf(d.items.length)} de ${nf(d.total)})</div>` : ""}`;
     m.innerHTML = h + `<aside class="ml-det" id="mlDet" hidden></aside>`; pintaProg(); layDet(!!S.det); if (S.det) pintaDet(); if (S.vista === "mapa") mapa(); if (S.vista === "tl" && d) tlEventos(); ioMas(); if (qa !== null) { const q = $("#mlQ"); if (q) { q.focus(); try { q.setSelectionRange(qa, qa); } catch (_) { } } }
   }
-  const PROVN = { grss: "Google Noticias", gdelt: "GDELT", newsdata: "NewsData.io", gnews: "GNews", fbgoogle: "Facebook", fbapify: "Facebook" }, provN = v => PROVN[v] || v;
+  const PROVN = { grss: "Google Noticias", gdelt: "GDELT", newsdata: "NewsData.io", gnews: "GNews", fbgoogle: "Facebook", fbapify: "Facebook", fbmix: "Facebook" }, provN = v => PROVN[v] || v;
   const TXC = { 1: ["ok", "📄 Con texto", "Se descargó el cuerpo de la nota"], 2: ["", "🔒 Sin texto", "El medio no permitió descargar el cuerpo (bloqueo o suscripción)"], 0: ["run", "⏳ Texto pendiente", "Aún no se intenta descargar el cuerpo"] };
   const MET = { regla: ["🔎 Texto", "Detectado en el título o la descripción con el catálogo de municipios del INEGI"], ia: ["🤖 IA", "La IA interpretó el lugar del texto de la nota y se ubicó con el catálogo de municipios del INEGI"], places: ["🗺️ Google Places", "Ubicado con la API de Google Places y verificado dentro del estado de la nota"] };
   const metChip = L => L ? `<span class="ml-chip" title="${esc((MET[L.met || "regla"] || MET.regla)[1])}">${(MET[L.met || "regla"] || MET.regla)[0]}</span>` : "";
@@ -1254,10 +1254,10 @@
   const avance = r => { const a = r.avance || {}, w = r.proyecto && r.proyecto.estado && r.proyecto.estado.trabajo; if (w && (a.ocupado || a.hecho == null)) return Object.assign({}, { hecho: w.hecho, total: w.total, nuevas: w.nuevas, errores: w.errores, fase: w.fase, aviso: w.aviso, ultimoError: w.ultimoError }, { ocupado: !!a.ocupado }); return a; };
   const apTxt = U => !U ? "Consultando el consumo de tu cuenta de Apify…" : U.ok ? `<b>Cuenta de Apify:</b> llevas <b>${U.uso.toFixed(2)} USD</b> de <b>${U.limite} USD</b> en este ciclo mensual (te quedan <b>${Math.max(0, U.limite - U.uso).toFixed(2)} USD</b>${U.fin ? ", se renueva el " + esc(fechaC(U.fin)) : ""}).` : `No se pudo consultar el consumo de Apify (${esc(U.error || "")}).`;
   async function apUsoCarga() { if (S.apUso && Date.now() - S.apUso.t < 60000) return; try { const r = await api("/apify/uso"); S.apUso = Object.assign(r, { t: Date.now() }); } catch (e) { S.apUso = { ok: false, error: e.message, t: Date.now() }; } const el = $("#mlApUso"); if (el) el.innerHTML = apTxt(S.apUso); }
-  const fbCfgHtml = W => `<div class="ml-f" style="margin-top:10px;max-width:320px"><label>Presupuesto máximo por extracción (USD)</label><input type="number" min="0.5" max="500" step="0.5" data-w="fbMax" value="${W.fbMax}"></div><div class="ml-sem" style="margin-top:6px"><span>El sistema decide solo cómo buscar: pide hasta 100 publicaciones por consulta, empieza por semanas completas de fechas que <b>no se traslapan</b> (empezando por lo más reciente) y <b>subdivide por días únicamente donde una consulta se llena</b>. Nunca paga dos veces la misma ventana, y descarta duplicados por publicación. Se detiene al llegar al presupuesto (cada publicación cuesta ≈ 0.004 USD con el plan Starter de Apify). Esta extracción gastará, como máximo, el presupuesto de arriba.</span></div><div class="ml-sem" id="mlApUso" style="margin-top:6px">${apTxt(S.apUso)}</div>`;
+  const fbCfgHtml = W => `<div class="ml-f" style="margin-top:10px;max-width:320px"><label>Presupuesto máximo por extracción (USD)</label><input type="number" min="0.5" max="500" step="0.5" data-w="fbMax" value="${W.fbMax}"></div><div class="ml-sem" style="margin-top:6px"><span>Cómo se busca: <b>Google</b> encuentra las publicaciones públicas de Facebook que mencionan cada término y la zona, por semanas que no se traslapan (≈ 0.002 USD por página de resultados). Se descartan las que no mencionan el término y la zona o que ya están guardadas, y <b>solo de las que pasan</b> se lee la publicación para traer su fecha exacta, reacciones, comentarios y compartidos (≈ 0.005 USD cada una). Se detiene al llegar al presupuesto.</span></div><div class="ml-sem" id="mlApUso" style="margin-top:6px">${apTxt(S.apUso)}</div>`;
   /* aplica el proyecto a su parte de redes sociales (proyecto hermano): la crea si se marcó Facebook y no existe, o la actualiza con los mismos términos, zona y periodo */
   async function sincSocial(W, pid, extrae) {
-    if (!(W.redes || []).includes("facebook")) return null; const ex = socDe(pid), cb = Object.assign(cuerpo(), { id: ex ? ex.id : undefined, padre: pid, proveedor: "fbapify", texto: false });
+    if (!(W.redes || []).includes("facebook")) return null; const ex = socDe(pid), cb = Object.assign(cuerpo(), { id: ex ? ex.id : undefined, padre: pid, proveedor: "fbmix", texto: false });
     const cs = await post("/proyectos", cb); await cargaProy(); lado(); if (extrae) extraer(cs.id, true); return cs.id;
   }
   async function soloRs() {
