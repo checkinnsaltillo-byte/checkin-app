@@ -973,3 +973,5 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .ml-app.ml-emb .ml-main{right:auto;width:var(--win,calc(100% - var(--col,404px)))}.ml-app.ml-emb .ml-wbar{right:auto;width:var(--win,calc(100% - var(--col,404px)));box-sizing:border-box}
 .ml-app.ml-emb.ml-vmapa .ml-main,.ml-app.ml-emb.ml-vmapa .ml-wbar{width:min(480px,var(--win,480px))}
 .ml-app.ml-emb .ml-bg .leaflet-bottom.leaflet-right{margin-bottom:8px}
+/* GeoLab › Feed: ventana angosta con una sola columna de tarjetas, para dejar ver el mapa de fondo */
+.ml-app.ml-emb.ml-vmapa .ml-cards{grid-template-columns:1fr!important}.ml-app.ml-emb.ml-vmapa .ml-k4w{grid-template-columns:repeat(2,minmax(0,1fr))}.ml-app.ml-emb.ml-vmapa .ml-tb{flex-wrap:wrap}.ml-app.ml-emb.ml-vmapa .ml-fq{min-width:0}
