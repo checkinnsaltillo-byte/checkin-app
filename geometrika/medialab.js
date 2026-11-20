@@ -75,7 +75,7 @@
       if (q.get("geo") === "1") return j({ total: L.length, puntos: L.map(n => ({ id: n.id, t: n.t, lat: n.lug.lat, lng: n.lug.lng, niv: n.lug.nivel, lug: (n.lug.munN ? n.lug.munN + ", " : "") + n.lug.estN, med: n.med, f: n.f, cat: n.cat, r: (n.an && n.an.r) != null ? n.an.r : (n.t.length * 7) % 100 })) });
       const cu = f => { const m = new Map(); MOCKDB.items.forEach(n => { const v = f(n); (Array.isArray(v) ? v : [v]).forEach(x => x && m.set(x, (m.get(x) || 0) + 1)); }); return [...m].map(([v, n]) => ({ v, n })); };
       if (q.get("dupDe")) return j({ total: 2, items: MOCKDB.items.slice(5, 7) }); if (q.get("nodup") === "1") L = L.filter(n => n.id !== "n5" && n.id !== "n6");
-      return j({ total: L.length, de: 120, dups: 2, items: L.slice(0, 40).map(n => n.id === "n0" ? Object.assign({}, n, { dupN: 2 }) : n.id === "n5" || n.id === "n6" ? Object.assign({}, n, { dupS: 1 }) : n), facetas: { prov: cu(n => n.prov), cat: cu(n => n.cat), sub: cu(n => n.sub), est: cu(n => n.lug && n.lug.est).map(x => ({ ...x, nom: { "05": "Coahuila", "19": "Nuevo León", "14": "Jalisco" }[x.v] })), mun: [{ v: "05030", n: 20, nom: "Saltillo, Coahuila" }, { v: "19039", n: 20, nom: "Monterrey, Nuevo León" }], med: cu(n => n.med), pers: cu(n => n.ent.pers), inst: cu(n => n.ent.inst), top: cu(n => n.ent.top) } }); }
+      return j({ total: L.length, de: 120, dups: 2, items: L.slice(...(q.get("hastaId") && L.findIndex(x => x.id === q.get("hastaId")) >= 0 ? [0, Math.ceil((L.findIndex(x => x.id === q.get("hastaId")) + 1) / 40) * 40] : [(+q.get("pag") || 0) * 40, (+q.get("pag") || 0) * 40 + 40])).map(n => n.id === "n0" ? Object.assign({}, n, { dupN: 2 }) : n.id === "n5" || n.id === "n6" ? Object.assign({}, n, { dupS: 1 }) : n), facetas: { prov: cu(n => n.prov), cat: cu(n => n.cat), sub: cu(n => n.sub), est: cu(n => n.lug && n.lug.est).map(x => ({ ...x, nom: { "05": "Coahuila", "19": "Nuevo León", "14": "Jalisco" }[x.v] })), mun: [{ v: "05030", n: 20, nom: "Saltillo, Coahuila" }, { v: "19039", n: 20, nom: "Monterrey, Nuevo León" }], med: cu(n => n.med), pers: cu(n => n.ent.pers), inst: cu(n => n.ent.inst), top: cu(n => n.ent.top) } }); }
     return j({});
   }
   async function api(p, o) {
@@ -197,7 +197,7 @@
     if (!(enP && pp)) return h + `<div class="ml-nv" style="margin-top:12px">${L.length ? "Elige un proyecto para ver sus noticias y redes sociales." : "Aún no hay proyectos: crea el primero desde la lista de arriba."}</div>`;
     if (edW) return h + `<div class="ml-box"><b class="ml-bt">${esc(pp.titulo)}</b><div class="ml-bs">Editando el proyecto completo: noticias y redes sociales</div></div>`;
     const soc = socDe(pp.id), tabSel = rsSel ? "redes" : (S.tabSel === "redes" && !soc ? "redes" : "noticias"), cur = tabSel === "redes" ? soc : pp, e = pp.estado || {}, r = e.rango;
-    h += `<div class="ml-box"><b class="ml-bt">${esc(pp.titulo)}</b><div class="ml-bs">${pp.creador ? "👤 " + esc(pp.creador) + " · " : ""}<span style="color:${SIT[sitDe(pp)][1]}">● ${SIT[sitDe(pp)][0]}</span></div>${r ? `<div class="ml-bs">🗓️ ${esc(fechaC(r[0]))} → ${esc(fechaC(r[1]))}</div>` : ""}<div class="ml-bs">${nf(pp.config && pp.config.nTerminos)} términos · ${esc(PER[pp.config && pp.config.periodicidad] || "")}${pp.vigencia ? " · vigencia " + esc(fechaC(pp.vigencia + "T12:00:00")) : ""}</div><div class="ml-acc" style="margin-top:10px"><button type="button" data-gest="${pp.id}" title="Gestionar: situación, acceso, vigencia y presupuesto" aria-label="Gestionar">${mi("sliders")}</button><button type="button" data-ed="${pp.id}" title="Editar el proyecto (noticias y redes sociales)" aria-label="Editar">${mi("edit")}</button></div></div>`;
+    h += `<details class="ml-box"${S.boxOpen ? " open" : ""}><summary title="Mostrar u ocultar los datos del proyecto"><span style="color:${SIT[sitDe(pp)][1]}">●</span><b>Datos del proyecto</b><em>${SIT[sitDe(pp)][0]}</em><i>▸</i></summary><b class="ml-bt">${esc(pp.titulo)}</b><div class="ml-bs">${pp.creador ? "👤 " + esc(pp.creador) + " · " : ""}<span style="color:${SIT[sitDe(pp)][1]}">● ${SIT[sitDe(pp)][0]}</span></div>${r ? `<div class="ml-bs">🗓️ ${esc(fechaC(r[0]))} → ${esc(fechaC(r[1]))}</div>` : ""}<div class="ml-bs">${nf(pp.config && pp.config.nTerminos)} términos · ${esc(PER[pp.config && pp.config.periodicidad] || "")}${pp.vigencia ? " · vigencia " + esc(fechaC(pp.vigencia + "T12:00:00")) : ""}</div><div class="ml-acc" style="margin-top:10px"><button type="button" data-gest="${pp.id}" title="Gestionar: situación, acceso, vigencia y presupuesto" aria-label="Gestionar">${mi("sliders")}</button><button type="button" data-ed="${pp.id}" title="Editar el proyecto (noticias y redes sociales)" aria-label="Editar">${mi("edit")}</button></div></details>`;
     h += `<div class="ml-tabs" role="tablist"><button type="button" role="tab" data-rt="noticias" class="${tabSel === "noticias" ? "on" : ""}">Noticias</button><button type="button" role="tab" data-rt="redes" class="${tabSel === "redes" ? "on" : ""}">Redes sociales</button></div>`;
     if (!cur || (tabSel === "redes" && !soc)) return h + `<div class="ml-rsv"><p>Aún no se extraen publicaciones de redes sociales para este proyecto.</p><button type="button" class="ml-btn" data-nav="rs|${pp.id}">Activar redes sociales</button></div>`;
     const on = S.modo === "tablero", v = S.vista || "lista", ico = k => mi(k), c = cur.id, qn = S.qcN && S.qcN[c];
@@ -1220,8 +1220,12 @@
   function aranaCierra(M) { if (!M) return; if (M._ml_ov) M._ml_ov.remove(); M._ml_ov = null; if (M._ml_off) { M._ml_off(); M._ml_off = null; } }
   async function resaltaCard(id) {
     const busca = () => $$(".ml-card").find(x => x.dataset.n === id); let c = busca();
-    /* la tarjeta puede no estar cargada aún (la lista trae 40 por tanda): se piden más tandas hasta encontrarla */
-    for (let i = 0; !c && i < 15 && S.data && S.data.items && S.data.items.length < S.data.total && S.modo === "tablero"; i++) { const n0 = S.data.items.length; await consulta(true); if (S.data.items.length === n0) break; c = busca(); }
+    /* la tarjeta puede no estar cargada aún (la lista trae 40 por tanda): se pide de una vez la lista hasta esa nota */
+    if (!c && S.data && S.data.items && S.data.items.length < S.data.total && S.modo === "tablero" && !S.cargando) {
+      S.cargando = true; toast("Buscando la tarjeta en la lista…");
+      try { const p = qs(); p.set("n", "40"); p.set("pag", "0"); p.set("hastaId", id); const r = await api(`/proyectos/${S.sel}/noticias?${p}`); if (r.items && r.items.length > S.data.items.length) { S.data.items = r.items; S.data.total = r.total; S.pag = Math.max(0, Math.ceil(r.items.length / 40) - 1); } } catch (_) { } finally { S.cargando = false; }
+      principal(); c = busca();
+    }
     if (!c) { if (!EMB) abreDet(id); return; }
     $$(".ml-card.sel").forEach(x => x.classList.remove("sel")); void c.offsetWidth; c.classList.add("sel"); c.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(() => c.classList.remove("sel"), 4000);
@@ -1498,6 +1502,7 @@
     const gv = t.closest("[data-ver]"); if (gv) { e.preventDefault(); abreEnt(gv.dataset.ver); return; }
     const ly = t.closest("[data-lay]"); if (ly && S.entV) { S.entV.lay = ly.dataset.lay; pintaDet(); return; }
     const gn = t.closest("[data-gn]"); if (gn && S.entV) { S.entV.sel = gn.dataset.gn; pintaDet(); return; }
+    const bxs = t.closest(".ml-box>summary"); if (bxs) { S.boxOpen = !bxs.parentNode.open; return; }
     const rtb = t.closest("[data-rt]"); if (rtb) { const sp = S.proy.find(x => x.id === S.sel), pid = sp ? (esSocial(sp) ? sp.padre : sp.id) : ""; if (!pid) return; if (rtb.dataset.rt === "redes") { const c = socDe(pid); if (c) navTo("tab|" + c.id + "|" + (S.vista || "lista")); else { S.tabSel = "redes"; lado(); } } else { S.tabSel = null; navTo("tab|" + pid + "|" + (S.vista || "lista")); } return; }
     const fce = t.closest("[data-fcerca]"); if (fce && S.ctx) { S.f.cerca = S.f.cerca ? "" : (+S.ctx.lat).toFixed(4) + "," + (+S.ctx.lng).toFixed(4) + ",40"; consulta(); return; }
     const fdp = t.closest("[data-fdup]"); if (fdp) { S.f.nodup = S.f.nodup ? "" : "1"; consulta(); return; }
