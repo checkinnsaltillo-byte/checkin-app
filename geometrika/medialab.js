@@ -448,28 +448,28 @@
     const P = D.prop, mx = Math.max(...P.origen.map(o => o.v), 1), tot = P.origen.reduce((a, b) => a + b.v, 0) || 1;
     const lista = P.origen.map(o => `<div class="br"${nA("or:" + o.k, tipH(NOR[o.k] || o.k, o.v + " nota(s) · " + Math.round(o.v / tot * 100) + " %", "Clic para resaltar en el mapa"))}><span class="n"><i style="background:${ORCOL[o.k] || "#94a3b8"}"></i>${NOR[o.k] || o.k}</span><span class="t"><b style="width:${(o.v / mx * 100).toFixed(0)}%;background:${ORCOL[o.k] || "#94a3b8"}"></b></span><em>${o.v}</em></div>`).join("");
     const mut = P.mutaciones.slice(0, 5).map(m => `<li data-tip="${esc(tipH(m.t, fechaC(m.f), NOR[m.or] || "", m.mu))}"><b>${esc(nCorta(m.t, 50))}</b><span>${esc(m.mu)}</span></li>`).join("");
-    return `<div class="nr-pr"><div class="nr-map" id="nrMap"></div><div class="nr-pl">${lista}<h5>Mutación narrativa</h5><ul>${mut || "<li><span>Sin datos</span></li>"}</ul></div></div>`;
+    return `${nrTemaSel(D)}<div class="nr-pr"><div class="nr-map" id="nrMap"></div><div class="nr-pl"><h5>Propagación por etapas</h5>${nrFlujo(D) || lista}<h5 title="Cómo cambia el relato: el ángulo nuevo o el eco que aporta cada nota respecto al hecho original">Cómo cambia el relato</h5><ul>${mut || "<li><span>Sin datos</span></li>"}</ul></div></div>`;
   }
   /* treemap de propagación: una columna por etapa (en orden de propagación), ancho según sus notas, y dentro un bloque por medio */
   const NORD = ["Evento_Directo", "Declaracion_Oficial", "Filtracion_Exclusiva", "Reaccion_En_Cadena", "Analisis_Secundario", "Sin_origen"];
-  function nrTreemap(D) {
-    const T = (D.prop && D.prop.temas) || []; if (!T.length) return `<div class="ml-vacio">Aún no hay temas analizados.</div>`;
-    const sel = T.find(x => x.k === S.nrTema) || T[0]; S.nrTema = sel.k; const tot = sel.n || 1, est = NORD.map(k => sel.est.find(e => e.or === k)).filter(Boolean);
-    /* diagrama de flujo (Sankey en árbol): tema → etapa de propagación → medio; el grosor es el número de notas */
-    const k = Math.min(30, 340 / tot), GR = 16, GL = 3, hL = x => Math.max(14, x.n * k);
-    let y = 34; const grupos = est.map(e => { const y0 = y, hojas = e.m.map(x => { const o = { x, y, h: hL(x) }; y += o.h + GL; return o; }); y += GR - GL; return { e, y0, y1: y - GR + GL - GL, hojas }; });
-    const H = Math.max(200, y + 10), XT = 10, XE = 300, XL = 590, NW = 12, c1 = (XT + NW + XE) / 2, c2 = (XE + NW + XL) / 2;
-    const flujo = (xa, ya0, ya1, xb, yb0, yb1, col, attr, tip) => { const m = (xa + xb) / 2; return `<path d="M${xa} ${ya0.toFixed(1)}C${m} ${ya0.toFixed(1)} ${m} ${yb0.toFixed(1)} ${xb} ${yb0.toFixed(1)}L${xb} ${yb1.toFixed(1)}C${m} ${yb1.toFixed(1)} ${m} ${ya1.toFixed(1)} ${xa} ${ya1.toFixed(1)}Z" fill="${col}" fill-opacity=".32" class="sk-f" ${attr}><title>${esc(tip)}</title></path>`; };
-    const hE = g => g.hojas.reduce((a, o) => a + o.h, 0) + GL * (g.hojas.length - 1), hT = grupos.reduce((a, g) => a + hE(g), 0), yT0 = 34 + Math.max(0, ((grupos.length ? grupos[grupos.length - 1].y1 : 0) - 34 - hT)) / 2;
-    let cy = yT0, svg = `<text x="${XT}" y="18" class="sk-t">Tema</text><text x="${XE}" y="18" class="sk-t">Etapa de propagación</text><text x="${XL}" y="18" class="sk-t">Medio</text>`;
+  function nrFlujo(D) {
+    const T = (D.prop && D.prop.temas) || []; if (!T.length) return "";
+    const sel = T.find(x => x.k === (S.nrTema || "")) || T[0], tot = sel.n || 1, est = NORD.map(k => sel.est.find(e => e.or === k)).filter(Boolean);
+    /* diagrama de flujo (Sankey en árbol): tema → etapa de propagación → medio; el grosor es el número de publicaciones */
+    const k = Math.min(16, 200 / tot), GR = 12, GL = 2, hL = x => Math.max(13, x.n * k), XT = 2, NW = 9, XE = 78, XL = 218, W = 420;
+    let y = 22; const grupos = est.map(e => { const y0 = y, hojas = e.m.map(x => { const o = { x, y, h: hL(x) }; y += o.h + GL; return o; }); y += GR - GL; return { e, y0, hojas }; });
+    const H = Math.max(110, y), hE = g => g.hojas.reduce((a, o) => a + o.h, 0) + GL * (g.hojas.length - 1), hT = grupos.reduce((a, g) => a + hE(g), 0), yT0 = 22 + Math.max(0, (y - GR - 22 - hT) / 2);
+    const flujo = (xa, ya0, ya1, xb, yb0, yb1, col, attr, tip) => { const m = (xa + xb) / 2; return `<path d="M${xa} ${ya0.toFixed(1)}C${m} ${ya0.toFixed(1)} ${m} ${yb0.toFixed(1)} ${xb} ${yb0.toFixed(1)}L${xb} ${yb1.toFixed(1)}C${m} ${yb1.toFixed(1)} ${m} ${ya1.toFixed(1)} ${xa} ${ya1.toFixed(1)}Z" fill="${col}" fill-opacity=".3" class="sk-f" ${attr}><title>${esc(tip)}</title></path>`; };
+    let cy = yT0, svg = `<text x="${XT}" y="10" class="sk-t">Tema</text><text x="${XE}" y="10" class="sk-t">Etapa</text><text x="${XL}" y="10" class="sk-t">Medio</text>`;
     grupos.forEach(g => { const c = ORCOL[g.e.or] || "#94a3b8", nom = g.e.or === "Sin_origen" ? "Sin etapa definida" : (NOR[g.e.or] || g.e.or), hg = hE(g), ya0 = cy; cy += hg;
-      svg += flujo(XT + NW, ya0, ya0 + hg, XE, g.y0, g.y0 + hg, c, `data-tmo="${esc(g.e.or)}"`, nom + " · " + g.e.n + " nota(s)");
-      let yy = g.y0; g.hojas.forEach(o => { svg += flujo(XE + NW, yy, yy + o.h, XL, o.y, o.y + o.h, c, `data-tmo="${esc(g.e.or)}"${o.x.otros ? "" : ` data-tmm="${esc(o.x.m)}"`}`, nom + " → " + o.x.m + " · " + o.x.n + " nota(s)"); yy += o.h + GL; });
-      svg += `<rect x="${XE}" y="${g.y0}" width="${NW}" height="${hg}" rx="3" fill="${c}" class="sk-n" data-tmo="${esc(g.e.or)}"><title>${esc(nom)} · ${g.e.n} nota(s)</title></rect><text x="${XE + NW + 8}" y="${(g.y0 + hg / 2 - 2).toFixed(1)}" class="sk-l sk-e" fill="${c}" data-tmo="${esc(g.e.or)}">${esc(nom)}</text><text x="${XE + NW + 8}" y="${(g.y0 + hg / 2 + 11).toFixed(1)}" class="sk-s">${nf(g.e.n)} nota(s) · ${Math.round(g.e.n / tot * 100)}%</text>`;
-      g.hojas.forEach(o => { svg += `<rect x="${XL}" y="${o.y.toFixed(1)}" width="${NW}" height="${o.h.toFixed(1)}" rx="3" fill="${c}" class="sk-n"${o.x.otros ? ` data-tmo="${esc(g.e.or)}"` : ` data-tmo="${esc(g.e.or)}" data-tmm="${esc(o.x.m)}"`}><title>${esc(o.x.m)} · ${o.x.n} nota(s)</title></rect><text x="${XL + NW + 8}" y="${(o.y + o.h / 2 + 4).toFixed(1)}" class="sk-l"${o.x.otros ? "" : ` data-tmo="${esc(g.e.or)}" data-tmm="${esc(o.x.m)}"`}>${esc(nCorta(o.x.m, 40))} · ${nf(o.x.n)}</text>`; }); });
-    svg = `<rect x="${XT}" y="${yT0.toFixed(1)}" width="${NW}" height="${hT.toFixed(1)}" rx="3" fill="#64748b" class="sk-n" data-tmo=""><title>${esc(sel.k)} · ${sel.n} nota(s)</title></rect><text x="${XT + NW + 6}" y="${(yT0 + hT / 2).toFixed(1)}" class="sk-l" data-tmo="">${esc(nCorta(sel.k, 26))}</text><text x="${XT + NW + 6}" y="${(yT0 + hT / 2 + 13).toFixed(1)}" class="sk-s">${nf(sel.n)} nota(s)</text>` + svg;
-    return `<div class="tm-top"><label>Tema</label><select id="nrTmSel">${T.map(x => `<option value="${esc(x.k)}"${x.k === sel.k ? " selected" : ""}>${esc(x.k)} · ${nf(x.n)} nota(s) · ${nf(x.med)} medio(s)</option>`).join("")}</select><span class="tm-n">${nf(sel.n)} nota(s) en ${nf(sel.med)} medio(s). Se lee de izquierda a derecha: el tema se reparte en etapas de propagación (del hecho original hacia los ecos) y cada etapa en los medios que la cubrieron; el grosor es el número de notas. Pulsa un bloque o una franja para ver sus notas.</span></div><svg class="sk" viewBox="0 0 1000 ${Math.ceil(H)}" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Diagrama de propagación del tema">${svg}</svg>`;
+      svg += flujo(XT + NW, ya0, ya0 + hg, XE, g.y0, g.y0 + hg, c, `data-tmo="${esc(g.e.or)}"`, nom + " · " + g.e.n + " publicación(es)");
+      let yy = g.y0; g.hojas.forEach(o => { svg += flujo(XE + NW, yy, yy + o.h, XL, o.y, o.y + o.h, c, `data-tmo="${esc(g.e.or)}"${o.x.otros ? "" : ` data-tmm="${esc(o.x.m)}"`}`, nom + " → " + o.x.m + " · " + o.x.n + " publicación(es)"); yy += o.h + GL; });
+      svg += `<rect x="${XE}" y="${g.y0}" width="${NW}" height="${hg}" rx="2" fill="${c}" class="sk-n" data-tmo="${esc(g.e.or)}"><title>${esc(nom)} · ${g.e.n} publicación(es)</title></rect><text x="${XE + NW + 5}" y="${(g.y0 + hg / 2 - 1).toFixed(1)}" class="sk-l sk-e" fill="${c}" data-tmo="${esc(g.e.or)}">${esc(nom)}</text><text x="${XE + NW + 5}" y="${(g.y0 + hg / 2 + 10).toFixed(1)}" class="sk-s">${nf(g.e.n)} · ${Math.round(g.e.n / tot * 100)}%</text>`;
+      g.hojas.forEach(o => { const nm = String(o.x.m).replace(/^Facebook · /, ""); svg += `<rect x="${XL}" y="${o.y.toFixed(1)}" width="${NW}" height="${o.h.toFixed(1)}" rx="2" fill="${c}" class="sk-n" data-tmo="${esc(g.e.or)}"${o.x.otros ? "" : ` data-tmm="${esc(o.x.m)}"`}><title>${esc(o.x.m)} · ${o.x.n} publicación(es)</title></rect><text x="${XL + NW + 5}" y="${(o.y + o.h / 2 + 3.5).toFixed(1)}" class="sk-l"${o.x.otros ? ` data-tmo="${esc(g.e.or)}"` : ` data-tmo="${esc(g.e.or)}" data-tmm="${esc(o.x.m)}"`}>${esc(nCorta(nm, 22))} · ${nf(o.x.n)}</text>`; }); });
+    svg = `<rect x="${XT}" y="${yT0.toFixed(1)}" width="${NW}" height="${hT.toFixed(1)}" rx="2" fill="#64748b" class="sk-n" data-tmo=""><title>${esc(sel.k || "Todos los temas")} · ${sel.n} publicación(es)</title></rect><text x="${XT}" y="${(yT0 + hT + 11).toFixed(1)}" class="sk-s">${nf(sel.n)}</text>` + svg;
+    return `<svg class="sk" viewBox="0 0 ${W} ${Math.ceil(H)}" role="img" aria-label="Diagrama de propagación">${svg}</svg>`;
   }
+  const nrTemaSel = D => { const T = (D.prop && D.prop.temas) || []; return T.length ? `<div class="tm-top"><label>Tema</label><select id="nrTmSel">${T.map(x => `<option value="${esc(x.k)}"${x.k === (S.nrTema || "") ? " selected" : ""}>${x.k ? esc(x.k) : "Todos los temas"} · ${nf(x.n)} · ${nf(x.med)} medio(s)</option>`).join("")}</select></div>` : ""; };
   async function nrNotasTema(tm, or, med) {
     const id = S.sel, qs = new URLSearchParams(); Object.entries(S.nrF || {}).forEach(([k, v]) => { if (v) qs.set(k, v); }); qs.set("notasTm", tm); if (or) qs.set("notasOr", or); if (med) qs.set("notasMed", med);
     const L = { full: true, ico: "🌐", nombre: tm + (or ? " · " + (NOR[or] || "Sin etapa") : "") + (med ? " · " + med : ""), items: [], cargando: true }; S.det = { lista: L }; pintaDet();
@@ -541,7 +541,6 @@
       ${nPanel("a4", "Coocurrencia de entidades", "matriz y red", nrCooc(D), "cooc")}
       ${nPanel("b2 nr-alto", "Acciones y posturas", "Causalidad y sentimiento", nrSankey(D), "acc")}
       ${nPanel("a4 nr-gde", "Propagación narrativa", "Origen y focos geográficos", nrProp(D), "prop")}
-      ${nPanel("a6", "Propagación por etapas", "Diagrama de flujo del tema elegido", `<div id="nrTm">${nrTreemap(D)}</div>`)}
       ${nPanel("b2", "Análisis de encuadre (framing)", "", nrEncuadre(D), "enc")}</div>`;
     }
     m.innerHTML = h + `</div><div id="nrTip" class="nr-tip" hidden></div><div id="nrAy" class="nr-ay" hidden></div><aside class="ml-det" id="mlDet" hidden></aside>`; if (S.det) pintaDet(); const b = $("#nrRun"); if (b) b.onclick = narrCorre; nrEstado(); nrEventos(); nrZoomInit(); if (D && !D.cargando && !D.vacio && !D.error) nrMapa(D); nrAplica();
@@ -638,7 +637,7 @@
   }
   function nrEstado(t) { const e = $("#nrEst"); if (!e) return; const D = S.nar; e.textContent = t || (D && !D.cargando && !D.error ? (D.pend ? `${nf(D.pend)} por analizar · est. US$ ${D.est}` : D.fallidas ? `${nf(D.fallidas)} no se pudieron analizar · reintentar cuesta aprox. US$ ${D.est}` : "") : ""); const b = $("#nrRun"); if (b) { b.disabled = !!S.nrBusy; b.lastChild.textContent = S.nrBusy ? "Analizando…" : (S.nar && S.nar.pend === 0 && S.nar.fallidas ? "Reintentar " + nf(S.nar.fallidas) + " fallidas" : S.nar && S.nar.pend === 0 && S.nar.listas ? "Reanalizar pendientes" : "Analizar con IA"); } }
   async function cargaNarr() {
-    const id = S.sel, qs = new URLSearchParams(); Object.entries(S.nrF || {}).forEach(([k, v]) => { if (v) qs.set(k, v); }); S.nar = Object.assign({}, S.nar || {}, { cargando: !S.nar }); if (S.modo === "narr" && S.nar.cargando) narrVista();
+    const id = S.sel, qs = new URLSearchParams(); Object.entries(S.nrF || {}).forEach(([k, v]) => { if (v) qs.set(k, v); }); if (S.nrTema) qs.set("tp", S.nrTema); S.nar = Object.assign({}, S.nar || {}, { cargando: !S.nar }); if (S.modo === "narr" && S.nar.cargando) narrVista();
     try { const r = await api(`/proyectos/${id}/narrativa${qs.toString() ? "?" + qs : ""}`); if (id !== S.sel) return; S.nar = r; } catch (e) { S.nar = { error: e.message }; }
     if (S.modo === "narr") narrVista();
   }
@@ -1346,7 +1345,7 @@
     const edo = t.closest("[data-edo]"); if (edo && S.W) { const k = edo.dataset.edo, a = S.W.estados, i = a.indexOf(k); i >= 0 ? a.splice(i, 1) : a.push(k); edo.classList.toggle("on", i < 0); return; }
     if (t.closest("[data-wsv]")) { guardaCambios(); return; }
     const rdc = t.closest("[data-rd]"); if (rdc && S.W) { const a = S.W.redes || (S.W.redes = []), k = rdc.dataset.rd, i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); wizard(); return; }
-    const tmc = t.closest("[data-tmo]"); if (tmc && S.nrTema) { nrNotasTema(S.nrTema, tmc.dataset.tmo, tmc.dataset.tmm || ""); return; }
+    const tmc = t.closest("[data-tmo]"); if (tmc && S.modo === "narr") { nrNotasTema(S.nrTema || "", tmc.dataset.tmo, tmc.dataset.tmm || ""); return; }
     const tg = t.closest("[data-tg]"); if (tg && S.W) { S.W[tg.dataset.tg] = !S.W[tg.dataset.tg]; wizard(); return; }
     const w2 = t.closest("[data-w2]"); if (w2 && S.W) { const [k, val] = w2.dataset.w2.split(":"); S.W[k] = val; wizard(); }
   }
@@ -1356,7 +1355,7 @@
   }
   function cambio(e) {
     const t = e.target;
-    if (t.id === "nrTmSel") { S.nrTema = t.value; const c = $("#nrTm"); if (c && S.nar) c.innerHTML = nrTreemap(S.nar); return; }
+    if (t.id === "nrTmSel") { S.nrTema = t.value; const m = $("#mlMain"), st = m ? m.scrollTop : 0; cargaNarr().then(() => { const m2 = $("#mlMain"); if (m2) m2.scrollTop = st; }); return; }
     if (t.id === "mlPSel") { const v = t.value; if (v === "__all") navTo("proy|"); else if (v === "__new") nuevo(); else if (v === "__cos") navTo("cos|top"); else if (v) { S.tabSel = null; const sp = S.proy.find(x => x.id === S.sel), c = sp && esSocial(sp) ? socDe(v) : null; navTo("tab|" + (c ? c.id : v) + "|" + (S.vista || "lista")); } return; }
     if (t.dataset && (t.dataset.rgl || t.dataset.rgh)) { rgLive(t, true); return; }
     if (t.dataset && t.dataset.cos) { S.cos[t.dataset.cos] = t.value; cargaCostos(); return; }
