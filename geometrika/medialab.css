@@ -964,3 +964,7 @@ a.ml-ent:hover{border-color:var(--ml-bd)}a.ml-ent,.ml-tb2 a{text-decoration-colo
 .qc-pg{flex:1 1 100%;display:grid;grid-template-columns:auto minmax(120px,1fr) auto;align-items:center;gap:6px 12px;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.4)}.qc-pg b{font-size:13px}.qc-pg em{font-style:normal;font-weight:800;font-size:13px}.qc-pg small{grid-column:1/-1;font-size:11px;color:var(--ml-mut)}.qc-pg .ml-bar{margin:0}
 .qc-bar{flex-wrap:wrap}
 .ml-emb .ml-logo,.ml-emb .ml-ver{display:none}
+/* embebido en GeoLab: la columna del menú va debajo del encabezado de GeoLab (estas reglas deben ganar a las del rediseño del menú) */
+.ml-app.ml-emb .ml-body>.ml-side{position:absolute;left:0;top:0;bottom:0;width:var(--col,404px);height:auto;max-height:none;align-self:auto;box-sizing:border-box;padding:calc(var(--tth,0px) + 50px) 12px 20px;overflow:auto;background:linear-gradient(180deg,rgba(8,13,26,.82),rgba(15,23,42,.80));border-right:1px solid var(--ml-ln);z-index:2}
+.ml-app.ml-light.ml-emb .ml-body>.ml-side{background:linear-gradient(180deg,rgba(248,250,252,.9),rgba(238,242,255,.88))}
+.ml-app.ml-emb.ml-sidehide .ml-body>.ml-side{display:block}
