@@ -450,6 +450,22 @@
     const mut = P.mutaciones.slice(0, 5).map(m => `<li data-tip="${esc(tipH(m.t, fechaC(m.f), NOR[m.or] || "", m.mu))}"><b>${esc(nCorta(m.t, 50))}</b><span>${esc(m.mu)}</span></li>`).join("");
     return `<div class="nr-pr"><div class="nr-map" id="nrMap"></div><div class="nr-pl">${lista}<h5>Mutación narrativa</h5><ul>${mut || "<li><span>Sin datos</span></li>"}</ul></div></div>`;
   }
+  /* treemap de propagación: una columna por etapa (en orden de propagación), ancho según sus notas, y dentro un bloque por medio */
+  const NORD = ["Evento_Directo", "Declaracion_Oficial", "Filtracion_Exclusiva", "Reaccion_En_Cadena", "Analisis_Secundario", "Sin_origen"];
+  function nrTreemap(D) {
+    const T = (D.prop && D.prop.temas) || []; if (!T.length) return `<div class="ml-vacio">Aún no hay temas analizados.</div>`;
+    const sel = T.find(x => x.k === S.nrTema) || T[0]; S.nrTema = sel.k; const tot = sel.n || 1, est = NORD.map(k => sel.est.find(e => e.or === k)).filter(Boolean);
+    const w0 = est.map(e => Math.max(e.n / tot, .08)), sw = w0.reduce((a, b) => a + b, 0);
+    const cols = est.map((e, i) => { const c = ORCOL[e.or] || "#94a3b8", nom = e.or === "Sin_origen" ? "Sin etapa definida" : (NOR[e.or] || e.or), sm = e.m.reduce((a, x) => a + x.n, 0) || 1;
+      return `<div class="tm-c" style="width:${(w0[i] / sw * 100).toFixed(2)}%"><div class="tm-h" style="color:${c}" title="${esc(nom)}">${esc(nom)}<b>${nf(e.n)} · ${Math.round(e.n / tot * 100)}%</b></div><div class="tm-b">${e.m.map(x => `<div class="tm-t${x.otros ? " otr" : ""}" ${x.otros ? "" : `data-tmm="${esc(x.m)}"`} data-tmo="${esc(e.or)}" style="flex:${x.n} 1 0;--cc:${c}" title="${esc(x.m)} · ${x.n} nota(s) · clic para ver"><span>${esc(x.m)}</span><i>${nf(x.n)}</i></div>`).join("")}</div></div>`; }).join("");
+    return `<div class="tm-top"><label>Tema</label><select id="nrTmSel">${T.map(x => `<option value="${esc(x.k)}"${x.k === sel.k ? " selected" : ""}>${esc(x.k)} · ${nf(x.n)} nota(s) · ${nf(x.med)} medio(s)</option>`).join("")}</select><span class="tm-n">${nf(sel.n)} nota(s) en ${nf(sel.med)} medio(s). Las columnas siguen el orden de propagación: del hecho original hacia los ecos; el alto de cada bloque es el peso de cada medio.</span></div><div class="tm">${cols}</div>`;
+  }
+  async function nrNotasTema(tm, or, med) {
+    const id = S.sel, qs = new URLSearchParams(); Object.entries(S.nrF || {}).forEach(([k, v]) => { if (v) qs.set(k, v); }); qs.set("notasTm", tm); if (or) qs.set("notasOr", or); if (med) qs.set("notasMed", med);
+    const L = { full: true, ico: "🌐", nombre: tm + (or ? " · " + (NOR[or] || "Sin etapa") : "") + (med ? " · " + med : ""), items: [], cargando: true }; S.det = { lista: L }; pintaDet();
+    try { const r = await api(`/proyectos/${id}/narrativa?${qs}`); L.items = r.items || []; L.total = r.total; } catch (e) { L.error = e.message; }
+    L.cargando = false; if (S.det && S.det.lista === L) pintaDet();
+  }
   function nrMapa(D) {
     const el = $("#nrMap"); if (!el) return; leafletListo(() => {
       const e2 = $("#nrMap"); if (!e2 || !window.L) return; const L = window.L, M = L.map(e2, { zoomControl: true, attributionControl: false, scrollWheelZoom: true }).setView([23.6, -102.5], 4);
@@ -515,6 +531,7 @@
       ${nPanel("a4", "Coocurrencia de entidades", "matriz y red", nrCooc(D), "cooc")}
       ${nPanel("b2 nr-alto", "Acciones y posturas", "Causalidad y sentimiento", nrSankey(D), "acc")}
       ${nPanel("a4 nr-gde", "Propagación narrativa", "Origen y focos geográficos", nrProp(D), "prop")}
+      ${nPanel("a6", "Propagación por etapas", "Treemap del tema elegido", `<div id="nrTm">${nrTreemap(D)}</div>`)}
       ${nPanel("b2", "Análisis de encuadre (framing)", "", nrEncuadre(D), "enc")}</div>`;
     }
     m.innerHTML = h + `</div><div id="nrTip" class="nr-tip" hidden></div><div id="nrAy" class="nr-ay" hidden></div><aside class="ml-det" id="mlDet" hidden></aside>`; if (S.det) pintaDet(); const b = $("#nrRun"); if (b) b.onclick = narrCorre; nrEstado(); nrEventos(); nrZoomInit(); if (D && !D.cargando && !D.vacio && !D.error) nrMapa(D); nrAplica();
@@ -1319,6 +1336,7 @@
     const edo = t.closest("[data-edo]"); if (edo && S.W) { const k = edo.dataset.edo, a = S.W.estados, i = a.indexOf(k); i >= 0 ? a.splice(i, 1) : a.push(k); edo.classList.toggle("on", i < 0); return; }
     if (t.closest("[data-wsv]")) { guardaCambios(); return; }
     const rdc = t.closest("[data-rd]"); if (rdc && S.W) { const a = S.W.redes || (S.W.redes = []), k = rdc.dataset.rd, i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); wizard(); return; }
+    const tmc = t.closest("[data-tmo]"); if (tmc && S.nrTema) { nrNotasTema(S.nrTema, tmc.dataset.tmo, tmc.dataset.tmm || ""); return; }
     const tg = t.closest("[data-tg]"); if (tg && S.W) { S.W[tg.dataset.tg] = !S.W[tg.dataset.tg]; wizard(); return; }
     const w2 = t.closest("[data-w2]"); if (w2 && S.W) { const [k, val] = w2.dataset.w2.split(":"); S.W[k] = val; wizard(); }
   }
@@ -1328,6 +1346,7 @@
   }
   function cambio(e) {
     const t = e.target;
+    if (t.id === "nrTmSel") { S.nrTema = t.value; const c = $("#nrTm"); if (c && S.nar) c.innerHTML = nrTreemap(S.nar); return; }
     if (t.id === "mlPSel") { const v = t.value; if (v === "__all") navTo("proy|"); else if (v === "__new") nuevo(); else if (v === "__cos") navTo("cos|top"); else if (v) { S.tabSel = null; const sp = S.proy.find(x => x.id === S.sel), c = sp && esSocial(sp) ? socDe(v) : null; navTo("tab|" + (c ? c.id : v) + "|" + (S.vista || "lista")); } return; }
     if (t.dataset && (t.dataset.rgl || t.dataset.rgh)) { rgLive(t, true); return; }
     if (t.dataset && t.dataset.cos) { S.cos[t.dataset.cos] = t.value; cargaCostos(); return; }
