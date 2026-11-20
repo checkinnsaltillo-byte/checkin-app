@@ -7010,3 +7010,6 @@ input.gmw-rng::-moz-range-thumb{background:#6366f1;box-shadow:0 0 0 1px #6366f1}
 
 /* GeoMetrika · «Mis proyectos», asistente y detalle usan todo el ancho de la pantalla */
 .gm .gm-w,.gm .gm-main,.gm .gmw,.gm .gmw:has(.gmc-cv){max-width:none!important}
+
+.gmc-rl{cursor:pointer}.gmc-rl text{font:700 9.5px system-ui,sans-serif;pointer-events:none}.gmc-rl:hover rect{stroke-width:2.2}.gmc-cv.ruta .gmc-rl{opacity:.12}.gmc-cv.ruta .gmc-rl.hi{opacity:1}.gmc-fl:hover .gmc-fp{stroke:#dc2626!important}.gmc-fl:hover .gmc-ft{fill:#dc2626!important}
+.gmc-im{position:relative;display:flex;justify-content:space-between;gap:8px;margin:0 0 6px;padding-top:5px;font:600 9.5px system-ui,sans-serif;color:#64748b}.gmc-im>i{position:absolute;left:0;top:0;height:3px;border-radius:2px;background:#6366f1}.gmc-im::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;border-radius:2px;background:#e2e8f0}.gmc-im>i{z-index:1}.gmc-im b{color:#0f172a}
