@@ -578,3 +578,13 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-pop .dl-kf{border-top:0;padding-top:2px}
 @keyframes dlPopIn{from{opacity:0}to{opacity:1}}@keyframes dlPopUp{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
 .dl-d .in .dl-kw .ac,.dl-kw .ac{display:flex;flex-direction:row;gap:5px;margin:0;font-size:inherit;letter-spacing:0;text-transform:none}
+/* el menú de indicadores vive en la columna izquierda, debajo de «Indicadores» */
+.dl-app.dl-ind:not(.dl-off) .dl-side{flex-basis:330px;width:330px}
+.dl-side-arb{flex:1 1 auto;min-height:0;overflow:auto;margin:4px -4px 0;padding:0 4px;overscroll-behavior:contain;border-top:1px solid var(--line)}
+.dl-side-arb:empty{display:none}
+.dl-app.dl-off .dl-side-arb{display:none}
+.dl-ixm.lado{position:static;max-height:none;border:0;border-radius:0;background:transparent;padding:6px 0 10px;overflow:visible}
+.dl-ixm.lado .dl-ixc{font-size:13px;padding:9px 8px}.dl-ixm.lado .dl-ixe{font-size:12.5px}.dl-ixm.lado .dl-ixi{font-size:12px}
+.dl-app.dl-ind .dl-side-f{margin-top:0}
+@media (max-width:900px){.dl-app.dl-ind:not(.dl-off) .dl-side{flex-basis:min(330px,86vw);width:min(330px,86vw)}.dl-app.dl-off .dl-side-arb{display:block}}
+.dl-emb .dl-side-arb{display:block!important}
