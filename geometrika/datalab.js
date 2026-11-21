@@ -180,7 +180,7 @@
     i._pend = /pendiente/i.test(i.f) && !i.vars.length; };
   CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => prep(i, c, e))));
   const INDS_ALL = () => CATI.flatMap(c => c.an.flatMap(e => e.ind));
-  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", aC: new Set(CATI.map(c => c.k || c.id)), aE: new Set(), filas: new Set() };
+  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", aC: new Set(), aE: new Set(), sel: null };
   const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org);
   function pasaI(i) {
     if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false;
@@ -192,7 +192,7 @@
     const tipos = [...new Set(A.map(i => i.tipo))], fams = [...new Set(A.flatMap(i => i._fam))].sort((a, b) => a.localeCompare(b, "es"));
     const enfs = CATI.filter(c => !S2.cat || c.id === S2.cat).flatMap(c => c.an.map(e => [e.id, e.ico + " " + e.n]));
     $("#dlWrap", host).innerHTML = `
-      <div class="dl-h"><div><h1>Indicadores</h1><p>Catálogo de los indicadores que calcula Geo Lab y de las series del INEGI (BIE/BISE) que alimentan EconoLab: qué mide cada uno, en qué unidades, cómo se calcula (metodología y fórmula), con qué variables y de qué fuente salen. Es solo un catálogo: aquí no hay datos de ningún proyecto. Toca una fila para ver el detalle.</p></div><div class="dl-hr"><span class="dl-up">Geo Lab + INEGI (BIE/BISE)</span><button class="dl-new" type="button" id="dlNuevo">＋ Crear Indicador</button></div></div>
+      <div class="dl-h"><div><h1>Indicadores</h1><p>Catálogo de los indicadores que calcula Geo Lab y de las series del INEGI (BIE/BISE) que alimentan EconoLab: qué mide cada uno, en qué unidades, cómo se calcula (metodología y fórmula), con qué variables y de qué fuente salen. Es solo un catálogo: aquí no hay datos de ningún proyecto. Elige un elemento de la lista para ver su detalle.</p></div><div class="dl-hr"><span class="dl-up">Geo Lab + INEGI (BIE/BISE)</span><button class="dl-new" type="button" id="dlNuevo">＋ Crear Indicador</button></div></div>
       <div class="dl-kpis">${kp(CATI.length, "Categorías", "#4f46e5")}${kp(nE, "Enfoques de análisis", "#0891b2")}${kp(A.length, "Indicadores", "#7c3aed")}${kp(nV, "Variables", "#059669")}${kp(nT, "Transformaciones", "#b45309")}</div>
       <div class="dl-fl" id="dlFl">
         <div class="dl-fr">
@@ -215,19 +215,32 @@
   function opcionesI(id, titulo, lista, val) {
     return `<label class="dl-sel${val ? " on" : ""}"><select data-f2="${id}" aria-label="${esc(titulo)}"><option value="">${esc(titulo)}</option>${lista.map(o => { const v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return `<option value="${esc(v)}"${val === v ? " selected" : ""}>${esc(t)}</option>`; }).join("")}</select></label>`;
   }
+  // Vista tipo «Banco de Indicadores»: a la izquierda el árbol (dimensión › enfoque › indicador); al elegir un elemento, su detalle se muestra al centro.
+  const kI = i => i._e.id + ":" + i.id;
   function listaI() {
     const dest = $("#dlLista2", host); if (!dest) return; const forzar = hayI(), A = INDS_ALL(), vis = A.filter(pasaI);
     const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : S2.org === "inegi" ? "INEGI (BIE/BISE)" : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
     $("#dlRs2", host).innerHTML = `Mostrando <b>${vis.length}</b> de ${A.length} indicadores ${tg.join("")}`;
     if (!vis.length) { dest.innerHTML = `<div class="dl-empty"><b>No hay indicadores con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-ia="limpiar">Limpiar filtros</button></div>`; return; }
-    dest.innerHTML = CATI.map(c => {
-      const L = vis.filter(i => i._c.id === c.id); if (!L.length) return ""; const abC = forzar || S2.aC.has(c.id);
-      const enfs = c.an.map(e => { const Le = L.filter(i => i._e.id === e.id); if (!Le.length) return ""; const abE = forzar || S2.aE.has(e.id);
-        return `<section class="dl-g dl-sg${abE ? " open" : ""}" data-e="${e.id}"><button class="dl-gh" type="button" data-ie="${e.id}" aria-expanded="${abE}"><span class="dl-gi s">${e.ico}</span><span class="dl-gt"><b>${esc(e.n)}</b><span>${esc(e.d)}</span></span><span class="dl-gc"><span class="dl-gn">${Le.length} ${Le.length === 1 ? "indicador" : "indicadores"}</span></span>${ICON.chev}</button>
-          <div class="dl-gb"><div><div class="dl-tw"><table class="dl-t dl-ti"><thead><tr><th>Indicador</th><th>Tipo</th><th>Qué mide</th><th>Unidades</th><th>Variables</th><th>Fuentes</th><th class="dl-xc"></th></tr></thead><tbody>${Le.map(filaI).join("")}</tbody></table></div></div></div></section>`; }).join("");
-      return `<section class="dl-g${abC ? " open" : ""}" data-c="${c.id}"><button class="dl-gh" type="button" data-ic="${c.id}" aria-expanded="${abC}"><span class="dl-gi">${c.ico}</span><span class="dl-gt"><b>${esc(c.n)}</b><span>${esc(c.d)}</span></span><span class="dl-gc"><span class="dl-gn">${L.length} ${L.length === 1 ? "indicador" : "indicadores"}</span></span>${ICON.chev}</button>
-        <div class="dl-gb"><div class="dl-sgs">${enfs}</div></div></section>`;
+    let sel = S2.sel; if (sel && sel.t === "i" && !vis.some(i => kI(i) === sel.k)) sel = null; if (sel && sel.t === "e" && !vis.some(i => i._e.id === sel.k)) sel = null; if (sel && sel.t === "c" && !vis.some(i => i._c.id === sel.k)) sel = null;
+    const es = (t, k) => !!sel && sel.t === t && sel.k === k, arb0 = $("#dlArb", host), y0 = arb0 ? arb0.scrollTop : 0;
+    const arbol = CATI.map(c => {
+      const Lc = vis.filter(i => i._c.id === c.id); if (!Lc.length) return ""; const abC = forzar || S2.aC.has(c.id);
+      const enfs = !abC ? "" : c.an.map(e => { const Le = Lc.filter(i => i._e.id === e.id); if (!Le.length) return ""; const abE = forzar || S2.aE.has(e.id);
+        return `<button class="dl-ixe${es("e", e.id) ? " on" : ""}" type="button" data-ie="${esc(e.id)}" aria-expanded="${abE}"><span class="pm">${abE ? "−" : "+"}</span><span class="tx">${esc(e.n)}</span><span class="n">${Le.length}</span></button>${abE ? `<div class="dl-ixis">${Le.map(i => `<button class="dl-ixi${es("i", kI(i)) ? " on" : ""}" type="button" data-ir="${esc(kI(i))}">${esc(i.n)}</button>`).join("")}</div>` : ""}`; }).join("");
+      return `<button class="dl-ixc${es("c", c.id) ? " on" : ""}${abC ? " open" : ""}" type="button" data-ic="${esc(c.id)}" aria-expanded="${abC}"><span class="tx">${esc(c.n)}</span><span class="n">${Lc.length}</span>${ICON.chev}</button>${enfs ? `<div class="dl-ixes">${enfs}</div>` : ""}`;
     }).join("");
+    dest.innerHTML = `<div class="dl-ix"><nav class="dl-ixm" id="dlArb" aria-label="Lista de indicadores">${arbol}</nav><section class="dl-ixd" id="dlDet" aria-live="polite">${detalleI(sel, vis)}</section></div>`;
+    const arb = $("#dlArb", host); if (arb) arb.scrollTop = y0;
+  }
+  // panel central: todas las dimensiones → una dimensión (sus enfoques) → un enfoque (sus indicadores) → la ficha del indicador
+  function detalleI(sel, vis) {
+    const nI = n => n + (n === 1 ? " indicador" : " indicadores"), ren = (attr, k, ico, n, d, r) => `<button class="dl-ixr" type="button" ${attr}="${esc(k)}">${ico ? `<span class="ic">${ico}</span>` : ""}<span class="tx"><b>${esc(n)}</b><span>${esc(d)}</span></span><span class="r">${r}</span></button>`;
+    const miga = p => `<div class="dl-ixb"><button type="button" data-ia="raiz">Todas las dimensiones</button>${p.map(([attr, k, n]) => attr ? `<i>›</i><button type="button" ${attr}="${esc(k)}">${esc(n)}</button>` : `<i>›</i><b>${esc(n)}</b>`).join("")}</div>`;
+    if (!sel) return `<h2>Todas las dimensiones</h2><p class="ds">Elige una dimensión, un enfoque o un indicador en la lista de la izquierda; aquí se muestra su detalle.</p><div class="dl-ixrs">${CATI.map(c => { const n = vis.filter(i => i._c.id === c.id).length; return n ? ren("data-ic", c.id, c.ico, c.n, c.d, `<span class="dl-gn">${nI(n)}</span>`) : ""; }).join("")}</div>`;
+    if (sel.t === "c") { const c = CATI.find(x => x.id === sel.k); return `${miga([[null, null, c.n]])}<h2><span class="ic">${c.ico}</span>${esc(c.n)}</h2><p class="ds">${esc(c.d)}</p><div class="dl-ixrs">${c.an.map(e => { const n = vis.filter(i => i._e.id === e.id && i._c.id === c.id).length; return n ? ren("data-ie", e.id, e.ico, e.n, e.d, `<span class="dl-gn">${nI(n)}</span>`) : ""; }).join("")}</div>`; }
+    if (sel.t === "e") { const Le = vis.filter(i => i._e.id === sel.k), e = Le[0]._e, c = Le[0]._c; return `${miga([["data-ic", c.id, c.n], [null, null, e.n]])}<h2><span class="ic">${e.ico}</span>${esc(e.n)}</h2><p class="ds">${esc(e.d)}</p><div class="dl-ixrs">${Le.map(i => ren("data-ir", kI(i), "", i.n, i.d, `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>`)).join("")}</div>`; }
+    const i = vis.find(x => kI(x) === sel.k); return miga([["data-ic", i._c.id, i._c.n], ["data-ie", i._e.id, i._e.n], [null, null, i.n]]) + filaI(i);
   }
   // «En Geo Lab»: si el indicador se muestra, dónde, cómo se ve en el mapa y una tarjeta de ejemplo real (datalab-geo.js)
   const CUANDO = { P: ["🆕", "Al crear el proyecto", "Se consulta una vez al crear el proyecto y se guarda con él; después solo se lee."], I: ["🔁", "Cada vez que se ingresa", "Se calcula o se consulta de nuevo cada vez que se abre la maqueta o se pulsa «Calcular y actualizar»."], D: ["👆", "Bajo demanda", "Solo se genera cuando alguien pulsa el botón correspondiente; luego queda guardado o en pantalla."], G: ["📦", "Ya guardado en el sistema", "Es un dato de referencia (Censo, DENUE, INEGI, WorldCover…) ya cargado de antemano: no hay que generarlo."], X: ["⏳", "Pendiente de construir", "Todavía no se genera."] };
@@ -241,36 +254,42 @@
       <ul class="dl-geo-l"><li><b>✓ Se muestra</b> en el panel <b>Indicadores</b> y en la ventana <b>${esc(g.v)}</b> (menú Análisis).</li>
       <li>${g.m ? "<b>🗺️ En el mapa:</b> " : "<b>Sin capa en el mapa.</b> "}${esc(g.t)}</li>${CUANDO[g.w] ? `<li><b>⏱️ Cuándo se genera:</b> <span class="dl-geo-chip w${g.w}">${CUANDO[g.w][0]} ${esc(CUANDO[g.w][1])}</span> ${esc(g.wn || "")}<div class="dl-mut">${esc(CUANDO[g.w][2])}</div></li>` : ""}</ul></div></div>`;
   }
-  function filaI(i) {
-    const k = i._e.id + ":" + i.id, ab = S2.filas.has(k), fam = i._fam.map(f => `<button type="button" class="dl-c${S2.fam === f ? " on" : ""}" data-ifam="${esc(f)}" title="Filtrar por esta fuente">${esc(f)}</button>`).join("");
+  function filaI(i) {   // ficha completa del indicador (panel central)
+    const fam = i._fam.map(f => `<button type="button" class="dl-c${S2.fam === f ? " on" : ""}" data-ifam="${esc(f)}" title="Filtrar por esta fuente">${esc(f)}</button>`).join("");
     const vars = i.vars.map(v => `<tr><td data-l="Variable"><b>${esc(v.n)}</b></td><td data-l="Unidades">${esc(v.u)}</td><td data-l="Qué es">${esc(v.d)}</td><td data-l="Fuente">${esc(v.f)}${v.cob ? `<div class="dl-mut">Cobertura: ${esc(v.cob)}</div>` : ""}${v.disponible === false ? `<div><span class="dl-b Parcial">Dato por conseguir</span></div>` : ""}${v.nota ? `<div class="dl-mut">${esc(v.nota)}</div>` : ""}</td><td data-l="Transformaciones">${v.tr.length ? `<details class="dl-tr"><summary>${v.tr.length} ${v.tr.length === 1 ? "transformación" : "transformaciones"}</summary>${v.tr.map(t => `<div class="dl-trx"><b>${esc(t.n)}</b><p>${esc(t.d)}</p><code>${esc(t.f)}</code></div>`).join("")}</details>` : `<span class="dl-mut">Dato directo de la fuente</span>`}</td></tr>`).join("");
-    return `<tr class="dl-r${ab ? " open" : ""}" data-ir="${esc(k)}" tabindex="0" aria-expanded="${ab}">
-      <td data-l="Indicador"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<b>${esc(i.n)}</b>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></td>
-      <td data-l="Tipo"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span></td>
-      <td data-l="Qué mide" class="dl-ob">${esc(i.d)}</td><td data-l="Unidades">${esc(i.u)}</td>
-      <td data-l="Variables"><span class="dl-gn">${i.vars.length}</span></td>
-      <td data-l="Fuentes"><div class="dl-ch">${fam}</div></td><td class="dl-xc">${ICON.chevS}</td></tr>${ab ? `<tr class="dl-d"><td colspan="7"><div class="in one">
+    return `<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}</h2></div>
+      <div class="dl-ixt"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
+      <div class="dl-d dl-ixf"><div class="in one">
+        <div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div>
+        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Fuentes</span><div class="dl-ch">${fam}</div></div>
         ${bloqueGeo(i)}<div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${i._meta ? metaCreado(i._meta) : ""}
-        <div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">Todavía no tiene variables: se construirá más adelante.</p>`}</div>
-      </div></td></tr>` : ""}`;
+        <div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">${i._pend ? "Todavía no tiene variables: se construirá más adelante." : "Sin desglose de variables: el dato se toma directo de la fuente."}</p>`}</div>
+      </div></div>`;
   }
   function entradaI(e) { S2.q = e.target.value; e.target.parentNode.classList.toggle("has", !!S2.q); clearTimeout(entradaI.t); entradaI.t = setTimeout(() => { listaI(); const b = $('[data-ia="limpiar"]', host); if (b) { b.disabled = !hayI(); b.style.opacity = hayI() ? "" : ".45"; b.style.cursor = hayI() ? "" : "default"; } }, 120); }
   function cambiaI(k, v) { S2[k] = v; if (k === "cat" && S2.enf && !(CATI.find(c => c.id === v) || { an: [] }).an.some(e => e.id === S2.enf) && v) S2.enf = ""; indicadores(); }
   function clicI(e) {
     const t = e.target, x = t.closest("[data-ix]"); if (x) { S2[x.dataset.ix] = ""; indicadores(); return; }
-    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => { S2.aE.add(en.id); en.ind.forEach(i => S2.filas.add(en.id + ":" + i.id)); }); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); S2.filas.clear(); listaI(); } return; }
+    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => S2.aE.add(en.id)); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); listaI(); } else if (k === "raiz") selI(null); return; }
     const eb = t.closest("[data-eco]"); if (eb) { try { parent.postMessage({ gl: "eco-go", go: eb.dataset.eco }, location.origin); } catch (_) { } return; }
     const pb = t.closest("[data-dl-pub]"); if (pb) { publica(pb.dataset.dlPub); return; }
     const del = t.closest("[data-dl-del]"); if (del) { eliminaCreado(del.dataset.dlDel); return; }
     const est = t.closest("[data-dl-est]"); if (est) { cambiaEstado(est.dataset.dlEst, est.dataset.v); return; }
     const f = t.closest("[data-ifam]"); if (f) { S2.fam = S2.fam === f.dataset.ifam ? "" : f.dataset.ifam; indicadores(); return; }
-    const tg = (attr, set, id) => { const g = t.closest("[" + attr + "]"); if (!g) return false; const sec2 = g.closest(".dl-g"); if (hayI()) sec2.classList.toggle("open"); else { if (set.has(id(g))) set.delete(id(g)); else set.add(id(g)); sec2.classList.toggle("open", set.has(id(g))); } g.setAttribute("aria-expanded", sec2.classList.contains("open")); return true; };
-    if (tg("data-ie", S2.aE, g => g.dataset.ie)) return; if (tg("data-ic", S2.aC, g => g.dataset.ic)) return;
-    if (t.closest("a,details,summary,code,.dl-vt")) return;
-    const r = t.closest("tr[data-ir]"); if (r) alternaI(r.dataset.ir);
+    const enArbol = !!t.closest("#dlArb"), r = t.closest("[data-ir]"); if (r) { selI("i", r.dataset.ir, enArbol); return; }
+    const ge = t.closest("[data-ie]"); if (ge) { selI("e", ge.dataset.ie, enArbol); return; }
+    const gc = t.closest("[data-ic]"); if (gc) selI("c", gc.dataset.ic, enArbol);
   }
-  function alternaI(k) { if (S2.filas.has(k)) S2.filas.delete(k); else S2.filas.add(k); const y = $("#dlMain", host).scrollTop; listaI(); $("#dlMain", host).scrollTop = y; const r = [...host.querySelectorAll("tr[data-ir]")].find(q => q.dataset.ir === k); if (r) r.focus({ preventScroll: true }); }
-  document.addEventListener("keydown", e => { if (!host || sec !== "indicadores" || !host.contains(document.activeElement)) return; const r = document.activeElement.closest && document.activeElement.closest("tr[data-ir]"); if (r && (e.key === "Enter" || e.key === " ") && document.activeElement === r) { e.preventDefault(); alternaI(r.dataset.ir); } });
+  // elige un elemento: en el árbol, dimensiones y enfoques además se abren o se cierran; desde el panel central solo se abren
+  function selI(t, k, enArbol) {
+    const era = S2.sel && S2.sel.t === t && S2.sel.k === k; S2.sel = t ? { t, k } : null;
+    if (t === "c") { if (enArbol && S2.aC.has(k) && (era || !hayI())) S2.aC.delete(k); else S2.aC.add(k); }
+    if (t === "e") { const c = CATI.find(c => c.an.some(e => e.id === k)); if (c) S2.aC.add(c.id); if (enArbol && S2.aE.has(k) && (era || !hayI())) S2.aE.delete(k); else S2.aE.add(k); }
+    if (t === "i") { const i = INDS_ALL().find(x => kI(x) === k); if (i) { S2.aC.add(i._c.id); S2.aE.add(i._e.id); } }
+    listaI(); const d = $("#dlDet", host), m = $("#dlMain", host);
+    if (d && m && (innerWidth < 900 ? t === "i" || !enArbol : d.getBoundingClientRect().top < m.getBoundingClientRect().top)) d.scrollIntoView({ block: "start" });
+    if (enArbol) { const b = [...host.querySelectorAll("#dlArb button")].find(q => (t === "i" ? q.dataset.ir : t === "e" ? q.dataset.ie : q.dataset.ic) === k); if (b) b.focus({ preventScroll: true }); }
+  }
 
 
   /* ═══ Crear indicador con ayuda de IA (panel lateral derecho) ═══ */
@@ -366,7 +385,7 @@
       ${li("Pasos de cálculo", m.pasos)}${li("Supuestos", m.supuestos)}${li("Limitaciones", m.limitaciones)}${li("Datos por conseguir", m.faltantes)}${det("Instrucciones originales", m.instrucciones)}
       <div class="wide dl-acc"><button class="dl-ghost pr" type="button" data-dl-est="${esc(m.id)}" data-v="${m.estado === "Propuesto" ? "Borrador" : "Propuesto"}">${m.estado === "Propuesto" ? "Regresar a borrador" : "Marcar como propuesto"}</button><button class="dl-ghost pr dl-danger" type="button" data-dl-del="${esc(m.id)}">Eliminar indicador</button></div>`;
   }
-  async function eliminaCreado(id) { const it = CRE.find(x => x.id === id); if (!it || !confirm("¿Eliminar el indicador «" + it.n + "»? También saldrá de Fuente de datos.")) return; try { await api("/geometrika/datalab/indicadores/eliminar", { id }); CRE = CRE.filter(x => x.id !== id); S2.filas.forEach(k => { if (k.endsWith(":" + id)) S2.filas.delete(k); }); mezcla(); indicadores(); toast("Indicador eliminado."); } catch (e) { toast("No se pudo eliminar: " + e.message); } }
+  async function eliminaCreado(id) { const it = CRE.find(x => x.id === id); if (!it || !confirm("¿Eliminar el indicador «" + it.n + "»? También saldrá de Fuente de datos.")) return; try { await api("/geometrika/datalab/indicadores/eliminar", { id }); CRE = CRE.filter(x => x.id !== id); if (S2.sel && S2.sel.t === "i" && S2.sel.k.endsWith(":" + id)) S2.sel = null; mezcla(); indicadores(); toast("Indicador eliminado."); } catch (e) { toast("No se pudo eliminar: " + e.message); } }
   async function cambiaEstado(id, estado) { try { await api("/geometrika/datalab/indicadores/estado", { id, estado }); const it = CRE.find(x => x.id === id); if (it) it.estado = estado; mezcla(); listaI(); toast("Estado actualizado: " + estado + "."); } catch (e) { toast("No se pudo actualizar: " + e.message); } }
 
   // catálogo para elegir (indicadores, variables y fuentes) con su metadata
@@ -474,7 +493,7 @@
     try {
       const j = await api("/geometrika/datalab/indicadores", { n: f.n, d: f.d, u: f.u, tipo: f.tipo, res: f.res, periodicidad: f.periodicidad, objetivo: f.objetivo, m: f.m, f: f.f, cat: f.cat, enf: f.enf, enfNuevo: f.enfNuevo, unidad: f.unidad, radio: f.radio, alcance: f.alcance, visual: f.visual, clasif: f.clasif, sentido: f.sentido, umbralVerde: f.umbralVerde, umbralAmbar: f.umbralAmbar, comoSeVera: f.comoSeVera, receta: f.receta, estado: f.estado, responsable: f.responsable, vars: f.vars, pasos: f.pasos, supuestos: f.supuestos, limitaciones: f.limitaciones, faltantes: f.faltantes, dificultad: f.dificultad, instrucciones: W.texto, metodologiaTitulo: f.titulo });
       CRE.push(j.item); mezcla(); W.guardando = false; Object.assign(W, { abierto: false, paso: 1, res: "", texto: "", sel: new Map(), q: "", props: null, prop: null, f: {}, error: "" }); pintaDr();
-      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.filas.add(j.item.enf + ":" + j.item.id); indicadores();
+      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.sel = { t: "i", k: j.item.enf + ":" + j.item.id }; indicadores();
       setTimeout(() => { const r = host.querySelector(`tr[data-ir="${j.item.enf}:${j.item.id}"]`); if (r) r.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
       toast("Indicador creado: " + j.item.n + ". Ya aparece en Indicadores y en Fuente de datos.", 6000);
     } catch (e) { W.guardando = false; W.error = e.message; pintaDr(); const b = $("#dlDb", host); if (b) b.scrollTop = b.scrollHeight; }
