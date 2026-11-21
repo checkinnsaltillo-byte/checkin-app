@@ -535,10 +535,12 @@
   const API = "https://api.check-inn.mx", RES_TXT = { punto: "Punto / coordenada", zona: "Zona", ciudad: "Ciudad" };
   const PERIODOS = ["Tiempo real", "Diaria", "Semanal", "Mensual", "Trimestral", "Anual", "Bajo demanda"], TIPOS = ["Dato duro", "Dato calculado", "Índice", "Valoración cualitativa", "Valoración cuantitativa", "Dato inferido"];
   const token = () => { try { return (JSON.parse(localStorage.getItem("gmTok") || "null") || {}).token || ""; } catch (_) { return ""; } };
-  async function api(ruta, cuerpo, metodo) {
+  async function api(ruta, cuerpo, metodo, reintento) {
     const r = await fetch(API + ruta, { method: metodo || (cuerpo ? "POST" : "GET"), headers: Object.assign({ "x-gm-token": token() }, cuerpo ? { "Content-Type": "application/json" } : {}), body: cuerpo ? JSON.stringify(cuerpo) : undefined });
     let j = {}; try { j = await r.json(); } catch (_) { }
     if (r.status === 401) throw new Error("Tu sesión expiró. Cierra sesión y vuelve a entrar.");
+    // acción de administrador con un pase de nivel normal (p. ej. lo reemplazó el inicio de sesión del sistema administrativo): se pide la contraseña aquí mismo y se reintenta una vez
+    if (r.status === 403 && j.admin) { if (!reintento && window.gmPideClave) { toast("Esta acción requiere la contraseña de administrador.", 6000); if (await window.gmPideClave()) return api(ruta, cuerpo, metodo, true); throw new Error("Se canceló: hace falta la contraseña de administrador."); } throw new Error(reintento ? "Esa contraseña no es la de administrador." : (j.error || "Solo un administrador puede hacerlo.")); }
     if (!r.ok || j.ok === false) throw new Error(j.error || ("Error " + r.status)); return j;
   }
   const toast = (m, ms) => { let t = $("#dlToast", host); if (!t) { t = document.createElement("div"); t.id = "dlToast"; t.className = "dl-toast"; $("#dlApp", host).appendChild(t); } t.textContent = m; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), ms || 4200); };
