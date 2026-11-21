@@ -439,3 +439,4 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-sx:not([open])>summary::after{content:"▸"}
 .dl-sx>.dl-ixf{padding-bottom:18px}
 .dl-kf{grid-template-columns:repeat(auto-fit,minmax(185px,1fr))}.dl-kf .dl-b{white-space:normal}
+.dl-kf{grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 22px;padding:14px 0}.dl-kf dd{font-weight:600;line-height:1.4}.dl-kf dd small{display:block;font-weight:400;font-size:12px;color:#475569;margin-top:3px}.dl-kf dd .dl-mut{font-weight:400}
