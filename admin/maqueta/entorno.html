@@ -8707,6 +8707,23 @@ if (window.parent === window) {
     addEventListener('resize', () => { try { kpPlace(); } catch (_) { } });
   }
 }
+/* ── modo incrustado (Data Lab): ?dl=<ventana>[.<pestaña>[.<grupo>]] abre ese análisis al cargar y lo deja dibujado en el mapa; el botón «Ver en el mapa» se oculta porque ya va encendido ── */
+{
+  const dlq = new URLSearchParams(location.search).get('dl');
+  if (dlq && /^[a-z]+(\.[a-z0-9]*){0,2}$/.test(dlq)) {
+    const [w, t, g] = dlq.split('.'), W = ms => new Promise(r => setTimeout(r, ms)); document.body.classList.add('dl-emb');
+    const st = document.createElement('style'); st.textContent = 'body.dl-emb .pwin [data-mv="1"]{display:none!important}'; document.head.appendChild(st);
+    (async () => {
+      try {
+        for (let i = 0; i < 240 && (!solS() || /%/.test(document.title)); i++) await W(500); await W(2500); if (!PW_DEF[w]) return;
+        pwShow(w, true); await W(1800); const e = $('pw-' + w); if (!e) return;
+        if (g) { const x = e.querySelector('[data-g="' + g + '"]'); if (x) { x.click(); await W(1500); } }
+        if (t) { const x = e.querySelector('[data-t="' + t + '"]'); if (x) { x.click(); await W(1500); } }
+        for (let k = 0; k < 3; k++) { await W(2500); const B = [...e.querySelectorAll('[data-mv="1"]')].filter(x => { const s = x.closest('.pwsec'), p = s && s.parentElement; return s && getComputedStyle(s).display !== 'none' && (!p || getComputedStyle(p).display !== 'none') && s.getClientRects().length; }); if (!B.length) continue; if (B.some(x => x.dataset.s === '1')) break; B[0].click(); }
+      } catch (_) { }
+    })();
+  }
+}
 </script>
 <script>
 (() => { const dk = document.getElementById('dock'); if (!dk) return; const tg = document.createElement('button'); tg.id = 'dock-tg'; tg.title = 'Ocultar o mostrar el menú'; tg.innerHTML = '<b>‹</b><span class="tg-t">Menú</span>'; document.body.appendChild(tg); tg.onclick = () => { const off = dk.classList.toggle('off'); tg.classList.toggle('off', off); tg.querySelector('b').textContent = off ? '›' : '‹'; };

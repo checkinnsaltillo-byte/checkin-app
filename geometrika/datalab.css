@@ -614,3 +614,7 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 /* botón de tema en la línea del título de «Vista previa» */
 .dl-sx>summary .dl-pvtema{margin-left:auto;align-self:center}.dl-sx>summary:has(.dl-pvtema)::after{margin-left:0}
 .dl-sx>summary .dl-pvtema button{font-size:11.5px;padding:4px 10px}
+
+/* Geo Lab funcional incrustado en la Sección de Resultados */
+.dl-gvm{width:100%;height:740px;flex:1 1 100%}
+@media (max-width:720px){.dl-gvm{height:620px}}
