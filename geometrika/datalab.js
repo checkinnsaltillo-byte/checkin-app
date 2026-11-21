@@ -180,10 +180,10 @@
     i._pend = /pendiente/i.test(i.f) && !i.vars.length; };
   CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => prep(i, c, e))));
   const INDS_ALL = () => CATI.flatMap(c => c.an.flatMap(e => e.ind));
-  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", din: "", gua: "", amb: "", aC: new Set(), aE: new Set(), sel: null };
-  const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org || S2.din || S2.gua || S2.amb);
+  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", din: "", gua: "", amb: "", odat: "", aC: new Set(), aE: new Set(), sel: null };
+  const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org || S2.din || S2.gua || S2.amb || S2.odat);
   function pasaI(i) {
-    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false; if (S2.din && dinI(i) !== S2.din) return false; if (S2.gua && guaI(i) !== S2.gua) return false; if (S2.amb && (ambI(i) || [])[0] !== S2.amb) return false;
+    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false; if (S2.din && dinI(i) !== S2.din) return false; if (S2.gua && guaI(i) !== S2.gua) return false; if (S2.amb && (ambI(i) || [])[0] !== S2.amb) return false; if (S2.odat && odatI(i) !== S2.odat) return false;
     if (S2.q) { const ws = norm(S2.q).split(/\s+/).filter(Boolean); if (!ws.every(w => i._h.includes(w))) return false; } return true;
   }
   function indicadores() {
@@ -201,7 +201,8 @@
           ${opcionesI("enf", "Enfoque", enfs, S2.enf)}
           ${opcionesI("tipo", "Tipo de dato", tipos, S2.tipo)}
           ${opcionesI("fam", "Fuente", fams, S2.fam)}
-          ${opcionesI("org", "Origen", [["geo", "Geo Lab"], ["inegi", "INEGI (BIE/BISE)"], ["dl", "Creados en Data Lab"]], S2.org)}
+          ${opcionesI("odat", "Origen del dato", Object.keys(ODAT_T).map(k => [k, ODAT_T[k]]), S2.odat)}
+          ${opcionesI("org", "Sistema", [["geo", "Geo Lab"], ["inegi", "INEGI (BIE/BISE)"], ["dl", "Creados en Data Lab"]], S2.org)}
           ${opcionesI("din", "Dinámica del dato", Object.keys(DIN_T).map(k => [k, DIN_T[k][0]]), S2.din)}
           ${opcionesI("gua", "Guardado", [["S", "Queda guardado"], ["N", "No se guarda (se lee en cada ingreso)"], ["B", "Bajo demanda"]], S2.gua)}
           ${opcionesI("amb", "Nivel geográfico", Object.keys(AMB_T).map(k => [k, AMB_T[k]]), S2.amb)}
@@ -222,7 +223,7 @@
   const kI = i => i._e.id + ":" + i.id;
   function listaI() {
     const dest = $("#dlLista2", host); if (!dest) return; const forzar = hayI(), A = INDS_ALL(), vis = A.filter(pasaI);
-    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : S2.org === "inegi" ? "INEGI (BIE/BISE)" : ""], ["din", S2.din ? DIN_T[S2.din][0] : ""], ["gua", S2.gua ? GUA_T[S2.gua] : ""], ["amb", S2.amb ? AMB_T[S2.amb] : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
+    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : S2.org === "inegi" ? "INEGI (BIE/BISE)" : ""], ["din", S2.din ? DIN_T[S2.din][0] : ""], ["gua", S2.gua ? GUA_T[S2.gua] : ""], ["amb", S2.amb ? AMB_T[S2.amb] : ""], ["odat", S2.odat ? ODAT_T[S2.odat] : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
     $("#dlRs2", host).innerHTML = `Mostrando <b>${vis.length}</b> de ${A.length} indicadores ${tg.join("")}`;
     if (!vis.length) { dest.innerHTML = `<div class="dl-empty"><b>No hay indicadores con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-ia="limpiar">Limpiar filtros</button></div>`; return; }
     let sel = S2.sel; if (sel && sel.t === "i" && !vis.some(i => kI(i) === sel.k)) sel = null; if (sel && sel.t === "e" && !vis.some(i => i._e.id === sel.k)) sel = null; if (sel && sel.t === "c" && !vis.some(i => i._c.id === sel.k)) sel = null;
@@ -307,6 +308,8 @@
   const levINEGI = (prog, clave) => /registro administrativo|balanza comercial|seguro social/i.test(prog) ? "Registro administrativo" : /encuesta/i.test(prog) || /desoc|^c_/.test(clave || "") ? "Encuesta" + (/econométricos/i.test(prog) ? " (serie calculada por el INEGI)" : "") : /precios/i.test(prog) ? "Índice de precios (cotizaciones levantadas en campo)" : "Estadística derivada (el INEGI la calcula con encuestas, censos y registros)";
   // escala de medición, deducida de las unidades y del tipo de indicador
   const escalaI = i => { const u = String(i.u || ""); if (/cualitativa/i.test(i.tipo) || /bajo|alta \/|niveles|nivel \d|etapas|estrellas/i.test(u)) return "Cualitativo ordinal (niveles con orden)"; if (!u.trim()) return "Cualitativo nominal (categoría o texto)"; if (/notas|publicaciones|personas|habitantes|establecimientos|negocios|riesgos|anclas|árboles|viviendas|unidades|vehículos|número/i.test(u) && !/[\/%]/.test(u)) return "Cuantitativo discreto (conteo)"; return "Cuantitativo continuo"; };
+  const ODAT_T = { O: "Dato de origen", C: "Construido en el sistema" };
+  const odatI = i => i._odat || (i._odat = (e => e === ODAT_T.O ? "O" : "C")(origenI(i).et[0]));
   function origenI(i) {
     const ext = [], pon = x => { if (!ext.some(y => y.of === x.of)) ext.push(x); };
     const deF = id => { const f = F.find(x => x.id === id), m = FMETA[id] || {}; if (f) pon({ ns: m.ns || f.n, of: f.n, p: f.p, tf: [f.t, f.a].filter(Boolean).join(" · "), forma: ORG_FORMA(f.m), arch: m.arch, lev: m.lev, per: m.per, act: f.act, dim: m.dim, fmt: m.fmt, geo: FGEO[id], url: f.url }); };
@@ -316,9 +319,9 @@
     else if (i._c.id === "med") { const N = F.filter(x => x.cat === "noticias"), A2 = N.filter(x => x.e === "Activa"); (A2.length ? A2 : N).forEach(f => deF(f.id)); if (/pub|eng/.test(i.id)) deF("meta"); }
     else { const txs = i.vars.length ? i.vars.map(v => v.f) : [i.f]; txs.forEach(tx => { let ok = false; ORG_REG.forEach(([re, id]) => { if (re.test(tx)) { deF(id); ok = true; } }); if (!ok && /^\s*inegi\s*$/i.test(tx)) pon({ ns: "INEGI", of: "Instituto Nacional de Estadística y Geografía (INEGI)", p: "INEGI", tf: "Pública · Gratuita", url: "https://www.inegi.org.mx/" }); }); }
     const original = !!sr || (i.tipo === "Dato duro" && i._c.id !== "med" && ext.length > 0), propio = !original && !ext.length;
-    const et = original ? ["Dato original", "t-dd", sr ? "Es una serie oficial del INEGI: se muestra tal como la publica la fuente, sin modificarla." : "Proviene directamente de la fuente externa, sin modelos ni supuestos propios."]
-      : propio ? [i.tipo === "Dato duro" ? "Dato propio" : "Construcción propia", "t-ix", i.tipo === "Dato duro" ? "No viene de una fuente externa: lo captura el sistema o lo elige el usuario." : "Lo calcula el sistema con modelos, supuestos o datos propios; no usa una fuente externa directa."]
-      : ["Construcción propia", "t-ix", i._c.id === "med" ? "MediaLab lo construye a partir de las notas y publicaciones que recopila de fuentes externas." : "Lo calcula el sistema a partir de datos de fuentes externas (ver metodología y fórmula)."];
+    const et = original ? ["Dato de origen", "t-dd", sr ? "Es una serie oficial del INEGI: se muestra tal como la publica la fuente, sin modificarla." : "Proviene directamente de la fuente externa, sin modelos ni supuestos propios."]
+      : propio ? ["Construido en el sistema", "t-ix", "Lo genera el sistema con modelos, detección o supuestos propios; no usa una fuente externa directa."]
+      : ["Construido en el sistema", "t-ix", i._c.id === "med" ? "MediaLab lo construye a partir de las notas y publicaciones que recopila de fuentes externas." : "Lo calcula el sistema a partir de datos de fuentes externas (ver metodología y fórmula)."];
     const estr = sr ? (sr[0] === "nac" ? "Serie de tiempo" : "Datos de panel (" + (sr[0] === "est" ? "estados" : "ciudades") + " a lo largo del tiempo)") : i._c.id === "med" ? "Un valor (escalar) por proyecto y propiedad" : "Un valor (escalar) por propiedad" + (g && g.m ? "; además se dibuja como capa geoespacial en el mapa" : "");
     const amb = ambI(i), fila = (k, v, at) => v ? `<div><dt>${k}</dt><dd${at || ""}>${esc(v)}</dd></div>` : "";
     const fx = x => `<div class="dl-fx"><div class="dl-fxh"><b>${esc(x.ns)}</b>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">Consultar fuente ↗</a>` : ""}</div><dl class="dl-fxg">${fila("Nombre oficial", x.of)}${fila("Tipo de fuente", x.tf)}${fila("Forma de consulta o descarga", x.forma)}${fila("Tipo de archivo", x.arch)}${fila("Tipo de levantamiento", x.lev)}${x.perS ? `<div><dt>Periodicidad de los datos</dt><dd data-per-s>Se muestra al cargar la serie…</dd></div>` : fila("Periodicidad de los datos", x.per)}${fila("Periodicidad de actualización", x.act)}${fila("Nivel geográfico del dato", x.geo)}${fila("Estructura temporal y espacial", x.dim)}${fila("Formato técnico", x.fmt)}</dl></div>`;
@@ -378,7 +381,7 @@
     return `<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}</h2></div>
       <div class="dl-ixt"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <p class="dl-lead">${esc(i.d)}</p>
-      <dl class="dl-kf">${kf("Periodicidad de los datos", O.ext.some(x => x.perS) ? `<span data-per-s>Se muestra al cargar la serie…</span>` : uq("per"))}${kf("Forma de consulta o descarga", uq("forma"))}${kf("Tipo de fuente", uq("tf"))}${kf("Familia de fuente (clic para filtrar)", `<div class="dl-ch">${fam}</div>`)}${kf("Tipo de levantamiento", uq("lev"))}${kf("Nivel geográfico", O.amb ? `<span class="dl-b amb">${AMB_T[O.amb[0]]}</span><small>${esc(O.amb[1])}</small>${!O.geoIgual && O.ext.some(x => x.geo) ? `<small><b>Dato de origen:</b> ${[...new Set(O.ext.map(x => x.geo).filter(Boolean))].slice(0, 3).map(esc).join("; ")}</small>` : ""}` : "—")}${kf("Clasificación del indicador", `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>`)}${kf("¿Queda guardado?", gC ? `<span class="dl-b gua-${gC}">${GUA_T[gC]}</span>` : "—")}</dl>
+      <dl class="dl-kf">${kf("Origen del dato", `<span class="dl-b ${O.et[1]}">${O.et[0]}</span>`)}${kf("Periodicidad de los datos", O.ext.some(x => x.perS) ? `<span data-per-s>Se muestra al cargar la serie…</span>` : uq("per"))}${kf("Forma de consulta o descarga", uq("forma"))}${kf("Tipo de fuente", uq("tf"))}${kf("Familia de fuente (clic para filtrar)", `<div class="dl-ch">${fam}</div>`)}${kf("Tipo de levantamiento", uq("lev"))}${kf("Nivel geográfico", O.amb ? `<span class="dl-b amb">${AMB_T[O.amb[0]]}</span><small>${esc(O.amb[1])}</small>${!O.geoIgual && O.ext.some(x => x.geo) ? `<small><b>Dato de origen:</b> ${[...new Set(O.ext.map(x => x.geo).filter(Boolean))].slice(0, 3).map(esc).join("; ")}</small>` : ""}` : "—")}${kf("Clasificación del indicador", `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>`)}${kf("¿Queda guardado?", gC ? `<span class="dl-b gua-${gC}">${GUA_T[gC]}</span>` : "—")}</dl>
       ${sec("Vista previa", "cómo se ve el dato", previaI(i) + bloqueGeo(i))}
       ${sec("Cómo se calcula", "metodología, fórmula y variables", `<div class="wide"><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${varsH}`)}
       ${sec("De dónde viene", "origen y fuentes", O.origen + O.fuentes)}
@@ -390,7 +393,7 @@
   function cambiaI(k, v) { S2[k] = v; if (k === "cat" && S2.enf && !(CATI.find(c => c.id === v) || { an: [] }).an.some(e => e.id === S2.enf) && v) S2.enf = ""; indicadores(); }
   function clicI(e) {
     const t = e.target, x = t.closest("[data-ix]"); if (x) { S2[x.dataset.ix] = ""; indicadores(); return; }
-    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = S2.din = S2.gua = S2.amb = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => S2.aE.add(en.id)); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); listaI(); } else if (k === "raiz") selI(null); return; }
+    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = S2.din = S2.gua = S2.amb = S2.odat = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => S2.aE.add(en.id)); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); listaI(); } else if (k === "raiz") selI(null); return; }
     const eb = t.closest("[data-eco]"); if (eb) { try { parent.postMessage({ gl: "eco-go", go: eb.dataset.eco }, location.origin); } catch (_) { } return; }
     const pb = t.closest("[data-dl-pub]"); if (pb) { publica(pb.dataset.dlPub); return; }
     const del = t.closest("[data-dl-del]"); if (del) { eliminaCreado(del.dataset.dlDel); return; }
@@ -613,7 +616,7 @@
     try {
       const j = await api("/geometrika/datalab/indicadores", { n: f.n, d: f.d, u: f.u, tipo: f.tipo, res: f.res, periodicidad: f.periodicidad, objetivo: f.objetivo, m: f.m, f: f.f, cat: f.cat, enf: f.enf, enfNuevo: f.enfNuevo, unidad: f.unidad, radio: f.radio, alcance: f.alcance, visual: f.visual, clasif: f.clasif, sentido: f.sentido, umbralVerde: f.umbralVerde, umbralAmbar: f.umbralAmbar, comoSeVera: f.comoSeVera, receta: f.receta, estado: f.estado, responsable: f.responsable, vars: f.vars, pasos: f.pasos, supuestos: f.supuestos, limitaciones: f.limitaciones, faltantes: f.faltantes, dificultad: f.dificultad, instrucciones: W.texto, metodologiaTitulo: f.titulo });
       CRE.push(j.item); mezcla(); W.guardando = false; Object.assign(W, { abierto: false, paso: 1, res: "", texto: "", sel: new Map(), q: "", props: null, prop: null, f: {}, error: "" }); pintaDr();
-      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = S2.din = S2.gua = S2.amb = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.sel = { t: "i", k: j.item.enf + ":" + j.item.id }; indicadores();
+      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = S2.din = S2.gua = S2.amb = S2.odat = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.sel = { t: "i", k: j.item.enf + ":" + j.item.id }; indicadores();
       setTimeout(() => { const r = host.querySelector(`tr[data-ir="${j.item.enf}:${j.item.id}"]`); if (r) r.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
       toast("Indicador creado: " + j.item.n + ". Ya aparece en Indicadores y en Fuente de datos.", 6000);
     } catch (e) { W.guardando = false; W.error = e.message; pintaDr(); const b = $("#dlDb", host); if (b) b.scrollTop = b.scrollHeight; }
