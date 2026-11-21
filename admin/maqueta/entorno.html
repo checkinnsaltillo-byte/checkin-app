@@ -4630,17 +4630,19 @@ const indSnap = () => IND_KEYS().map(([o, ks]) => ks.map(k => o[k])), indPut = s
 const indVacio = () => [[undefined], [null, null, ''], [null, '', null, '', null], [null, null, ''], [null, null], [[], [], 8, new Date().getDay()], [null], [{}], [[]]];
 /* ── Historial de indicadores por proyecto: cada lectura distinta de un indicador queda guardada como una versión (servidor: geometrika/indhist/<id>.json).
       Si la consulta en vivo no trae dato, se muestra la última versión guardada, con su fecha. Así el proyecto siempre tiene información. ── */
-const INDH = { d: {}, st: {}, p: {}, q: {}, t: {} };   /* d[id] = { "enfoque:indicador": { v: [versiones], viz } } · st[id]: 1 cargando, 2 listo · q[id]: lecturas por guardar */
+const INDH = { d: {}, st: {}, p: {}, q: {}, t: {}, s: {}, toc: {} };   /* d[id] = { "enfoque:indicador": { v: [versiones], viz } } · st[id]: 1 cargando, 2 listo · q[id]: lecturas por guardar */
 const indHFecha = s => { try { return new Date(s).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (_) { return String(s || ''); } };
 function indHCarga(id) {
   id = String(id || ''); if (!id) return Promise.resolve(); if (INDH.p[id]) return INDH.p[id]; INDH.st[id] = 1;
   return INDH.p[id] = fetch(`https://api.check-inn.mx/mercado/maqueta/indhist?id=${encodeURIComponent(id)}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (!j || !j.ok) throw new Error('sin historial'); INDH.d[id] = j.ind || {}; INDH.st[id] = 2; try { indRender(); } catch (_) { } })
     .catch(() => { INDH.st[id] = 0; setTimeout(() => { delete INDH.p[id]; }, 60000); });   /* si falla, se reintenta más tarde; mientras tanto no se guarda nada (para no duplicar versiones) */
 }
-function indHEnvia(id) { const p = INDH.q[id]; if (!p || !Object.keys(p).length) return; INDH.q[id] = {}; fetch('https://api.check-inn.mx/mercado/maqueta/indhist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ind: p }) }).catch(() => { }); }
+function indHEnvia(id) { const p = INDH.q[id]; if (!p || !Object.keys(p).length) return; INDH.q[id] = {}; fetch('https://api.check-inn.mx/mercado/maqueta/indhist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id, ind: p }, INDH.s[id] || {})) }).catch(() => { }); }
 /* aplica el historial a una lista de indicadores ya calculada: guarda las lecturas nuevas y rellena con la última versión los que quedaron sin dato */
-function indH(id, L, guardar) {
-  id = String(id || ''); if (!id || !L) return L; if (!INDH.p[id]) indHCarga(id); const H = INDH.d[id]; if (!H) return L; const ahora = Date.now();
+function indH(id, L, guardar, S) {
+  id = String(id || ''); if (!id || !L) return L; if (S && isFinite(+S.lat) && isFinite(+S.lng)) INDH.s[id] = { lat: +S.lat, lng: +S.lng }; if (!INDH.p[id]) indHCarga(id); const H = INDH.d[id]; if (!H) return L; const ahora = Date.now();
+  /* una vez por sesión se avisa al servidor que el proyecto está en uso y dónde está: con eso la captura automática diaria lo sigue */
+  if (INDH.st[id] === 2 && INDH.s[id] && !INDH.toc[id]) { INDH.toc[id] = 1; fetch('https://api.check-inn.mx/mercado/maqueta/indhist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id, ind: {} }, INDH.s[id])) }).catch(() => { }); }
   L.forEach(c => c.an.forEach(e => e.ind.forEach(i => {
     const k = e.id + ':' + i.id, r = i.r; if (!r) return; const o = H[k], u = o && o.v && o.v[o.v.length - 1];
     if (r.sem === 'na') { if (u) i.r = { val: u.val, unit: u.unit, viz: o.viz || '<div class="ind-na">guardado</div>', sem: u.sem, msg: `${u.msg}<em class="ind-hv"> · dato guardado el ${indHFecha(u.visto || u.at)}; ahora no hay lectura en vivo</em>`, _h: 1 }; return; }
@@ -4656,7 +4658,7 @@ function indH(id, L, guardar) {
 /* versiones guardadas de un indicador, para su detalle */
 function indHHtml(id, k) {
   const o = (INDH.d[String(id)] || {})[k], V = o && o.v ? o.v.slice().reverse() : []; if (!V.length) return '';
-  return `<div class="ind-cap">Versiones guardadas (${V.length})</div><div class="ind-hl">${V.slice(0, 12).map(v => `<div><span>${indHFecha(v.at)}</span><b style="color:${(IND_SEM[v.sem] || IND_SEM.info)[0]}">${v.val} <em>${v.unit}</em></b><p>${v.msg}</p></div>`).join('')}${V.length > 12 ? `<div class="ind-hm">y ${V.length - 12} versiones anteriores</div>` : ''}</div>`;
+  return `<div class="ind-cap">Versiones guardadas (${V.length})</div><div class="ind-hl">${V.slice(0, 12).map(v => `<div><span>${indHFecha(v.at)}${v.auto ? ' <i class="ind-ha" title="Captura automática diaria">auto</i>' : ''}</span><b style="color:${(IND_SEM[v.sem] || IND_SEM.info)[0]}">${v.val} <em>${v.unit}</em></b><p>${v.msg}</p></div>`).join('')}${V.length > 12 ? `<div class="ind-hm">y ${V.length - 12} versiones anteriores</div>` : ''}</div>`;
 }
 function evalLst() { const L = indLista(); L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { try { i.r = i.calc(); } catch (_) { i.r = indNA('No se pudo calcular.'); } i.vars.forEach(v => { try { v.vv = v.v(); } catch (_) { v.vv = '—'; } }); }))); return L; }
 // carga y evalúa todos los indicadores de una maqueta secundaria sin tocar el estado de la principal: primero se descargan los datos y luego, en un bloque síncrono, se cambia el contexto, se calcula y se restaura
@@ -4676,13 +4678,13 @@ async function indCargaSec(c) {
       paso('origen/destino', () => { OD.d = D.od; });
       paso('tráfico', () => { if (D.tf && D.tf.vias && D.tf.vias.length) { TF.vias = D.tf.vias.map(v => ({ v, horas: v.horas || D.tf.horas || [] })); TF.horas = [...new Set(TF.vias.flatMap(x => x.horas))].sort((a, b) => a - b); const hh = new Date().getHours(); TF.hora = TF.horas.length ? TF.horas.reduce((b, h) => Math.abs(h - hh) < Math.abs(b - hh) ? h : b, TF.horas[0]) : 8; } });
       paso('fricción', () => { if (D.fr && !FR.mode && !RT.on) { FR.B = frConstruir(D.fr, S); FR.res = frEscena(FR.B, 1); frDisp(); } });
-      c.lst = indH(id, evalLst(), true);
+      c.lst = indH(id, evalLst(), true, S);
     } finally { c.st = indSnap(); indPut(sv); window.__curS = sS[0]; curS = sS[1]; window.__IDO = sS[2]; }
   } catch (e) { c.err = e.message || 'error'; }
   c.busy = 0; indRender();
 }
 function indColumnas() {
-  const S = solS(), cols = [{ id: pid(), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: indH(pid(), evalLst(), !INDX.busy) }];
+  const S = solS(), cols = [{ id: pid(), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: indH(pid(), evalLst(), !INDX.busy, S) }];
   MQ.sel.forEach((q, id) => { if (!q.g) return; const c = INDX.cols.get(id) || {}; INDX.cols.set(id, c); Object.assign(c, { id, titulo: (MQ.items.find(x => x.id === id) || {}).titulo || id, S: q.S }); cols.push(c); });
   [...INDX.cols.keys()].forEach(k => { if (!MQ.sel.has(k) || !MQ.sel.get(k).g) INDX.cols.delete(k); }); return cols;
 }
@@ -4854,7 +4856,7 @@ function indRender() {
 function indOnMq() { const w = $('pw-ind'); if (!w || !w.classList.contains('on')) return; indRender(); [...INDX.cols.values()].forEach(c => { if (!c.lst && !c.busy && !c.err) indCargaSec(c); }); }
 function indRender1() {
   const S = solS();
-  const cats = indLista(), lst = cats.flatMap(c => c.an), tot = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; lst.forEach(e => e.ind.forEach(i => { i.r = i.calc(); })); indH(pid(), cats, !INDX.busy); lst.forEach(e => e.ind.forEach(i => { tot[i.r.sem]++; }));
+  const cats = indLista(), lst = cats.flatMap(c => c.an), tot = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; lst.forEach(e => e.ind.forEach(i => { i.r = i.calc(); })); indH(pid(), cats, !INDX.busy, S); lst.forEach(e => e.ind.forEach(i => { tot[i.r.sem]++; }));
   const n = lst.reduce((a, e) => a + e.ind.length, 0), tn = IND_SEM, op = k => INDX.open.has(k) ? ' open' : '', dot = s => `<i class="ind-dot ${s}" style="--c:${tn[s][0]}"></i>`;
   const resumen = `<div class="ind-sum"><div class="ind-sumh"><b>${n}</b> indicadores · <b>${tot.bad}</b> alertas · <b>${tot.warn}</b> en atención · <b>${tot.ok}</b> favorables · <b>${tot.info}</b> informativos${tot.na ? ' · <b>' + tot.na + '</b> sin datos' : ''}</div><div class="ind-stack">${['bad', 'warn', 'ok', 'info', 'na'].filter(s => tot[s]).map(s => `<i style="flex:${tot[s]};background:${tn[s][0]}" title="${tn[s][1]}: ${tot[s]}"></i>`).join('')}</div></div>`;
   const tree = (k, head, body) => `<div class="ind-n${op(k)}" data-k="${k}"><div class="ind-h">${head}<span class="ind-ch">▾</span></div><div class="ind-b"><div>${body}</div></div></div>`;
@@ -4884,7 +4886,7 @@ async function indCarga() {
 {
   if (!$('ind-css')) { const st = document.createElement('style'); st.id = 'ind-css'; st.textContent = `
   @property --p{syntax:'<number>';inherits:false;initial-value:0}
-  .ind-hv{font-style:normal;font-weight:600;color:#b45309}
+  .ind-hv{font-style:normal;font-weight:600;color:#b45309}.ind-ha{font-style:normal;font-size:9.5px;font-weight:800;color:#3730a3;background:#e0e7ff;padding:1px 6px;border-radius:99px;margin-left:4px}
   .ind-hl{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}.ind-hl>div{display:grid;grid-template-columns:150px minmax(70px,auto) 1fr;gap:4px 12px;align-items:baseline;padding:5px 2px;border-top:1px solid #eef2f7;font-size:11.5px}.ind-hl>div>span{color:#64748b;white-space:nowrap}.ind-hl>div>b{font-weight:800;white-space:nowrap}.ind-hl>div>b em{font-style:normal;font-weight:500;color:#64748b}.ind-hl>div>p{margin:0;color:#475569;min-width:0}.ind-hl .ind-hm{display:block;color:#94a3b8;font-size:11px;padding:5px 2px}
   #pw-ind{width:640px;max-width:94vw}
   .ind-colh{display:grid;grid-template-columns:minmax(130px,1.05fr) repeat(var(--x),minmax(0,1fr));gap:8px;position:sticky;top:-10px;z-index:4;background:linear-gradient(135deg,#0f172a,#1e293b);color:#e2e8f0;border-radius:14px;padding:10px 12px;margin:-2px 0 10px;box-shadow:0 8px 22px rgba(15,23,42,.22)}
