@@ -6,8 +6,8 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Geo Lab · Data Lab · EconoLab · Media Lab</title>
 <link rel="icon" href="geometrika-logo.png?v=2409">
-<link rel="stylesheet" href="geometrika.css?v=2517">
-<script>window.__gpV="2517";</script>
+<link rel="stylesheet" href="geometrika.css?v=2518">
+<script>window.__gpV="2518";</script>
 <script>if(/[?&]emb=1/.test(location.search))document.documentElement.classList.add("emb");</script>
 <style>
 html.emb,html.emb body{background:transparent!important}
@@ -173,7 +173,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <input type="password" id="gpPass" placeholder="Contraseña" autocomplete="current-password" autofocus>
         <p class="gp-err" id="gpErr"></p>
         <button type="button" id="gpGo">Entrar a Geo Lab</button>
-        <div class="gp-v">v.Beta.2517 · Check Inn</div>
+        <div class="gp-v">v.Beta.2518 · Check Inn</div>
       </div>
     </div>
     <div class="gp-card eco" data-sys="eco">
@@ -265,7 +265,7 @@ function gpAbre(sys) {
     gpCarga("datalab-fuentes.js?v=d22e47bc", () => gpCarga("datalab-indicadores.js?v=d22e47bc", () => gpCarga("datalab-inegi.js?v=d22e47bc", () => gpCarga("datalab-geo.js?v=d22e47bc", () => gpCarga("datalab.js?v=d22e47bc", () => window.datalabInit && window.datalabInit())))));
   } else {
     document.getElementById("geometrika-host").style.display = "";
-    gpCarga("geometrika.js?v=2517", () => window.geometrikaInit && window.geometrikaInit());
+    gpCarga("geometrika.js?v=2518", () => window.geometrikaInit && window.geometrikaInit());
   }
 }
 async function gpEntra(sys) {
