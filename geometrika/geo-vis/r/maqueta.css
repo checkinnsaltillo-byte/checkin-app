@@ -953,6 +953,9 @@ html.tema-osc #pd-calc { background: rgb(79, 70, 229); border-color: rgb(79, 70,
   0% { transform: scaleY(0); }
 }
 .ind-spark { width: 88px; height: 40px; }
+.ind-sph:hover { fill: rgba(15, 23, 42, 0.08); }
+.ind-cols i:hover { opacity: 1; filter: brightness(0.82); }
+.ind-cols, .ind-spark { cursor: help; }
 .ind-spark polyline { stroke-dasharray: 100; animation: 1.2s ease-out 0s 1 normal both running ind-dash; }
 @keyframes ind-dash { 
   0% { stroke-dashoffset: 100; }
