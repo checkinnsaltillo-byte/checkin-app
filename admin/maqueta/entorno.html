@@ -4628,12 +4628,42 @@ async function indNuevos(id, S) {
 const IND_KEYS = () => [[SOL, ['amb']], [GEO, ['st', 'cv', 'key']], [INU, ['d', 'dk', 'net', 'key', 'ev']], [URB, ['ser', 'suelo', 'key']], [FR, ['B', 'res']], [TF, ['vias', 'horas', 'hora', 'dia']], [OD, ['d']], [COB, ['res']], [RT, ['routes']]];
 const indSnap = () => IND_KEYS().map(([o, ks]) => ks.map(k => o[k])), indPut = sn => IND_KEYS().forEach(([o, ks], i) => ks.forEach((k, j) => { o[k] = sn[i][j]; }));
 const indVacio = () => [[undefined], [null, null, ''], [null, '', null, '', null], [null, null, ''], [null, null], [[], [], 8, new Date().getDay()], [null], [{}], [[]]];
+/* ── Historial de indicadores por proyecto: cada lectura distinta de un indicador queda guardada como una versión (servidor: geometrika/indhist/<id>.json).
+      Si la consulta en vivo no trae dato, se muestra la última versión guardada, con su fecha. Así el proyecto siempre tiene información. ── */
+const INDH = { d: {}, st: {}, p: {}, q: {}, t: {} };   /* d[id] = { "enfoque:indicador": { v: [versiones], viz } } · st[id]: 1 cargando, 2 listo · q[id]: lecturas por guardar */
+const indHFecha = s => { try { return new Date(s).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (_) { return String(s || ''); } };
+function indHCarga(id) {
+  id = String(id || ''); if (!id) return Promise.resolve(); if (INDH.p[id]) return INDH.p[id]; INDH.st[id] = 1;
+  return INDH.p[id] = fetch(`https://api.check-inn.mx/mercado/maqueta/indhist?id=${encodeURIComponent(id)}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (!j || !j.ok) throw new Error('sin historial'); INDH.d[id] = j.ind || {}; INDH.st[id] = 2; try { indRender(); } catch (_) { } })
+    .catch(() => { INDH.st[id] = 0; setTimeout(() => { delete INDH.p[id]; }, 60000); });   /* si falla, se reintenta más tarde; mientras tanto no se guarda nada (para no duplicar versiones) */
+}
+function indHEnvia(id) { const p = INDH.q[id]; if (!p || !Object.keys(p).length) return; INDH.q[id] = {}; fetch('https://api.check-inn.mx/mercado/maqueta/indhist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ind: p }) }).catch(() => { }); }
+/* aplica el historial a una lista de indicadores ya calculada: guarda las lecturas nuevas y rellena con la última versión los que quedaron sin dato */
+function indH(id, L, guardar) {
+  id = String(id || ''); if (!id || !L) return L; if (!INDH.p[id]) indHCarga(id); const H = INDH.d[id]; if (!H) return L; const ahora = Date.now();
+  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => {
+    const k = e.id + ':' + i.id, r = i.r; if (!r) return; const o = H[k], u = o && o.v && o.v[o.v.length - 1];
+    if (r.sem === 'na') { if (u) i.r = { val: u.val, unit: u.unit, viz: o.viz || '<div class="ind-na">guardado</div>', sem: u.sem, msg: `${u.msg}<em class="ind-hv"> · dato guardado el ${indHFecha(u.visto || u.at)}; ahora no hay lectura en vivo</em>`, _h: 1 }; return; }
+    if (!guardar || INDH.st[id] !== 2 || String(r.val) === '—' || !String(r.val).replace(/<[^>]*>/g, '').trim()) return;
+    const val = String(r.val), unit = String(r.unit || ''), msg = String(r.msg || '');
+    if (u && ((u.val === val && u.unit === unit && u.msg === msg) || ahora - new Date(u.at).getTime() < 300000)) return;   /* misma lectura, o una versión de hace menos de 5 minutos */
+    const viz = String(r.viz || ''); (INDH.q[id] = INDH.q[id] || {})[k] = { val, unit, sem: r.sem, msg, viz: viz.length <= 6000 ? viz : '' };
+    const o2 = H[k] || (H[k] = { v: [] }); o2.v.push({ at: new Date(ahora).toISOString(), val, unit, sem: r.sem, msg }); o2.viz = viz;
+    clearTimeout(INDH.t[id]); INDH.t[id] = setTimeout(() => indHEnvia(id), 4000);
+  })));
+  return L;
+}
+/* versiones guardadas de un indicador, para su detalle */
+function indHHtml(id, k) {
+  const o = (INDH.d[String(id)] || {})[k], V = o && o.v ? o.v.slice().reverse() : []; if (!V.length) return '';
+  return `<div class="ind-cap">Versiones guardadas (${V.length})</div><div class="ind-hl">${V.slice(0, 12).map(v => `<div><span>${indHFecha(v.at)}</span><b style="color:${(IND_SEM[v.sem] || IND_SEM.info)[0]}">${v.val} <em>${v.unit}</em></b><p>${v.msg}</p></div>`).join('')}${V.length > 12 ? `<div class="ind-hm">y ${V.length - 12} versiones anteriores</div>` : ''}</div>`;
+}
 function evalLst() { const L = indLista(); L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { try { i.r = i.calc(); } catch (_) { i.r = indNA('No se pudo calcular.'); } i.vars.forEach(v => { try { v.vv = v.v(); } catch (_) { v.vv = '—'; } }); }))); return L; }
 // carga y evalúa todos los indicadores de una maqueta secundaria sin tocar el estado de la principal: primero se descargan los datos y luego, en un bloque síncrono, se cambia el contexto, se calcula y se restaura
 async function indCargaSec(c) {
   if (c.busy) return; c.busy = 1; c.err = ''; indRender(); const S = c.S, id = c.id, B = 'https://api.check-inn.mx/mercado/', J = u => fetch(B + u, { cache: 'no-store' }).then(r => r.json()).catch(() => null), D = {};
   try {
-    try { await mlIndCarga(S); } catch (_) { } try { await eclIndCarga(); } catch (_) { }
+    try { await mlIndCarga(S); } catch (_) { } try { await eclIndCarga(); } catch (_) { } try { await indHCarga(id); } catch (_) { }
     const [am, td, od, jf] = await Promise.all([J(`airbnb/ambiente/dato?id=${id}`), J(`trafico?id=${id}`), J(`maqueta/od?id=${id}`), J(`maqueta/friccion?id=${id}`)]); D.amb = am && am.ambiente || null; D.tf = td && td.ok && td.doc; D.od = od && od.od || null; D.fr = jf && jf.ok ? jf.f : null;
     try { await indNuevos(id, S); } catch (_) { } try { await solCarga(S); } catch (_) { } try { D.dem = await inuDem(S); } catch (_) { } try { D.ser = await urbSerie(S); } catch (_) { } try { D.suelo = await urbSueloGet(S); } catch (_) { }
     const sv = indSnap(), sS = [window.__curS, curS, window.__IDO]; indPut(c.st || indVacio()); window.__curS = S; curS = S; window.__IDO = id;
@@ -4646,13 +4676,13 @@ async function indCargaSec(c) {
       paso('origen/destino', () => { OD.d = D.od; });
       paso('tráfico', () => { if (D.tf && D.tf.vias && D.tf.vias.length) { TF.vias = D.tf.vias.map(v => ({ v, horas: v.horas || D.tf.horas || [] })); TF.horas = [...new Set(TF.vias.flatMap(x => x.horas))].sort((a, b) => a - b); const hh = new Date().getHours(); TF.hora = TF.horas.length ? TF.horas.reduce((b, h) => Math.abs(h - hh) < Math.abs(b - hh) ? h : b, TF.horas[0]) : 8; } });
       paso('fricción', () => { if (D.fr && !FR.mode && !RT.on) { FR.B = frConstruir(D.fr, S); FR.res = frEscena(FR.B, 1); frDisp(); } });
-      c.lst = evalLst();
+      c.lst = indH(id, evalLst(), true);
     } finally { c.st = indSnap(); indPut(sv); window.__curS = sS[0]; curS = sS[1]; window.__IDO = sS[2]; }
   } catch (e) { c.err = e.message || 'error'; }
   c.busy = 0; indRender();
 }
 function indColumnas() {
-  const S = solS(), cols = [{ id: pid(), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: evalLst() }];
+  const S = solS(), cols = [{ id: pid(), titulo: S.tit || S.titulo || 'Principal', principal: 1, lst: indH(pid(), evalLst(), !INDX.busy) }];
   MQ.sel.forEach((q, id) => { if (!q.g) return; const c = INDX.cols.get(id) || {}; INDX.cols.set(id, c); Object.assign(c, { id, titulo: (MQ.items.find(x => x.id === id) || {}).titulo || id, S: q.S }); cols.push(c); });
   [...INDX.cols.keys()].forEach(k => { if (!MQ.sel.has(k) || !MQ.sel.get(k).g) INDX.cols.delete(k); }); return cols;
 }
@@ -4811,7 +4841,7 @@ function indRenderN(cols) {
       return tree('e:' + e.id, `<span class="ind-ico">${e.ico}</span><span class="ind-t"><b>${e.n}</b><small>${e.d}</small></span><span class="ind-dots">${cols.map(c => dot(worst(c, ci, ai))).join('')}</span>`, its.map(({ i, ii }) => {
         const ws = ['bad', 'warn', 'ok', 'info'].find(s => cols.some(c => { const q = at(c, ci, ai, ii); return q && q.r.sem === s; })) || 'na';
         const vars = i.vars.map((v, vi) => tree(`v:${e.id}:${i.id}:${vi}`, `<div class="ind-vrow" ${st}><span class="ind-t"><span class="ind-lv">Variable</span> <b>${v.n}</b></span>${cols.map(c => { const q = at(c, ci, ai, ii), vv = q && q.vars[vi] ? q.vars[vi].vv : '—'; return `<span class="ind-vc">${vv} <em>${v.u}</em></span>`; }).join('')}</div>`, `<div class="ind-meta"><p>${v.d}</p><p><span>Unidades</span> ${v.u} · <span>Fuente</span> ${v.f}</p></div>${v.tr.length ? `<div class="ind-cap">Transformaciones (${v.tr.length})</div>` + v.tr.map(t => `<div class="ind-tr"><span class="ind-lv t">Transformación</span><b>${t.n}</b><p>${t.d}</p><code>${t.f}</code></div>`).join('') : '<div class="ind-cap">Sin transformaciones: dato directo de la fuente</div>'}`)).join('');
-        return tree(`i:${e.id}:${i.id}`, `<div class="ind-row w-${ws}" ${st}><div class="ind-c1"><b>${i.n}</b><span class="ind-tp t-${i.tipo.split(' ')[0]}">${i.tipo}</span></div>${celdas(i, ci, ai, ii)}</div>`, `<div class="ind-meta"><p>${i.d}</p><p><span>Unidades</span> ${i.u}</p><p><span>Metodología</span> ${i.m}</p><code>${i.f}</code></div><div class="ind-cap">Variables (${i.vars.length})</div><div class="ind-tree">${vars}</div>`); }).join('')); }).join('');
+        return tree(`i:${e.id}:${i.id}`, `<div class="ind-row w-${ws}" ${st}><div class="ind-c1"><b>${i.n}</b><span class="ind-tp t-${i.tipo.split(' ')[0]}">${i.tipo}</span></div>${celdas(i, ci, ai, ii)}</div>`, `<div class="ind-meta"><p>${i.d}</p><p><span>Unidades</span> ${i.u}</p><p><span>Metodología</span> ${i.m}</p><code>${i.f}</code></div><div class="ind-cap">Variables (${i.vars.length})</div><div class="ind-tree">${vars}</div>${indHHtml(pid(), e.id + ':' + i.id)}`); }).join('')); }).join('');
     if (!ens) return ''; return tree('c:' + cat.id, `<span class="ind-ico c">${cat.ico}</span><span class="ind-t"><b>${cat.n}</b><small>${cat.d}</small></span><span class="ind-dots">${cols.map(c => dot(worst(c, ci))).join('')}</span>`, ens); }).join('');
   pwSet('ind', head + (html || '<div style="font-size:11.5px;color:#16a34a;padding:8px 0">Sin indicadores en atención ni en alerta.</div>'));
 }
@@ -4824,14 +4854,14 @@ function indRender() {
 function indOnMq() { const w = $('pw-ind'); if (!w || !w.classList.contains('on')) return; indRender(); [...INDX.cols.values()].forEach(c => { if (!c.lst && !c.busy && !c.err) indCargaSec(c); }); }
 function indRender1() {
   const S = solS();
-  const cats = indLista(), lst = cats.flatMap(c => c.an), tot = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; lst.forEach(e => e.ind.forEach(i => { i.r = i.calc(); tot[i.r.sem]++; }));
+  const cats = indLista(), lst = cats.flatMap(c => c.an), tot = { ok: 0, warn: 0, bad: 0, info: 0, na: 0 }; lst.forEach(e => e.ind.forEach(i => { i.r = i.calc(); })); indH(pid(), cats, !INDX.busy); lst.forEach(e => e.ind.forEach(i => { tot[i.r.sem]++; }));
   const n = lst.reduce((a, e) => a + e.ind.length, 0), tn = IND_SEM, op = k => INDX.open.has(k) ? ' open' : '', dot = s => `<i class="ind-dot ${s}" style="--c:${tn[s][0]}"></i>`;
   const resumen = `<div class="ind-sum"><div class="ind-sumh"><b>${n}</b> indicadores · <b>${tot.bad}</b> alertas · <b>${tot.warn}</b> en atención · <b>${tot.ok}</b> favorables · <b>${tot.info}</b> informativos${tot.na ? ' · <b>' + tot.na + '</b> sin datos' : ''}</div><div class="ind-stack">${['bad', 'warn', 'ok', 'info', 'na'].filter(s => tot[s]).map(s => `<i style="flex:${tot[s]};background:${tn[s][0]}" title="${tn[s][1]}: ${tot[s]}"></i>`).join('')}</div></div>`;
   const tree = (k, head, body) => `<div class="ind-n${op(k)}" data-k="${k}"><div class="ind-h">${head}<span class="ind-ch">▾</span></div><div class="ind-b"><div>${body}</div></div></div>`;
   const enfHtml = e => { const its = e.ind.filter(i => !INDX.only || ['warn', 'bad'].includes(i.r.sem)); if (!its.length) return ''; const cs = { bad: 0, warn: 0, ok: 0 }; e.ind.forEach(i => { if (cs[i.r.sem] != null) cs[i.r.sem]++; }); const worst = cs.bad ? 'bad' : cs.warn ? 'warn' : e.ind.some(i => i.r.sem === 'ok') ? 'ok' : 'info';
     return tree('e:' + e.id, `<span class="ind-ico">${e.ico}</span><span class="ind-t"><b>${e.n}</b><small>${e.d}</small></span><span class="ind-cnt">${dot(worst)}${e.ind.length}</span>`, its.map(i => { const r = i.r, sc = tn[r.sem][0];
       const vars = i.vars.map((v, vi) => tree(`v:${e.id}:${i.id}:${vi}`, `<span class="ind-lv">Variable</span><span class="ind-t"><b>${v.n}</b></span><span class="ind-vv">${v.v()} <em>${v.u}</em></span>`, `<div class="ind-meta"><p>${v.d}</p><p><span>Unidades</span> ${v.u} · <span>Fuente</span> ${v.f}</p></div>${v.tr.length ? `<div class="ind-cap">Transformaciones (${v.tr.length})</div>` + v.tr.map(t => `<div class="ind-tr"><span class="ind-lv t">Transformación</span><b>${t.n}</b><p>${t.d}</p><code>${t.f}</code></div>`).join('') : '<div class="ind-cap">Sin transformaciones: dato directo de la fuente</div>'}`)).join('');
-      return tree(`i:${e.id}:${i.id}`, `<div class="ind-card" style="--c:${sc}"><div class="ind-c1"><b>${i.n}</b><span class="ind-tp t-${i.tipo.split(' ')[0]}">${i.tipo}</span></div><div class="ind-c2"><b>${r.val}</b><small>${r.unit}</small></div><div class="ind-c3">${r.viz}</div><div class="ind-c4 ${r.sem}">${dot(r.sem)}<span><b>${tn[r.sem][1]}</b>${r.msg}</span></div>${r.box || ''}</div><span class="ind-ch">▾</span>`, `<div class="ind-meta"><p>${i.d}</p><p><span>Unidades</span> ${i.u}</p><p><span>Metodología</span> ${i.m}</p><code>${i.f}</code></div><div class="ind-cap">Variables (${i.vars.length})</div><div class="ind-tree">${vars}</div>`); }).join('')); };
+      return tree(`i:${e.id}:${i.id}`, `<div class="ind-card" style="--c:${sc}"><div class="ind-c1"><b>${i.n}</b><span class="ind-tp t-${i.tipo.split(' ')[0]}">${i.tipo}</span></div><div class="ind-c2"><b>${r.val}</b><small>${r.unit}</small></div><div class="ind-c3">${r.viz}</div><div class="ind-c4 ${r.sem}">${dot(r.sem)}<span><b>${tn[r.sem][1]}</b>${r.msg}</span></div>${r.box || ''}</div><span class="ind-ch">▾</span>`, `<div class="ind-meta"><p>${i.d}</p><p><span>Unidades</span> ${i.u}</p><p><span>Metodología</span> ${i.m}</p><code>${i.f}</code></div><div class="ind-cap">Variables (${i.vars.length})</div><div class="ind-tree">${vars}</div>${indHHtml(pid(), e.id + ':' + i.id)}`); }).join('')); };
   const html = cats.map(c => { const hs = c.an.map(enfHtml).join(''); if (!hs) return ''; const cs = { bad: 0, warn: 0, ok: 0 }; c.an.forEach(e => e.ind.forEach(i => { if (cs[i.r.sem] != null) cs[i.r.sem]++; })); const worst = cs.bad ? 'bad' : cs.warn ? 'warn' : 'ok'; return tree('c:' + c.id, `<span class="ind-ico c">${c.ico}</span><span class="ind-t"><b>${c.n}</b><small>${c.d}</small></span><span class="ind-cnt">${dot(worst)}${c.an.reduce((a, e) => a + e.ind.length, 0)}</span>`, hs); }).join('');
   pwSet('ind', resumen + (html || '<div style="font-size:11.5px;color:#16a34a;padding:8px 0">Sin indicadores en atención ni en alerta con los datos disponibles.</div>'));
 }
@@ -4854,6 +4884,8 @@ async function indCarga() {
 {
   if (!$('ind-css')) { const st = document.createElement('style'); st.id = 'ind-css'; st.textContent = `
   @property --p{syntax:'<number>';inherits:false;initial-value:0}
+  .ind-hv{font-style:normal;font-weight:600;color:#b45309}
+  .ind-hl{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}.ind-hl>div{display:grid;grid-template-columns:150px minmax(70px,auto) 1fr;gap:4px 12px;align-items:baseline;padding:5px 2px;border-top:1px solid #eef2f7;font-size:11.5px}.ind-hl>div>span{color:#64748b;white-space:nowrap}.ind-hl>div>b{font-weight:800;white-space:nowrap}.ind-hl>div>b em{font-style:normal;font-weight:500;color:#64748b}.ind-hl>div>p{margin:0;color:#475569;min-width:0}.ind-hl .ind-hm{display:block;color:#94a3b8;font-size:11px;padding:5px 2px}
   #pw-ind{width:640px;max-width:94vw}
   .ind-colh{display:grid;grid-template-columns:minmax(130px,1.05fr) repeat(var(--x),minmax(0,1fr));gap:8px;position:sticky;top:-10px;z-index:4;background:linear-gradient(135deg,#0f172a,#1e293b);color:#e2e8f0;border-radius:14px;padding:10px 12px;margin:-2px 0 10px;box-shadow:0 8px 22px rgba(15,23,42,.22)}
   .ind-colh>span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;align-self:center}
