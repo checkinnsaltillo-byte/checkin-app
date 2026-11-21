@@ -495,7 +495,7 @@
   // variantes de los dos widgets; cada una aparece solo si los datos del indicador la permiten
   const WVAR = [["w-numero", "Tarjeta de número", () => true], ["w-tendencia", "Número con tendencia", c => !!c.serie], ["w-medidor", "Con medidor", c => c.pw != null], ["w-comparacion", "Lugar entre estados o ciudades", c => !!c.pos], ["w-semaforo", "Semáforo de estado", c => !!c.estTx]];
   const MVAR = [["m-spark", "Con mini-gráfica", c => !!c.serie], ["m-barra", "Con barra", c => c.pw != null], ["m-numero", "Solo número", () => true], ["m-pastilla", "Pastilla de una línea", () => true]];
-  const PVX = { w: false, m: false, g: false }, PVSELW = {}, PVSELM = {}, PVK = { graf: false, meta: false }, PVMETA = {};   // PVK: secciones que abre el widget (gráfica y metadata); arrancan plegadas   // listas de opciones desplegadas (arrancan plegadas) y variante que se está viendo
+  const PVX = { w: false, m: false, g: false }, PVSELW = {}, PVSELM = {}, PVK = { graf: true, meta: false }, PVMETA = {};   // PVK: secciones que abre el widget; la gráfica arranca a la vista y la metadata plegada   // listas de opciones desplegadas (arrancan plegadas) y variante que se está viendo
   // 1) widget tipo KPI (tarjeta al estilo de EconoLab; versión oscura o clara)
   function pvWidget(i, c, va) {
     const d = c.val != null && c.ant != null ? c.val - c.ant : null, e2 = PV.esc2, osc = PVT.osc, AMB = osc ? "#fbbf24" : "#d97706", via = osc ? "rgba(148,163,184,.25)" : "#e2e8f0";
