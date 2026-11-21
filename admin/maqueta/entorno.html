@@ -8712,7 +8712,7 @@ if (window.parent === window) {
   const dlq = new URLSearchParams(location.search).get('dl');
   if (dlq && /^[a-z]+(\.[a-z0-9]*){0,2}$/.test(dlq)) {
     const [w, t, g] = dlq.split('.'), W = ms => new Promise(r => setTimeout(r, ms)); document.body.classList.add('dl-emb');
-    const st = document.createElement('style'); st.textContent = 'body.dl-emb .pwin [data-mv="1"]{display:none!important}'; document.head.appendChild(st);
+    const st = document.createElement('style'); st.textContent = 'body.dl-emb .pwin [data-mv="1"]{display:none!important}body.dl-emb #tt .tt-hd,body.dl-emb #tt .tt-prj,body.dl-emb #tt .tt-pj,body.dl-emb #tt #lab-tabs,body.dl-emb #tt .tt-tools,body.dl-emb #tt #lft-x,body.dl-emb #tt #lft-cg{display:none!important}';   /* sin logotipo, ficha del proyecto ni selector de sistemas: más espacio para los resultados */ document.head.appendChild(st);
     (async () => {
       try {
         for (let i = 0; i < 240 && (!solS() || /%/.test(document.title)); i++) await W(500); await W(2500); if (!PW_DEF[w]) return;
