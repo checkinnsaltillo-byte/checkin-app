@@ -400,3 +400,6 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
   .dl-ixr{flex-wrap:wrap}
 }
 .dl-emb .dl-ix{grid-template-columns:minmax(200px,270px) minmax(0,1fr)}
+/* Indicadores usa todo el ancho de la pantalla */
+.dl-wrap:has(#dlLista2){max-width:none}
+.dl-wrap:has(#dlLista2) .dl-h p,.dl-wrap:has(#dlLista2) .dl-ixd .ds{max-width:none}
