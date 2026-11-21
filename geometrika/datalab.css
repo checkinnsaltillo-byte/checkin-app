@@ -514,3 +514,35 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-pv>h4{scroll-margin-top:120px}
 .dl-pvmeta{margin-top:12px}
 .dl-pv .dl-kf{margin-top:6px}
+/* widget KPI al estilo de EconoLab (oscuro por omisión) y su versión clara */
+.dl-kw{position:relative;display:block;max-width:440px;padding:18px 20px 16px;border-radius:18px;overflow:hidden;color:#cbd5e1;background:radial-gradient(circle at 96% 0%,rgba(45,140,160,.45),transparent 34%),linear-gradient(180deg,#172038,#0f1727);border:1px solid rgba(148,163,184,.18);text-align:left}
+.dl-kw small{display:block;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#94a3b8;padding-right:20px}
+.dl-kw .pt{position:absolute;top:18px;right:18px;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 4px rgba(255,255,255,.06)}
+.dl-kw .v{display:block;font-size:34px;line-height:1.15;font-weight:800;letter-spacing:-.02em;color:#f1f5f9;margin:4px 0 2px}
+.dl-kw .v i{font-style:normal;font-size:.62em;margin-left:5px}
+.dl-kw .v.up{color:#34d399}.dl-kw .v.dn{color:#f87171}.dl-kw .v.am{color:#fbbf24}
+.dl-kw p{margin:3px 0!important;font-size:13px!important;color:#94a3b8!important}.dl-kw p b{color:#e2e8f0;font-weight:700}.dl-kw p em{font-style:normal;opacity:.8}
+.dl-kw .up{color:#34d399;font-weight:700}.dl-kw .dn{color:#f87171;font-weight:700}
+.dl-kw .pill{display:inline-block;margin-top:8px;font-size:12.5px;color:#c7d2fe;background:rgba(99,102,241,.28);padding:4px 12px;border-radius:999px}.dl-kw .pill b{color:#fff}
+.dl-kw .sem{display:inline-block;margin:8px 8px 0 0;font-size:12.5px;font-weight:700;color:#0f172a;background:var(--c);padding:4px 12px;border-radius:999px}
+.dl-kw .vz{margin-top:10px}.dl-kw .vz svg{display:block;width:100%;height:auto}
+.dl-kw .vz.g{display:flex;align-items:center;gap:12px}.dl-kw .vz.g svg{flex:0 0 130px;width:130px}.dl-kw .vz.g span{font-size:12px;color:#94a3b8}.dl-kw .vz.g span b{color:#e2e8f0}
+.dl-kw.w-tendencia{border-top:3px solid #fbbf24}
+.dl-kw.cla{color:#475569;background:#fff;border-color:#e2e8f0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.dl-kw.cla small{color:#64748b}.dl-kw.cla .v{color:#0f172a}.dl-kw.cla .v.up{color:#059669}.dl-kw.cla .v.dn{color:#dc2626}.dl-kw.cla .v.am{color:#b45309}
+.dl-kw.cla p{color:#64748b!important}.dl-kw.cla p b{color:#1e293b}.dl-kw.cla .up{color:#059669}.dl-kw.cla .dn{color:#dc2626}
+.dl-kw.cla .pill{color:#3730a3;background:#e0e7ff}.dl-kw.cla .pill b{color:#1e1b4b}.dl-kw.cla .vz.g span{color:#64748b}.dl-kw.cla .vz.g span b{color:#1e293b}
+.dl-kw.cla.w-tendencia{border-top-color:#d97706}
+.dl-pvc.w .dl-kw{padding:14px 16px;border-radius:14px}.dl-pvc.w .dl-kw .v{font-size:26px}
+/* interruptor de versión oscura / clara */
+.dl-pvs{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.dl-pvtema{margin-left:auto;display:inline-flex;padding:3px;border-radius:999px;background:#e2e8f0}
+.dl-pvtema button{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:#475569;padding:5px 12px;border-radius:999px;transition:background .15s,color .15s}
+.dl-pvtema button.on{background:#0f172a;color:#fff}.dl-pvtema button[data-pvtema="cla"].on{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(15,23,42,.15)}
+.dl-ch{max-width:860px}
+/* la pastilla y el semáforo del widget no heredan el estilo de «etiqueta de sección» */
+.dl-d .in .dl-kw .pill,.dl-d .in .dl-kw .sem{display:inline-block;font-size:12.5px;font-weight:500;letter-spacing:0;text-transform:none;margin:8px 8px 0 0}
+.dl-d .in .dl-kw .pill{color:#c7d2fe}.dl-d .in .dl-kw.cla .pill{color:#3730a3}.dl-d .in .dl-kw .sem{color:#0f172a;font-weight:700}
+.dl-d .in .dl-kw .vz.g span{display:inline;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;color:#94a3b8;margin:0}
+.dl-pvv span{display:inline;gap:0}.dl-pvv>span{display:flex;flex-wrap:wrap;gap:4px}
+.dl-pvv .dl-kw .pill{display:inline-block}
