@@ -8,3 +8,6 @@ body.gv-kpi,body.gv-aux{background:linear-gradient(135deg,#c9d3c0,#b9c4cf)!impor
 body.gv-kpi .kp{opacity:1!important;transform:none!important;visibility:visible!important}
 .gva{position:static!important;margin:0!important;transform:none!important;inset:auto!important;opacity:1!important;visibility:visible!important}
 body.gv-ind{padding:0!important}
+
+/* copia provisional de la columna en Data Lab: sin botones de navegación (vista fija) */
+.gvr .dk-back,.gvr .dk-out{display:none!important}

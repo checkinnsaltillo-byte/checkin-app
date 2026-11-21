@@ -650,3 +650,18 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-flxb .dl-sel select{width:100%;max-width:none;font-size:12px}
 .dl-flxb .dl-ghost{font-size:11.5px;padding:6px 9px}
 .dl-side-top .dl-kpi span{font-size:8.5px;overflow-wrap:anywhere;letter-spacing:-.01em}
+
+/* resultados al instante: copia provisional sobre la columna del menú mientras Geo Lab carga detrás */
+.dl-gvw{position:relative;flex:1 1 100%;width:100%;height:740px}
+.dl-gvw .dl-gvm{width:100%;height:100%}
+.dl-gvph{position:absolute;left:1px;top:1px;bottom:1px;width:404px;max-width:92%;background:#f8fafc;border-right:1px solid #cbd5e1;border-radius:12px 0 0 12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:10px 0 30px rgba(15,23,42,.14)}
+.dl-gvph>iframe{flex:1 1 auto;width:100%;border:0;background:#fff}
+.dl-gvlk{display:flex;align-items:center;gap:8px;margin:8px;padding:8px 11px;border-radius:11px;background:#0f172a;color:#fff;font:700 12px system-ui}
+.dl-gvlk b{font-size:16px}.dl-d .in div .dl-gvlk span,.dl-gvlk span{text-transform:none;letter-spacing:0;color:#fff;font:700 12px system-ui}
+.dl-gvlk small{display:block;font:500 10.5px system-ui;opacity:.75}
+.dl-gvld{position:absolute;left:calc(100% + 14px);top:14px;white-space:nowrap;background:rgba(15,23,42,.86);color:#fff;font:700 12px system-ui;padding:7px 12px;border-radius:999px;display:flex;align-items:center;gap:8px}
+.dl-gvld i{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:dlGvSp .8s linear infinite}
+@keyframes dlGvSp{to{transform:rotate(360deg)}}
+.dl-gvw.ok .dl-gvph{display:none}
+@media (max-width:720px){.dl-gvw{height:620px}}
+.dl-gvph{overflow:visible}.dl-gvph>iframe{border-radius:0 0 0 12px}
