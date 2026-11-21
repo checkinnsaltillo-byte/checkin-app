@@ -58,6 +58,7 @@
           ${glTabs("data")}${EMB ? '<div class="dl-tbar"><button type="button" class="dl-tbtn" id="dlTema"></button></div>' : ""}<div class="dl-side-t">Menú</div>${EMB ? `<button class="dl-nav dl-nav-ind" type="button" data-sec="__ind" title="Indicadores del proyecto de GeoLab"><span class="ic">📋</span><span class="tx">Indicadores del proyecto</span></button><button class="dl-nav dl-nav-ind" type="button" data-sec="__pond" title="Evaluación del proyecto: índice global y peso de cada indicador según el objetivo"><span class="ic">⚖️</span><span class="tx">Evaluación del proyecto</span></button>` : ""}
           <button class="dl-nav on" type="button" data-sec="fuentes" title="Fuente de datos"><span class="ic">🗄️</span><span class="tx">Fuente de datos</span><span class="bd">${tot}</span></button>
           <button class="dl-nav" type="button" data-sec="indicadores" title="Indicadores"><span class="ic">📊</span><span class="tx">Indicadores</span><span class="bd">${INDS_ALL().length}</span></button>
+          <div class="dl-side-top" id="dlTopHost"></div>
           <div class="dl-side-arb" id="dlArbHost"></div>
           <div class="dl-side-f">Data Lab · Check Inn</div>
         </aside>
@@ -73,6 +74,15 @@
     // en pantallas angostas el menú es un cajón: se cierra al elegir una sección
     $("#dlSide", host).addEventListener("click", e => { const n = e.target.closest(".dl-nav"); if (!n) return; if (n.dataset.sec === "__ind") { try { parent.postMessage({ gl: "ind" }, location.origin); } catch (_) { } return; } if (n.dataset.sec === "__pond") { try { parent.postMessage({ gl: "pond" }, location.origin); } catch (_) { } return; } ir(n.dataset.sec); if (EMB) dlWin(true, n.title || "Data Lab"); else if (innerWidth < 900) app.classList.add("dl-off"); });
     if (EMB) { $("#dlWX", host).onclick = () => dlWin(false); document.addEventListener("keydown", ev => { if (ev.key === "Escape") dlWin(false); }); }
+  }
+
+  /* título, contadores, buscador y filtros de la sección van arriba del menú lateral (no en el centro): se pintan como siempre y aquí se mudan; los filtros quedan plegados salvo que haya alguno activo */
+  let FLX = false;
+  function ladoTop(act) {
+    const top = $("#dlTopHost", host), w = $("#dlWrap", host); if (!top || !w) return; top.innerHTML = "";
+    [".dl-h", ".dl-kpis", "#dlFl"].forEach(q => { const n = w.querySelector(q); if (n) top.appendChild(n); });
+    const fr = top.querySelector(".dl-fr"); if (!fr) return; const d = document.createElement("details"); d.className = "dl-flx"; d.open = FLX || act; d.innerHTML = `<summary>Filtros${act ? " <i>activos</i>" : ""}</summary>`;
+    const box = document.createElement("div"); box.className = "dl-flxb"; [...fr.children].forEach(c => { if (!c.classList.contains("dl-q")) box.appendChild(c); }); d.appendChild(box); fr.appendChild(d); d.addEventListener("toggle", () => { FLX = d.open; });
   }
 
   function fuentes() {
@@ -101,7 +111,7 @@
       </div>
       <div id="dlLista"></div>
       <div class="dl-foot">Fuente: inventario interno de Check Inn. Las tarifas son precios de lista y pueden cambiar.</div>`;
-    lista();
+    ladoTop(hayFiltros()); lista();
   }
 
   // Vista jerárquica de las fuentes (igual que Indicadores): en la columna izquierda el árbol categoría › proveedor › fuente; al centro, el detalle de lo elegido.
@@ -227,7 +237,7 @@
       </div>
       <div id="dlLista2"></div>
       <div class="dl-foot">Catálogo generado automáticamente: indicadores de Geo Lab (definición de la maqueta) y series del INEGI (BIE/BISE) descargadas para EconoLab.</div>`;
-    listaI();
+    ladoTop(hayI()); listaI();
   }
   function opcionesI(id, titulo, lista, val) {
     return `<label class="dl-sel${val ? " on" : ""}"><select data-f2="${id}" aria-label="${esc(titulo)}"><option value="">${esc(titulo)}</option>${lista.map(o => { const v = Array.isArray(o) ? o[0] : o, t = Array.isArray(o) ? o[1] : o; return `<option value="${esc(v)}"${val === v ? " selected" : ""}>${esc(t)}</option>`; }).join("")}</select></label>`;

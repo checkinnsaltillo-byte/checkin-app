@@ -618,3 +618,35 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 /* Geo Lab funcional incrustado en la Sección de Resultados */
 .dl-gvm{width:100%;height:740px;flex:1 1 100%}
 @media (max-width:720px){.dl-gvm{height:620px}}
+
+/* encabezado de la sección (título, contadores, buscador y filtros) en la parte superior del menú lateral */
+.dl-side-top{flex:0 0 auto;max-height:52%;overflow:auto;margin:4px -4px 0;padding:8px 4px 8px;border-top:1px solid var(--line);overscroll-behavior:contain}
+.dl-side-top:empty,.dl-app.dl-off .dl-side-top{display:none}
+.dl-side-top .dl-h{display:block;margin:0 0 8px}
+.dl-side-top .dl-h h1{font-size:16px;margin:0 0 3px}
+.dl-side-top .dl-h p{font-size:11.5px;line-height:1.4;margin:0;color:var(--mut);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dl-side-top .dl-h p:hover{-webkit-line-clamp:unset}
+.dl-side-top .dl-hr{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.dl-side-top .dl-up{font-size:10.5px;margin:6px 0 0;display:inline-block}
+.dl-side-top .dl-hr .dl-up{margin:0}
+.dl-side-top .dl-new{padding:7px 12px;font-size:12px}
+.dl-side-top .dl-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-bottom:8px}
+.dl-side-top .dl-kpi{padding:6px 4px;border-radius:9px;align-items:center;text-align:center;gap:1px;overflow:hidden}
+.dl-side-top .dl-kpi b{font-size:15px}
+.dl-side-top .dl-kpi span{font-size:9px;line-height:1.15}
+.dl-side-top .dl-kpi::after,.dl-side-top .dl-kpi::before{display:none}
+.dl-side-top .dl-fl{position:static;margin:0;padding:0;background:none;backdrop-filter:none;border:0;box-shadow:none}
+.dl-side-top .dl-fr{gap:6px}
+.dl-side-top .dl-q{flex:1 1 100%;min-width:0}
+.dl-side-top .dl-rs{font-size:11.5px;margin-top:6px}
+.dl-flx{flex:1 1 100%;min-width:0}
+.dl-flx>summary{list-style:none;cursor:pointer;font:700 12px system-ui;color:#334155;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:#f8fafc;display:flex;align-items:center;gap:6px;user-select:none}
+.dl-flx>summary::-webkit-details-marker{display:none}
+.dl-flx>summary::after{content:"▸";margin-left:auto;color:#94a3b8}
+.dl-flx[open]>summary::after{content:"▾"}
+.dl-flx>summary i{font-style:normal;font-size:10.5px;background:#4f46e5;color:#fff;border-radius:999px;padding:1px 7px}
+.dl-flxb{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.dl-flxb .dl-sel{flex:1 1 calc(50% - 3px);min-width:0}
+.dl-flxb .dl-sel select{width:100%;max-width:none;font-size:12px}
+.dl-flxb .dl-ghost{font-size:11.5px;padding:6px 9px}
+.dl-side-top .dl-kpi span{font-size:8.5px;overflow-wrap:anywhere;letter-spacing:-.01em}
