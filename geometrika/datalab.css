@@ -610,3 +610,7 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 @media (max-width:720px){.dl-gvp>small,.dl-gvc{margin-left:0}}
 
 .dl-geo-b .dl-geo-g.sinej{grid-template-columns:1fr}.dl-geo-g.sinej .dl-geo-ej{display:none}
+
+/* botón de tema en la línea del título de «Vista previa» */
+.dl-sx>summary .dl-pvtema{margin-left:auto;align-self:center}.dl-sx>summary:has(.dl-pvtema)::after{margin-left:0}
+.dl-sx>summary .dl-pvtema button{font-size:11.5px;padding:4px 10px}
