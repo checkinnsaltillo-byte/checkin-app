@@ -231,7 +231,7 @@
       return `<button class="dl-ixc${es("c", c.id) ? " on" : ""}${abC ? " open" : ""}" type="button" data-ic="${esc(c.id)}" aria-expanded="${abC}"><span class="tx">${esc(c.n)}</span><span class="n">${Lc.length}</span>${ICON.chev}</button>${enfs ? `<div class="dl-ixes">${enfs}</div>` : ""}`;
     }).join("");
     dest.innerHTML = `<div class="dl-ix"><nav class="dl-ixm" id="dlArb" aria-label="Lista de indicadores">${arbol}</nav><section class="dl-ixd" id="dlDet" aria-live="polite">${detalleI(sel, vis)}</section></div>`;
-    const arb = $("#dlArb", host); if (arb) arb.scrollTop = y0;
+    const arb = $("#dlArb", host); if (arb) arb.scrollTop = y0; pintaGraf();
   }
   // panel central: todas las dimensiones → una dimensión (sus enfoques) → un enfoque (sus indicadores) → la ficha del indicador
   function detalleI(sel, vis) {
@@ -254,6 +254,39 @@
       <ul class="dl-geo-l"><li><b>✓ Se muestra</b> en el panel <b>Indicadores</b> y en la ventana <b>${esc(g.v)}</b> (menú Análisis).</li>
       <li>${g.m ? "<b>🗺️ En el mapa:</b> " : "<b>Sin capa en el mapa.</b> "}${esc(g.t)}</li>${CUANDO[g.w] ? `<li><b>⏱️ Cuándo se genera:</b> <span class="dl-geo-chip w${g.w}">${CUANDO[g.w][0]} ${esc(CUANDO[g.w][1])}</span> ${esc(g.wn || "")}<div class="dl-mut">${esc(CUANDO[g.w][2])}</div></li>` : ""}</ul></div></div>`;
   }
+  /* ═══ Vista previa de los datos: gráfica simple de la serie (las mismas series del INEGI que usa EconoLab; se cargan solo cuando hacen falta) ═══ */
+  const EDO = { "00": "Nacional", "01": "Aguascalientes", "02": "Baja California", "03": "Baja California Sur", "04": "Campeche", "05": "Coahuila", "06": "Colima", "07": "Chiapas", "08": "Chihuahua", "09": "Ciudad de México", "10": "Durango", "11": "Guanajuato", "12": "Guerrero", "13": "Hidalgo", "14": "Jalisco", "15": "Estado de México", "16": "Michoacán", "17": "Morelos", "18": "Nayarit", "19": "Nuevo León", "20": "Oaxaca", "21": "Puebla", "22": "Querétaro", "23": "Quintana Roo", "24": "San Luis Potosí", "25": "Sinaloa", "26": "Sonora", "27": "Tabasco", "28": "Tamaulipas", "29": "Tlaxcala", "30": "Veracruz", "31": "Yucatán", "32": "Zacatecas" };
+  const CIUN = window.DL_ECO_CIU || {}; let ecoP = null;
+  const ecoCarga = () => ecoP || (ecoP = new Promise(res => { if (window.ECO_DATA) return res(window.ECO_DATA); const s = document.createElement("script"); s.src = "ecolab-datos.js?v=" + Math.floor(Date.now() / 36e5); s.onload = () => res(window.ECO_DATA || null); s.onerror = () => { ecoP = null; res(null); }; document.head.appendChild(s); }));
+  const refSerie = i => i.s ? i.s : /^inegi_est_/.test(i.id) ? ["est", i.id.slice(10)] : /^inegi_ciu_/.test(i.id) ? ["ciu", i.id.slice(10)] : /^inegi_\d+$/.test(i.id) ? ["nac", i.id.slice(6)] : null;
+  const gN = v => { const a = Math.abs(v); return v.toLocaleString("es-MX", { maximumFractionDigits: a >= 1000 ? 0 : a >= 100 ? 1 : 2 }); };
+  function previaI(i) {
+    if (refSerie(i)) return `<div class="wide"><span>Vista previa de los datos</span><div class="dl-gr" id="dlGraf" data-k="${esc(kI(i))}"><p class="dl-mut">Cargando datos…</p></div></div>`;
+    if (i._c.id === "med") return `<div class="wide"><span>Vista previa de los datos</span><p class="dl-mut">Sin muestra: el dato depende de las noticias del proyecto de MediaLab cercanas a cada propiedad.</p></div>`;
+    return "";
+  }
+  function grafSVG(obs0, u) {
+    const N = 60, todas = (obs0 || []).filter(o => o && o[1] != null && isFinite(+o[1])), obs = todas.slice(-N); if (obs.length < 2) return "";
+    const W = 760, H = 230, l = 54, r = 14, tp = 12, b = 26, vs = obs.map(o => +o[1]); let mn = Math.min(...vs), mx = Math.max(...vs); if (mn === mx) { mn -= 1; mx += 1; } const pad = (mx - mn) * .08; mn -= pad; mx += pad;
+    const X = k => l + (W - l - r) * k / (obs.length - 1), Y = v => tp + (H - tp - b) * (1 - (v - mn) / (mx - mn)), pts = vs.map((v, k) => X(k).toFixed(1) + "," + Y(v).toFixed(1));
+    const tk = [0, 1, 2, 3].map(k => mn + (mx - mn) * k / 3).map(v => `<line x1="${l}" x2="${W - r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="g"/><text x="${l - 6}" y="${(Y(v) + 3.5).toFixed(1)}" text-anchor="end">${gN(v)}</text>`).join("");
+    const cero = mn < 0 && mx > 0 ? `<line x1="${l}" x2="${W - r}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" class="z"/>` : "";
+    const xl = [0, Math.floor((obs.length - 1) / 2), obs.length - 1].map((k, j) => `<text x="${X(k).toFixed(1)}" y="${H - 7}" text-anchor="${j === 0 ? "start" : j === 2 ? "end" : "middle"}">${esc(obs[k][0])}</text>`).join("");
+    const hit = obs.map((o, k) => `<circle cx="${X(k).toFixed(1)}" cy="${Y(vs[k]).toFixed(1)}" r="7" class="h"><title>${esc(o[0])}: ${gN(vs[k])} ${esc(u)}</title></circle>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfica de la serie">${tk}${cero}<polygon class="a" points="${l},${H - b} ${pts.join(" ")} ${W - r},${H - b}"/><polyline class="s" points="${pts.join(" ")}"/><circle class="p" cx="${X(obs.length - 1).toFixed(1)}" cy="${Y(vs[vs.length - 1]).toFixed(1)}" r="4"/>${xl}${hit}</svg>`;
+  }
+  function pintaGraf() {
+    const g = $("#dlGraf", host); if (!g) return; const k = g.dataset.k, i = INDS_ALL().find(x => kI(x) === k), r = i && refSerie(i); if (!r) return;
+    ecoCarga().then(D => {
+      const g2 = $("#dlGraf", host); if (!g2 || g2.dataset.k !== k) return; if (!D) { g2.innerHTML = '<p class="dl-mut">No se pudieron cargar los datos. Intenta de nuevo más tarde.</p>'; return; }
+      const x = r[0] === "nac" ? (D.indicadores || []).find(q => String(q.id) === r[1]) : ((r[0] === "est" ? D.estatal : D.ciudad) || []).find(q => q.clave === r[1]); let obs = x && x.obs, sel = "";
+      if (x && r[0] !== "nac") { const nom = c => (r[0] === "est" ? EDO[c] : CIUN[c]) || c, ks = Object.keys(x.est || {}).filter(c => (x.est[c] || []).length).sort((a, b) => nom(a).localeCompare(nom(b), "es")), pk = r[0] === "est" ? "gEst" : "gCiu"; let cur = S2[pk]; if (!ks.includes(cur)) cur = ks.find(c => nom(c) === (r[0] === "est" ? "Coahuila" : "Saltillo")) || ks[0]; obs = cur ? x.est[cur] : null;
+        sel = `<label class="dl-sel on"><select data-gsel="${pk}" aria-label="${r[0] === "est" ? "Estado" : "Ciudad"}">${ks.map(c => `<option value="${esc(c)}"${c === cur ? " selected" : ""}>${esc(nom(c))}</option>`).join("")}</select></label>`; }
+      const ok = (obs || []).filter(o => o && o[1] != null && isFinite(+o[1])), svg = grafSVG(obs, i.u); if (!svg) { g2.innerHTML = sel + '<p class="dl-mut">Sin datos suficientes para graficar esta serie.</p>'; }
+      else { const u = ok[ok.length - 1], a = ok[ok.length - 2]; g2.innerHTML = `<div class="dl-grh"><div class="v"><b>${gN(+u[1])}</b><span>${esc(i.u)}</span></div><div class="m">Último dato: <b>${esc(u[0])}</b> · anterior ${gN(+a[1])} (${esc(a[0])})</div>${sel}</div>${svg}<p class="dl-mut">${ok.length > 60 ? "Últimas 60 de " + ok.length + " observaciones" : ok.length + " observaciones"}${x.frecuencia ? " · periodicidad " + esc(String(x.frecuencia).toLowerCase()) : ""}${sel ? " · muestra de " + (r[0] === "est" ? "un estado" : "una ciudad") + "; se puede cambiar arriba" : ""} · fuente: INEGI (Banco de Indicadores), datos del ${esc(String(D.generado || "").slice(0, 10))}.</p>`; }
+      const s = g2.querySelector("select[data-gsel]"); if (s) s.onchange = ev => { ev.stopPropagation(); S2[s.dataset.gsel] = s.value; pintaGraf(); };
+    });
+  }
   function filaI(i) {   // ficha completa del indicador (panel central)
     const fam = i._fam.map(f => `<button type="button" class="dl-c${S2.fam === f ? " on" : ""}" data-ifam="${esc(f)}" title="Filtrar por esta fuente">${esc(f)}</button>`).join("");
     const vars = i.vars.map(v => `<tr><td data-l="Variable"><b>${esc(v.n)}</b></td><td data-l="Unidades">${esc(v.u)}</td><td data-l="Qué es">${esc(v.d)}</td><td data-l="Fuente">${esc(v.f)}${v.cob ? `<div class="dl-mut">Cobertura: ${esc(v.cob)}</div>` : ""}${v.disponible === false ? `<div><span class="dl-b Parcial">Dato por conseguir</span></div>` : ""}${v.nota ? `<div class="dl-mut">${esc(v.nota)}</div>` : ""}</td><td data-l="Transformaciones">${v.tr.length ? `<details class="dl-tr"><summary>${v.tr.length} ${v.tr.length === 1 ? "transformación" : "transformaciones"}</summary>${v.tr.map(t => `<div class="dl-trx"><b>${esc(t.n)}</b><p>${esc(t.d)}</p><code>${esc(t.f)}</code></div>`).join("")}</details>` : `<span class="dl-mut">Dato directo de la fuente</span>`}</td></tr>`).join("");
@@ -261,7 +294,7 @@
       <div class="dl-ixt"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <div class="dl-d dl-ixf"><div class="in one">
         <div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div>
-        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Fuentes</span><div class="dl-ch">${fam}</div></div>
+        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Fuentes</span><div class="dl-ch">${fam}</div></div>${previaI(i)}
         ${bloqueGeo(i)}<div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${i._meta ? metaCreado(i._meta) : ""}
         <div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">${i._pend ? "Todavía no tiene variables: se construirá más adelante." : "Sin desglose de variables: el dato se toma directo de la fuente."}</p>`}</div>
       </div></div>`;

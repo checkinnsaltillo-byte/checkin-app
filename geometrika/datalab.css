@@ -403,3 +403,15 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 /* Indicadores usa todo el ancho de la pantalla */
 .dl-wrap:has(#dlLista2){max-width:none}
 .dl-wrap:has(#dlLista2) .dl-h p,.dl-wrap:has(#dlLista2) .dl-ixd .ds{max-width:none}
+/* vista previa de los datos (gráfica de la serie) */
+.dl-gr{max-width:900px}
+.dl-grh{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin:2px 0 6px}
+.dl-grh .v b{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.01em}.dl-grh .v span{margin-left:6px;color:var(--mut);font-size:12.5px;text-transform:none;letter-spacing:0;display:inline;font-weight:500}
+.dl-grh .m{color:#475569;font-size:12.5px}.dl-grh .dl-sel{margin-left:auto}
+.dl-gr svg{display:block;width:100%;height:auto}
+.dl-gr svg text{font-size:11px;fill:#64748b}
+.dl-gr svg .g{stroke:#e2e8f0;stroke-width:1}.dl-gr svg .z{stroke:#94a3b8;stroke-width:1;stroke-dasharray:4 3}
+.dl-gr svg .s{fill:none;stroke:#4f46e5;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.dl-gr svg .a{fill:rgba(99,102,241,.10)}.dl-gr svg .p{fill:#4f46e5;stroke:#fff;stroke-width:2}
+.dl-gr svg .h{fill:transparent}.dl-gr svg .h:hover{fill:rgba(79,70,229,.25)}
+.dl-d .in .dl-grh .v span,.dl-d .in .dl-grh div>span{display:inline;font-size:12.5px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--mut);margin:0 0 0 6px}
