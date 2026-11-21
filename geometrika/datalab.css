@@ -588,3 +588,4 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-app.dl-ind .dl-side-f{margin-top:0}
 @media (max-width:900px){.dl-app.dl-ind:not(.dl-off) .dl-side{flex-basis:min(330px,86vw);width:min(330px,86vw)}.dl-app.dl-off .dl-side-arb{display:block}}
 .dl-emb .dl-side-arb{display:block!important}
+.dl-wrap:has(#dlLista){max-width:none}.dl-wrap:has(#dlLista) .dl-h p{max-width:none}

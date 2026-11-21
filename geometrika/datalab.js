@@ -21,7 +21,7 @@
     chevS: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'
   };
   const F = window.DL_FUENTES || [], CATS = window.DL_CATS || [], INDS = (window.DL_INDICADORES || []).flatMap(c => c.an.flatMap(e => e.ind));
-  const S = { q: "", t: "", a: "", cat: "", m: "", e: "", ind: "", abiertos: new Set(CATS.map(c => c.k)), filas: new Set(), sort: { k: "n", d: 1 } };
+  const S = { q: "", t: "", a: "", cat: "", m: "", e: "", ind: "", abiertos: new Set(CATS.map(c => c.k)), filas: new Set(), sort: { k: "n", d: 1 } , aC: new Set(), aP: new Set(), sel: null };
   let host;
 
   const cls = v => String(v).replace(/^De pago$/, "Pago");
@@ -79,7 +79,7 @@
     const pub = F.filter(f => f.t === "Pública").length, pri = F.length - pub, pago = F.filter(f => f.a === "De pago").length, act = F.filter(f => f.e === "Activa").length;
     const kp = (n, t, c, f, v) => `<button type="button" class="dl-kpi${S[f] === v ? " on" : ""}" style="--c:${c}" data-kpi="${f}" data-v="${esc(v)}"><b>${n}</b><span>${t}</span></button>`;
     $("#dlWrap", host).innerHTML = `
-      <div class="dl-h"><div><h1>Fuente de datos</h1><p>De dónde sale cada dato que usan los análisis: quién lo provee, si es público o privado, cuánto cuesta, para qué sirve y qué indicadores alimenta. Toca una fila para ver más detalle.</p></div><span class="dl-up">Actualizado el ${esc(window.DL_FECHA || "")}</span></div>
+      <div class="dl-h"><div><h1>Fuente de datos</h1><p>De dónde sale cada dato que usan los análisis: quién lo provee, si es público o privado, cuánto cuesta, para qué sirve y qué indicadores alimenta. Elige un elemento de la lista para ver su detalle.</p></div><span class="dl-up">Actualizado el ${esc(window.DL_FECHA || "")}</span></div>
       <div class="dl-kpis">
         <button type="button" class="dl-kpi${hayFiltros() ? "" : " on"}" style="--c:#4f46e5" data-kpi="todo"><b>${F.length}</b><span>Fuentes en total</span></button>
         ${kp(pub, "Públicas", "#059669", "t", "Pública")}${kp(pri, "Privadas", "#7c3aed", "t", "Privada")}${kp(pago, "De pago", "#b45309", "a", "De pago")}${kp(act, "Activas", "#0891b2", "e", "Activa")}
@@ -104,41 +104,50 @@
     lista();
   }
 
+  // Vista jerárquica de las fuentes (igual que Indicadores): en la columna izquierda el árbol categoría › proveedor › fuente; al centro, el detalle de lo elegido.
+  const kP = f => f.cat + "|" + f.p;
   function lista() {
     const vis = F.filter(pasa), dest = $("#dlLista", host); if (!dest) return;
     const etiquetas = []; [["q", S.q ? "“" + S.q + "”" : ""], ["t", S.t], ["a", S.a], ["cat", (CATS.find(c => c.k === S.cat) || {}).n], ["m", S.m], ["e", S.e], ["ind", S.ind]].forEach(([k, v]) => { if (v) etiquetas.push(`<span class="dl-tag">${esc(v)}<button type="button" data-x="${k}" aria-label="Quitar filtro">✕</button></span>`); });
     $("#dlRs", host).innerHTML = `Mostrando <b>${vis.length}</b> de ${F.length} fuentes ${etiquetas.join("")}`;
-    if (!vis.length) { dest.innerHTML = `<div class="dl-empty"><b>No hay fuentes con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-a="limpiar">Limpiar filtros</button></div>`; return; }
-    const ord = (a, b) => { const k = S.sort.k, va = String(a[k] || ""), vb = String(b[k] || ""); return va.localeCompare(vb, "es") * S.sort.d; };
-    dest.innerHTML = CATS.map(c => {
-      const L = vis.filter(f => f.cat === c.k).sort(ord); if (!L.length) return "";
-      const forzar = hayFiltros(), abierto = forzar || S.abiertos.has(c.k), pu = L.filter(f => f.t === "Pública").length, pr = L.length - pu;
-      const th = (k, t) => `<th class="so${S.sort.k === k ? " sa" : ""}" data-s="${k}">${t}<span class="ar">${S.sort.k === k && S.sort.d < 0 ? "▼" : "▲"}</span></th>`;
-      return `<section class="dl-g${abierto ? " open" : ""}" data-g="${c.k}">
-        <button class="dl-gh" type="button" data-gh="${c.k}" aria-expanded="${abierto}">
-          <span class="dl-gi">${c.ic}</span><span class="dl-gt"><b>${esc(c.n)}</b><span>${esc(c.d)}</span></span>
-          <span class="dl-gc"><span class="dl-bar" title="${pu} públicas · ${pr} privadas"><i class="pu" style="width:${pu / L.length * 100}%"></i><i class="pr" style="width:${pr / L.length * 100}%"></i></span><span class="dl-gn">${L.length} ${L.length === 1 ? "fuente" : "fuentes"}</span></span>${ICON.chev}
-        </button>
-        <div class="dl-gb"><div><div class="dl-tw"><table class="dl-t"><thead><tr>${th("n", "Fuente")}${th("p", "Empresa / software")}${th("t", "Tipo")}${th("a", "Costo")}<th>Objetivo</th><th>Indicadores que alimenta</th><th class="dl-xc"></th></tr></thead><tbody>${L.map(fila).join("")}</tbody></table></div></div></div>
-      </section>`;
+    const lado = $("#dlArbHost", host);
+    if (!vis.length) { if (lado) lado.innerHTML = '<p class="dl-mut" style="padding:8px 12px">Ninguna fuente con esos filtros.</p>'; dest.innerHTML = `<div class="dl-empty"><b>No hay fuentes con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-a="limpiar">Limpiar filtros</button></div>`; return; }
+    let sel = S.sel; if (sel && sel.t === "f" && !vis.some(f => f.id === sel.k)) sel = null; if (sel && sel.t === "p" && !vis.some(f => kP(f) === sel.k)) sel = null; if (sel && sel.t === "c" && !vis.some(f => f.cat === sel.k)) sel = null;
+    const forzar = hayFiltros(), es = (t, k) => !!sel && sel.t === t && sel.k === k, y0 = lado ? lado.scrollTop : 0, nom = (a, b) => String(a).localeCompare(String(b), "es");
+    const arbol = CATS.map(c => {
+      const Lc = vis.filter(f => f.cat === c.k); if (!Lc.length) return ""; const abC = forzar || S.aC.has(c.k), provs = [...new Set(Lc.map(f => f.p))].sort(nom);
+      const hijos = !abC ? "" : provs.map(p => { const Lp = Lc.filter(f => f.p === p).sort((a, b) => nom(a.n, b.n)), kp = c.k + "|" + p, abP = forzar || S.aP.has(kp);
+        return `<button class="dl-ixe${es("p", kp) ? " on" : ""}" type="button" data-fp="${esc(kp)}" aria-expanded="${abP}"><span class="pm">${abP ? "−" : "+"}</span><span class="tx">${esc(p)}</span><span class="n">${Lp.length}</span></button>${abP ? `<div class="dl-ixis">${Lp.map(f => `<button class="dl-ixi${es("f", f.id) ? " on" : ""}" type="button" data-ff="${esc(f.id)}">${esc(f.n)}</button>`).join("")}</div>` : ""}`; }).join("");
+      return `<button class="dl-ixc${es("c", c.k) ? " on" : ""}${abC ? " open" : ""}" type="button" data-fc="${esc(c.k)}" aria-expanded="${abC}"><span class="tx">${esc(c.n)}</span><span class="n">${Lc.length}</span>${ICON.chev}</button>${hijos ? `<div class="dl-ixes">${hijos}</div>` : ""}`;
     }).join("");
+    const det = `<section class="dl-ixd" id="dlDetF" aria-live="polite">${detalleF(sel, vis)}</section>`;
+    if (lado) { lado.innerHTML = `<nav class="dl-ixm lado" id="dlArbF" aria-label="Lista de fuentes">${arbol}</nav>`; lado.scrollTop = y0; dest.innerHTML = det; }
+    else dest.innerHTML = `<div class="dl-ix"><nav class="dl-ixm" id="dlArbF" aria-label="Lista de fuentes">${arbol}</nav>${det}</div>`;
   }
-
-  function fila(f) {
-    const ab = S.filas.has(f.id), chips = (f.ind || []).map(i => `<button type="button" class="dl-c${S.ind === i ? " on" : ""}" data-ind="${esc(i)}" title="Filtrar por este indicador">${esc(i)}</button>`).join("");
-    const det = (t, v) => v ? `<div><span>${t}</span><p>${v}</p></div>` : "";
-    return `<tr class="dl-r${ab ? " open" : ""}" data-r="${f.id}" tabindex="0" aria-expanded="${ab}">
-      <td data-l="Fuente"><div class="dl-nm"><i class="dot ${esc(f.e)}" title="Estado: ${esc(f.e)}"></i><b>${esc(f.n)}</b></div></td>
-      <td data-l="Empresa / software" class="dl-pv">${esc(f.p)}</td>
-      <td data-l="Tipo"><span class="dl-b ${cls(f.t)}">${esc(f.t)}</span></td>
-      <td data-l="Costo"><span class="dl-b ${cls(f.a)}">${esc(f.a)}</span></td>
-      <td data-l="Objetivo" class="dl-ob">${esc(f.ob)}</td>
-      <td data-l="Indicadores que alimenta"><div class="dl-ch">${chips}</div></td>
-      <td class="dl-xc">${ICON.chevS}</td></tr>${ab ? `<tr class="dl-d"><td colspan="7"><div class="in">
-        ${det("Estado", `<span class="dl-b ${cls(f.e)}">${esc(f.e)}</span>`)}${det("Método de consulta", `<span class="dl-b Propia">${esc(f.m)}</span>`)}
-        ${det("Cobertura", esc(f.cob))}${det("Actualización", esc(f.act))}${det("Dónde se guarda", esc(f.alm))}${det("Licencia o costo", esc(f.lic))}
-        ${det("Observaciones", esc(f.nota))}${f.url ? det("Enlace", `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))} ↗</a>`) : ""}
-      </div></td></tr>` : ""}`;
+  // panel central: todas las categorías → una categoría (sus proveedores) → un proveedor (sus fuentes) → la ficha de la fuente
+  function detalleF(sel, vis) {
+    const nF = n => n + (n === 1 ? " fuente" : " fuentes"), cnt = n => `<span class="dl-gn">${nF(n)}</span>`, ren = (attr, k, ico, n, d, r) => `<button class="dl-ixr" type="button" ${attr}="${esc(k)}">${ico ? `<span class="ic">${ico}</span>` : ""}<span class="tx"><b>${esc(n)}</b><span>${esc(d)}</span></span><span class="r">${r}</span></button>`;
+    const miga = p => `<div class="dl-ixb"><button type="button" data-a="raizF">Todas las categorías</button>${p.map(([attr, k, n]) => attr ? `<i>›</i><button type="button" ${attr}="${esc(k)}">${esc(n)}</button>` : `<i>›</i><b>${esc(n)}</b>`).join("")}</div>`;
+    if (!sel) return `<h2>Todas las categorías</h2><p class="ds">Elige una categoría, un proveedor o una fuente en la lista de la izquierda; aquí se muestra su detalle.</p><div class="dl-ixrs">${CATS.map(c => { const n = vis.filter(f => f.cat === c.k).length; return n ? ren("data-fc", c.k, c.ic, c.n, c.d, cnt(n)) : ""; }).join("")}</div>`;
+    if (sel.t === "c") { const c = CATS.find(x => x.k === sel.k), Lc = vis.filter(f => f.cat === c.k), provs = [...new Set(Lc.map(f => f.p))].sort((a, b) => a.localeCompare(b, "es")); return `${miga([[null, null, c.n]])}<h2><span class="ic">${c.ic}</span>${esc(c.n)}</h2><p class="ds">${esc(c.d)}</p><div class="dl-ixrs">${provs.map(p => { const Lp = Lc.filter(f => f.p === p); return ren("data-fp", c.k + "|" + p, "", p, Lp.map(f => f.n).slice(0, 3).join(" · ") + (Lp.length > 3 ? " …" : ""), cnt(Lp.length)); }).join("")}</div>`; }
+    if (sel.t === "p") { const Lp = vis.filter(f => kP(f) === sel.k), c = CATS.find(x => x.k === Lp[0].cat) || { n: "" }; return `${miga([["data-fc", Lp[0].cat, c.n], [null, null, Lp[0].p]])}<h2>${esc(Lp[0].p)}</h2><p class="ds">${nF(Lp.length)} de este proveedor en «${esc(c.n)}».</p><div class="dl-ixrs">${Lp.map(f => ren("data-ff", f.id, "", f.n, f.ob || "", `<span class="dl-b ${cls(f.t)}">${esc(f.t)}</span>`)).join("")}</div>`; }
+    const f = vis.find(x => x.id === sel.k), c = CATS.find(x => x.k === f.cat) || { n: "" }; return miga([["data-fc", f.cat, c.n], ["data-fp", kP(f), f.p], [null, null, f.n]]) + fichaF(f);
+  }
+  function fichaF(f) {
+    const M = FMETA[f.id] || {}, G = FGEO[f.id] || "", kf = (k, v) => v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : "", det = (t, v, w) => v ? `<div${w ? ' class="wide"' : ""}><span>${t}</span><p>${v}</p></div>` : "";
+    const chips = (f.ind || []).map(i => `<button type="button" class="dl-c${S.ind === i ? " on" : ""}" data-ind="${esc(i)}" title="Filtrar por este indicador">${esc(i)}</button>`).join("");
+    return `<div class="dl-ixh"><div class="dl-nm"><i class="dot ${esc(f.e)}" title="Estado: ${esc(f.e)}"></i><h2>${esc(f.n)}</h2></div></div>${f.ob ? `<p class="dl-lead">${esc(f.ob)}</p>` : ""}
+      <dl class="dl-kf">${kf("Empresa o proveedor", esc(f.p))}${kf("Tipo de fuente", `<span class="dl-b ${cls(f.t)}">${esc(f.t)}</span>`)}${kf("Costo o acceso", `<span class="dl-b ${cls(f.a)}">${esc(f.a)}</span>`)}${kf("Forma de consulta o descarga", esc(f.m))}${kf("Estado", `<span class="dl-b ${cls(f.e)}">${esc(f.e)}</span>`)}${kf("Actualización", esc(f.act))}${kf("Tipo de archivo", esc(M.arch || ""))}${kf("Tipo de levantamiento", esc(M.lev || ""))}${kf("Periodicidad de los datos", esc(M.per || ""))}${kf("Nivel geográfico del dato", esc(G))}</dl>
+      <details class="dl-sx" open><summary><b>Para qué se usa</b><span>indicadores que alimenta y cobertura</span></summary><div class="dl-d dl-ixf"><div class="in one"><div class="wide"><span>Indicadores que alimenta (clic para filtrar)</span>${chips ? `<div class="dl-ch">${chips}</div>` : `<p class="dl-mut">Ninguno registrado.</p>`}</div>${det("Cobertura", esc(f.cob), 1)}</div></div></details>
+      <details class="dl-sx" open><summary><b>Cómo se obtiene y dónde queda</b><span>almacenamiento, licencia y enlace</span></summary><div class="dl-d dl-ixf"><div class="in one">${det("Dónde se guarda", esc(f.alm))}${det("Licencia o costo", esc(f.lic))}${det("Estructura temporal y espacial", esc(M.dim || ""))}${det("Formato técnico", esc(M.fmt || ""))}${det("Observaciones", esc(f.nota), 1)}${f.url ? det("Enlace", `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))} ↗</a>`, 1) : ""}</div></div></details>`;
+  }
+  // elige un elemento: en el árbol, categorías y proveedores además se abren o se cierran; desde el panel central solo se abren
+  function selF(t, k, enArbol) {
+    const era = S.sel && S.sel.t === t && S.sel.k === k; S.sel = t ? { t, k } : null;
+    if (t === "c") { if (enArbol && S.aC.has(k) && (era || !hayFiltros())) S.aC.delete(k); else S.aC.add(k); }
+    if (t === "p") { S.aC.add(k.split("|")[0]); if (enArbol && S.aP.has(k) && (era || !hayFiltros())) S.aP.delete(k); else S.aP.add(k); }
+    if (t === "f") { const f = F.find(x => x.id === k); if (f) { S.aC.add(f.cat); S.aP.add(kP(f)); } if (enArbol && innerWidth < 900 && !EMB) { const ap = $("#dlApp", host); if (ap) ap.classList.add("dl-off"); } }
+    lista(); const d = $("#dlDetF", host), m = $("#dlMain", host); if (d && m && (innerWidth < 900 ? t === "f" || !enArbol : d.getBoundingClientRect().top < m.getBoundingClientRect().top)) d.scrollIntoView({ block: "start" });
   }
 
   function entrada(e) {
@@ -154,10 +163,13 @@
     if (sec === "indicadores") return clicI(e);
     const x = t.closest("[data-x]"); if (x) { S[x.dataset.x] = ""; fuentes(); return; }
     const a = t.closest("[data-a]");
-    if (a) { const k = a.dataset.a; if (k === "limpiar" && hayFiltros()) { S.q = S.t = S.a = S.cat = S.m = S.e = S.ind = ""; fuentes(); } else if (k === "abrir") { CATS.forEach(c => S.abiertos.add(c.k)); F.forEach(f => S.filas.add(f.id)); lista(); } else if (k === "cerrar") { S.abiertos.clear(); S.filas.clear(); lista(); } return; }
+    if (a) { const k = a.dataset.a; if (k === "limpiar" && hayFiltros()) { S.q = S.t = S.a = S.cat = S.m = S.e = S.ind = ""; fuentes(); } else if (k === "abrir") { CATS.forEach(c => S.aC.add(c.k)); F.forEach(f => S.aP.add(kP(f))); lista(); } else if (k === "cerrar") { S.aC.clear(); S.aP.clear(); lista(); } else if (k === "raizF") selF(null); return; }
     const kp = t.closest("[data-kpi]"); if (kp) { const f = kp.dataset.kpi; if (f === "todo") S.q = S.t = S.a = S.cat = S.m = S.e = S.ind = ""; else { S.t = S.a = S.e = ""; S[f] = S[f] === kp.dataset.v ? "" : kp.dataset.v; } fuentes(); return; }
     const c = t.closest("[data-ind]"); if (c) { S.ind = S.ind === c.dataset.ind ? "" : c.dataset.ind; fuentes(); return; }
     const s = t.closest("th[data-s]"); if (s) { const k = s.dataset.s; S.sort = { k, d: S.sort.k === k ? -S.sort.d : 1 }; lista(); return; }
+    const enArbF = !!t.closest("#dlArbF"), ff = t.closest("[data-ff]"); if (ff) { selF("f", ff.dataset.ff, enArbF); return; }
+    const fp = t.closest("[data-fp]"); if (fp) { selF("p", fp.dataset.fp, enArbF); return; }
+    const fc = t.closest("[data-fc]"); if (fc) { selF("c", fc.dataset.fc, enArbF); return; }
     const g = t.closest("[data-gh]"); if (g) { const k = g.dataset.gh, sec = g.closest(".dl-g"); if (hayFiltros()) { sec.classList.toggle("open"); g.setAttribute("aria-expanded", sec.classList.contains("open")); return; } if (S.abiertos.has(k)) S.abiertos.delete(k); else S.abiertos.add(k); sec.classList.toggle("open"); g.setAttribute("aria-expanded", S.abiertos.has(k)); return; }
     if (t.closest("a")) return;
     const r = t.closest("tr[data-r]"); if (r) { alterna(r.dataset.r); }
@@ -236,7 +248,7 @@
       return `<button class="dl-ixc${es("c", c.id) ? " on" : ""}${abC ? " open" : ""}" type="button" data-ic="${esc(c.id)}" aria-expanded="${abC}"><span class="tx">${esc(c.n)}</span><span class="n">${Lc.length}</span>${ICON.chev}</button>${enfs ? `<div class="dl-ixes">${enfs}</div>` : ""}`;
     }).join("");
     const lado = $("#dlArbHost", host);
-    if (lado) { lado.innerHTML = `<nav class="dl-ixm lado" id="dlArb" aria-label="Lista de indicadores">${arbol}</nav>`; dest.innerHTML = `<section class="dl-ixd" id="dlDet" aria-live="polite">${detalleI(sel, vis)}</section>`; }
+    if (lado) { const yl = lado.scrollTop; setTimeout(() => { lado.scrollTop = yl; }, 0); lado.innerHTML = `<nav class="dl-ixm lado" id="dlArb" aria-label="Lista de indicadores">${arbol}</nav>`; dest.innerHTML = `<section class="dl-ixd" id="dlDet" aria-live="polite">${detalleI(sel, vis)}</section>`; }
     else dest.innerHTML = `<div class="dl-ix"><nav class="dl-ixm" id="dlArb" aria-label="Lista de indicadores">${arbol}</nav><section class="dl-ixd" id="dlDet" aria-live="polite">${detalleI(sel, vis)}</section></div>`;
     const arb = $("#dlArb", host); if (arb) arb.scrollTop = y0; pintaGraf();
   }
@@ -920,7 +932,7 @@
   }
   let sec = "fuentes";
   function ir(s) {
-    if (s !== "fuentes" && s !== "indicadores") s = "fuentes"; sec = s; { const ap = $("#dlApp", host), l0 = $("#dlArbHost", host); if (ap) ap.classList.toggle("dl-ind", s === "indicadores"); if (l0 && s !== "indicadores") l0.innerHTML = ""; } host.querySelectorAll(".dl-nav").forEach(n => n.classList.toggle("on", n.dataset.sec === s));
+    if (s !== "fuentes" && s !== "indicadores") s = "fuentes"; sec = s; { const ap = $("#dlApp", host), l0 = $("#dlArbHost", host); if (ap) ap.classList.add("dl-ind"); if (l0) l0.scrollTop = 0; } host.querySelectorAll(".dl-nav").forEach(n => n.classList.toggle("on", n.dataset.sec === s));
     try { history.replaceState(null, "", "#" + s); } catch (_) { } $("#dlMain", host).scrollTop = 0; if (s === "indicadores") indicadores(); else fuentes();
   }
 
