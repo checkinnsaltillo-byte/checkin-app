@@ -594,10 +594,19 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-gv{margin-top:14px}
 .dl-d .in div.dl-gv>b{display:block;font-size:13px;color:#0f172a}
 .dl-gv>small{display:block;color:#64748b;font-size:12px;margin:2px 0 8px}
-.dl-gvg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-.dl-gvi{display:block;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;text-decoration:none;color:#0f172a;transition:box-shadow .15s,transform .15s}
-.dl-gvi:hover{box-shadow:0 8px 22px rgba(15,23,42,.14);transform:translateY(-2px)}
-.dl-gvi img{display:block;width:100%;height:150px;object-fit:cover;object-position:left top;background:#f1f5f9}
-.dl-gvi.pan img{object-fit:contain;height:190px}
-.dl-d .in div .dl-gvi span,.dl-gvi span{display:block;padding:7px 10px 0;font:700 12px system-ui;text-transform:none;letter-spacing:0;color:#0f172a}
-.dl-gvi em{display:block;padding:1px 10px 8px;font:normal 11px system-ui;color:#64748b}
+/* «En todo Geo Lab» en cinco partes: réplicas de Geo Lab en marcos del tamaño real */
+.dl-gv>small{max-width:900px}
+.dl-gvp{margin-top:16px;padding-top:14px;border-top:1px solid var(--line,#e2e8f0)}
+.dl-gvp h5{margin:0;font:800 14px system-ui;color:#0f172a;display:flex;align-items:center;gap:8px}
+.dl-gvp h5 i{font-style:normal;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#1e3a8a;color:#fff;font:800 12px system-ui}
+.dl-gvp>small{display:block;color:#64748b;font-size:12px;margin:3px 0 10px 30px;max-width:860px}
+.dl-gvc{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-left:30px}
+.dl-gvf{display:block;border:1px solid #cbd5e1;border-radius:12px;background:#fff;max-width:100%;box-shadow:0 4px 14px rgba(15,23,42,.08)}
+.dl-gva{margin:0;max-width:100%}
+.dl-gva figcaption{font:600 11px system-ui;color:#64748b;margin:0 0 5px}
+.dl-gva.cap{flex:1 1 320px;max-width:640px}
+.dl-gva.cap img{display:block;width:100%;border:1px solid #cbd5e1;border-radius:12px}
+.dl-gvn{margin:0;color:#64748b;font-size:12.5px}
+@media (max-width:720px){.dl-gvp>small,.dl-gvc{margin-left:0}}
+
+.dl-geo-b .dl-geo-g.sinej{grid-template-columns:1fr}.dl-geo-g.sinej .dl-geo-ej{display:none}
