@@ -546,3 +546,19 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-d .in .dl-kw .vz.g span{display:inline;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none;color:#94a3b8;margin:0}
 .dl-pvv span{display:inline;gap:0}.dl-pvv>span{display:flex;flex-wrap:wrap;gap:4px}
 .dl-pvv .dl-kw .pill{display:inline-block}
+/* controlador de periodo de las series (franja con dos cejitas) */
+.dl-br{max-width:860px;margin:6px 0 10px}
+.dl-br .rs{display:flex;align-items:center;gap:3px;margin-bottom:6px}
+.dl-br .rs span{margin-right:auto;font-size:12.5px;font-weight:700;color:var(--ink)}
+.dl-br .rs button{all:unset;cursor:pointer;font-size:12px;font-weight:700;color:#64748b;padding:4px 11px;border-radius:999px;transition:background .15s,color .15s}
+.dl-br .rs button:hover{background:#e2e8f0}.dl-br .rs button.on{color:#fff;background:linear-gradient(135deg,#6366f1,#22d3ee)}
+.dl-br .tr{position:relative;height:40px;border-radius:9px;touch-action:none;cursor:pointer;user-select:none}
+.dl-br.osc .tr{background:#1b2540;border:1px solid rgba(148,163,184,.2)}.dl-br.cla .tr{background:#eef2ff;border:1px solid #e0e7ff}
+.dl-br .tr svg{position:absolute;inset:3px 0;width:100%;height:calc(100% - 6px);pointer-events:none}
+.dl-br .sl{position:absolute;top:-1px;bottom:-1px;border-radius:7px;background:rgba(129,140,248,.3);border:1.5px solid #818cf8;cursor:grab}
+.dl-arr .dl-br .sl{cursor:grabbing}.dl-arr{user-select:none}
+.dl-br .h{position:absolute;top:-4px;bottom:-4px;width:13px;border-radius:7px;background:#6366f1;cursor:ew-resize;box-shadow:0 2px 6px rgba(15,23,42,.3)}
+.dl-br .h::after{content:"";position:absolute;left:4px;right:4px;top:30%;bottom:30%;border-left:1.5px solid rgba(255,255,255,.85);border-right:1.5px solid rgba(255,255,255,.85)}
+.dl-br .h.l{left:-7px}.dl-br .h.r{right:-7px}
+.dl-ch.noan .dl-chx [class*="an-"]{animation:none!important;opacity:1!important;stroke-dashoffset:0!important;transform:none!important}
+.dl-d .in .dl-br .rs span{display:inline;margin:0 auto 0 0;font-size:12.5px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--ink)}
