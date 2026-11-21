@@ -589,3 +589,15 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 @media (max-width:900px){.dl-app.dl-ind:not(.dl-off) .dl-side{flex-basis:min(330px,86vw);width:min(330px,86vw)}.dl-app.dl-off .dl-side-arb{display:block}}
 .dl-emb .dl-side-arb{display:block!important}
 .dl-wrap:has(#dlLista){max-width:none}.dl-wrap:has(#dlLista) .dl-h p{max-width:none}
+
+/* capturas reales de Geo Lab por indicador */
+.dl-gv{margin-top:14px}
+.dl-d .in div.dl-gv>b{display:block;font-size:13px;color:#0f172a}
+.dl-gv>small{display:block;color:#64748b;font-size:12px;margin:2px 0 8px}
+.dl-gvg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.dl-gvi{display:block;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;text-decoration:none;color:#0f172a;transition:box-shadow .15s,transform .15s}
+.dl-gvi:hover{box-shadow:0 8px 22px rgba(15,23,42,.14);transform:translateY(-2px)}
+.dl-gvi img{display:block;width:100%;height:150px;object-fit:cover;object-position:left top;background:#f1f5f9}
+.dl-gvi.pan img{object-fit:contain;height:190px}
+.dl-d .in div .dl-gvi span,.dl-gvi span{display:block;padding:7px 10px 0;font:700 12px system-ui;text-transform:none;letter-spacing:0;color:#0f172a}
+.dl-gvi em{display:block;padding:1px 10px 8px;font:normal 11px system-ui;color:#64748b}
