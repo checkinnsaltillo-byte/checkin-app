@@ -180,10 +180,10 @@
     i._pend = /pendiente/i.test(i.f) && !i.vars.length; };
   CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => prep(i, c, e))));
   const INDS_ALL = () => CATI.flatMap(c => c.an.flatMap(e => e.ind));
-  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", aC: new Set(), aE: new Set(), sel: null };
-  const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org);
+  const S2 = { q: "", cat: "", enf: "", tipo: "", fam: "", org: "", din: "", gua: "", aC: new Set(), aE: new Set(), sel: null };
+  const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org || S2.din || S2.gua);
   function pasaI(i) {
-    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false;
+    if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false; if (S2.din && dinI(i) !== S2.din) return false; if (S2.gua && guaI(i) !== S2.gua) return false;
     if (S2.q) { const ws = norm(S2.q).split(/\s+/).filter(Boolean); if (!ws.every(w => i._h.includes(w))) return false; } return true;
   }
   function indicadores() {
@@ -202,6 +202,8 @@
           ${opcionesI("tipo", "Tipo de dato", tipos, S2.tipo)}
           ${opcionesI("fam", "Fuente", fams, S2.fam)}
           ${opcionesI("org", "Origen", [["geo", "Geo Lab"], ["inegi", "INEGI (BIE/BISE)"], ["dl", "Creados en Data Lab"]], S2.org)}
+          ${opcionesI("din", "Dinámica del dato", Object.keys(DIN_T).map(k => [k, DIN_T[k][0]]), S2.din)}
+          ${opcionesI("gua", "Guardado", [["S", "Queda guardado"], ["N", "No se guarda (se lee en cada ingreso)"], ["B", "Bajo demanda"]], S2.gua)}
           <button class="dl-ghost" type="button" data-ia="limpiar"${hayI() ? "" : " disabled style=\"opacity:.45;cursor:default\""}>Limpiar</button>
           <button class="dl-ghost pr" type="button" data-ia="abrir">Expandir todo</button>
           <button class="dl-ghost pr" type="button" data-ia="cerrar">Contraer todo</button>
@@ -219,7 +221,7 @@
   const kI = i => i._e.id + ":" + i.id;
   function listaI() {
     const dest = $("#dlLista2", host); if (!dest) return; const forzar = hayI(), A = INDS_ALL(), vis = A.filter(pasaI);
-    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : S2.org === "inegi" ? "INEGI (BIE/BISE)" : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
+    const tg = []; [["q", S2.q ? "“" + S2.q + "”" : ""], ["cat", (CATI.find(c => c.id === S2.cat) || {}).n], ["enf", (INDS_ALL().map(i => i._e).find(e => e.id === S2.enf) || {}).n], ["tipo", S2.tipo], ["fam", S2.fam], ["org", S2.org === "dl" ? "Creados en Data Lab" : S2.org === "geo" ? "Geo Lab" : S2.org === "inegi" ? "INEGI (BIE/BISE)" : ""], ["din", S2.din ? DIN_T[S2.din][0] : ""], ["gua", S2.gua ? GUA_T[S2.gua] : ""]].forEach(([k, v]) => { if (v) tg.push(`<span class="dl-tag">${esc(v)}<button type="button" data-ix="${k}" aria-label="Quitar filtro">✕</button></span>`); });
     $("#dlRs2", host).innerHTML = `Mostrando <b>${vis.length}</b> de ${A.length} indicadores ${tg.join("")}`;
     if (!vis.length) { dest.innerHTML = `<div class="dl-empty"><b>No hay indicadores con esos filtros</b>Prueba con otra palabra o quita algún filtro.<br><button class="dl-ghost pr" type="button" data-ia="limpiar">Limpiar filtros</button></div>`; return; }
     let sel = S2.sel; if (sel && sel.t === "i" && !vis.some(i => kI(i) === sel.k)) sel = null; if (sel && sel.t === "e" && !vis.some(i => i._e.id === sel.k)) sel = null; if (sel && sel.t === "c" && !vis.some(i => i._c.id === sel.k)) sel = null;
@@ -311,6 +313,19 @@
         <div class="wide"><span>Tipo de dato del indicador</span><dl class="dl-fxg">${fila("Estructura (tiempo y espacio)", estr)}${fila("Escala de medición", escalaI(i))}${fila("Clasificación del indicador", i.tipo)}</dl></div>
         ${ext.length ? `<div class="wide"><span>${ext.length === 1 ? "Fuente" : "Fuentes (" + ext.length + ")"}</span>${ext.map(fx).join("")}</div>` : ""}`;
   }
+  /* ═══ Dinámica y guardado: qué tanto cambia el dato con el tiempo y si queda guardado tras la primera lectura o se vuelve a leer en cada ingreso a la maqueta ═══ */
+  const DIN_E = { geo: "E", met: "P", inu: "P", urb: "P", rie: "P", eu: "P", fri: "P", cob: "P", tra: "D", od: "D", dem: "P", eco: "P", afl: "P", ent: "P", aire: "D", psl: "P", arb: "P", emi: "P" }, DIN_K = { "met:temp": "E", "met:lluvia": "E", "met:sol": "E", "met:aire": "D", "met:clima": "D", "fri:trafr": "D" };
+  const DIN_T = { E: ["Estático", "No cambia de forma importante con el tiempo (por ejemplo el relieve o el clima promedio de varios años)."], P: ["Poco dinámico", "Cambia despacio, en meses o años (censos, uso del suelo, red de calles, negocios)."], R: ["Periódico", "La fuente publica un dato nuevo cada mes o cada trimestre."], D: ["Dinámico", "Cambia en horas o días (tráfico, aire, clima del momento, noticias)."] };
+  const GUA_T = { S: "Queda guardado", N: "No se guarda", B: "Bajo demanda", X: "Pendiente" };
+  const dinI = i => i._nuevo ? "" : (i._inegi || i._c.id === "ecl") ? "R" : i._c.id === "med" ? "D" : DIN_K[i._e.id + ":" + i.id] || DIN_E[i._e.id] || "";
+  const guaI = i => { if (i._nuevo) return ""; if (i._inegi || i._c.id === "ecl") return "S"; if (i._c.id === "med") return "N"; const g = (window.DL_GEO || {})[i._e.id + ":" + i.id]; return g ? ({ P: "S", G: "S", I: "N", D: "B", X: "X" })[g.w] || "" : ""; };
+  function dinamicaI(i) {
+    const d = dinI(i), gu = guaI(i); if (!d && !gu) return ""; const g = (window.DL_GEO || {})[i._e.id + ":" + i.id], w = g && g.w;
+    const lee = (i._inegi || i._c.id === "ecl") ? "El sistema descarga las series del INEGI cada mes" + (i._c.id === "ecl" ? "; en la maqueta se muestran al pulsar «Calcular y actualizar»." : ".") : i._c.id === "med" ? "Cada vez que se pulsa «Calcular y actualizar» en la maqueta." : w === "P" ? "Una sola vez, al crear el proyecto." : w === "G" ? "El dato de origen ya está en el sistema; el indicador se arma al abrir la maqueta, sin volver a descargar." : w === "I" ? "Cada vez que se entra a la maqueta." : w === "D" ? "Solo cuando alguien lo pide con el botón correspondiente." : w === "X" ? "Todavía no se genera." : "";
+    const queda = (i._inegi || i._c.id === "ecl") ? "Sí: las series quedan guardadas en el sistema y se renuevan con cada descarga mensual." : i._c.id === "med" ? "No: se consulta de nuevo a MediaLab en cada cálculo." : w === "P" ? "Sí: la primera lectura se guarda con el proyecto y después solo se lee." : w === "G" ? "Sí: es un dato de referencia guardado de antemano para todos los proyectos." : w === "I" ? "No: se consulta o se calcula de nuevo en cada ingreso." : w === "D" ? "Solo después de pedirlo; el resultado queda guardado o en pantalla." : "";
+    const f = (k, v) => v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : "";
+    return `<div class="wide"><span>Dinámica y guardado</span><dl class="dl-fxg">${d ? f("Qué tanto cambia el dato", `<span class="dl-b din-${d}">${DIN_T[d][0]}</span> ${esc(DIN_T[d][1])}`) : ""}${f("Cuándo se lee", esc(lee))}${f("¿Queda guardado?", gu ? `<span class="dl-b gua-${gu}">${GUA_T[gu]}</span> ${esc(queda)}` : "")}${g && g.wn ? f("Detalle", esc(g.wn)) : ""}</dl></div>`;
+  }
   function previaI(i) {
     if (refSerie(i)) return `<div class="wide"><span>Vista previa de los datos</span><div class="dl-gr" id="dlGraf" data-k="${esc(kI(i))}"><p class="dl-mut">Cargando datos…</p></div></div>`;
     if (i._c.id === "med") return `<div class="wide"><span>Vista previa de los datos</span><p class="dl-mut">Sin muestra: el dato depende de las noticias del proyecto de MediaLab cercanas a cada propiedad.</p></div>`;
@@ -345,7 +360,7 @@
       <div class="dl-ixt"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <div class="dl-d dl-ixf"><div class="in one">
         <div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div>
-        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Filtrar por fuente</span><div class="dl-ch">${fam}</div></div>${origenI(i)}${previaI(i)}
+        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Filtrar por fuente</span><div class="dl-ch">${fam}</div></div>${origenI(i)}${dinamicaI(i)}${previaI(i)}
         ${bloqueGeo(i)}<div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${i._meta ? metaCreado(i._meta) : ""}
         <div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">${i._pend ? "Todavía no tiene variables: se construirá más adelante." : "Sin desglose de variables: el dato se toma directo de la fuente."}</p>`}</div>
       </div></div>`;
@@ -354,7 +369,7 @@
   function cambiaI(k, v) { S2[k] = v; if (k === "cat" && S2.enf && !(CATI.find(c => c.id === v) || { an: [] }).an.some(e => e.id === S2.enf) && v) S2.enf = ""; indicadores(); }
   function clicI(e) {
     const t = e.target, x = t.closest("[data-ix]"); if (x) { S2[x.dataset.ix] = ""; indicadores(); return; }
-    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => S2.aE.add(en.id)); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); listaI(); } else if (k === "raiz") selI(null); return; }
+    const a = t.closest("[data-ia]"); if (a) { const k = a.dataset.ia; if (k === "limpiar" && hayI()) { S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = S2.org = S2.din = S2.gua = ""; indicadores(); } else if (k === "abrir") { CATI.forEach(c => { S2.aC.add(c.id); c.an.forEach(en => S2.aE.add(en.id)); }); listaI(); } else if (k === "cerrar") { S2.aC.clear(); S2.aE.clear(); listaI(); } else if (k === "raiz") selI(null); return; }
     const eb = t.closest("[data-eco]"); if (eb) { try { parent.postMessage({ gl: "eco-go", go: eb.dataset.eco }, location.origin); } catch (_) { } return; }
     const pb = t.closest("[data-dl-pub]"); if (pb) { publica(pb.dataset.dlPub); return; }
     const del = t.closest("[data-dl-del]"); if (del) { eliminaCreado(del.dataset.dlDel); return; }
@@ -577,7 +592,7 @@
     try {
       const j = await api("/geometrika/datalab/indicadores", { n: f.n, d: f.d, u: f.u, tipo: f.tipo, res: f.res, periodicidad: f.periodicidad, objetivo: f.objetivo, m: f.m, f: f.f, cat: f.cat, enf: f.enf, enfNuevo: f.enfNuevo, unidad: f.unidad, radio: f.radio, alcance: f.alcance, visual: f.visual, clasif: f.clasif, sentido: f.sentido, umbralVerde: f.umbralVerde, umbralAmbar: f.umbralAmbar, comoSeVera: f.comoSeVera, receta: f.receta, estado: f.estado, responsable: f.responsable, vars: f.vars, pasos: f.pasos, supuestos: f.supuestos, limitaciones: f.limitaciones, faltantes: f.faltantes, dificultad: f.dificultad, instrucciones: W.texto, metodologiaTitulo: f.titulo });
       CRE.push(j.item); mezcla(); W.guardando = false; Object.assign(W, { abierto: false, paso: 1, res: "", texto: "", sel: new Map(), q: "", props: null, prop: null, f: {}, error: "" }); pintaDr();
-      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.sel = { t: "i", k: j.item.enf + ":" + j.item.id }; indicadores();
+      if (sec !== "indicadores") ir("indicadores"); S2.q = S2.cat = S2.enf = S2.tipo = S2.fam = ""; S2.org = S2.din = S2.gua = ""; const c = CATI.find(x => x.id === j.item.cat); S2.aC.add(j.item.cat); S2.aE.add(j.item.enf); S2.sel = { t: "i", k: j.item.enf + ":" + j.item.id }; indicadores();
       setTimeout(() => { const r = host.querySelector(`tr[data-ir="${j.item.enf}:${j.item.id}"]`); if (r) r.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
       toast("Indicador creado: " + j.item.n + ". Ya aparece en Indicadores y en Fuente de datos.", 6000);
     } catch (e) { W.guardando = false; W.error = e.message; pintaDr(); const b = $("#dlDb", host); if (b) b.scrollTop = b.scrollHeight; }

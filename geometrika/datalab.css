@@ -421,3 +421,6 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-fxg dd{margin:1px 0 0;font-size:13px;color:#1e293b;word-break:break-word}
 .dl-fx{padding:10px 0 12px;border-top:1px solid #e2e8f0}.dl-fx:first-of-type{border-top:0;padding-top:2px}
 .dl-fxh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}.dl-fxh b{font-size:14px;color:var(--ink)}.dl-fxh a{font-size:12.5px}
+/* dinámica del dato y guardado */
+.dl-b.din-E{background:#e2e8f0;color:#334155}.dl-b.din-P{background:#e0f2fe;color:#0369a1}.dl-b.din-R{background:var(--pv-bg);color:var(--pv)}.dl-b.din-D{background:var(--am-bg);color:var(--am)}
+.dl-b.gua-S{background:var(--ok-bg);color:var(--ok)}.dl-b.gua-N{background:var(--rd-bg);color:var(--rd)}.dl-b.gua-B{background:var(--am-bg);color:var(--am)}.dl-b.gua-X{background:var(--sl-bg);color:#475569}
