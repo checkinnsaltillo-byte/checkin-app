@@ -665,3 +665,8 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-gvw.ok .dl-gvph{display:none}
 @media (max-width:720px){.dl-gvw{height:620px}}
 .dl-gvph{overflow:visible}.dl-gvph>iframe{border-radius:0 0 0 12px}
+
+/* Geo Lab único y persistente: el hueco reserva el espacio en la ficha y el anfitrión se coloca encima */
+.dl-gvslot{flex:1 1 100%;width:100%;height:740px;border-radius:12px;background:#eef2f7}
+#dlGvHost{position:absolute;z-index:3;flex:none}
+@media (max-width:720px){.dl-gvslot{height:620px}}

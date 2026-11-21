@@ -8548,7 +8548,7 @@ if (!SPLH) {
 /* ═══ Barra de KPIs (parte superior del mapa) ═══
    Resume cada análisis en pocos datos: un chip por KPI, animado, con semáforo; al tocarlo muestra qué mide, cómo se calcula y abre el análisis.
    Los datos salen de indLista() (los mismos indicadores del panel «Indicadores»); Competencia, Mapa de proyectos y Edificio de prueba aportan los suyos. */
-if (window.parent === window) {
+if (window.parent === window || new URLSearchParams(location.search).get('dl')) {   /* también en la vista incrustada de Data Lab: ahí la franja de KPI muestra el valor del indicador sobre el mapa */
   const KP_G = [
     { g: 'met', w: 'sol', ico: '🌦️', n: 'Meteorología', it: [['met', 'temp', 'Temperatura media'], ['met', 'lluvia', 'Lluvia anual'], ['met', 'viento', 'Viento']] },
     { g: 'inu', w: 'sol', ico: '🌊', n: 'Inundación', it: [['inu', 'riesgo', 'Riesgo de inundación'], ['inu', 'calles', 'Calles con agua']] },
@@ -8711,7 +8711,7 @@ if (window.parent === window) {
 {
   const dlq = new URLSearchParams(location.search).get('dl');
   if (dlq && /^[a-z]+(\.[a-z0-9]*){0,2}$/.test(dlq)) {
-    const [w, t, g] = dlq.split('.'), W = ms => new Promise(r => setTimeout(r, ms)); document.body.classList.add('dl-emb');
+    const W = ms => new Promise(r => setTimeout(r, ms)); document.body.classList.add('dl-emb');
     const st = document.createElement('style'); st.textContent = 'body.dl-emb .pwin [data-mv="1"]{display:none!important}body.dl-emb #tt .tt-hd,body.dl-emb #tt .tt-prj,body.dl-emb #tt .tt-pj,body.dl-emb #tt #lab-tabs,body.dl-emb #tt .tt-tools,body.dl-emb #tt #lft-x,body.dl-emb #tt #lft-cg{display:none!important}';   /* sin logotipo, ficha del proyecto ni selector de sistemas: más espacio para los resultados */ document.head.appendChild(st);
     /* candado: en la vista incrustada no se puede cambiar de sección ni de análisis; solo un administrador (lo confirma el servidor) puede quitarlo */
     st.textContent += 'body.dl-lock #lft-nav,body.dl-lock .pwin .dk-back,body.dl-lock .pwin .dk-out,body.dl-lock .pwin .pwx,body.dl-lock .pwin .pwm,body.dl-lock #dk-bus,body.dl-lock #dk-lista,body.dl-lock #pw-bar{display:none!important}body.dl-lock .pwin [data-t],body.dl-lock .pwin [data-g],body.dl-lock #kp-bar{pointer-events:none!important}body.dl-lock .pwin [data-t]:not(.on):not(.act):not([aria-selected="true"]),body.dl-lock .pwin [data-g]:not(.on):not(.act){opacity:.38}#dl-lock{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:8px;width:calc(100% - 16px);margin:8px;padding:8px 11px;border-radius:11px;background:#0f172a;color:#fff;font:700 12px system-ui;pointer-events:auto}#dl-lock small{font:500 10.5px system-ui;opacity:.75;display:block}#dl-lock.ab{background:#065f46}#dl-lock b{font-size:16px}';
@@ -8719,18 +8719,30 @@ if (window.parent === window) {
     const lk = document.createElement('button'); lk.id = 'dl-lock'; lk.type = 'button'; const lkP = on => { lk.classList.toggle('ab', !on); lk.title = on ? 'Vista fija: no se puede cambiar de sección ni de análisis. Solo el administrador puede quitar el candado.' : 'Candado quitado por el administrador: se puede navegar. Pulse para volver a fijar la vista.'; lk.innerHTML = on ? '<b>🔒</b><span>Vista fija en este análisis<small>No se puede cambiar de sección ni de análisis</small></span>' : '<b>🔓</b><span>Navegación libre<small>Candado quitado por el administrador</small></span>'; }; lkP(true);
     lk.onclick = async () => { if (!document.body.classList.contains('dl-lock')) { document.body.classList.add('dl-lock'); lkP(true); return; } const sp = lk.querySelector('small'), t0 = sp.textContent; sp.textContent = 'Comprobando permiso…'; let niv = 0; try { niv = (await fetch('https://api.check-inn.mx/geometrika/datalab/graficas', { cache: 'no-store' }).then(r => r.json())).nivel || 0; } catch (_) { } if (niv >= 2) { document.body.classList.remove('dl-lock'); lkP(false); } else { sp.textContent = 'Solo el administrador puede quitar el candado'; setTimeout(() => { if (document.body.classList.contains('dl-lock')) sp.textContent = t0; }, 3500); } };
     (async () => { for (let i = 0; i < 120 && !$('tt'); i++) await W(250); const tt = $('tt'); if (tt) tt.insertBefore(lk, tt.firstChild); else document.body.appendChild(lk); })();
-    (async () => {
-      try {
-        for (let i = 0; i < 240 && (!solS() || /%/.test(document.title)); i++) await W(500); await W(2500); if (!PW_DEF[w]) return;
-        pwShow(w, true); await W(1800); const e = $('pw-' + w); if (!e) return;
-        if (g) { const x = e.querySelector('[data-g="' + g + '"]'); if (x) { x.click(); await W(1500); } }
-        if (t) { const x = e.querySelector('[data-t="' + t + '"]'); if (x) { x.click(); await W(1500); } }
-        const av = document.createElement('div'); av.textContent = '⏳ Calculando el análisis…'; av.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:rgba(15,23,42,.88);color:#fff;font:700 12.5px system-ui;padding:8px 14px;border-radius:999px;pointer-events:none'; document.body.appendChild(av);
-        try { for (let i = 0; i < 20 && INDX.busy; i++) await W(1500); if (!INDX.busy) await indCarga(); for (let i = 0; i < 80 && INDX.busy; i++) await W(1500); } catch (_) { } av.remove();   /* los resultados que no se guardan con el proyecto (cobertura, afluencia…) se calculan aquí, igual que al abrir Geo Lab */
-        for (let k = 0; k < 3; k++) { await W(2500); const B = [...e.querySelectorAll('[data-mv="1"]')].filter(x => { const s = x.closest('.pwsec'), p = s && s.parentElement; return s && getComputedStyle(s).display !== 'none' && (!p || getComputedStyle(p).display !== 'none') && s.getClientRects().length; }); if (!B.length) continue; if (B.some(x => x.dataset.s === '1')) break; B[0].click(); }
-      } catch (_) { }
-      try { if (parent !== window) parent.postMessage({ gv: 'listo', dl: dlq }, location.origin); } catch (_) { }   /* avisa a Data Lab que la columna real ya tiene resultados: retira su copia provisional */
-    })();
+    /* un solo mapa para todos los indicadores: Data Lab pide por mensaje ({gv:'ver', dl, ind, n}) cambiar de análisis o solo resaltar otro indicador, sin recargar la maqueta */
+    const hi = document.createElement('style'); document.head.appendChild(hi); let cur = null, listo0 = false, cola = Promise.resolve();
+    const DLRE = /^[a-z]+(\.[a-z0-9]*){0,2}$/, botMapa = e => [...e.querySelectorAll('[data-mv="1"]')].filter(x => { const s = x.closest('.pwsec'), p = s && s.parentElement; return s && getComputedStyle(s).display !== 'none' && (!p || getComputedStyle(p).display !== 'none') && s.getClientRects().length; });
+    const mapaOn = async e => { for (let k = 0; k < 3; k++) { await W(k ? 2500 : 900); const B = botMapa(e); if (!B.length) continue; if (B.some(x => x.dataset.s === '1')) break; B[0].click(); } };
+    const mapaOff = e => { if (e) [...e.querySelectorAll('[data-mv="1"][data-s="1"]')].forEach(x => x.click()); };
+    /* el indicador elegido se resalta en la franja de KPI del mapa y pasa al frente, para que su valor se vea tal cual */
+    const resalta = ind => { hi.textContent = ind && /^[\w:]+$/.test(ind) ? '#kp-strip [data-kp="' + ind + '"]{order:-1;outline:3px solid #facc15!important;outline-offset:2px;box-shadow:0 0 0 7px rgba(250,204,21,.28),0 10px 26px rgba(15,23,42,.35)!important}' : ''; [300, 1200, 2600].forEach(ms => setTimeout(() => { try { const s = $('kp-strip'); if (s) s.scrollLeft = 0; } catch (_) { } }, ms)); };
+    const ver = async (q, ind) => {
+      if (!DLRE.test(q || '')) return; const [w, t, g] = q.split('.'); if (!PW_DEF[w]) return;
+      if (cur !== q) {
+        const w0 = (cur || '').split('.')[0]; if (cur) { mapaOff($('pw-' + w0)); await W(500); if (w0 !== w) { pwShow(w0, false); await W(300); } }
+        pwShow(w, true); await W(cur ? 900 : 1800); const e = $('pw-' + w); if (!e) return;
+        if (g) { const x = e.querySelector('[data-g="' + g + '"]'); if (x) { x.click(); await W(cur ? 900 : 1500); } }
+        if (t) { const x = e.querySelector('[data-t="' + t + '"]'); if (x) { x.click(); await W(cur ? 900 : 1500); } }
+        if (!listo0) { const av = document.createElement('div'); av.textContent = '⏳ Calculando el análisis…'; av.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:rgba(15,23,42,.88);color:#fff;font:700 12.5px system-ui;padding:8px 14px;border-radius:999px;pointer-events:none'; document.body.appendChild(av);
+          try { for (let i = 0; i < 20 && INDX.busy; i++) await W(1500); if (!INDX.busy) await indCarga(); for (let i = 0; i < 80 && INDX.busy; i++) await W(1500); } catch (_) { } av.remove(); }   /* los resultados que no se guardan con el proyecto (cobertura, afluencia…) se calculan aquí, una sola vez */
+        await mapaOn(e); cur = q;
+      }
+      resalta(ind);
+    };
+    const avisa = d => { try { if (parent !== window) parent.postMessage(Object.assign({ gv: 'listo' }, d), location.origin); } catch (_) { } };
+    addEventListener('message', ev => { if (ev.origin !== location.origin || !ev.data || ev.data.gv !== 'ver') return; const d = ev.data; cola = cola.then(() => ver(d.dl, d.ind)).catch(() => { }).then(() => avisa({ dl: d.dl, ind: d.ind, n: d.n })); });
+    const ind0 = new URLSearchParams(location.search).get('ind') || '';
+    cola = cola.then(async () => { for (let i = 0; i < 240 && (!solS() || /%/.test(document.title)); i++) await W(500); await W(2500); await ver(dlq, ind0); }).catch(() => { }).then(() => { listo0 = true; avisa({ dl: dlq, ind: ind0, n: 0 }); });
   }
 }
 </script>
