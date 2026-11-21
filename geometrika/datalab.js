@@ -175,7 +175,7 @@
     if (!o.length) add("Otra"); return o; };
   const TCLS = { "Dato duro": "dd", "Dato calculado": "dc", "Índice": "ix", "Valoración cualitativa": "vl", "Valoración cuantitativa": "vl", "Dato inferido": "di" };
   const prep = (i, c, e) => {
-    i._c = c; i._e = e; i._inegi = i.x || null; const fam = []; (i.vars.length ? i.vars.map(v => v.f) : [i.f]).forEach(f => FAM(f).forEach(x => { if (!fam.includes(x)) fam.push(x); })); i._fam = fam;
+    i._c = c; i._e = e; i._inegi = i.x || null; const fam = []; (i.vars.length ? i.vars.map(v => v.f) : [i.f]).forEach(f => FAM(f).forEach(x => { if (!fam.includes(x)) fam.push(x); })); i._fam = i.s ? ["INEGI · BIE/BISE"] : c.id === "med" ? ["MediaLab (noticias y redes)"] : fam;   // EconoLab y MediaLab no traen variables: su familia se sabe por su origen
     i._h = norm([i.n, i.d, i.u, i.m, i.f, i.tipo, e.n, c.n, i._meta ? [i._meta.objetivo, i._meta.res, i._meta.periodicidad, i._meta.instrucciones, i._meta.responsable].join(" ") : "", i.vars.map(v => [v.n, v.d, v.f, v.u, (v.tr || []).map(t => t.n + " " + t.d).join(" ")].join(" ")).join(" ")].join(" "));
     i._pend = /pendiente/i.test(i.f) && !i.vars.length; };
   CATI.forEach(c => c.an.forEach(e => e.ind.forEach(i => prep(i, c, e))));
@@ -370,7 +370,7 @@
       <div class="dl-ixt"><span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span>${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <div class="dl-d dl-ixf"><div class="in one">
         <div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div>
-        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Filtrar por fuente</span><div class="dl-ch">${fam}</div></div>${origenI(i)}${dinamicaI(i)}${previaI(i)}
+        <div><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Familia de fuente (clic para filtrar)</span><div class="dl-ch">${fam}</div></div>${origenI(i)}${dinamicaI(i)}${previaI(i)}
         ${bloqueGeo(i)}<div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${i._meta ? metaCreado(i._meta) : ""}
         <div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">${i._pend ? "Todavía no tiene variables: se construirá más adelante." : "Sin desglose de variables: el dato se toma directo de la fuente."}</p>`}</div>
       </div></div>`;
