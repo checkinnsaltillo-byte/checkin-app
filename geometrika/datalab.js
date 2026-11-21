@@ -607,6 +607,7 @@
     return [...new Set(o)];
   }
   const pvRecom = c => c.serie ? ["linea", c.serie.some(v => v < 0) ? "signo" : "area"].concat(c.rank ? ["rank"] : []) : c.ord ? ["pasos"] : c.esc ? ["gauge", "barra"] : [];
+  window.dlPvRe = () => { try { pintaGraf(); } catch (_) { } };   /* la sección de diseños llega plegada: al abrirla se vuelve a pintar con su ancho real */
   function previaI(i) { return `<div class="wide dl-pv" id="dlPv" data-k="${esc(kI(i))}"><p class="dl-mut">Cargando vista previa…</p></div>`; }
   function pvHTML(i, c) {
     const todas = PVOF[c.k] || [], fact = pvFact(c), rec = pvRecom(c), factW = WVAR.filter(v => v[2](c)).map(v => v[0]), factM = MVAR.filter(v => v[2](c)).map(v => v[0]);
@@ -683,7 +684,7 @@
     // la ficha se lee de arriba abajo: qué es → cómo se ve → cómo se calcula → de dónde viene → qué tipo de dato es → cuándo se actualiza
     const O = origenI(i), dn = dinamicaI(i), dC = dinI(i), gC = guaI(i), uq = c => { const v = [...new Set(O.ext.map(x => x[c]).filter(Boolean))]; return v.length ? v.slice(0, 3).map(esc).join("<br>") + (v.length > 3 ? "<br><small>+" + (v.length - 3) + " más (ver «De dónde viene»)</small>" : "") : '<span class="dl-mut">Sin fuente externa</span>'; }, kf = (k, v) => v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : "";
     const temaH = () => `<div class="dl-pvtema" role="group" aria-label="Versión de gráficas y widgets"><button type="button" class="${PVT.osc ? "on" : ""}" data-pvtema="osc" aria-pressed="${PVT.osc}">🌙 Oscura</button><button type="button" class="${PVT.osc ? "" : "on"}" data-pvtema="cla" aria-pressed="${!PVT.osc}">☀️ Clara</button></div>`;   /* versión clara u oscura de gráficas y widgets: va en la línea del título de «Vista previa» */
-    const sec = (tit, sub, cont, extra) => cont.trim() ? `<details class="dl-sx" open><summary><b>${tit}</b><span>${sub}</span>${extra || ""}</summary><div class="dl-d dl-ixf"><div class="in one">${cont}</div></div></details>` : "";
+    const sec = (tit, sub, cont, extra, cerrado) => cont.trim() ? `<details class="dl-sx"${cerrado ? ' ontoggle="this.open && window.dlPvRe && window.dlPvRe()"' : " open"}><summary><b>${tit}</b><span>${sub}</span>${extra || ""}</summary><div class="dl-d dl-ixf"><div class="in one">${cont}</div></div></details>` : "";
     const varsH = `<div class="wide"><span>Variables (${i.vars.length})</span>${i.vars.length ? `<div class="dl-tw in2"><table class="dl-t dl-vt"><thead><tr><th>Variable</th><th>Unidades</th><th>Qué es</th><th>Fuente</th><th>Transformaciones</th></tr></thead><tbody>${vars}</tbody></table></div>` : `<p class="dl-mut">${i._pend ? "Todavía no tiene variables: se construirá más adelante." : "Sin desglose de variables: el dato se toma directo de la fuente."}</p>`}</div>`;
     const kfH = `<dl class="dl-kf">${kf("Tipo de dato", `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span><small>${odatI(i) === "C" ? "Construido en el sistema" : i._inegi && i.tipo !== "Dato duro" ? "Lo calcula el INEGI (dato de origen)" : "De la fuente (dato de origen)"}</small>`)}${kf("Periodicidad de los datos", O.ext.some(x => x.perS) ? `<span data-per-s>Se muestra al cargar la serie…</span>` : uq("per"))}${kf("Forma de consulta o descarga", uq("forma"))}${kf("Tipo de fuente", uq("tf"))}${kf("Familia de fuente (clic para filtrar)", `<div class="dl-ch">${fam}</div>`)}${kf("Tipo de levantamiento", uq("lev"))}${kf("Nivel geográfico", O.amb ? `<span class="dl-b amb">${AMB_T[O.amb[0]]}</span><small>${esc(O.amb[1])}</small>${!O.geoIgual && O.ext.some(x => x.geo) ? `<small><b>Dato de origen:</b> ${[...new Set(O.ext.map(x => x.geo).filter(Boolean))].slice(0, 3).map(esc).join("; ")}</small>` : ""}` : "—")}${kf("¿Queda guardado?", gC ? `<span class="dl-b gua-${gC}">${GUA_T[gC]}</span>` : "—")}</dl>`;
     // metadatos completos del indicador: los usa el botón «Ver metadata» del widget
@@ -692,7 +693,8 @@
       <div class="dl-ixt">${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <p class="dl-lead">${esc(i.d)}</p>
       ${kfH}
-      ${sec("Vista previa", "cómo se ve el dato", previaI(i) + bloqueGeo(i), previaI(i).includes("dl-pv") ? temaH() : "")}
+      ${sec("Vista previa", "cómo se ve el dato en Geo Lab", bloqueGeo(i))}
+      ${sec("Diseños de widgets y gráficas", "widget, mini-widget, gráficas factibles y oficiales", previaI(i), temaH(), true)}
       ${sec("Cómo se calcula", "metodología, fórmula y variables", `<div class="wide"><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>${varsH}`)}
       ${sec("De dónde viene", "origen y fuentes", O.origen + O.fuentes)}
       ${sec("Qué tipo de dato es", "forma del dato y nivel geográfico", O.tipo + O.geo)}
