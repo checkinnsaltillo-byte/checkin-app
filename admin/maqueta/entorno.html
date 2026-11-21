@@ -8719,6 +8719,8 @@ if (window.parent === window) {
         pwShow(w, true); await W(1800); const e = $('pw-' + w); if (!e) return;
         if (g) { const x = e.querySelector('[data-g="' + g + '"]'); if (x) { x.click(); await W(1500); } }
         if (t) { const x = e.querySelector('[data-t="' + t + '"]'); if (x) { x.click(); await W(1500); } }
+        const av = document.createElement('div'); av.textContent = '⏳ Calculando el análisis…'; av.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:rgba(15,23,42,.88);color:#fff;font:700 12.5px system-ui;padding:8px 14px;border-radius:999px;pointer-events:none'; document.body.appendChild(av);
+        try { for (let i = 0; i < 20 && INDX.busy; i++) await W(1500); if (!INDX.busy) await indCarga(); for (let i = 0; i < 80 && INDX.busy; i++) await W(1500); } catch (_) { } av.remove();   /* los resultados que no se guardan con el proyecto (cobertura, afluencia…) se calculan aquí, igual que al abrir Geo Lab */
         for (let k = 0; k < 3; k++) { await W(2500); const B = [...e.querySelectorAll('[data-mv="1"]')].filter(x => { const s = x.closest('.pwsec'), p = s && s.parentElement; return s && getComputedStyle(s).display !== 'none' && (!p || getComputedStyle(p).display !== 'none') && s.getClientRects().length; }); if (!B.length) continue; if (B.some(x => x.dataset.s === '1')) break; B[0].click(); }
       } catch (_) { }
     })();
