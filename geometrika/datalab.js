@@ -400,18 +400,22 @@
     }
     return { TIPOS, dibuja, svg, arco, esc2, pts, W, H };
   })();
-  const PVSEL = (() => { try { return JSON.parse(localStorage.getItem("dl_grafica") || "{}") || {}; } catch (_) { return {}; } })();
+  const PVSEL = {};   // gráfica que se está viendo en grande (solo en pantalla)
+  let PVOF = {}, PVOFok = false;   // gráficas oficiales por indicador (validadas por un administrador; se guardan en el servidor)
+  const cargaOficiales = () => api("/geometrika/datalab/graficas").then(j => { PVOF = j.graficas || {}; PVOFok = true; return true; }).catch(() => false);
+  // escala acotada del indicador según sus unidades: fracción 0–1 del valor, o null si no tiene una escala fija
+  const escF = (u, v) => /%/.test(u) || /0\s?[–-]\s?100|\/100/.test(u) ? v / 100 : /0\s?[–-]\s?5\b|estrellas|\/5/.test(u) ? v / 5 : /1\s?[–-]\s?9|\/9/.test(u) ? (v - 1) / 8 : /0\s?[–-]\s?1\b/.test(u) ? v : null;
   const PV_COL = { ok: "#22c55e", warn: "#facc15", bad: "#ef4444", info: "#60a5fa", na: "#94a3b8" };
   // datos disponibles del indicador: serie real (INEGI), muestra de Geo Lab (tarjeta capturada del proyecto de ejemplo) o nada
   function pvCtx(i, D) {
-    const r = refSerie(i), c = { k: kI(i), u: i.u || "", serie: null, rank: null, val: null, ant: null, per: "", perAnt: "", est: "info", msg: "", vt: "—", ut: i.u || "", p: null, pReal: false, origen: "", sel: "", hc: 12, viz: "" };
+    const r = refSerie(i), c = { k: kI(i), u: i.u || "", serie: null, rank: null, val: null, ant: null, per: "", perAnt: "", est: "info", msg: "", vt: "—", ut: i.u || "", p: null, pReal: false, pw: null, pwTx: "", origen: "", sel: "", hc: 12, viz: "" };
     if (r && D) {
       const x = r[0] === "nac" ? (D.indicadores || []).find(q => String(q.id) === r[1]) : ((r[0] === "est" ? D.estatal : D.ciudad) || []).find(q => q.clave === r[1]); let obs = x && x.obs;
       if (x && r[0] !== "nac") { const nom = e => (r[0] === "est" ? EDO[e] : CIUN[e]) || e, ult = e => { const o = (x.est[e] || []).filter(q => q && q[1] != null); return o.length ? +o[o.length - 1][1] : null; }, ks = Object.keys(x.est || {}).filter(e => ult(e) != null).sort((a, b) => nom(a).localeCompare(nom(b), "es")), pk = r[0] === "est" ? "gEst" : "gCiu"; let cur = S2[pk]; if (!ks.includes(cur)) cur = ks.find(e => nom(e) === (r[0] === "est" ? "Coahuila" : "Saltillo")) || ks[0]; obs = cur ? x.est[cur] : null;
         c.sel = `<label class="dl-sel on"><select data-gsel="${pk}" aria-label="${r[0] === "est" ? "Estado" : "Ciudad"}">${ks.map(e => `<option value="${esc(e)}"${e === cur ? " selected" : ""}>${esc(nom(e))}</option>`).join("")}</select></label>`;
         c.rank = ks.map(e => [nom(e), ult(e), e === cur, gN(ult(e))]).sort((a, b) => b[1] - a[1]); const pos = c.rank.findIndex(q => q[2]); if (pos > 6) c.rank = c.rank.slice(0, 6).concat([c.rank[pos]]); c.lugar = nom(cur); c.pos = pos + 1; c.de = ks.length; }
       const ok = (obs || []).filter(o => o && o[1] != null && isFinite(+o[1]));
-      if (ok.length) { c.serie = ok.map(o => +o[1]); c.obs = ok; c.val = c.serie[c.serie.length - 1]; c.per = ok[ok.length - 1][0]; if (ok.length > 1) { c.ant = c.serie[c.serie.length - 2]; c.perAnt = ok[ok.length - 2][0]; } c.vt = gN(c.val); const rec = c.serie.slice(-60), mn = Math.min(...rec), mx = Math.max(...rec); c.p = mx > mn ? (c.val - mn) / (mx - mn) : .5; c.pReal = true; c.pTx = "Posición dentro del rango de sus últimos " + rec.length + " datos"; c.origen = "Datos reales del INEGI" + (c.lugar ? " · " + c.lugar : "") + " · " + String(D.generado || "").slice(0, 10); }
+      if (ok.length) { c.serie = ok.map(o => +o[1]); c.obs = ok; c.val = c.serie[c.serie.length - 1]; c.per = ok[ok.length - 1][0]; if (ok.length > 1) { c.ant = c.serie[c.serie.length - 2]; c.perAnt = ok[ok.length - 2][0]; } c.vt = gN(c.val); const rec = c.serie.slice(-60), mn = Math.min(...rec), mx = Math.max(...rec); c.pw = mx > mn ? (c.val - mn) / (mx - mn) : .5; c.pwTx = "Posición dentro del rango de sus últimos " + rec.length + " datos"; const fs2 = rec.map(q => escF(c.u, q)); if (!/variaci|inflaci|crecimiento|cambio/i.test(i.n + " " + i.d) && fs2.every(q => q != null && q >= 0 && q <= 1.001)) { c.p = Math.min(1, escF(c.u, c.val)); c.pReal = true; c.pw = c.p; c.pwTx = "Posición en la escala del indicador"; } c.origen = "Datos reales del INEGI" + (c.lugar ? " · " + c.lugar : "") + " · " + String(D.generado || "").slice(0, 10); }
       c.hc = /trimes/i.test((x && x.frecuencia) || "") ? 4 : 12; c.frec = (x && x.frecuencia) || "";
     } else if (!r) {
       const g = !i._nuevo && (window.DL_GEO || {})[c.k];
@@ -419,8 +423,9 @@
         if (b) { c.vt = b.textContent.trim(); const n = parseFloat(c.vt.replace(/,/g, "").replace(/[^\d.\-]/g, "")); c.val = isFinite(n) ? n : null; } if (sm && sm.textContent.trim()) c.ut = sm.textContent.trim();
         if (c4) { c.est = ["ok", "warn", "bad", "info", "na"].find(k => c4.classList.contains(k)) || "info"; const eb = c4.querySelector("b"); c.estTx = eb ? eb.textContent.trim() : ""; c.msg = c4.textContent.replace(c.estTx, "").trim(); }
         if (c3) c.viz = c3.innerHTML; c.origen = "Muestra real del proyecto «" + (window.DL_GEO_PROY || "de ejemplo") + "»";
-        const u = c.u + " " + c.ut; if (c.val != null) { const f = /%/.test(u) || /0\s?[–-]\s?100|\/100/.test(u) ? c.val / 100 : /0\s?[–-]\s?5\b|estrellas|\/5/.test(u) ? c.val / 5 : /1\s?[–-]\s?9|\/9/.test(u) ? (c.val - 1) / 8 : /0\s?[–-]\s?1\b/.test(u) ? c.val : null; if (f != null && f >= 0 && f <= 1.001) { c.p = Math.min(1, f); c.pReal = true; c.pTx = "Posición en la escala del indicador"; } } }
+        const u = c.u + " " + c.ut; if (c.val != null) { const f = escF(u, c.val); if (f != null && f >= 0 && f <= 1.001) { c.p = Math.min(1, f); c.pReal = true; c.pw = c.p; c.pwTx = "Posición en la escala del indicador"; } } }
     }
+    c.ord = /ordinal/i.test(escalaI(i)); c.esc = c.pReal || (!c.serie && escF(c.u + " " + c.ut, 50) != null);   // ¿tiene una escala fija por naturaleza?
     c.col = PV_COL[c.est] || PV_COL.info; return c;
   }
   // 1) widget tipo KPI
@@ -430,32 +435,42 @@
     if (c.per) lin.push(`<p>Último dato: <b>${esc(c.per)}</b>${c.lugar ? " · " + esc(c.lugar) : ""}</p>`);
     if (d != null) lin.push(`<p>${d > 0 ? "▲" : d < 0 ? "▼" : "＝"} <b>${gN(Math.abs(d))}</b> frente a ${gN(c.ant)} (${esc(c.perAnt)})</p>`);
     if (c.pos) lin.push(`<p>Lugar <b>${c.pos}</b> de ${c.de}</p>`);
-    if (c.pReal && c.pTx) lin.push(`<p class="f">${esc(c.pTx)}: ${Math.round(c.p * 100)} %</p>`);
+    if (c.pw != null && c.pwTx) lin.push(`<p class="f">${esc(c.pwTx)}: ${Math.round(c.pw * 100)} %</p>`);
     if (c.vt === "—") lin.push(`<p class="f">Sin dato de muestra: el valor se llena con cada proyecto.</p>`);
-    return `<div class="dl-kw"><div class="g">${PV.svg(PV.arco(c.pReal ? c.p : null, c.col, 100, 104, 78, 15, "rgba(255,255,255,.2)") + `<text x="100" y="${c.vt.length > 7 ? 92 : 96}" text-anchor="middle" font-size="${c.vt.length > 9 ? 20 : c.vt.length > 6 ? 27 : 36}" font-weight="800" fill="#fff">${PV.esc2(c.vt)}</text><text x="100" y="118" text-anchor="middle" font-size="11.5" fill="#cbd5e1">${PV.esc2(String(c.ut).slice(0, 26))}</text>`, 200, 132)}</div>
+    return `<div class="dl-kw"><div class="g">${PV.svg(PV.arco(c.pw, c.col, 100, 104, 78, 15, "rgba(255,255,255,.2)") + `<text x="100" y="${c.vt.length > 7 ? 92 : 96}" text-anchor="middle" font-size="${c.vt.length > 9 ? 20 : c.vt.length > 6 ? 27 : 36}" font-weight="800" fill="#fff">${PV.esc2(c.vt)}</text><text x="100" y="118" text-anchor="middle" font-size="11.5" fill="#cbd5e1">${PV.esc2(String(c.ut).slice(0, 26))}</text>`, 200, 132)}</div>
       <div class="tx"><small>${esc(i._e.n)}</small><b>${esc(i.n)}</b>${lin.join("")}</div></div>`;
   }
   // 3) mini-widget para reportes (SVG de 260 × 64)
   function pvMini(i, c) {
     const d = c.val != null && c.ant != null ? c.val - c.ant : null, nom = i.n.length > 34 ? i.n.slice(0, 33) + "…" : i.n, vt = c.vt + (c.ut && c.ut.length <= 12 ? " " + c.ut : "");
     let viz = ""; if (c.serie && c.serie.length > 1) { const v = c.serie.slice(-24), mn = Math.min(...v), mx = Math.max(...v), pt = v.map((q, k) => (172 + 76 * k / (v.length - 1)).toFixed(1) + "," + (48 - 30 * (mx > mn ? (q - mn) / (mx - mn) : .5)).toFixed(1)); viz = `<polyline points="${pt.join(" ")}" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${pt[pt.length - 1].split(",")[0]}" cy="${pt[pt.length - 1].split(",")[1]}" r="2.8" fill="#4f46e5"/>`; }
-    else if (c.pReal) viz = `<rect x="172" y="30" width="76" height="8" rx="4" fill="#e2e8f0"/><rect x="172" y="30" width="${(76 * Math.max(.03, c.p)).toFixed(1)}" height="8" rx="4" fill="${c.col}"/>`;
+    else if (c.pw != null) viz = `<rect x="172" y="30" width="76" height="8" rx="4" fill="#e2e8f0"/><rect x="172" y="30" width="${(76 * Math.max(.03, c.pw)).toFixed(1)}" height="8" rx="4" fill="${c.col}"/>`;
     else viz = `<circle cx="238" cy="32" r="7" fill="${c.col}"/>`;
     return PV.svg(`<rect x=".5" y=".5" width="259" height="63" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="12" y="20" font-size="10" fill="#64748b">${PV.esc2(nom)}</text><text x="12" y="45" font-size="${vt.length > 14 ? 15 : 20}" font-weight="800" fill="#0f172a">${PV.esc2(vt)}</text>${d != null ? `<text x="12" y="58" font-size="9.5" fill="${d >= 0 ? "#059669" : "#dc2626"}">${d > 0 ? "▲" : d < 0 ? "▼" : "＝"} ${PV.esc2(gN(Math.abs(d)))}</text>` : c.estTx ? `<text x="12" y="58" font-size="9" fill="#64748b">${PV.esc2(c.estTx.slice(0, 30))}</text>` : ""}${viz}`, 260, 64);
   }
   // gráficas recomendadas según los datos que tiene el indicador
-  function pvRecom(c) { const o = []; if (c.serie) { o.push("linea", c.serie.some(v => v < 0) ? "signo" : "area", "barras"); if (c.rank) o.push("rank"); } else if (c.pReal) o.push("gauge", "barra", "escala"); return o; }
+  // gráficas factibles según la naturaleza de los datos del indicador (solo estas aparecen en el catálogo)
+  function pvFact(c) {
+    const o = [];
+    if (c.serie) { o.push("linea", "area", "barras"); if (c.serie.some(v => v < 0)) o.push("signo"); o.push("spark", "heat", "box"); if (c.rank) o.push("rank"); }
+    if (c.ord) o.push("pasos", "escala"); else if (c.esc) o.push("gauge", "barra", "escala", "dona");
+    return [...new Set(o)];
+  }
+  const pvRecom = c => c.serie ? ["linea", c.serie.some(v => v < 0) ? "signo" : "area"].concat(c.rank ? ["rank"] : []) : c.ord ? ["pasos"] : c.esc ? ["gauge", "barra"] : [];
   function previaI(i) { return `<div class="wide dl-pv" id="dlPv" data-k="${esc(kI(i))}"><p class="dl-mut">Cargando vista previa…</p></div>`; }
   function pvHTML(i, c) {
-    const rec = pvRecom(c), elegido = PVSEL[c.k] && PV.TIPOS.some(t => t[0] === PVSEL[c.k]) ? PVSEL[c.k] : rec[0] || "", T0 = PV.TIPOS.find(t => t[0] === elegido), G0 = elegido ? PV.dibuja(elegido, c) : null;
-    const grande = !elegido ? "" : elegido === "linea" && c.obs ? grafSVG(c.obs, i.u) : G0.svg, tag = real => `<em class="${real ? "r" : "e"}">${real ? (c.serie ? "datos reales" : "muestra real") : "ejemplo"}</em>`;
-    const cat = PV.TIPOS.map(t => { const g = PV.dibuja(t[0], c); return `<button type="button" class="dl-pvt${t[0] === elegido ? " on" : ""}" data-pvt="${t[0]}" title="Se usa hoy en: ${esc(t[2])}">${g.svg}<b>${esc(t[1])}</b><span>${tag(g.real)}${rec.includes(t[0]) ? '<em class="s">sugerida</em>' : ""}</span></button>`; }).join("");
+    const fact = pvFact(c), rec = pvRecom(c), ofi = (PVOF[c.k] || []).filter(x => fact.includes(x)), nomT = x => (PV.TIPOS.find(t => t[0] === x) || [])[1] || x;
+    const elegido = fact.includes(PVSEL[c.k]) ? PVSEL[c.k] : ofi[0] || rec[0] || fact[0] || "", G0 = elegido ? PV.dibuja(elegido, c) : null;
+    const grande = !elegido ? "" : elegido === "linea" && c.obs ? grafSVG(c.obs, i.u) : G0.svg, tag = real => `<em class="${real ? "r" : "e"}">${real ? (c.serie ? "datos reales" : "muestra real") : "valor de ejemplo"}</em>`;
+    const cat = fact.map(x => { const T = PV.TIPOS.find(q => q[0] === x), g = PV.dibuja(x, c), es = ofi.includes(x); return `<div class="dl-pvt${x === elegido ? " on" : ""}${es ? " of" : ""}"><button type="button" class="dl-pvv" data-pvt="${x}" title="Se usa hoy en: ${esc(T[2])}. Clic para verla en grande.">${g.svg}<b>${esc(T[1])}</b><span>${tag(g.real)}${rec.includes(x) ? '<em class="s">sugerida</em>' : ""}</span></button><button type="button" class="dl-pvo${es ? " on" : ""}" data-pvo="${x}" aria-pressed="${es}" title="${es ? "Quitar de las gráficas oficiales" : "Validar como gráfica oficial de este indicador"}"><i class="dl-ck">${es ? "✓" : ""}</i>${es ? "Oficial" : "Validar como oficial"}</button></div>`; }).join("");
     return `${c.sel ? `<div class="dl-pvs"><span>Muestra de</span>${c.sel}</div>` : ""}
       <div class="dl-pv2"><div><h4>Widget</h4><p class="dl-mut">Versión sintética del indicador, tipo KPI.</p>${pvWidget(i, c)}</div>
       <div><h4>Mini-widget</h4><p class="dl-mut">Para reportes o lugares con poco espacio.</p><div class="dl-pvm" id="dlPvMini">${pvMini(i, c)}</div><button type="button" class="dl-ghost pr" data-pvd="mini">Descargar SVG</button></div></div>
-      ${elegido ? `<h4>Gráfica <small>${esc(T0[1])} ${tag(G0.real)}</small></h4><div class="dl-pvb${elegido === "linea" && c.obs ? " dl-gr" : ""}" id="dlPvGraf">${grande}</div><button type="button" class="dl-ghost pr" data-pvd="graf">Descargar SVG</button>` : `<h4>Gráfica</h4><p class="dl-mut">Este indicador es un solo valor sin escala ni serie, así que su mejor representación es el widget. Si quieres una gráfica, elige un tipo del catálogo: se dibujará con datos de ejemplo.</p>`}
-      <h4>Catálogo de gráficas</h4><p class="dl-mut">Haz clic en un tipo para verlo en grande y dejarlo como la gráfica de este indicador. «Sugerida» = encaja con los datos que tiene; «ejemplo» = se dibuja con datos inventados porque el indicador no trae ese tipo de dato.</p><div class="dl-pvc">${cat}</div>
-      <p class="dl-mut">${c.origen ? esc(c.origen) + ". " : "Este indicador no tiene datos de muestra: todo se dibuja con datos de ejemplo. "}${c.frec ? "Periodicidad " + esc(String(c.frec).toLowerCase()) + ". " : ""}La gráfica elegida se recuerda solo en este navegador.</p>`;
+      ${fact.length ? `<h4>Gráficas oficiales <small>${ofi.length ? ofi.length + (ofi.length === 1 ? " validada" : " validadas") + ": " + esc(ofi.map(nomT).join(", ")) : "ninguna validada todavía"}</small></h4><p class="dl-mut">Las gráficas oficiales son las que se mostrarán para este indicador en los demás sistemas. Puedes validar varias; solo un administrador puede hacerlo.${PVOFok ? "" : " (No se pudo leer la lista guardada: inicia sesión de nuevo.)"}</p>
+      <h4>Gráfica <small>${esc(nomT(elegido))} ${tag(G0.real)}${ofi.includes(elegido) ? ' <em class="o">oficial</em>' : ""}</small></h4><div class="dl-pvb${elegido === "linea" && c.obs ? " dl-gr" : ""}" id="dlPvGraf">${grande}</div><button type="button" class="dl-ghost pr" data-pvd="graf">Descargar SVG</button>
+      <h4>Gráficas factibles para este indicador <small>${fact.length} de ${PV.TIPOS.length} tipos</small></h4><p class="dl-mut">Solo aparecen los tipos que tienen sentido con los datos de este indicador (${c.serie ? "una serie de tiempo" + (c.rank ? " por lugar" : "") : c.ord ? "un nivel en una escala ordenada" : "un valor dentro de una escala fija"}). Clic en la imagen para verla en grande; «Validar como oficial» la marca para los demás sistemas.</p><div class="dl-pvc">${cat}</div>`
+      : `<h4>Gráficas</h4><p class="dl-mut">Este indicador es un solo valor sin escala fija ni serie de tiempo, así que ninguna gráfica del catálogo le aplica: se representa con el widget y el mini-widget.</p>`}
+      <p class="dl-mut">${c.origen ? esc(c.origen) + ". " : "Este indicador no tiene datos de muestra: el valor se llena con cada proyecto. "}${c.frec ? "Periodicidad " + esc(String(c.frec).toLowerCase()) + "." : ""}</p>`;
   }
   function pintaGraf() {
     const el = $("#dlPv", host); if (!el) return; const k = el.dataset.k, i = INDS_ALL().find(x => kI(x) === k); if (!i) return;
@@ -464,8 +479,12 @@
     if (refSerie(i)) ecoCarga().then(pinta); else pinta(null);
   }
   function pvClic(t) {
-    const a = t.closest("[data-pvt]"); if (a) { const el = $("#dlPv", host); if (!el) return true; PVSEL[el.dataset.k] = a.dataset.pvt; try { localStorage.setItem("dl_grafica", JSON.stringify(PVSEL)); } catch (_) { } const y = $("#dlMain", host).scrollTop; pintaGraf(); $("#dlMain", host).scrollTop = y; return true; }
-    const d = t.closest("[data-pvd]"); if (d) { const sv = $(d.dataset.pvd === "mini" ? "#dlPvMini svg" : "#dlPvGraf svg", host), el = $("#dlPv", host); if (sv && el) { let x = sv.outerHTML; if (!/xmlns=/.test(x)) x = x.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"'); const u = URL.createObjectURL(new Blob([x], { type: "image/svg+xml" })), l = document.createElement("a"); l.href = u; l.download = (d.dataset.pvd === "mini" ? "mini-" : "grafica-") + el.dataset.k.replace(/[^a-z0-9_]+/gi, "-") + ".svg"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); } return true; }
+    const el = $("#dlPv", host), repinta = () => { const y = $("#dlMain", host).scrollTop; pintaGraf(); $("#dlMain", host).scrollTop = y; };
+    const o = t.closest("[data-pvo]"); if (o) { if (!el) return true; const k = el.dataset.k, antes = (PVOF[k] || []).slice(), x = o.dataset.pvo, nuevo = antes.includes(x) ? antes.filter(q => q !== x) : antes.concat([x]);
+      if (nuevo.length) PVOF[k] = nuevo; else delete PVOF[k]; repinta();
+      api("/geometrika/datalab/graficas", { k, tipos: nuevo }).then(() => toast(nuevo.includes(x) ? "Gráfica validada como oficial." : "Gráfica retirada de las oficiales.")).catch(e => { if (antes.length) PVOF[k] = antes; else delete PVOF[k]; repinta(); toast("No se guardó: " + e.message, 7000); }); return true; }
+    const a = t.closest("[data-pvt]"); if (a) { if (!el) return true; PVSEL[el.dataset.k] = a.dataset.pvt; repinta(); return true; }
+    const d = t.closest("[data-pvd]"); if (d) { const sv = $(d.dataset.pvd === "mini" ? "#dlPvMini svg" : "#dlPvGraf svg", host); if (sv && el) { let x = sv.outerHTML; if (!/xmlns=/.test(x)) x = x.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"'); const u = URL.createObjectURL(new Blob([x], { type: "image/svg+xml" })), l = document.createElement("a"); l.href = u; l.download = (d.dataset.pvd === "mini" ? "mini-" : "grafica-") + el.dataset.k.replace(/[^a-z0-9_]+/gi, "-") + ".svg"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); } return true; }
     return false;
   }
   function filaI(i) {   // ficha completa del indicador (panel central)
@@ -751,5 +770,6 @@
     shell(); eventosDr(host); ir(location.hash === "#indicadores" ? "indicadores" : "fuentes");
     if (EMB) { dlTemaPinta(); try { parent.postMessage({ gl: "ctx?" }, location.origin); } catch (_) { } }
     cargaCreados().then(ok => { if (ok && CRE.length) { if (sec === "indicadores") indicadores(); else fuentes(); } });
+    cargaOficiales().then(ok => { if (ok && sec === "indicadores") pintaGraf(); });
   };
 })();

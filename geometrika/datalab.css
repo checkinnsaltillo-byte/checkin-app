@@ -464,3 +464,13 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-pv em{font-style:normal;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap}
 .dl-pv em.r{background:var(--ok-bg);color:var(--ok)}.dl-pv em.e{background:#f1f5f9;color:#64748b}.dl-pv em.s{background:#e0e7ff;color:#3730a3}
 @media (max-width:900px){.dl-pv2{grid-template-columns:1fr}}
+/* catálogo: solo gráficas factibles; cada una se puede validar como oficial */
+.dl-pvt{cursor:default;padding:0;gap:0;overflow:hidden}
+.dl-pvt.of{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.14)}.dl-pvt.on{border-color:var(--ind);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.dl-pvv{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:8px 8px 6px}
+.dl-pvv svg{display:block;width:100%;height:auto}.dl-pvv b{font-size:12px;font-weight:700;color:var(--ink);line-height:1.25}.dl-pvv span{display:flex;flex-wrap:wrap;gap:4px}
+.dl-pvo{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:7px;padding:7px 8px;border-top:1px solid var(--line);font-size:11.5px;font-weight:600;color:#475569;background:#f8fafc}
+.dl-pvo:hover{background:#eef2ff}.dl-pvo.on{color:#047857;background:#ecfdf5}
+.dl-ck{flex:0 0 18px;width:18px;height:18px;box-sizing:border-box;border:1.5px solid #94a3b8;border-radius:5px;background:#fff;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800;color:#fff;line-height:1}
+.dl-pvo.on .dl-ck{background:#10b981;border-color:#10b981}
+.dl-pv em.o{background:#d1fae5;color:#047857}
