@@ -4433,8 +4433,26 @@ function bxDef(id) {
   }
   return null;
 }
+/* interruptor de Data Lab: un administrador puede apagar el boxplot de fábrica o encender uno propio en cualquier indicador numérico
+   (C = este proyecto frente a los demás proyectos guardados · H = esta lectura frente a las versiones guardadas del mismo proyecto) */
+const BXC = { cfg: null, vals: {}, p: null }, bxNumV = v => { const t = String(v == null ? '' : v).trim(); return /^[-+]?\d[\d,]*(\.\d+)?$/.test(t) ? +t.replace(/,/g, '') : null; };
+function bxCarga() {
+  if (BXC.p) return BXC.p;
+  return BXC.p = (async () => {
+    try { const j = await fetch('https://api.check-inn.mx/geometrika/datalab/boxplot', { cache: 'no-store' }).then(r => r.json()); BXC.cfg = (j && j.cfg) || {}; const ks = Object.keys(BXC.cfg).filter(k => BXC.cfg[k].on && BXC.cfg[k].modo === 'C'); if (ks.length) { const v = await fetch('https://api.check-inn.mx/geometrika/datalab/boxplot/valores?ks=' + encodeURIComponent(ks.join(',')), { cache: 'no-store' }).then(r => r.json()); BXC.vals = (v && v.vals) || {}; } } catch (_) { BXC.cfg = BXC.cfg || {}; }
+    try { const w = $('pw-ind'); if (w && w.classList.contains('on') && !INDX.busy) indRender(); } catch (_) { }
+  })();
+}
 function bxAnota(L) {   // a cada indicador con conjunto de referencia le agrega r.box
-  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const c0 = i.calc; i.calc = () => { const r = c0(); try { const cm = IND_CMP[e.id + ':' + i.id]; if (cm && r && r.sem !== 'na' && !r.box) { const d = bxDef(i.id); if (d && d.v != null) r.box = bxHtml(d.v, d.a, { lbl: d.lbl, fmt: d.fmt, nom: d.nom, uni: d.uni, s: cm.s }); } } catch (_) { } return r; }; })));
+  if (!BXC.p) bxCarga();
+  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const c0 = i.calc; i.calc = () => { const r = c0(); try {
+    const k = (/^ml[0-9a-f]{6,}$/.test(e.id) ? 'ml' : e.id) + ':' + i.id, cm = IND_CMP[k], cf = BXC.cfg && BXC.cfg[k];
+    if (r && r.sem !== 'na' && !r.box && !(cf && cf.on === false)) {
+      if (cm) { const d = bxDef(i.id); if (d && d.v != null) r.box = bxHtml(d.v, d.a, { lbl: d.lbl, fmt: d.fmt, nom: d.nom, uni: d.uni, s: cf && cf.s ? cf.s : cm.s }); }
+      else if (cf && cf.on && cf.modo) { const v = bxNumV(r.val); let arr = null, lbl, uni; if (cf.modo === 'C') { arr = BXC.vals[k]; lbl = 'Este proyecto frente a los demás proyectos guardados'; uni = 'proyectos con este indicador'; } else { const x = (INDH.d[pid()] || {})[e.id + ':' + i.id]; arr = x ? (x.v || []).map(q => bxNumV(q.val)) : null; lbl = 'Esta lectura frente a las lecturas guardadas del proyecto'; uni = 'lecturas guardadas de este proyecto'; }
+        if (v != null && arr && arr.filter(q => q != null).length >= 8) r.box = bxHtml(v, arr, { lbl, uni, nom: cf.modo === 'C' ? 'Este proyecto' : 'Ahora', s: cf.s }); }
+    }
+  } catch (_) { } return r; }; })));
   return L;
 }
 /* ── Indicadores de MediaLab y EconoLab dentro del tablero de indicadores ──
