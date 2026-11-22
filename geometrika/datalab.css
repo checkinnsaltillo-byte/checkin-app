@@ -752,3 +752,6 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 @media (max-width:720px){.dl-mlslot{height:60vh}.dl-mlmsg{margin-left:0}}
 
 .dl-mlniv button.no{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+
+.dl-mlretry{all:unset;cursor:pointer;font:700 11.5px system-ui;color:#0f172a;background:#fff;padding:5px 10px;border-radius:7px}
+.dl-mlretry:hover{background:#e2e8f0}

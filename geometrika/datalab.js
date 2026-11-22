@@ -850,7 +850,7 @@
     el.querySelectorAll("[data-mln]").forEach(b => { const k = b.dataset.mln, ok = k === "auto" || disp.includes(k); b.classList.toggle("no", !ok); b.classList.toggle("on", k === ML.niv); b.title = ok ? "" : "Este indicador no existe por " + ML_NIV[k].toLowerCase(); b.textContent = k === "mza" && d.t === "eu" && d.m !== "nse" ? "Frentes" : ML_NIV[k]; });
     el.querySelector(".dl-mlniv").style.display = disp.length ? "" : "none"; el.querySelector(".dl-mlvar").textContent = d.n + (d.m === "nse" ? " · manzanas" : ML_UNI[d.t] ? " · " + ML_UNI[d.t] : ""); }
   /* respaldo sin WebGL: si el navegador no puede crear un contexto WebGL (aceleración por hardware apagada o GPU no compatible), el mapa se dibuja plano con Leaflet y los mismos datos y colores (sin relieve 3D) */
-  const mlGL = () => { try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (_) { return false; } };
+  const mlGL = () => { try { const c = document.createElement("canvas"), g = c.getContext("webgl2") || c.getContext("webgl"); if (g) { const x = g.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } return !!g; } catch (_) { return false; } };   /* la prueba suelta su contexto para no gastar el límite del navegador */
   const mlLeaf = () => ML.leaf || (ML.leaf = new Promise((ok, mal) => { if (window.L) return ok(); const c = document.createElement("link"); c.rel = "stylesheet"; c.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(c); const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = () => ok(); s.onerror = () => { ML.leaf = null; mal(new Error("No se pudo cargar el mapa.")); }; document.head.appendChild(s); }));
   async function mlPlano(el) {
     await mlLeaf(); ML.plano = true; const cont = el.querySelector(".dl-mlmap"); cont.innerHTML = "";
@@ -860,6 +860,7 @@
     const m = { getZoom: () => lm.getZoom() - 1, getCenter: () => lm.getCenter(), getBounds: () => lm.getBounds(), getPitch: () => 0, easeTo: () => { }, jumpTo: o => lm.setView([o.center[1], o.center[0]], o.zoom + 1, { animate: false }), resize: () => lm.invalidateSize(), on: (ev, fn) => lm.on(ev, fn),
       getSource: n => ({ setData: fc => { if (grp[n]) { lm.removeLayer(grp[n]); grp[n] = null; } if (!fc.features.length) return;
         grp[n] = L.geoJSON(fc, { renderer: rend, style: f => n === "lin" ? { color: f.properties.c, weight: 3, opacity: f.properties.o } : { color: f.properties.c, weight: .6, fillColor: f.properties.c, fillOpacity: .82 }, pointToLayer: (f, ll) => L.circleMarker(ll, { renderer: rend, radius: 3, color: f.properties.c, fillColor: f.properties.c, fillOpacity: .85, weight: 0 }), onEachFeature: (f, l) => { if (f.properties.vt) l.on("click", e => pop(f, e.latlng)); } }).addTo(lm); } }) };
+    const bt = document.createElement("button"); bt.type = "button"; bt.className = "dl-mlretry"; bt.textContent = "Reintentar 3D"; bt.title = "Vuelve a intentar abrir el mapa en 3D"; bt.onclick = () => { const e0 = ML.el; ML.plano = false; ML.listo = false; ML.map = null; ML.el = null; ML.vista = ""; if (e0) e0.remove(); try { mlSync(); } catch (_) { } }; el.querySelector(".dl-mlbar").insertBefore(bt, el.querySelector(".dl-mlmsg"));
     ML.map = m; el._map = m; ML.listo = true; lm.on("moveend", () => { clearTimeout(ML.t); ML.t = setTimeout(() => mlCarga(false), 350); }); mlCarga(true);
   }
   function mlHost() {
@@ -868,8 +869,8 @@
     el.innerHTML = `<div class="dl-mlbar"><div class="dl-mlniv" role="group" aria-label="Nivel">${Object.keys(ML_NIV).map(k => `<button type="button" data-mln="${k}">${ML_NIV[k]}</button>`).join("")}</div><b class="dl-mlvar"></b><span class="dl-mlmsg"></span></div><div class="dl-mlmap"></div><div class="dl-mlleg"></div>`;
     main.appendChild(el); ML.el = el; ML.map = null; ML.listo = false; mlBot();
     el.querySelector(".dl-mlniv").addEventListener("click", e => { const b = e.target.closest("[data-mln]"); if (!b || b.classList.contains("no")) return; ML.niv = b.dataset.mln; mlBot(); mlCarga(true); });
-    mlLib().then(() => {
-      if (!mlGL()) return mlPlano(el);
+    mlLib().then(async () => {
+      if (!mlGL()) { await new Promise(r => setTimeout(r, 1500)); if (!mlGL()) return mlPlano(el); }   /* un reintento: el WebGL puede estar ocupado un instante */
       const m = new maplibregl.Map({ container: el.querySelector(".dl-mlmap"), style: { version: 8, sources: { base: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 16, attribution: "Esri · INEGI" } }, layers: [{ id: "base", type: "raster", source: "base" }] }, center: [-102.3, 23.8], zoom: 4.2, maxPitch: 70, attributionControl: { compact: true } });
       m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); ML.map = m; el._map = m;
       m.on("load", () => {
