@@ -787,7 +787,7 @@
   function bxFicha(i, c) {
     const h = $("#dlBxFicha", host); if (!h) return; const g = BXCFG[i._e.id + ":" + i.id]; if (!g || !g.on || !g.modo || !c || !c.serie) { h.innerHTML = ""; return; }
     const ent = refSerie(i) && refSerie(i)[0] === "est" ? "estados" : "ciudades"; let html = "";
-    if (g.modo === "N" && c.rankAll) html = bxHtmlDL(c.val, c.rankAll.map(q => q[1]), { lbl: `${c.lugar || "La entidad"} frente a los demás ${ent} (último dato de cada uno)`, nom: c.lugar || "Aquí", uni: ent + " con dato", s: g.s });
+    if (g.modo === "N" && c.rankAll) html = bxHtmlDL(c.val, c.rankAll.map(q => q[1]), { lbl: `${c.lugar || "La entidad"} frente a ${ent === "estados" ? "los demás estados (último dato de cada uno)" : "las demás ciudades (último dato de cada una)"}`, nom: c.lugar || "Aquí", uni: ent + " con dato", s: g.s });
     else if (g.modo === "H") html = bxHtmlDL(c.val, c.serie, { lbl: "Dato más reciente frente a toda la historia de la serie" + (c.lugar ? " · " + c.lugar : ""), nom: "Último", uni: "datos publicados de la serie", s: g.s });
     h.innerHTML = html ? `<span>Boxplot</span>${html}` : `<span>Boxplot</span><p class="dl-mut">El boxplot está encendido, pero todavía no hay al menos 8 datos para dibujarlo.</p>`;
   }
