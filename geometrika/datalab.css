@@ -423,7 +423,7 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-fxh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}.dl-fxh b{font-size:14px;color:var(--ink)}.dl-fxh a{font-size:12.5px}
 /* dinámica del dato y guardado */
 .dl-b.din-E{background:#e2e8f0;color:#334155}.dl-b.din-P{background:#e0f2fe;color:#0369a1}.dl-b.din-R{background:var(--pv-bg);color:var(--pv)}.dl-b.din-D{background:var(--am-bg);color:var(--am)}
-.dl-b.gua-S{background:var(--ok-bg);color:var(--ok)}.dl-b.gua-N{background:var(--rd-bg);color:var(--rd)}.dl-b.gua-B{background:var(--am-bg);color:var(--am)}.dl-b.gua-X{background:var(--sl-bg);color:#475569}
+.dl-b.gua-S{background:var(--ok-bg);color:var(--ok)}.dl-b.gua-N{background:#e0f2fe;color:#075985}.dl-b.gua-B{background:var(--am-bg);color:var(--am)}.dl-b.gua-X{background:var(--sl-bg);color:#475569}
 .dl-b.amb{background:#ccfbf1;color:#0f766e}
 /* ficha del indicador: resumen arriba y secciones con título */
 .dl-lead{margin:0 0 14px;font-size:15px;line-height:1.5;color:#1e293b;max-width:900px}
