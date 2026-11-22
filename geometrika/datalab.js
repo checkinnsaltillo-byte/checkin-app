@@ -317,6 +317,7 @@
   if (!window._dlGvMsg) { window._dlGvMsg = 1; setInterval(() => { try { gvSync(); } catch (_) { } }, 150);
     window.addEventListener("message", e => { if (e.origin !== location.origin || !e.data || e.data.gv !== "listo" || !GVP.fr || e.source !== GVP.fr.contentWindow) return; const d = e.data;
       if (!GVP.listo) { GVP.listo = true; if (GVP.pend || d.dl !== GVP.m || d.ind !== GVP.k) { GVP.pend = null; GVP.espera = GVP.n; try { GVP.fr.contentWindow.postMessage({ gv: "ver", dl: GVP.m, ind: GVP.k, n: GVP.n }, location.origin); } catch (_) { } return; } }
+      else if (d.n === 0) { if (d.dl !== GVP.m || d.ind !== GVP.k) { GVP.espera = ++GVP.n; try { GVP.fr.contentWindow.postMessage({ gv: "ver", dl: GVP.m, ind: GVP.k, n: GVP.n }, location.origin); } catch (_) { } return; } }   /* el mapa se recargó solo (p. ej. al recuperarse de un fallo gráfico): se le vuelve a pedir el análisis actual */
       else if (d.n !== GVP.espera) return;   /* respuesta de una petición vieja */
       if (d.dl === GVP.m && GVP.cj) GVP.cj.classList.add("ok"); }); }
   window.dlGvFit = f => { try { const d = f.contentDocument, fit = () => { f.style.height = "40px"; f.style.height = Math.min(Math.max(d.documentElement.scrollHeight, d.body.scrollHeight), +f.dataset.fit || 9999) + "px"; };
