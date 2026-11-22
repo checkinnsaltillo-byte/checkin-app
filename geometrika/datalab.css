@@ -706,3 +706,19 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-bxd footer{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid #e2e8f0}
 .dl-b.cmp-E,.dl-b.cmp-H{background:#dcfce7;color:#166534}.dl-b.cmp-X{background:#fee2e2;color:#991b1b}
 @media (max-width:640px){.dl-bxg,.dl-bxg.tres{grid-template-columns:1fr}}
+
+/* boxplot dibujado en la ficha de Data Lab */
+.dl-bxp{max-width:640px;margin-top:4px}
+.dl-bxp .t{font-size:12px;color:#64748b;margin-bottom:14px}
+.dl-bxp .g{position:relative;height:30px;margin:0 8px}
+.dl-bxp .g i{position:absolute;display:block}
+.dl-bxp .g .w{top:14px;height:2px;background:#94a3b8}
+.dl-bxp .g .c{top:6px;height:18px;border:1.5px solid #64748b;border-radius:3px;background:#cbd5e1aa;box-sizing:border-box}
+.dl-bxp .g .m{top:6px;width:2px;height:18px;background:#0f172a;margin-left:-1px}
+.dl-bxp .g .p{top:7px;width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-sizing:border-box;margin-left:-8px;z-index:2}
+.dl-d .in div .dl-bxp .e,.dl-bxp .e{position:absolute;top:-13px;font:800 10.5px system-ui;white-space:nowrap;text-transform:none;letter-spacing:0}
+.dl-d .in div .dl-bxp .x span,.dl-bxp .x span{font:500 10.5px system-ui;color:#94a3b8;text-transform:none;letter-spacing:0}
+.dl-bxp .x{display:flex;justify-content:space-between;margin:2px 8px 0}
+.dl-bxp .n{font-size:11.5px;color:#475569;margin-top:6px;line-height:1.5}
+.dl-b.cmp-HS,.dl-b.cmp-N{background:#dcfce7;color:#166534}.dl-b.cmp-T{background:#ede9fe;color:#5b21b6}
+.dl-bxo[disabled]{opacity:.45;cursor:default}
