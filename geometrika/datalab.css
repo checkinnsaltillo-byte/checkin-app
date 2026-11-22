@@ -671,19 +671,10 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 #dlGvHost{position:absolute;z-index:3;flex:none}
 @media (max-width:720px){.dl-gvslot{height:620px}}
 
-/* visor de Geo Lab fijo en la parte superior del área central: encabezado con el nombre de la clasificación (clic lo pliega) y debajo el detalle del indicador */
-#dlGvHost.dl-gvtop{position:sticky;top:0;z-index:20;width:auto;height:auto;max-width:1320px;margin:0 auto;padding:10px 22px 8px;box-sizing:border-box;background:var(--bg,#f1f5f9);display:block}
-.dl-gvhd{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f172a;color:#fff;border-radius:12px 12px 0 0;cursor:pointer;user-select:none}
-.dl-gvhd .ar{font-style:normal;font-size:12px;opacity:.8;transition:transform .15s}
-.dl-gvhd .tt{font:800 15px system-ui;letter-spacing:-.01em;white-space:nowrap}
-.dl-gvhd .sb{font:500 12px system-ui;opacity:.72;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto}
-.dl-gvhd em{font:700 11.5px system-ui;font-style:normal;background:rgba(255,255,255,.14);border-radius:999px;padding:4px 10px;white-space:nowrap}
-.dl-gvhd:hover em{background:rgba(255,255,255,.24)}
-#dlGvHost.dl-gvtop .dl-gvw{position:relative;width:100%;height:min(58vh,640px);min-height:320px;flex:none;border:1px solid #cbd5e1;border-top:0;border-radius:0 0 12px 12px;overflow:hidden;box-shadow:0 10px 24px rgba(15,23,42,.12);background:#eef2f7}
-#dlGvHost.dl-gvtop .dl-gvm{border:0;border-radius:0;box-shadow:none}
-#dlGvHost.dl-gvtop .dl-gvph{left:0;top:0;bottom:0;border-radius:0}
-#dlGvHost.dl-gvtop.col .dl-gvw{display:none}
-#dlGvHost.dl-gvtop.col .dl-gvhd{border-radius:12px}
-#dlGvHost.dl-gvtop.col .dl-gvhd .ar{transform:rotate(-90deg)}
-@media (max-width:720px){#dlGvHost.dl-gvtop{padding:8px 14px 6px}#dlGvHost.dl-gvtop .dl-gvw{height:52vh}.dl-gvhd .sb{display:none}}
-.dl-gvslot[hidden]{display:none!important}
+/* visor de Geo Lab como una sección más de la ficha: el hueco reserva el espacio a todo lo ancho y el visor único se coloca encima; no flota ni se encima con el resto */
+.dl-gvslot{display:block;width:100%;height:min(64vh,660px);min-height:340px;border-radius:12px;background:#eef2f7;margin:2px 0 16px}
+#dlGvHost{position:absolute;z-index:3;flex:none;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;box-sizing:border-box;box-shadow:0 6px 18px rgba(15,23,42,.08)}
+#dlGvHost .dl-gvm{border:0;border-radius:0;box-shadow:none}
+#dlGvHost .dl-gvph{left:0;top:0;bottom:0;border-radius:0}
+.dl-gvsx>summary b{font-size:17px}
+@media (max-width:720px){.dl-gvslot{height:60vh}}

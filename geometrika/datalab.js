@@ -286,13 +286,10 @@
      se le pide por mensaje cambiar de análisis o solo resaltar el indicador. Mientras responde, la columna muestra la copia guardada de los resultados. */
   const GVP = { el: null, fr: null, ph: null, phf: null, listo: false, m: "", k: "", n: 0, pend: null, espera: 0 };
   function gvHost() {
-    if (GVP.el && GVP.el.isConnected) return GVP.el; const main = $("#dlMain", host); if (!main) return null; let col = false; try { col = localStorage.getItem("dl_gv_col") === "1"; } catch (_) { }
-    const el = document.createElement("div"); el.id = "dlGvHost"; el.className = "dl-gvtop" + (col ? " col" : ""); el.style.display = "none";
-    el.innerHTML = `<button type="button" class="dl-gvhd" aria-expanded="${!col}" title="Ocultar o mostrar el visor de Geo Lab"><i class="ar">▾</i><b class="tt"></b><span class="sb"></span><em></em></button><div class="dl-gvw"><div class="dl-gvph"><div class="dl-gvlk"><b>🔒</b><span>Vista fija en este análisis<small>No se puede cambiar de sección ni de análisis</small></span></div><iframe title="Resultados"></iframe><div class="dl-gvld"><i></i><span>Cargando el mapa interactivo…</span></div></div></div>`;
-    main.insertBefore(el, main.firstChild); GVP.el = el; GVP.cj = el.querySelector(".dl-gvw"); GVP.ph = el.querySelector(".dl-gvph"); GVP.phf = GVP.ph.querySelector("iframe"); GVP.fr = null; GVP.listo = false; GVP.m = GVP.k = GVP.tit = "";
-    const hd = el.querySelector(".dl-gvhd"), pon = () => { const c = el.classList.contains("col"); hd.setAttribute("aria-expanded", !c); hd.querySelector("em").textContent = c ? "Mostrar visor" : "Ocultar visor"; }; pon();
-    hd.addEventListener("click", () => { el.classList.toggle("col"); try { localStorage.setItem("dl_gv_col", el.classList.contains("col") ? "1" : "0"); } catch (_) { } pon(); });
-    return el;
+    if (GVP.el && GVP.el.isConnected) return GVP.el; const main = $("#dlMain", host); if (!main) return null; main.style.position = "relative";
+    const el = document.createElement("div"); el.id = "dlGvHost"; el.className = "dl-gvw"; el.style.display = "none";
+    el.innerHTML = `<div class="dl-gvph"><div class="dl-gvlk"><b>🔒</b><span>Vista fija en este análisis<small>No se puede cambiar de sección ni de análisis</small></span></div><iframe title="Resultados"></iframe><div class="dl-gvld"><i></i><span>Cargando el mapa interactivo…</span></div></div>`;
+    main.appendChild(el); GVP.el = GVP.cj = el; GVP.ph = el.querySelector(".dl-gvph"); GVP.phf = GVP.ph.querySelector("iframe"); GVP.fr = null; GVP.listo = false; GVP.m = GVP.k = ""; return el;
   }
   function gvPide(slot) {
     const G = window.DL_GVIS, m = slot.dataset.m, k = slot.dataset.k, t = slot.dataset.t; if (!G || !m) return; const el = gvHost(); if (!el) return; if (GVP.m === m && GVP.k === k) return;
@@ -303,10 +300,14 @@
   }
   function gvSync() {
     const main = $("#dlMain", host); if (!main) return; const slot = main.querySelector(".dl-gvslot"), el = GVP.el;
-    if (!slot) { if (el && el.style.display !== "none") el.style.display = "none"; return; }
-    gvPide(slot); const e2 = GVP.el; if (!e2) return; if (e2.style.display === "none") e2.style.display = "";
-    const tit = slot.dataset.tit + "|" + slot.dataset.sub; if (GVP.tit !== tit) { GVP.tit = tit; e2.querySelector(".dl-gvhd .tt").textContent = slot.dataset.tit || "Geo Lab"; e2.querySelector(".dl-gvhd .sb").textContent = (slot.dataset.sub ? slot.dataset.sub + " · " : "") + "Geo Lab en vivo · proyecto de muestra " + ((window.DL_GVIS || {}).proy || ""); }
+    if (slot) gvPide(slot);   /* aunque la sección esté plegada, el mapa se prepara y sigue al indicador elegido */
+    const e2 = GVP.el; if (!e2) return; if (!slot || !slot.getClientRects().length) { if (e2.style.display !== "none") e2.style.display = "none"; return; }
+    const a = slot.getBoundingClientRect(), b = main.getBoundingClientRect(), top = Math.round(a.top - b.top + main.scrollTop), left = Math.round(a.left - b.left + main.scrollLeft), st = e2.style;
+    if (st.display === "none") st.display = ""; if (st.top !== top + "px") st.top = top + "px"; if (st.left !== left + "px") st.left = left + "px"; const w = Math.round(a.width) + "px", h = Math.round(a.height) + "px"; if (st.width !== w) st.width = w; if (st.height !== h) st.height = h;
   }
+  /* sección del visor: la primera de la ficha, con el nombre de la clasificación; se pliega como las demás y recuerda cómo se dejó */
+  const gvSec = i => { const G = window.DL_GVIS, o = G && !i._nuevo && !i._inegi && G.ind[i._e.id + ":" + i.id], t = o && o.t && G.tabs[o.t]; if (!t || !t.m || !G.pid) return ""; let col = false; try { col = localStorage.getItem("dl_gv_col") === "1"; } catch (_) { }
+    return `<details class="dl-sx dl-gvsx"${col ? "" : " open"} ontoggle="try{localStorage.setItem('dl_gv_col',this.open?'0':'1')}catch(e){}"><summary><b>${esc((i._e.ico ? i._e.ico + " " : "") + i._e.n)}</b><span>${esc(t.n)} · Geo Lab en vivo con el proyecto de muestra ${esc(G.proy || "")}: resultados y mapa interactivo</span></summary><div class="dl-gvslot" data-m="${t.m}" data-t="${o.t}" data-k="${esc(i._e.id + ":" + i.id)}"></div></details>`; };
   if (!window._dlGvMsg) { window._dlGvMsg = 1; setInterval(() => { try { gvSync(); } catch (_) { } }, 150);
     window.addEventListener("message", e => { if (e.origin !== location.origin || !e.data || e.data.gv !== "listo" || !GVP.fr || e.source !== GVP.fr.contentWindow) return; const d = e.data;
       if (!GVP.listo) { GVP.listo = true; if (GVP.pend || d.dl !== GVP.m || d.ind !== GVP.k) { GVP.pend = null; GVP.espera = GVP.n; try { GVP.fr.contentWindow.postMessage({ gv: "ver", dl: GVP.m, ind: GVP.k, n: GVP.n }, location.origin); } catch (_) { } return; } }
@@ -317,9 +318,8 @@
       fit(); } catch (_) { } };
   const gvisHTML = i => { const G = window.DL_GVIS, o = G && !i._nuevo && !i._inegi && G.ind[i._e.id + ":" + i.id]; if (!o) return ""; const f = i._e.id + "-" + i.id, W = G.w || 368, t = o.t && G.tabs[o.t], no = tx => `<p class="dl-gvn">${tx}</p>`, par = (l, tit, sub, cuerpo) => `<section class="dl-gvp"><h5><i>${l}</i>${tit}</h5><small>${sub}</small><div class="dl-gvc">${cuerpo}</div></section>`;
     const leg = t ? t.aux.map(a => `<figure class="dl-gva"><figcaption>${a.k === "v" ? "Ventana auxiliar" : "Leyenda"} · ${esc(a.t)}</figcaption>${gvFr(a.f, a.w + 26, a.h + 26, 0, a.t)}</figure>`).join("") : "";
-    return `<div class="dl-gv"><b>En todo Geo Lab</b><small>Réplica de cada lugar de Geo Lab donde aparece este indicador, copiada del proyecto de muestra (${esc(G.proy || "")}) con su tamaño real. El visor de Geo Lab, con sus resultados y el mapa, está fijo arriba de esta ventana.</small>
+    return `<div class="dl-gv"><b>En todo Geo Lab</b><small>Réplica de cada lugar de Geo Lab donde aparece este indicador, copiada del proyecto de muestra (${esc(G.proy || "")}) con su tamaño real. El visor de Geo Lab, con sus resultados y el mapa, es la primera sección de esta ficha.</small>
       ${par("a", "Panel Indicadores", "La tarjeta del indicador como se ve en el panel Indicadores. <b>Haz clic en ella</b> para desplegar su detalle (descripción, unidades, metodología, fórmula, variables y versiones guardadas) y en cada variable para ver su fuente y transformaciones, igual que en Geo Lab.", o.c ? gvFr("det-" + f + ".html", W, 150, 1600, "Tarjeta en el panel Indicadores", 1) : no("Este indicador no tiene tarjeta en el panel Indicadores."))}
-      ${t && t.m && G.pid ? `<div class="dl-gvslot" hidden data-m="${t.m}" data-t="${o.t}" data-k="${esc(i._e.id + ":" + i.id)}" data-tit="${esc((i._e.ico ? i._e.ico + " " : "") + i._e.n)}" data-sub="${esc(t.n)}"></div>` : ""}
       ${par("b", "KPI en el mapa", "La tarjeta flotante que aparece sobre el mapa al abrir su análisis.", o.k ? gvFr("kpi-" + f + ".html", 300, 110, 260, "KPI en el mapa") : no("Este indicador no tiene KPI sobre el mapa."))}
       ${par("c", "Leyenda o ventana auxiliar", "Lo que se dibuja sobre el mapa al pulsar «Ver en el mapa» en su análisis: leyendas y ventanas de apoyo (por ejemplo, la distribución por hexágono).", leg || no(t ? "Su análisis no muestra leyenda ni ventana auxiliar sobre el mapa." : "No aplica."))}</div>`; };
   function bloqueGeo(i) {
@@ -718,7 +718,7 @@
     const kfH = `<dl class="dl-kf">${kf("Tipo de dato", `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span><small>${odatI(i) === "C" ? "Construido en el sistema" : i._inegi && i.tipo !== "Dato duro" ? "Lo calcula el INEGI (dato de origen)" : "De la fuente (dato de origen)"}</small>`)}${kf("Periodicidad de los datos", O.ext.some(x => x.perS) ? `<span data-per-s>Se muestra al cargar la serie…</span>` : uq("per"))}${kf("Forma de consulta o descarga", uq("forma"))}${kf("Tipo de fuente", uq("tf"))}${kf("Familia de fuente (clic para filtrar)", `<div class="dl-ch">${fam}</div>`)}${kf("Tipo de levantamiento", uq("lev"))}${kf("Nivel geográfico", O.amb ? `<span class="dl-b amb">${AMB_T[O.amb[0]]}</span><small>${esc(O.amb[1])}</small>${!O.geoIgual && O.ext.some(x => x.geo) ? `<small><b>Dato de origen:</b> ${[...new Set(O.ext.map(x => x.geo).filter(Boolean))].slice(0, 3).map(esc).join("; ")}</small>` : ""}` : "—")}${kf("¿Queda guardado?", gC ? `<span class="dl-b gua-${gC}">${GUA_T[gC]}</span>` : "—")}</dl>`;
     // metadatos completos del indicador: los usa el botón «Ver metadata» del widget
     PVMETA[kI(i)] = { kf: kfH, cuerpo: `<div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div><div class="wide"><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>` + O.origen + O.fuentes + O.tipo + O.geo + dn.replace("<div class=\"wide\"><dl", "<div class=\"wide\"><span>Actualización y guardado</span><dl") };
-    return `<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}</h2></div>
+    return `${gvSec(i)}<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}</h2></div>
       <div class="dl-ixt">${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <p class="dl-lead">${esc(i.d)}</p>
       ${kfH}
