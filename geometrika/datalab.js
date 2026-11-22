@@ -828,7 +828,7 @@
         ${fila(okC ? "✓" : "…", "Entre proyectos", `${v.numericos} de ${v.proyectos} proyectos guardados tienen una cifra de este indicador; se necesitan ${v.minimo} para dibujarlo.${okC ? "" : " Se puede dejar encendido: aparecerá solo cuando se junten."}`)}
         ${fila(okH ? "✓" : "…", "Historial del propio proyecto", `El proyecto con más lecturas guardadas tiene ${v.versiones}; se necesitan ${v.minimo} en el proyecto que se esté viendo.${okH ? "" : " Sirve para datos que cambian seguido (aire, tráfico, clima)."}`)}</ul>`;
       if (texto) cuerpo += `<p class="dl-bxn">Este indicador no admite boxplot.</p>`;
-      else cuerpo += `<h5>1 · ¿Contra qué se compara? <small>nivel de representación</small></h5><div class="dl-bxg">${bxOp("data-bxm", "C", D.modo === "C", "Entre proyectos", "Cada proyecto guardado es un punto de la distribución; se resalta este proyecto.")}${bxOp("data-bxm", "H", D.modo === "H", "Historial del proyecto", "Cada lectura guardada del mismo proyecto es un punto; se resalta la lectura actual.")}</div>
+      else cuerpo += `<h5>1 · ¿Contra qué se compara? <small>nivel de representación</small></h5><div class="dl-bxg tres">${bxOp("data-bxm", "C", D.modo === "C", "Entre proyectos", "Cada proyecto guardado es un punto de la distribución; se resalta este proyecto.")}${bxOp("data-bxm", "H", D.modo === "H", "Historial del proyecto", "Cada lectura guardada del mismo proyecto es un punto; se resalta la lectura actual.")}${bxOp("data-bxm", "U", false, "Unidades de la ciudad", "No disponible para este indicador: su valor solo existe para el sitio analizado, no para cada hexágono, manzana o celda de la ciudad. Población sí lo permite porque el Censo trae el dato de todos los hexágonos.", true)}</div>
         <h5>2 · ¿Qué lado es el favorable?</h5><div class="dl-bxg tres">${bxOp("data-bxs", "1", D.s === 1, "Más alto es mejor", "")}${bxOp("data-bxs", "-1", D.s === -1, "Más bajo es mejor", "")}${bxOp("data-bxs", "0", D.s === 0, "Neutro", "")}</div>
         <p class="dl-bxn">${(D.modo === "C" ? okC : okH) ? "Con los datos actuales el boxplot se dibuja de inmediato en Geo Lab." : "Con los datos actuales todavía no alcanza: quedará encendido y aparecerá cuando haya suficientes."}</p>`;
     }
@@ -843,7 +843,7 @@
   function bxPopClic(t) {
     if (t.closest("[data-bxx]") || t.id === "dlBxPop") { BXD = null; const p = $("#dlBxPop", host); if (p) p.remove(); return true; }
     if (!BXD) return false; const m = t.closest("[data-bxm]"), sn = t.closest("[data-bxs]");
-    if (m) { BXD.modo = m.dataset.bxm; bxPinta(); return true; } if (sn) { BXD.s = +sn.dataset.bxs; bxPinta(); return true; }
+    if (m) { if (!m.disabled) { BXD.modo = m.dataset.bxm; bxPinta(); } return true; } if (sn) { BXD.s = +sn.dataset.bxs; bxPinta(); return true; }
     if (t.closest("[data-bxgo]")) { const D = BXD; bxGuarda(D.k, { on: true, modo: D.modo, s: D.s }).then(() => { BXD = null; const p = $("#dlBxPop", host); if (p) p.remove(); toast(D.v && D.v.serie ? "Boxplot encendido: se dibuja en la ficha." : "Boxplot encendido. Se dibuja en Geo Lab cuando hay datos suficientes."); }).catch(er => toast(er.message || "No se pudo guardar.", 6000)); return true; }
     return !!t.closest("#dlBxPop");
   }
