@@ -794,7 +794,7 @@
   let BXCFG = {}, BXD = null;
   const cargaBox = () => api("/geometrika/datalab/boxplot").then(j => { BXCFG = j.cfg || {}; return true; }).catch(() => false);
   const bxEstado = i => { const k = i._e.id + ":" + i.id, f = (window.DL_CMP || {})[k], c = BXCFG[k]; return { k, f, c, on: c ? !!c.on && (!!f || !!c.modo) : !!f }; };
-  const bxSw = i => { const e = bxEstado(i); return `<button type="button" class="dl-sw${e.on ? " on" : ""}" data-bxsw="${esc(e.k)}" role="switch" aria-checked="${e.on}" title="Encender o apagar el boxplot de este indicador (solo administrador)"><i></i><span>${e.on ? "Boxplot encendido" : "Boxplot apagado"}</span></button>`; };
+  const bxSw = i => { const e = bxEstado(i); return `<button type="button" class="dl-bxsw${e.on ? " on" : ""}" data-bxsw="${esc(e.k)}" role="switch" aria-checked="${e.on}" title="Encender o apagar el boxplot de este indicador (solo administrador)"><i></i><span>${e.on ? "Boxplot encendido" : "Boxplot apagado"}</span></button>`; };
   const bxGuarda = (k, cuerpo) => api("/geometrika/datalab/boxplot", Object.assign({ k }, cuerpo), "POST").then(j => { BXCFG = j.cfg || BXCFG; listaI(); return true; });
   async function bxClic(k) {
     const i = INDS_ALL().find(x => x._e.id + ":" + x.id === k); if (!i) return; const e = bxEstado(i);
