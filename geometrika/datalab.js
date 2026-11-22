@@ -819,7 +819,7 @@
   /* botones de nivel: solo se pueden elegir las unidades en que existe el indicador abierto */
   function mlBot() { const el = ML.el; if (!el) return; const d = ML_D[ML.k], disp = ML_DISP[d.t]; if (ML.niv !== "auto" && !disp.includes(ML.niv)) ML.niv = "auto";
     el.querySelectorAll("[data-mln]").forEach(b => { const k = b.dataset.mln, ok = k === "auto" || disp.includes(k); b.classList.toggle("no", !ok); b.classList.toggle("on", k === ML.niv); b.title = ok ? "" : "Este indicador no existe por " + ML_NIV[k].toLowerCase(); b.textContent = k === "mza" && d.t === "eu" && d.m !== "nse" ? "Frentes" : ML_NIV[k]; });
-    el.querySelector(".dl-mlniv").style.display = disp.length ? "" : "none"; el.querySelector(".dl-mlvar").textContent = d.n + (ML_UNI[d.t] ? " · " + ML_UNI[d.t] : ""); }
+    el.querySelector(".dl-mlniv").style.display = disp.length ? "" : "none"; el.querySelector(".dl-mlvar").textContent = d.n + (d.m === "nse" ? " · manzanas" : ML_UNI[d.t] ? " · " + ML_UNI[d.t] : ""); }
   function mlHost() {
     if (ML.el && ML.el.isConnected) return ML.el; const main = $("#dlMain", host); if (!main) return null; main.style.position = "relative";
     const el = document.createElement("div"); el.id = "dlMlHost"; el.style.display = "none";
@@ -846,7 +846,7 @@
   function mlCuant(F, alto, u, pal) {
     pal = pal || ML_COL; const vs = F.map(f => f.properties.v).filter(v => v != null && isFinite(v)).sort((a, b) => a - b), q = p => vs.length ? vs[Math.min(vs.length - 1, Math.floor(p * vs.length))] : 0, cortes = [.2, .4, .6, .8].map(q), mx = q(.98) || 1;
     F.forEach(f => { const v = f.properties.v, P = f.properties; if (v == null) { P.c = "#cbd5e1"; P.h = 0; P.vt = "sin dato"; return; } P.c = pal[cortes.filter(c => v > c).length]; P.h = alto * Math.max(0, Math.min(1, v / mx)); P.vt = gN(v) + (u ? " " + u : ""); });
-    mlLeg([0, 1, 2, 3, 4].map(i => [pal[i], (i === 0 ? "≤ " + gN(cortes[0]) : i === 4 ? "> " + gN(cortes[3]) : gN(cortes[i - 1]) + " – " + gN(cortes[i])) + (u ? " " + u : "")]));
+    mlLeg([0, 1, 2, 3, 4].filter(i => i === 0 || i === 4 || cortes[i] > cortes[i - 1]).map(i => [pal[i], (i === 0 ? "≤ " + gN(cortes[0]) : i === 4 ? "> " + gN(cortes[3]) : gN(cortes[i - 1]) + " – " + gN(cortes[i])) + (u ? " " + u : "")]));
   }
   function mlNse(F, alto) { F.forEach(f => { const v = f.properties.v, P = f.properties; if (!v) { P.c = "#cbd5e1"; P.h = 0; P.vt = "sin dato"; return; } P.c = ML_NSE[v - 1]; P.h = alto * v / 4; P.vt = ML_NSEN[v - 1]; }); mlLeg(ML_NSE.map((c, i) => [c, "NSE " + ML_NSEN[i]])); }
   const mlPinta = (F, d, alto, u) => d.v === "nse" ? mlNse(F, alto) : mlCuant(F, alto, u != null ? u : d.u);
@@ -864,11 +864,11 @@
   const mlDentro = (x, y, p) => { let d = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) if ((p[i][1] > y) !== (p[j][1] > y) && x < (p[j][0] - p[i][0]) * (y - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0]) d = !d; return d; };
   const mlDiv = (g, ngr) => { const n = Object.values(g).reduce((a, b) => a + b, 0); if (n < 3) return null; let h = 0; for (const k in g) h -= g[k] / n * Math.log(g[k] / n); return Math.round(h / Math.log(Math.max(2, ngr)) * 100); };
   async function mlCarga(forzar) {
-    const m = ML.map, el = ML.el; if (!m || !ML.listo || !el) return; const d = ML_D[ML.k], z = m.getZoom(), c = m.getCenter(), msg = t => { el.querySelector(".dl-mlmsg").textContent = t || ""; }, sec = ++ML.sec, eco = d.v === "est" || d.v === "div";
+    const m = ML.map, el = ML.el; if (!m || !ML.listo || !el) return; const d = ML_D[ML.k], z = m.getZoom(), c = m.getCenter(), msg = t => { el.querySelector(".dl-mlmsg").textContent = t || ""; }, eco = d.v === "est" || d.v === "div";
     const auto = d.t === "ag" ? (z < 9.6 ? "nac" : z < 12.6 ? "ageb" : z < 14.8 ? "hex" : "mza") : d.t === "eu" ? (z < 14 ? "nac" : "mza") : d.t === "gh" ? (z < 10.8 ? "nac" : "c90") : (z < 11.2 ? "nac" : "hex");
     let niv = ML.niv === "auto" || !ML_DISP[d.t].includes(ML.niv) ? auto : ML.niv, aviso = ""; const min = { ageb: 9, hex: eco ? 12.2 : 11.2, mza: 14, c90: 10.8 }[niv], nomNiv = niv === "c90" ? "celdas de 90 m" : niv === "mza" && d.t === "eu" && d.m !== "nse" ? "frentes de manzana" : (ML_NIV[niv] || "").toLowerCase();
     if (niv !== "nac" && z < min) { aviso = "Acércate más para ver " + nomNiv + " (doble clic en el mapa)."; niv = "nac"; }
-    const b = m.getBounds(), r = Math.max(1500, Math.round(c.distanceTo(b.getNorthEast()))), vista = [niv, ML.k, c.lat.toFixed(niv === "nac" ? 0 : 3), c.lng.toFixed(niv === "nac" ? 0 : 3), Math.round(z * 2)].join("|"); if (!forzar && vista === ML.vista) return; ML.vista = vista;
+    const b = m.getBounds(), r = Math.max(1500, Math.round(c.distanceTo(b.getNorthEast()))), vista = [niv, ML.k, c.lat.toFixed(niv === "nac" ? 0 : 3), c.lng.toFixed(niv === "nac" ? 0 : 3), Math.round(z * 2)].join("|"); if (!forzar && vista === ML.vista) return; ML.vista = vista; const sec = ++ML.sec;
     const vacio = { type: "FeatureCollection", features: [] }, pon = (fuente, F) => { if (sec !== ML.sec) return false; ["nac", "pol", "lin"].forEach(s => m.getSource(s).setData(s === fuente ? { type: "FeatureCollection", features: F } : vacio)); return true; };
     const q5 = `lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}`, kx = 111320 * Math.cos(c.lat * Math.PI / 180), ll = (x, y) => [c.lng + x / kx, c.lat + y / 111320], anillo = p => { const o = []; for (let i = 0; i + 1 < p.length; i += 2) o.push(ll(p[i], p[i + 1])); if (o.length < 3) return null; o.push(o[0]); return o; };
     const pol = (ring, v, t) => ({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: { v, t } }), red = v => v != null && isFinite(v) ? Math.round(v * 100) / 100 : null;
@@ -919,7 +919,7 @@
     const el = mlHost(); if (!el) return; const sx = slot.closest("details"); if ((sx && !sx.open) || !slot.getClientRects().length) { if (el.style.display !== "none") el.style.display = "none"; return; }
     const a = slot.getBoundingClientRect(), b = main.getBoundingClientRect(), st = el.style, top = Math.round(a.top - b.top + main.scrollTop) + "px", left = Math.round(a.left - b.left + main.scrollLeft) + "px", w = Math.round(a.width) + "px", h = Math.round(a.height) + "px";
     let cambio = st.display === "none" || st.width !== w || st.height !== h; if (st.display === "none") st.display = ""; if (st.top !== top) st.top = top; if (st.left !== left) st.left = left; if (st.width !== w) st.width = w; if (st.height !== h) st.height = h;
-    if (cambio && ML.map) ML.map.resize(); const k = ML_D[slot.dataset.v] ? slot.dataset.v : "dem:pob"; if (k !== ML.k) { ML.k = k; mlBot(); mlCarga(true); }
+    if (cambio && ML.map) ML.map.resize(); const k = ML_D[slot.dataset.v] ? slot.dataset.v : "dem:pob"; if (k !== ML.k) { ML.k = k; mlBot(); if (ML.map && ML.listo) { ["nac", "pol", "lin"].forEach(x => ML.map.getSource(x).setData({ type: "FeatureCollection", features: [] })); mlLeg([]); } mlCarga(true); }
   }
   if (!window._dlMlInt) { window._dlMlInt = 1; setInterval(() => { try { mlSync(); } catch (_) { } }, 180); }
   /* boxplot dibujado en la ficha de Data Lab (series de tiempo: su propia historia o los demás estados o ciudades) */
