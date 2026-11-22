@@ -952,6 +952,7 @@ html.tema-osc #pd-calc { background: rgb(79, 70, 229); border-color: rgb(79, 70,
 @keyframes ind-up { 
   0% { transform: scaleY(0); }
 }
+.cfg-vt { font: 700 10.5px system-ui; color: rgb(100, 116, 139); text-transform: uppercase; letter-spacing: 0.07em; margin: 10px 0px 4px; }
 .ind-spark { width: 88px; height: 40px; }
 .ind-sph:hover { fill: rgba(15, 23, 42, 0.08); }
 .ind-cols i:hover { opacity: 1; filter: brightness(0.82); }
