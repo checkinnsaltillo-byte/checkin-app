@@ -227,7 +227,7 @@
     const TER = "Relieve: Terrain Tiles (Terrarium)", WC = "Clima: WorldClim 2.1";
     nat.push(mk("mvie", "Velocidad media del viento", "Dato duro", "Velocidad media anual del viento a 10 m (normales 1970-2000).", "m/s", "Raster de WorldClim 2.1 a 5 minutos de arco (≈ 9 km) muestreado en el centro del AGEB.", "V = media de los 12 meses", WC, "vie", 0, { u: "m/s" }));
     nat.push(mk("mrad", "Radiación solar media", "Dato duro", "Radiación solar media diaria que llega a la superficie (normales 1970-2000).", "kJ/m²/día", "Raster de WorldClim 2.1 a 5 minutos de arco (≈ 9 km) muestreado en el centro del AGEB.", "R = media de los 12 meses", WC, "rad", 0, { u: "kJ/m²/día" }));
-    [["geo:alt", "alt", "Altitud", "m", TER], ["geo:desn", "desn", "Desnivel a 1 km", "m", TER], ["geo:pend", "pend", "Pendiente media", "%", TER], ["met:temp", "tem", "Temperatura media anual", "°C", WC], ["met:lluvia", "llu", "Precipitación anual", "mm", WC]].forEach(([k, s, n, u, b]) => { MX_D[k] = { t: "mg", s, h: 0, n, u, b }; });
+    [["geo:alt", "alt", "Altitud", "m", TER], ["geo:desn", "desn", "Desnivel a 1 km", "m", TER], ["geo:pend", "pend", "Pendiente media", "%", TER], ["met:temp", "tem", "Temperatura media anual", "°C", WC], ["met:lluvia", "llu", "Precipitación anual", "mm", WC], ["met:hum", "hum", "Humedad relativa media", "%", WC]].forEach(([k, s, n, u, b]) => { MX_D[k] = { t: "mg", s, h: 0, n, u, b }; });
     eco.forEach(i => { MX_D["eco:" + i.id] = MX_D[i.id]; delete MX_D[i.id]; }); nat.forEach(i => { MX_D["mnat:" + i.id] = MX_D[i.id]; delete MX_D[i.id]; });
     const en = id => { for (const c of CATI) for (const e of c.an || []) if (e.id === id) return e; return null; };
     const ec = en("eco"); if (ec) ec.ind.push(...eco);
@@ -849,6 +849,19 @@
   function mlBot() { const el = ML.el; if (!el) return; const d = ML_D[ML.k], disp = dispOf(d); if (ML.niv !== "auto" && !disp.includes(ML.niv)) ML.niv = "auto";
     el.querySelectorAll("[data-mln]").forEach(b => { const k = b.dataset.mln, ok = k === "auto" || disp.includes(k); b.classList.toggle("no", !ok); b.classList.toggle("on", k === ML.niv); b.title = ok ? "" : "Este indicador no existe por " + ML_NIV[k].toLowerCase(); b.textContent = k === "mza" && d.t === "eu" && d.m !== "nse" ? "Frentes" : ML_NIV[k]; });
     el.querySelector(".dl-mlniv").style.display = disp.length ? "" : "none"; el.querySelector(".dl-mlvar").textContent = d.n + (d.m === "nse" ? " · manzanas" : ML_UNI[d.t] ? " · " + ML_UNI[d.t] : ""); }
+  /* respaldo sin WebGL: si el navegador no puede crear un contexto WebGL (aceleración por hardware apagada o GPU no compatible), el mapa se dibuja plano con Leaflet y los mismos datos y colores (sin relieve 3D) */
+  const mlGL = () => { try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (_) { return false; } };
+  const mlLeaf = () => ML.leaf || (ML.leaf = new Promise((ok, mal) => { if (window.L) return ok(); const c = document.createElement("link"); c.rel = "stylesheet"; c.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(c); const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = () => ok(); s.onerror = () => { ML.leaf = null; mal(new Error("No se pudo cargar el mapa.")); }; document.head.appendChild(s); }));
+  async function mlPlano(el) {
+    await mlLeaf(); ML.plano = true; const cont = el.querySelector(".dl-mlmap"); cont.innerHTML = "";
+    const lm = L.map(cont, { center: [23.8, -102.3], zoom: 5, preferCanvas: true }), rend = L.canvas({ padding: .3 }), grp = {};
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, maxNativeZoom: 16, attribution: "Esri · INEGI" }).addTo(lm);
+    const pop = (f, ll) => L.popup({ closeButton: false }).setLatLng(ll).setContent(`<b>${esc(f.properties.t || "")}</b><br>${esc(ML_D[ML.k].n)}: <b>${esc(f.properties.vt)}</b>`).openOn(lm);
+    const m = { getZoom: () => lm.getZoom() - 1, getCenter: () => lm.getCenter(), getBounds: () => lm.getBounds(), getPitch: () => 0, easeTo: () => { }, jumpTo: o => lm.setView([o.center[1], o.center[0]], o.zoom + 1, { animate: false }), resize: () => lm.invalidateSize(), on: (ev, fn) => lm.on(ev, fn),
+      getSource: n => ({ setData: fc => { if (grp[n]) { lm.removeLayer(grp[n]); grp[n] = null; } if (!fc.features.length) return;
+        grp[n] = L.geoJSON(fc, { renderer: rend, style: f => n === "lin" ? { color: f.properties.c, weight: 3, opacity: f.properties.o } : { color: f.properties.c, weight: .6, fillColor: f.properties.c, fillOpacity: .82 }, pointToLayer: (f, ll) => L.circleMarker(ll, { renderer: rend, radius: 3, color: f.properties.c, fillColor: f.properties.c, fillOpacity: .85, weight: 0 }), onEachFeature: (f, l) => { if (f.properties.vt) l.on("click", e => pop(f, e.latlng)); } }).addTo(lm); } }) };
+    ML.map = m; el._map = m; ML.listo = true; lm.on("moveend", () => { clearTimeout(ML.t); ML.t = setTimeout(() => mlCarga(false), 350); }); mlCarga(true);
+  }
   function mlHost() {
     if (ML.el && ML.el.isConnected) return ML.el; const main = $("#dlMain", host); if (!main) return null; main.style.position = "relative";
     const el = document.createElement("div"); el.id = "dlMlHost"; el.style.display = "none";
@@ -856,6 +869,7 @@
     main.appendChild(el); ML.el = el; ML.map = null; ML.listo = false; mlBot();
     el.querySelector(".dl-mlniv").addEventListener("click", e => { const b = e.target.closest("[data-mln]"); if (!b || b.classList.contains("no")) return; ML.niv = b.dataset.mln; mlBot(); mlCarga(true); });
     mlLib().then(() => {
+      if (!mlGL()) return mlPlano(el);
       const m = new maplibregl.Map({ container: el.querySelector(".dl-mlmap"), style: { version: 8, sources: { base: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 16, attribution: "Esri · INEGI" } }, layers: [{ id: "base", type: "raster", source: "base" }] }, center: [-102.3, 23.8], zoom: 4.2, maxPitch: 70, attributionControl: { compact: true } });
       m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); ML.map = m; el._map = m;
       m.on("load", () => {
@@ -867,7 +881,7 @@
         m.on("moveend", () => { clearTimeout(ML.t); ML.t = setTimeout(() => mlCarga(false), 350); });
         m.on("click", e => { const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["lin", "pol", "nac"] })[0]; if (!f || !f.properties.vt) return; new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(`<b>${esc(f.properties.t || "")}</b><br>${esc(ML_D[ML.k].n)}: <b>${esc(f.properties.vt)}</b>`).addTo(m); });
       });
-    }).catch(er => { const g = el.querySelector(".dl-mlmsg"); if (g) g.textContent = er.message; });
+    }).catch(er => { if (!ML.map) mlPlano(el).catch(e2 => { const g = el.querySelector(".dl-mlmsg"); if (g) g.textContent = e2.message || er.message; }); else { const g = el.querySelector(".dl-mlmsg"); if (g) g.textContent = er.message; } });
     return el;
   }
   const mlLeg = filas => { ML.el.querySelector(".dl-mlleg").innerHTML = filas.map(f => `<span><i style="background:${f[0]}"></i>${esc(f[1])}</span>`).join(""); };
@@ -944,7 +958,7 @@
       const acc = Math.min(100, 100 * A / ref); return Math.round(ai ? .6 * acc + .4 * (ai[n] || 0) : acc); });
   }
   async function mlCarga(forzar) {
-    const m = ML.map, el = ML.el; if (!m || !ML.listo || !el) return; const d = ML_D[ML.k], z = m.getZoom(), c = m.getCenter(), msg = t => { el.querySelector(".dl-mlmsg").textContent = t || ""; }, afl = d.t === "mg" && /^(apt\d|apea|aidx|aanc)$/.test(d.s), tip = d.t === "mg" && d.s === "tipo", ve = d.t === "mg" && /^(acc|veh)$/.test(d.s), grav = d.t === "mg" && /^[pqd]\d+$/.test(d.s), eco = d.v === "est" || d.v === "div" || (d.t === "mg" && /^g\d+$/.test(d.s)) || grav || afl;
+    const m = ML.map, el = ML.el; if (!m || !ML.listo || !el) return; const d = ML_D[ML.k], z = m.getZoom(), c = m.getCenter(), msg = t => { el.querySelector(".dl-mlmsg").textContent = (t || "") + (ML.plano ? " · mapa plano: tu navegador no tiene WebGL" : ""); }, afl = d.t === "mg" && /^(apt\d|apea|aidx|aanc)$/.test(d.s), tip = d.t === "mg" && d.s === "tipo", ve = d.t === "mg" && /^(acc|veh)$/.test(d.s), grav = d.t === "mg" && /^[pqd]\d+$/.test(d.s), eco = d.v === "est" || d.v === "div" || (d.t === "mg" && /^g\d+$/.test(d.s)) || grav || afl;
     const auto = d.t === "mg" ? (z < 9.6 ? "nac" : d.h ? (z < 12.6 ? "ageb" : z < 14.8 ? "hex" : "mza") : "ageb") : d.t === "ag" ? (z < 9.6 ? "nac" : z < 12.6 ? "ageb" : z < 14.8 ? "hex" : "mza") : d.t === "eu" ? (z < 14 ? "nac" : "mza") : d.t === "gh" ? (z < 10.8 ? "nac" : "c90") : (z < 11.2 ? "nac" : "hex");
     let niv = ML.niv === "auto" || !dispOf(d).includes(ML.niv) ? auto : ML.niv, aviso = ""; const min = { ageb: 9, hex: eco ? 12.2 : 11.2, mza: 14, c90: 10.8 }[niv], nomNiv = niv === "c90" ? "celdas de 90 m" : niv === "mza" && d.t === "eu" && d.m !== "nse" ? "frentes de manzana" : (ML_NIV[niv] || "").toLowerCase();
     if (niv !== "nac" && z < min) { aviso = "Acércate más para ver " + nomNiv + " (doble clic en el mapa)."; niv = "nac"; }
