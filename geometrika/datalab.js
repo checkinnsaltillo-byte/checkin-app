@@ -234,7 +234,7 @@
       <li><b>Qué entra:</b> solo datos públicos y solo indicadores que no dependen de un análisis del sitio ni de descargar información para ese punto (rutas, fotos de calle, clima del momento, tráfico).</li>
       <li><b>Unidades:</b> cada indicador se ofrece por <b>hexágono de 200 m</b> y por <b>AGEB</b>. Los de entorno urbano parten de frentes de manzana; los de urbanización, de celdas de 90 m (superficie edificada) y píxeles de 10 m (cobertura del suelo).</li>
       <li><b>Estado hoy:</b> por hexágono, ${Lh} de ${vis.length} ya están precalculados para todo el país. Los de urbanización están guardados en su unidad de origen (celda o píxel), falta resumirlos por hexágono y AGEB. Por AGEB urbana, ${La} de ${vis.length} (guardados por estado en el servidor). Los de entorno urbano siguen por precalcular. La consulta masiva por coordenadas todavía no está construida.</li>
-      <li><b>OSM:</b> la red vial está cargada, pero el catálogo aún no tiene indicadores que salgan solo de OSM sin calcular rutas; se agregarán aquí.</li></ul></div>`; };
+      <li><b>OSM:</b> la red vial está cargada, pero el catálogo aún no tiene indicadores que salgan solo de OSM sin calcular rutas; se agregarán aquí.</li></ul></div>${mlSlot("pob")}`; };
   function pasaI(i) {
     if (S2.modo === "malla" && !mallaI(i)) return false;
     if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false; if (S2.din && dinI(i) !== S2.din) return false; if (S2.gua && guaI(i) !== S2.gua) return false; if (S2.amb && (ambI(i) || [])[0] !== S2.amb) return false; if (S2.odat && odatI(i) !== S2.odat) return false; if (S2.cmp && (cmpI(i) || {}).m !== S2.cmp) return false;
@@ -752,7 +752,7 @@
     const kfH = `<dl class="dl-kf">${kf("Tipo de dato", `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span><small>${odatI(i) === "C" ? "Construido en el sistema" : i._inegi && i.tipo !== "Dato duro" ? "Lo calcula el INEGI (dato de origen)" : "De la fuente (dato de origen)"}</small>`)}${kf("Periodicidad de los datos", O.ext.some(x => x.perS) ? `<span data-per-s>Se muestra al cargar la serie…</span>` : uq("per"))}${kf("Forma de consulta o descarga", uq("forma"))}${kf("Tipo de fuente", uq("tf"))}${kf("Familia de fuente (clic para filtrar)", `<div class="dl-ch">${fam}</div>`)}${kf("Tipo de levantamiento", uq("lev"))}${kf("Nivel geográfico", O.amb ? `<span class="dl-b amb">${AMB_T[O.amb[0]]}</span><small>${esc(O.amb[1])}</small>${!O.geoIgual && O.ext.some(x => x.geo) ? `<small><b>Dato de origen:</b> ${[...new Set(O.ext.map(x => x.geo).filter(Boolean))].slice(0, 3).map(esc).join("; ")}</small>` : ""}` : "—")}${kf("¿Queda guardado?", gC ? `<span class="dl-b gua-${gC}">${GUA_T[gC]}</span>` : "—")}${(() => { const c = cmpI(i); if (!c) return ""; return kf("Marco de comparación", `<span class="dl-b cmp-${c.m}" title="${esc(CMP_D[c.m])}">${c.m === "A" || c.m === "B" ? "📦 " : c.m === "C" ? "🗂️ " : ""}${CMP_T[c.m]}</span>${c.u ? `<small>Se compara con ${esc(CMP_U[c.u] || c.u)} de ${esc(CMP_R[c.r] || c.r)}; ${esc(CMP_S[String(c.s)] || "")}.</small>` : `<small>${esc(CMP_D[c.m])}${["E", "H", "HS", "N"].includes(c.m) ? " " + esc(CMP_S[String(c.s || 0)]) + "." : ""}</small>`}${bxSw(i)}`); })()}${(() => { const m = mallaI(i); return m ? kf("Malla nacional", Object.keys(m.us).map(u => `<span class="dl-b malla-${m.us[u]}" title="${esc(MALLA_E[m.us[u]][1])}">🗺️ ${esc(MALLA_U[u])} · ${MALLA_E[m.us[u]][0]}</span>`).join(" ") + `<small>Base: ${esc(m.b)}.</small>`) : ""; })()}</dl>`;
     // metadatos completos del indicador: los usa el botón «Ver metadata» del widget
     PVMETA[kI(i)] = { kf: kfH, cuerpo: `<div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div><div class="wide"><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>` + O.origen + O.fuentes + O.tipo + O.geo + dn.replace("<div class=\"wide\"><dl", "<div class=\"wide\"><span>Actualización y guardado</span><dl") };
-    return `${gvSec(i)}<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}${mallaI(i) ? `<i class="dl-mi" title="También está en la Malla nacional: se consulta al instante por coordenada, sin análisis" aria-label="En la Malla nacional">🗺️</i>` : ""}</h2><code class="dl-clv" title="${esc(claveT(i))}">${esc(claveI(i))}</code></div>
+    return `${S2.modo === "malla" ? mlSec(i) : gvSec(i)}<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}${mallaI(i) ? `<i class="dl-mi" title="También está en la Malla nacional: se consulta al instante por coordenada, sin análisis" aria-label="En la Malla nacional">🗺️</i>` : ""}</h2><code class="dl-clv" title="${esc(claveT(i))}">${esc(claveI(i))}</code></div>
       <div class="dl-ixt">${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <p class="dl-lead">${esc(i.d)}</p>
       ${kfH}
@@ -797,6 +797,76 @@
   /* ═══ Boxplot por indicador: interruptor (solo administrador) y análisis de viabilidad ═══
      Los indicadores con boxplot de fábrica (tabla de Geo Lab) solo se encienden o apagan. En cualquier otro, al encenderlo se analiza con qué se podría armar
      la distribución (proyectos guardados, lecturas del propio proyecto) y se pregunta el marco y el sentido antes de generarlo. */
+  /* ═══ Mapa de la Malla nacional ═══
+     No es de ningún proyecto: es un mapa genérico de todo el país. De lejos pinta un punto por AGEB (panorama nacional); al acercarse dibuja en 3D los polígonos de la zona
+     que se esté viendo: AGEB, hexágonos de 200 m o manzanas. El mapa es uno solo y se queda vivo aunque se cambie de indicador (mismo mecanismo que el visor de Geo Lab). */
+  const ML = { el: null, map: null, niv: "auto", v: "pob", nac: null, t: 0, sec: 0, lib: null, listo: false, vista: "" };
+  const ML_V = { pob: ["Población", "hab"], den: ["Densidad", "hab/km²"], ocu: ["Ocupantes por vivienda", "pers./viv."], nse: ["NSE estatal", "nivel"], est: ["Establecimientos DENUE", "negocios"], div: ["Diversidad de giros", "/100"] };
+  const ML_IND = { "dem:pob": "pob", "dem:den": "den", "dem:ocu": "ocu", "dem:nse": "nse", "eco:denue": "est", "eco:div": "div" }, ML_NIV = { auto: "Automático", ageb: "AGEB", hex: "Hexágonos", mza: "Manzanas" };
+  const ML_COL = ["#dbeafe", "#93c5fd", "#3b82f6", "#1d4ed8", "#172554"], ML_NSE = ["#b91c1c", "#f59e0b", "#16a34a", "#2563eb"];
+  const mlSlot = v => `<details class="dl-sx dl-gvsx" open><summary><b>🗺️ Mapa de la malla nacional</b><span>todo el país · de lejos, un punto por AGEB; al acercarte, los polígonos en 3D (AGEB, hexágonos o manzanas)</span></summary><div class="dl-mlslot" data-v="${v}"></div></details>`;
+  const mlSec = i => mlSlot(ML_IND[i._e.id + ":" + i.id] || "pob");
+  function mlLib() { if (ML.lib) return ML.lib; return ML.lib = new Promise((ok, mal) => { if (window.maplibregl) return ok(); const c = document.createElement("link"); c.rel = "stylesheet"; c.href = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"; document.head.appendChild(c); const s = document.createElement("script"); s.src = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"; s.onload = () => ok(); s.onerror = () => { ML.lib = null; mal(new Error("No se pudo cargar el mapa.")); }; document.head.appendChild(s); }); }
+  function mlHost() {
+    if (ML.el && ML.el.isConnected) return ML.el; const main = $("#dlMain", host); if (!main) return null; main.style.position = "relative";
+    const el = document.createElement("div"); el.id = "dlMlHost"; el.style.display = "none";
+    el.innerHTML = `<div class="dl-mlbar"><div class="dl-mlniv" role="group" aria-label="Nivel">${Object.keys(ML_NIV).map(k => `<button type="button" data-mln="${k}" class="${k === ML.niv ? "on" : ""}">${ML_NIV[k]}</button>`).join("")}</div><b class="dl-mlvar"></b><span class="dl-mlmsg"></span></div><div class="dl-mlmap"></div><div class="dl-mlleg"></div>`;
+    main.appendChild(el); ML.el = el; ML.map = null; ML.listo = false;
+    el.querySelector(".dl-mlniv").addEventListener("click", e => { const b = e.target.closest("[data-mln]"); if (!b) return; ML.niv = b.dataset.mln; el.querySelectorAll("[data-mln]").forEach(x => x.classList.toggle("on", x === b)); mlCarga(true); });
+    mlLib().then(() => {
+      const m = new maplibregl.Map({ container: el.querySelector(".dl-mlmap"), style: { version: 8, sources: { base: { type: "raster", tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png", "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"], tileSize: 256, attribution: "© OpenStreetMap · © CARTO · INEGI" } }, layers: [{ id: "base", type: "raster", source: "base" }] }, center: [-102.3, 23.8], zoom: 4.2, maxPitch: 70, attributionControl: { compact: true } });
+      m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); ML.map = m;
+      m.on("load", () => {
+        m.addSource("nac", { type: "geojson", data: { type: "FeatureCollection", features: [] } }); m.addSource("pol", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        m.addLayer({ id: "nac", type: "circle", source: "nac", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 8, 2.6, 11, 6], "circle-color": ["get", "c"], "circle-opacity": .8 } });
+        m.addLayer({ id: "pol", type: "fill-extrusion", source: "pol", paint: { "fill-extrusion-color": ["get", "c"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": .82 } });
+        ML.listo = true; mlCarga(true);
+        m.on("moveend", () => { clearTimeout(ML.t); ML.t = setTimeout(() => mlCarga(false), 350); });
+        m.on("click", e => { const f = m.queryRenderedFeatures(e.point, { layers: ["pol", "nac"] })[0]; if (!f) return; new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(`<b>${esc(f.properties.t || "")}</b><br>${esc(ML_V[ML.v][0])}: <b>${esc(f.properties.vt)}</b>`).addTo(m); });
+      });
+    }).catch(er => { const g = el.querySelector(".dl-mlmsg"); if (g) g.textContent = er.message; });
+    return el;
+  }
+  const mlFmt = v => v == null ? "sin dato" : ML.v === "nse" ? (["", "Bajo", "Medio bajo", "Medio alto", "Alto"][v] || "—") : gN(v) + " " + ML_V[ML.v][1];
+  /* colorea y da altura: 5 clases por cuantiles (NSE: sus 4 niveles) */
+  function mlEstilo(F, alto) {
+    const vs = F.map(f => f.properties.v).filter(v => v != null && isFinite(v)).sort((a, b) => a - b), q = p => vs.length ? vs[Math.min(vs.length - 1, Math.floor(p * vs.length))] : 0, cortes = [.2, .4, .6, .8].map(q), mx = q(.98) || 1;
+    F.forEach(f => { const v = f.properties.v; if (v == null) { f.properties.c = "#cbd5e1"; f.properties.h = 0; return; } if (ML.v === "nse") { f.properties.c = ML_NSE[v - 1] || "#cbd5e1"; f.properties.h = alto * v / 4; } else { f.properties.c = ML_COL[cortes.filter(c => v > c).length]; f.properties.h = alto * Math.min(1, v / mx); } f.properties.vt = mlFmt(v); });
+    const lg = ML.el.querySelector(".dl-mlleg"); lg.innerHTML = ML.v === "nse" ? ["Bajo", "Medio bajo", "Medio alto", "Alto"].map((n, i) => `<span><i style="background:${ML_NSE[i]}"></i>${n}</span>`).join("") : [0, 1, 2, 3, 4].map(i => `<span><i style="background:${ML_COL[i]}"></i>${i === 0 ? "≤ " + gN(cortes[0]) : i === 4 ? "> " + gN(cortes[3]) : gN(cortes[i - 1]) + " – " + gN(cortes[i])}</span>`).join("");
+  }
+  async function mlCarga(forzar) {
+    const m = ML.map, el = ML.el; if (!m || !ML.listo || !el) return; const z = m.getZoom(), c = m.getCenter(), msg = t => { el.querySelector(".dl-mlmsg").textContent = t || ""; }, sec = ++ML.sec;
+    el.querySelector(".dl-mlvar").textContent = ML_V[ML.v][0];
+    let niv = ML.niv === "auto" ? (z < 9.6 ? "nac" : z < 12.6 ? "ageb" : z < 14.8 ? "hex" : "mza") : ML.niv, min = { ageb: 9, hex: 11.2, mza: 14 }[niv];
+    if (niv !== "nac" && z < min) { msg("Acércate más para ver " + ML_NIV[niv].toLowerCase() + " (o haz doble clic en el mapa)."); niv = "nac"; }
+    const b = m.getBounds(), r = Math.max(1500, Math.round(c.distanceTo(b.getNorthEast()))), vista = [niv, ML.v, c.lat.toFixed(niv === "nac" ? 0 : 3), c.lng.toFixed(niv === "nac" ? 0 : 3), Math.round(z * 2)].join("|"); if (!forzar && vista === ML.vista) return; ML.vista = vista;
+    const pon = (fuente, F) => { if (sec !== ML.sec) return; m.getSource(fuente).setData({ type: "FeatureCollection", features: F }); m.getSource(fuente === "nac" ? "pol" : "nac").setData({ type: "FeatureCollection", features: [] }); };
+    try {
+      if (niv === "nac") {
+        if (!ML.nac) { msg("Cargando el panorama nacional…"); ML.nac = (await api("/geometrika/malla/ageb/nac")).a; }
+        const iv = { pob: 2, den: 3, ocu: 4, nse: 5, est: 6, div: 7 }[ML.v], F = ML.nac.map(a => ({ type: "Feature", geometry: { type: "Point", coordinates: [a[1], a[0]] }, properties: { v: a[iv], t: "AGEB" } }));
+        mlEstilo(F, 0); pon("nac", F); if (m.getPitch() > 5) m.easeTo({ pitch: 0, duration: 500 }); if (!el.querySelector(".dl-mlmsg").textContent || /Cargando/.test(el.querySelector(".dl-mlmsg").textContent)) msg(ML.nac.length.toLocaleString("es-MX") + " AGEB urbanas de todo el país · acércate para ver los polígonos en 3D"); return;
+      }
+      msg("Cargando " + ML_NIV[niv].toLowerCase() + "…"); let F = [], nota = "";
+      if (niv === "ageb") { const j = await api(`/geometrika/malla/ageb?lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&r=${Math.min(25000, r)}`), iv = { pob: 1, den: 2, ocu: 3, nse: 4, est: 5, div: 6 }[ML.v];
+        F = j.items.filter(a => a[7] && a[7].length >= 6).map(a => { const p = []; for (let i = 0; i + 1 < a[7].length; i += 2) p.push([a[7][i + 1], a[7][i]]); p.push(p[0]); return { type: "Feature", geometry: { type: "Polygon", coordinates: [p] }, properties: { v: a[iv], t: "AGEB " + a[0] } }; }); mlEstilo(F, 1400); }
+      else if (niv === "hex") { const q = `lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&r=${Math.min(12000, Math.max(3000, r))}`, P = await api("/mercado/maqueta/hexreg?n=poblacion_hex&" + q), N = ML.v === "nse" ? await api("/mercado/maqueta/hexreg?n=nse_hex&" + q).catch(() => null) : null; let v0 = ML.v;
+        if (v0 === "est" || v0 === "div") { nota = " · por hexágono se muestra población (los negocios se ven por AGEB)"; v0 = "pob"; }
+        F = P.hex.map((h, i) => { const k = 200 / (111320 * Math.cos(h.lat * Math.PI / 180)), p = []; for (let a = 0; a < 6; a++) { const t = (60 * a - 30) * Math.PI / 180; p.push([h.lng + k * Math.cos(t), h.lat + 200 * Math.sin(t) / 110540]); } p.push(p[0]);
+          const v = v0 === "pob" ? h.p25 : v0 === "den" ? h.p25 / .1039 : v0 === "ocu" ? (h.viv > 0 ? h.p20 / h.viv : null) : (N && N.h && N.h[i] ? N.h[i][1] : null); return { type: "Feature", geometry: { type: "Polygon", coordinates: [p] }, properties: { v: v != null && isFinite(v) ? Math.round(v * 100) / 100 : null, t: "Hexágono de 200 m" } }; }).filter(f => f.properties.v != null && (v0 !== "pob" || f.properties.v >= 1)); const vv = ML.v; if (v0 !== ML.v) ML.v = v0; mlEstilo(F, 700); ML.v = vv; }
+      else { const j = await api(`/mercado/maqueta/manzanas?lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&r=${Math.min(1500, Math.max(300, r))}`), kx = 111320 * Math.cos(c.lat * Math.PI / 180); if (ML.v !== "pob") nota = " · por manzana se muestra población";
+        F = (j.items || []).map(it => { const p = []; for (let i = 0; i + 1 < it.p.length; i += 2) p.push([c.lng + it.p[i] / kx, c.lat + it.p[i + 1] / 111320]); if (p.length < 3) return null; p.push(p[0]); return { type: "Feature", geometry: { type: "Polygon", coordinates: [p] }, properties: { v: it.t, t: "Manzana " + it.id } }; }).filter(Boolean); const vv = ML.v; ML.v = "pob"; mlEstilo(F, 160); ML.v = vv; }
+      if (sec !== ML.sec) return; pon("pol", F); if (m.getPitch() < 30) m.easeTo({ pitch: 52, duration: 700 }); msg(F.length ? F.length.toLocaleString("es-MX") + " " + ML_NIV[niv].toLowerCase() + " en esta zona" + nota : "No hay " + ML_NIV[niv].toLowerCase() + " con dato en esta zona.");
+    } catch (er) { if (sec === ML.sec) msg(er.message || "No se pudo cargar esta zona."); }
+  }
+  function mlSync() {
+    const main = $("#dlMain", host); if (!main) return; const slot = main.querySelector(".dl-mlslot"); if (!slot) { if (ML.el && ML.el.style.display !== "none") ML.el.style.display = "none"; return; }
+    const el = mlHost(); if (!el) return; const sx = slot.closest("details"); if ((sx && !sx.open) || !slot.getClientRects().length) { if (el.style.display !== "none") el.style.display = "none"; return; }
+    const a = slot.getBoundingClientRect(), b = main.getBoundingClientRect(), st = el.style, top = Math.round(a.top - b.top + main.scrollTop) + "px", left = Math.round(a.left - b.left + main.scrollLeft) + "px", w = Math.round(a.width) + "px", h = Math.round(a.height) + "px";
+    let cambio = st.display === "none" || st.width !== w || st.height !== h; if (st.display === "none") st.display = ""; if (st.top !== top) st.top = top; if (st.left !== left) st.left = left; if (st.width !== w) st.width = w; if (st.height !== h) st.height = h;
+    if (cambio && ML.map) ML.map.resize(); const v = slot.dataset.v || "pob"; if (v !== ML.v) { ML.v = v; mlCarga(true); }
+  }
+  if (!window._dlMlInt) { window._dlMlInt = 1; setInterval(() => { try { mlSync(); } catch (_) { } }, 180); }
   /* boxplot dibujado en la ficha de Data Lab (series de tiempo: su propia historia o los demás estados o ciudades) */
   function bxHtmlDL(ref, arr, o) {
     const v = (arr || []).filter(x => x != null && isFinite(x)).sort((a, b) => a - b); if (ref == null || !isFinite(ref) || v.length < 8) return "";

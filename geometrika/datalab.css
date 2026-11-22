@@ -737,3 +737,16 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 /* icono de «está en la Malla nacional» junto al nombre del indicador */
 .dl-mi{font-style:normal;font-size:.62em;margin-left:8px;vertical-align:middle;cursor:help;display:inline-grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%;background:#e0e7ff;border:1px solid #c7d2fe}
 .dl-mi.ch{font-size:9px;width:15px;height:15px;margin-left:5px;border:0;background:#e0e7ff}
+
+/* mapa de la Malla nacional */
+.dl-mlslot{display:block;width:100%;height:min(66vh,680px);min-height:360px;border-radius:12px;background:#e2e8f0;margin:2px 0 16px}
+#dlMlHost{position:absolute;z-index:3;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;box-sizing:border-box;box-shadow:0 6px 18px rgba(15,23,42,.08);background:#e2e8f0;display:flex;flex-direction:column}
+.dl-mlbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:#0f172a;color:#fff;font:600 12px system-ui}
+.dl-mlniv{display:flex;padding:2px;border-radius:9px;background:rgba(255,255,255,.14);gap:2px}
+.dl-mlniv button{all:unset;cursor:pointer;font:700 11.5px system-ui;color:#cbd5e1;padding:5px 10px;border-radius:7px}
+.dl-mlniv button.on{background:#fff;color:#0f172a}
+.dl-mlvar{font:800 12.5px system-ui}.dl-mlmsg{opacity:.78;font-weight:500;margin-left:auto;text-align:right}
+.dl-mlmap{flex:1 1 auto;min-height:0}
+.dl-mlleg{position:absolute;left:10px;bottom:26px;background:rgba(255,255,255,.94);border-radius:10px;padding:7px 9px;display:grid;gap:3px;font:600 11px system-ui;color:#334155;box-shadow:0 2px 8px rgba(15,23,42,.18)}
+.dl-mlleg:empty{display:none}.dl-mlleg span{display:flex;align-items:center;gap:6px}.dl-mlleg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+@media (max-width:720px){.dl-mlslot{height:60vh}.dl-mlmsg{margin-left:0}}
