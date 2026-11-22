@@ -815,7 +815,7 @@
     el.querySelector(".dl-mlniv").addEventListener("click", e => { const b = e.target.closest("[data-mln]"); if (!b) return; ML.niv = b.dataset.mln; el.querySelectorAll("[data-mln]").forEach(x => x.classList.toggle("on", x === b)); mlCarga(true); });
     mlLib().then(() => {
       const m = new maplibregl.Map({ container: el.querySelector(".dl-mlmap"), style: { version: 8, sources: { base: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 16, attribution: "Esri · INEGI" } }, layers: [{ id: "base", type: "raster", source: "base" }] }, center: [-102.3, 23.8], zoom: 4.2, maxPitch: 70, attributionControl: { compact: true } });
-      m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); ML.map = m;
+      m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); ML.map = m; el._map = m;
       m.on("load", () => {
         m.addSource("nac", { type: "geojson", data: { type: "FeatureCollection", features: [] } }); m.addSource("pol", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         m.addLayer({ id: "nac", type: "circle", source: "nac", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 8, 2.6, 11, 6], "circle-color": ["get", "c"], "circle-opacity": .8 } });
