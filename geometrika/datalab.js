@@ -301,7 +301,7 @@
   function gvSync() {
     const main = $("#dlMain", host); if (!main) return; const slot = main.querySelector(".dl-gvslot"), el = GVP.el;
     if (slot) gvPide(slot);   /* aunque la sección esté plegada, el mapa se prepara y sigue al indicador elegido */
-    const e2 = GVP.el; if (!e2) return; if (!slot || !slot.getClientRects().length) { if (e2.style.display !== "none") e2.style.display = "none"; return; }
+    const e2 = GVP.el; if (!e2) return; const sx = slot && slot.closest("details"); if (!slot || (sx && !sx.open) || !slot.getClientRects().length) { if (e2.style.display !== "none") e2.style.display = "none"; return; }
     const a = slot.getBoundingClientRect(), b = main.getBoundingClientRect(), top = Math.round(a.top - b.top + main.scrollTop), left = Math.round(a.left - b.left + main.scrollLeft), st = e2.style;
     if (st.display === "none") st.display = ""; if (st.top !== top + "px") st.top = top + "px"; if (st.left !== left + "px") st.left = left + "px"; const w = Math.round(a.width) + "px", h = Math.round(a.height) + "px"; if (st.width !== w) st.width = w; if (st.height !== h) st.height = h;
   }
