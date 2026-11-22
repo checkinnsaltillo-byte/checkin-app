@@ -750,3 +750,5 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-mlleg{position:absolute;left:10px;bottom:26px;background:rgba(255,255,255,.94);border-radius:10px;padding:7px 9px;display:grid;gap:3px;font:600 11px system-ui;color:#334155;box-shadow:0 2px 8px rgba(15,23,42,.18)}
 .dl-mlleg:empty{display:none}.dl-mlleg span{display:flex;align-items:center;gap:6px}.dl-mlleg i{width:12px;height:12px;border-radius:3px;display:inline-block}
 @media (max-width:720px){.dl-mlslot{height:60vh}.dl-mlmsg{margin-left:0}}
+
+.dl-mlniv button.no{opacity:.35;cursor:not-allowed;text-decoration:line-through}
