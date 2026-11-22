@@ -197,6 +197,12 @@
     if (/propio|propia|supuesto|usuario|configurable|ficha|detecci|selector/i.test(s)) add("Cálculo propio o del usuario"); if (/pendiente/i.test(s)) add("Pendiente");
     if (!o.length) add("Otra"); return o; };
   const TCLS = { "Dato duro": "dd", "Dato calculado": "dc", "Índice": "ix", "Valoración cualitativa": "vl", "Valoración cuantitativa": "vl", "Dato inferido": "di" };
+  /* clave de cada indicador: sale de su jerarquía (entorno en romano · dimensión en letra · número de indicador) más el tipo de dato y la fuente principal, p. ej. V.C.02-DD-GOO */
+  const ROM = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV"], TCOD = { "Dato duro": "DD", "Dato calculado": "DC", "Índice": "IX", "Valoración cualitativa": "VL", "Valoración cuantitativa": "VN", "Dato inferido": "DI" };
+  const famCod = f => { const w = norm(f || "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean)[0] || "propio"; return w.slice(0, 3).toUpperCase(); };
+  function claveI(i) { if (i._clv) return i._clv; const ci = CATI.indexOf(i._c), ei = ci < 0 ? -1 : i._c.an.indexOf(i._e), ii = ei < 0 ? -1 : i._e.ind.indexOf(i); if (ii < 0) return "N-" + (TCOD[i.tipo] || "XX");
+    return i._clv = (ROM[ci] || ci + 1) + "." + String.fromCharCode(65 + ei % 26) + (ei >= 26 ? Math.floor(ei / 26) : "") + "." + String(ii + 1).padStart(2, "0") + "-" + (TCOD[i.tipo] || "XX") + "-" + famCod((i._fam || [])[0]); }
+  const claveT = i => { const c = claveI(i).split("-"), j = c[0].split("."); return `Clave ${claveI(i)} · ${j[0]}: entorno «${i._c.n}» · ${j[1]}: dimensión «${i._e.n}» · ${j[2]}: número del indicador · ${c[1]}: ${i.tipo} · ${c[2] || ""}: fuente principal ${(i._fam || [])[0] || "propia"}`; };
   const prep = (i, c, e) => {
     i._c = c; i._e = e; i._inegi = i.x || null; const fam = []; (i.vars.length ? i.vars.map(v => v.f) : [i.f]).forEach(f => FAM(f).forEach(x => { if (!fam.includes(x)) fam.push(x); })); i._fam = i.s ? ["INEGI · BIE/BISE"] : c.id === "med" ? ["MediaLab (noticias y redes)"] : fam;   // EconoLab y MediaLab no traen variables: su familia se sabe por su origen
     i._h = norm([i.n, i.d, i.u, i.m, i.f, i.tipo, e.n, c.n, i._meta ? [i._meta.objetivo, i._meta.res, i._meta.periodicidad, i._meta.instrucciones, i._meta.responsable].join(" ") : "", i.vars.map(v => [v.n, v.d, v.f, v.u, (v.tr || []).map(t => t.n + " " + t.d).join(" ")].join(" ")).join(" ")].join(" "));
@@ -207,7 +213,7 @@
   const hayI = () => !!(S2.q || S2.cat || S2.enf || S2.tipo || S2.fam || S2.org || S2.din || S2.gua || S2.amb || S2.odat);
   function pasaI(i) {
     if (S2.cat && i._c.id !== S2.cat) return false; if (S2.enf && i._e.id !== S2.enf) return false; if (S2.tipo && i.tipo !== S2.tipo) return false; if (S2.fam && !i._fam.includes(S2.fam)) return false; if (S2.org === "dl" && !i._nuevo) return false; if (S2.org === "geo" && (i._nuevo || i._inegi)) return false; if (S2.org === "inegi" && !i._inegi) return false; if (S2.din && dinI(i) !== S2.din) return false; if (S2.gua && guaI(i) !== S2.gua) return false; if (S2.amb && (ambI(i) || [])[0] !== S2.amb) return false; if (S2.odat && odatI(i) !== S2.odat) return false;
-    if (S2.q) { const ws = norm(S2.q).split(/\s+/).filter(Boolean); if (!ws.every(w => i._h.includes(w))) return false; } return true;
+    if (S2.q) { const ws = norm(S2.q).split(/\s+/).filter(Boolean); if (!ws.every(w => i._h.includes(w) || claveI(i).toLowerCase().includes(w))) return false; } return true;
   }
   function indicadores() {
     const A = INDS_ALL(), nE = CATI.reduce((a, c) => a + c.an.length, 0), nV = A.reduce((a, i) => a + i.vars.length, 0), nT = A.reduce((a, i) => a + i.vars.reduce((b, v) => b + v.tr.length, 0), 0);
@@ -219,7 +225,7 @@
       <div class="dl-kpis">${kp(CATI.length, "Categorías", "#4f46e5")}${kp(nE, "Enfoques de análisis", "#0891b2")}${kp(A.length, "Indicadores", "#7c3aed")}${kp(nV, "Variables", "#059669")}${kp(nT, "Transformaciones", "#b45309")}</div>
       <div class="dl-fl" id="dlFl">
         <div class="dl-fr">
-          <div class="dl-q${S2.q ? " has" : ""}">${ICON.lupa}<input id="dlQ2" type="search" placeholder="Buscar indicador, variable, fuente o fórmula…" value="${esc(S2.q)}" autocomplete="off" aria-label="Buscar"><button class="x" type="button" data-ix="q" aria-label="Borrar búsqueda">✕</button></div>
+          <div class="dl-q${S2.q ? " has" : ""}">${ICON.lupa}<input id="dlQ2" type="search" placeholder="Buscar indicador, clave, variable o fuente…" value="${esc(S2.q)}" autocomplete="off" aria-label="Buscar"><button class="x" type="button" data-ix="q" aria-label="Borrar búsqueda">✕</button></div>
           ${opcionesI("cat", "Categoría", CATI.map(c => [c.id, c.ico + " " + c.n]), S2.cat)}
           ${opcionesI("enf", "Enfoque", enfs, S2.enf)}
           ${opcionesI("tipo", "Tipo de dato", tipos, S2.tipo)}
@@ -254,7 +260,7 @@
     const arbol = CATI.map(c => {
       const Lc = vis.filter(i => i._c.id === c.id); if (!Lc.length) return ""; const abC = forzar || S2.aC.has(c.id);
       const enfs = !abC ? "" : c.an.map(e => { const Le = Lc.filter(i => i._e.id === e.id); if (!Le.length) return ""; const abE = forzar || S2.aE.has(e.id);
-        return `<button class="dl-ixe${es("e", e.id) ? " on" : ""}" type="button" data-ie="${esc(e.id)}" aria-expanded="${abE}"><span class="pm">${abE ? "−" : "+"}</span><span class="tx">${esc(e.n)}</span><span class="n">${Le.length}</span></button>${abE ? `<div class="dl-ixis">${Le.map(i => `<button class="dl-ixi${es("i", kI(i)) ? " on" : ""}" type="button" data-ir="${esc(kI(i))}">${esc(i.n)}</button>`).join("")}</div>` : ""}`; }).join("");
+        return `<button class="dl-ixe${es("e", e.id) ? " on" : ""}" type="button" data-ie="${esc(e.id)}" aria-expanded="${abE}"><span class="pm">${abE ? "−" : "+"}</span><span class="tx">${esc(e.n)}</span><span class="n">${Le.length}</span></button>${abE ? `<div class="dl-ixis">${Le.map(i => `<button class="dl-ixi${es("i", kI(i)) ? " on" : ""}" type="button" data-ir="${esc(kI(i))}" title="${esc(claveI(i))}"><i class="cv">${esc(claveI(i).split("-")[0].split(".")[2] || "")}</i>${esc(i.n)}</button>`).join("")}</div>` : ""}`; }).join("");
       return `<button class="dl-ixc${es("c", c.id) ? " on" : ""}${abC ? " open" : ""}" type="button" data-ic="${esc(c.id)}" aria-expanded="${abC}"><span class="tx">${esc(c.n)}</span><span class="n">${Lc.length}</span>${ICON.chev}</button>${enfs ? `<div class="dl-ixes">${enfs}</div>` : ""}`;
     }).join("");
     const lado = $("#dlArbHost", host);
@@ -718,7 +724,7 @@
     const kfH = `<dl class="dl-kf">${kf("Tipo de dato", `<span class="dl-b t-${TCLS[i.tipo] || "dd"}">${esc(i.tipo)}</span><small>${odatI(i) === "C" ? "Construido en el sistema" : i._inegi && i.tipo !== "Dato duro" ? "Lo calcula el INEGI (dato de origen)" : "De la fuente (dato de origen)"}</small>`)}${kf("Periodicidad de los datos", O.ext.some(x => x.perS) ? `<span data-per-s>Se muestra al cargar la serie…</span>` : uq("per"))}${kf("Forma de consulta o descarga", uq("forma"))}${kf("Tipo de fuente", uq("tf"))}${kf("Familia de fuente (clic para filtrar)", `<div class="dl-ch">${fam}</div>`)}${kf("Tipo de levantamiento", uq("lev"))}${kf("Nivel geográfico", O.amb ? `<span class="dl-b amb">${AMB_T[O.amb[0]]}</span><small>${esc(O.amb[1])}</small>${!O.geoIgual && O.ext.some(x => x.geo) ? `<small><b>Dato de origen:</b> ${[...new Set(O.ext.map(x => x.geo).filter(Boolean))].slice(0, 3).map(esc).join("; ")}</small>` : ""}` : "—")}${kf("¿Queda guardado?", gC ? `<span class="dl-b gua-${gC}">${GUA_T[gC]}</span>` : "—")}</dl>`;
     // metadatos completos del indicador: los usa el botón «Ver metadata» del widget
     PVMETA[kI(i)] = { kf: kfH, cuerpo: `<div class="wide"><span>Qué mide</span><p>${esc(i.d)}</p></div><div class="wide"><span>Unidades</span><p>${esc(i.u) || "—"}</p></div><div><span>Metodología</span><p class="pre">${esc(i.m)}</p></div><div><span>Fórmula</span><code class="dl-code">${esc(i.f)}</code></div>` + O.origen + O.fuentes + O.tipo + O.geo + dn.replace("<div class=\"wide\"><dl", "<div class=\"wide\"><span>Actualización y guardado</span><dl") };
-    return `${gvSec(i)}<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}</h2></div>
+    return `${gvSec(i)}<div class="dl-ixh"><div class="dl-nm">${i._nuevo ? swPub(i._meta) : `<i class="dot${i._pend ? " Pendiente" : ""}" title="${i._pend ? "Pendiente de construir" : i._inegi ? "Serie oficial del INEGI (BIE/BISE)" : "Publicado en Geo Lab"}"></i>`}<h2>${esc(i.n)}</h2><code class="dl-clv" title="${esc(claveT(i))}">${esc(claveI(i))}</code></div>
       <div class="dl-ixt">${chipGeo(i)}${i._nuevo ? `<span class="dl-new-b${i._meta.publicado ? " pub" : ""}">${i._meta.publicado ? "Publicado en Geo Lab" : "Nuevo · " + esc(i._meta.estado)}</span>` : ""}</div></div>
       <p class="dl-lead">${esc(i.d)}</p>
       ${kfH}

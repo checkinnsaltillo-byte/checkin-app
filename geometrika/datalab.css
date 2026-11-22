@@ -678,3 +678,7 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 #dlGvHost .dl-gvph{left:0;top:0;bottom:0;border-radius:0}
 .dl-gvsx>summary b{font-size:17px}
 @media (max-width:720px){.dl-gvslot{height:60vh}}
+
+/* clave de indexación del indicador */
+.dl-clv{font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:7px;padding:3px 8px;margin-left:10px;white-space:nowrap;cursor:help;align-self:center}
+[data-ir] .cv{font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace;font-style:normal;color:#94a3b8;margin-right:6px}
