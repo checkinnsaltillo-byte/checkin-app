@@ -722,3 +722,14 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 .dl-bxp .n{font-size:11.5px;color:#475569;margin-top:6px;line-height:1.5}
 .dl-b.cmp-HS,.dl-b.cmp-N{background:#dcfce7;color:#166534}.dl-b.cmp-T{background:#ede9fe;color:#5b21b6}
 .dl-bxo[disabled]{opacity:.45;cursor:default}
+
+/* Indicadores: selector «Por proyecto / Malla nacional» y aviso de la malla */
+.dl-seg{display:flex;padding:3px;border-radius:11px;background:#e2e8f0;margin:0 0 9px;gap:2px}
+.dl-seg button{all:unset;box-sizing:border-box;flex:1;text-align:center;cursor:pointer;font:700 12px system-ui;color:#475569;padding:7px 6px;border-radius:9px;transition:background .15s,color .15s}
+.dl-seg button.on{background:#fff;color:#1e3a8a;box-shadow:0 1px 3px rgba(15,23,42,.18)}
+.dl-mb{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:14px;padding:16px 18px;margin:0 0 16px}
+.dl-mb h3{margin:0 0 6px;font:800 16px system-ui;color:#1e3a8a}
+.dl-mb p{margin:0 0 8px;font-size:13px;color:#334155;line-height:1.5;max-width:900px}
+.dl-mb ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:12.5px;color:#334155;line-height:1.5;max-width:900px}
+.dl-b.malla-L{background:#dcfce7;color:#166534}.dl-b.malla-P{background:#fef9c3;color:#854d0e}
+.dl-h p[hidden]{display:none!important}
