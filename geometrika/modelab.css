@@ -572,3 +572,6 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 @media(max-width:900px){.mo-app .mo-pcx{grid-template-columns:1fr}.mo-app .mo-pcx>.mo-pcd{grid-column:1;grid-row:auto;margin-top:10px}}
 /* leyenda de grupos */
 .mo-app .mo-lgg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 8px;font:500 12px system-ui;color:#475569}.mo-app .mo-lgg span{display:inline-flex;align-items:center;gap:6px}.mo-app .mo-lgg i{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none}.mo-app .mo-lgg b{color:#0f172a}.mo-app .mo-lgg small{color:#94a3b8}
+/* migas de pan con botón para regresar */
+.mo-app .mo-bc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;font:500 12.5px system-ui;color:#64748b}.mo-app .mo-bc a{color:#4338ca;text-decoration:none;font-weight:600}.mo-app .mo-bc a:hover{text-decoration:underline}.mo-app .mo-bc b{color:var(--ink);font-weight:700}
+.mo-app .mo-bcb{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;font:700 12.5px system-ui;color:#334155}.mo-app .mo-bcb:hover{background:#f1f5f9}

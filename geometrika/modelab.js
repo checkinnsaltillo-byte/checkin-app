@@ -51,7 +51,14 @@
       if (S.aid) SEC.filter(([k]) => !(k === "simulacion" && S.M && S.M.enfoque === "nosup")).forEach(([k, n2, t, d]) => { h += `<button type="button" class="mo-nav${S.sec === k || (k === "simulacion" && S.sec === "nuevo" && S.wiz && S.wiz.sim) ? " on" : ""}" data-sec="${k}" title="${esc(d)}"><span class="ic mo-n">${n2}</span><span class="tx">${t}</span><span class="bd mo-ok">${hecho(k) ? "✓" : ""}</span></button>`; }); }
     n.innerHTML = h;
   }
-  const wrap = h => { const w = $("#moWrap"); if (w) { w.innerHTML = h; $("#moMain").scrollTop = 0; } };
+  /* migas de pan: Mis proyectos › Proyecto › Análisis (cada una regresa a esa pantalla) */
+  const migas = () => {
+    const flujo = ["variables", "enfoque", "metodos", "prep", "modelar", "resultados", "simulacion"]; if (!S.P || !S.id) return "";
+    if (S.sec === "analisis") return `<nav class="mo-bc"><button type="button" class="mo-bcb" data-sec="proyectos">${mi("back")} Mis proyectos</button><span>›</span><b>${esc(S.P.nombre)}</b></nav>`;
+    if (flujo.includes(S.sec) && S.aid && S.A) return `<nav class="mo-bc"><button type="button" class="mo-bcb" data-sec="analisis">${mi("back")} Análisis del proyecto</button><span>›</span><a href="#" data-sec="proyectos">Mis proyectos</a><span>›</span><a href="#" data-sec="analisis">${esc(S.P.nombre)}</a><span>›</span><b>${esc(S.A.nombre)}</b></nav>`;
+    return "";
+  };
+  const wrap = h => { const w = $("#moWrap"); if (w) { w.innerHTML = migas() + h; $("#moMain").scrollTop = 0; } };
   async function ir(sec) {
     if (sec === "calidad") sec = "resultados"; if (sec === "simulacion" && S.M && S.M.enfoque === "nosup") sec = "resultados";
     if (sec !== "nuevo") S.wiz = (sec === "proyectos" || (S.wiz && S.wiz.sim)) ? null : S.wiz; S.sec = sec; nav();
