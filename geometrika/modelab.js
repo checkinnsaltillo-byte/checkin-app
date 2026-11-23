@@ -83,7 +83,7 @@
   const PASOS = [["Objetivo del proyecto", "qué quieres entender o predecir"], ["Puntos de interés", "dónde se mide: en el mapa, en un archivo o en el DENUE"], ["Radio de maqueta", "opcional · fotos de calle"], ["Vialidades", "opcional · red vial de OpenStreetMap"], ["Días y horas de tráfico", "opcional · cuándo se mide"], ["Verificación", "revisa los datos antes de modelar"]];
   const GMW_PR = { sv: .007, ia: .0053, sat: .012, ruta: .01, od: 364, m3d: .006 }, GMW_X = 10;   /* mismas tarifas de lista y factor que el asistente de Geo Lab */
   const DIAS = [[1, "Lun"], [2, "Mar"], [3, "Mié"], [4, "Jue"], [5, "Vie"], [6, "Sáb"], [0, "Dom"]], VIAS = [["motorway", "Autopistas"], ["trunk", "Troncales"], ["primary", "Primarias"], ["secondary", "Secundarias"], ["tertiary", "Terciarias"], ["residential", "Residenciales"]];
-  const wizVacio = () => ({ paso: 1, nombre: "", objetivo: "", fuente: "mapa", tab: "mapa", puntos: [], columnas: [], mapa: null, arch: null, den: { muns: [], ciudades: [], q: "", sector: "", sub: "", cod: "", tmin: 0, tmax: 6, res: null, cargando: false }, radio: 200, fotos: 24, vias: ["primary", "secondary", "tertiary"], pre: 12, dias: [1, 2, 3, 4, 5], horas: [7, 8, 9, 17, 18, 19], opt: { fotos: false, trafico: false, od: false, mapa3d: false }, editId: null, msg: "", gl: null });
+  const wizVacio = () => ({ paso: 1, nombre: "", objetivo: "", fuente: "mapa", tab: "mapa", puntos: [], columnas: [], mapa: null, arch: null, den: { muns: [], ciudades: [], q: "", sector: "", sub: "", cod: "", tmin: 0, tmax: 6, res: null, sel: new Set(), vista: 200, cargando: false }, radio: 200, fotos: 24, vias: ["primary", "secondary", "tertiary"], pre: 12, dias: [1, 2, 3, 4, 5], horas: [7, 8, 9, 17, 18, 19], opt: { fotos: false, trafico: false, od: false, mapa3d: false }, editId: null, msg: "", gl: null });
   function costo(W) {
     const nP = Math.max(1, W.puntos.length), o = W.opt, fotos = o.fotos ? W.fotos * nP : 0, ts = W.radio > 400 ? 344 : 172, k = Math.max(1, Math.ceil((W.radio - ts / 2) / ts)), tiles = o.fotos ? (2 * k + 1) ** 2 * nP : 0;
     const sv = fotos * GMW_PR.sv * GMW_X, ia = fotos * GMW_PR.ia * GMW_X, sat = tiles * GMW_PR.sat * GMW_X, sent = W.pre * 2 * nP, calls = o.trafico ? sent * W.dias.length * W.horas.length : 0, tr = calls * GMW_PR.ruta * GMW_X, od = o.od ? nP * GMW_PR.od * GMW_PR.ruta * GMW_X : 0, m3d = o.mapa3d ? GMW_PR.m3d * GMW_X : 0;
@@ -169,9 +169,12 @@
       <label class="mo-fl">Tamaño mínimo (personal ocupado)<select class="mo-in" id="wzTmin">${["0-5", "6-10", "11-30", "31-50", "51-100", "101-250", "251+"].map((t, i) => `<option value="${i}"${D.tmin === i ? " selected" : ""}>${t}</option>`).join("")}</select></label>
       <label class="mo-fl">Tamaño máximo<select class="mo-in" id="wzTmax">${["0-5", "6-10", "11-30", "31-50", "51-100", "101-250", "251+"].map((t, i) => `<option value="${i}"${D.tmax === i ? " selected" : ""}>${t}</option>`).join("")}</select></label></div>
       <div class="mo-chs"><button type="button" class="mo-new" data-wz="denbusca"${D.ciudades.length ? "" : " disabled"}>${D.cargando ? "Buscando…" : "Buscar unidades económicas"}</button></div>`;
-    const r = D.res; if (r) h += `<div class="mo-fa"><b>${gN(r.total, 0)}</b> unidades encontradas${r.truncado ? ` · se usarán las primeras ${gN(r.devueltos, 0)} (afina los filtros para acotar)` : ""}</div>
-      <div class="mo-tw"><table class="mo-t mo-prev"><thead><tr><th>Nombre</th><th>SCIAN</th><th>Sector</th><th>Personal</th></tr></thead><tbody>${r.items.slice(0, 10).map(i => `<tr><td>${esc(i.nombre)}</td><td>${esc(i.scian)}</td><td>${esc(SC_S()[i.scian.slice(0, 2)] ? SC_S()[i.scian.slice(0, 2)].slice(0, 40) : i.scian.slice(0, 2))}</td><td>${r.tamanos[i.tam]}</td></tr>`).join("")}</tbody></table></div>
-      ${r.total ? `<div class="mo-chs"><button type="button" class="mo-new" data-wz="usaden">Usar ${gN(r.devueltos, 0)} unidades como puntos</button><span class="mo-mut">Se guardan como variables: sector, subsector, rama, grupo de giro y tamaño.</span></div>` : ""}`;
+    const r = D.res; if (r) { const ns = D.sel.size, todas = ns === r.items.length && ns > 0, vis = r.items.slice(0, D.vista);
+      h += `<div class="mo-fa"><b>${gN(r.total, 0)}</b> unidades encontradas${r.truncado ? ` · se cargaron las primeras ${gN(r.devueltos, 0)} (afina los filtros para acotar)` : ""} · <b id="wzNSel">${gN(ns, 0)}</b> seleccionada${ns === 1 ? "" : "s"}</div>
+      <div class="mo-chs"><button type="button" class="mo-ghost" data-wzds="todas">Seleccionar todas</button><button type="button" class="mo-ghost" data-wzds="ninguna">Ninguna</button></div>
+      <div class="mo-tw mo-tsc"><table class="mo-t mo-prev"><thead><tr><th class="mo-tck"><button type="button" class="mo-ckb" data-wzds="${todas ? "ninguna" : "todas"}" aria-label="Seleccionar o quitar todas">${ck(todas)}</button></th><th>Nombre</th><th>SCIAN</th><th>Sector</th><th>Personal</th></tr></thead><tbody>${vis.map((i, k) => `<tr class="mo-trs${D.sel.has(k) ? " on" : ""}" data-wzds="${k}"><td class="mo-tck">${ck(D.sel.has(k))}</td><td>${esc(i.nombre)}</td><td>${esc(i.scian)}</td><td>${esc(SC_S()[i.scian.slice(0, 2)] ? SC_S()[i.scian.slice(0, 2)].slice(0, 40) : i.scian.slice(0, 2))}</td><td>${r.tamanos[i.tam]}</td></tr>`).join("")}</tbody></table></div>
+      ${r.items.length > D.vista ? `<div class="mo-chs"><span class="mo-mut">Mostrando ${gN(D.vista, 0)} de ${gN(r.items.length, 0)}.</span><button type="button" class="mo-ghost" data-wzds="mas">Mostrar 200 más</button></div>` : ""}
+      ${r.total ? `<div class="mo-chs"><button type="button" class="mo-new" data-wz="usaden"${ns ? "" : " disabled"}>Usar ${gN(ns, 0)} unidades seleccionadas como puntos</button><span class="mo-mut">Se guardan como variables: sector, subsector, rama, grupo de giro y tamaño.</span></div>` : ""}`; }
     return h;
   };
 
@@ -236,11 +239,11 @@
   }
   async function denBusca(W) {
     const D = W.den; if (!D.ciudades.length) return; D.cargando = true; wzRe(); const cod = D.cod.split(/[,\s]+/).filter(c => /^\d{4,6}$/.test(c)), scian = cod.length ? cod : D.sub ? [D.sub] : D.sector ? [D.sector] : [];
-    try { D.res = await api(R + "/denue", { muns: D.muns, q: D.q, scian, tmin: D.tmin, tmax: D.tmax, limite: 5000 }); } catch (e) { W.msg = e.message; D.res = null; } D.cargando = false; wzRe();
+    try { D.res = await api(R + "/denue", { muns: D.muns, q: D.q, scian, tmin: D.tmin, tmax: D.tmax, limite: 5000 }); D.sel = new Set(D.res.items.map((_, k) => k)); D.vista = 200; } catch (e) { W.msg = e.message; D.res = null; } D.cargando = false; wzRe();
   }
   function usaDenue(W) {
-    const r = W.den.res; if (!r || !r.items.length) return; const GN = r.grupos || [];
-    W.puntos = r.items.map(i => ({ lat: i.lat, lng: i.lng, id: i.nombre, x: { tam: i.tam, sector: i.scian.slice(0, 2), subsector: i.scian.slice(0, 3), rama: i.scian.slice(0, 4), grupo: GN[i.grupo] || null } }));
+    const r = W.den.res; if (!r || !r.items.length) return; const GN = r.grupos || [], elegidas = r.items.filter((_, k) => W.den.sel.has(k)); if (!elegidas.length) { W.msg = "Selecciona al menos una unidad."; return wzRe(); }
+    W.puntos = elegidas.map(i => ({ lat: i.lat, lng: i.lng, id: i.nombre, x: { tam: i.tam, sector: i.scian.slice(0, 2), subsector: i.scian.slice(0, 3), rama: i.scian.slice(0, 4), grupo: GN[i.grupo] || null } }));
     W.columnas = [{ name: "tam", label: "Tamaño del establecimiento (estrato 0-6)", tipo: "num" }, { name: "sector", label: "Sector SCIAN", tipo: "cat" }, { name: "subsector", label: "Subsector SCIAN", tipo: "cat" }, { name: "rama", label: "Rama SCIAN", tipo: "cat" }, { name: "grupo", label: "Grupo de giro", tipo: "cat" }]; W.fuente = "denue"; W.msg = ""; wzRe(); toast(`${gN(W.puntos.length, 0)} unidades listas como puntos.`);
   }
   async function wzGeoLab(W) {
@@ -279,6 +282,9 @@
     if ((b = t.closest("[data-wzrm]"))) { W.puntos.splice(+b.dataset.wzrm, 1); if (W.pinta) W.pinta(); wzPts(W); return true; }
     if ((b = t.closest("[data-wzex]"))) { const v = b.dataset.wzex, A = W.arch; if (v === "todas") A.extra = A.cols.map((_, i) => i).filter(i => i !== A.ilat && i !== A.ilng); else if (v === "ninguna") A.extra = []; else { const i = +v; A.extra = A.extra.includes(i) ? A.extra.filter(x => x !== i) : A.extra.concat(i); } wzRe(); return true; }
     if ((b = t.closest("[data-wzcx]"))) { W.den.ciudades.splice(+b.dataset.wzcx, 1); W.den.muns = [...new Set(W.den.ciudades.flatMap(c => c.muns))]; W.den.res = null; wzRe(); return true; }
+    if ((b = t.closest("[data-wzds]"))) { const D = W.den, v = b.dataset.wzds, n = D.res ? D.res.items.length : 0;
+      if (v === "todas") D.sel = new Set(Array.from({ length: n }, (_, k) => k)); else if (v === "ninguna") D.sel = new Set(); else if (v === "mas") D.vista += 200; else { const k = +v; D.sel.has(k) ? D.sel.delete(k) : D.sel.add(k); }
+      const y = $("#moMain").scrollTop, ty = (($(".mo-tsc") || {}).scrollTop) || 0; wzRe(); $("#moMain").scrollTop = y; const tsc = $(".mo-tsc"); if (tsc) tsc.scrollTop = ty; return true; }
     if ((b = t.closest("[data-wzgl]"))) { wzTraeGeo(W, +b.dataset.wzgl); return true; }
     if ((b = t.closest("[data-bli]"))) { const l = b.closest(".mo-bl"), it = (l._it || [])[+b.dataset.bli]; if (it && l._al) l._al(it); l.style.display = "none"; return true; }
     return false;
