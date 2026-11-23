@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Geo Lab · Proyecto sin maqueta 3D</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script>window.GM_NOCANCEL=1</script><script src="../gm-auth.js?v=2"></script>
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a;background:#f4f6fb;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:14px;padding:10px 20px;background:#0b1020;color:#fff;flex:none}
+header img{height:30px}header b{font-size:15px}header span{color:#94a3b8;font-size:12px}header .sp{flex:1}
+header a{color:#fff;text-decoration:none;border:1px solid #334155;border-radius:9px;padding:7px 13px;font-size:13px}header a:hover{background:#1e293b}
+main{flex:1;display:grid;grid-template-columns:minmax(380px,520px) 1fr;min-height:0}
+aside{overflow:auto;padding:22px 24px 40px;background:#fff;border-right:1px solid #e2e8f0}
+#map{height:100%;min-height:360px}
+h1{font:800 24px/1.2 system-ui;margin:0 0 6px;letter-spacing:-.01em}.obj{color:#475569;margin:0 0 14px}
+.av{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:12px;padding:11px 14px;font-size:13px;margin:12px 0 18px}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 6px}.kp div{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#f8fafc}.kp b{display:block;font:800 20px system-ui;color:#4338ca}.kp span{font-size:11.5px;color:#64748b}
+h2{font:800 17px system-ui;margin:26px 0 4px}.mu{color:#64748b;font-size:12.5px;margin:0 0 10px}
+details{border:1px solid #e2e8f0;border-radius:12px;margin:8px 0;background:#fff}summary{cursor:pointer;padding:10px 14px;display:flex;gap:8px;align-items:baseline;font-weight:600;font-size:13px}summary i{font-style:normal;color:#64748b;font-weight:500}
+table{width:100%;border-collapse:collapse}td{padding:7px 14px;border-top:1px solid #f1f5f9;font-size:13px;vertical-align:top}td:nth-child(2){text-align:right;font-weight:700;white-space:nowrap}td:nth-child(3){color:#64748b;font-size:12px;width:1%;white-space:nowrap}td small{display:block;color:#64748b;font-weight:400;font-size:11px}
+.er{color:#b91c1c}.ld{color:#64748b}
+.bt{display:flex;gap:6px;position:absolute;z-index:500;right:12px;top:12px}.bt button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:7px 12px;font:600 12px system-ui;cursor:pointer}.bt button.on{background:#4338ca;color:#fff;border-color:#4338ca}
+.mw{position:relative;min-height:0}
+@media(max-width:860px){main{grid-template-columns:1fr;grid-template-rows:320px auto}.mw{order:-1}aside{border-right:0}}
+</style></head><body>
+<header><img src="../../geometrika/geometrika-logo-claro.png" onerror="this.style.display='none'" alt="Geo Lab"><div><b id="tit">Proyecto</b><br><span>Mapa e indicadores del proyecto</span></div><span class="sp"></span><a id="ml" href="#">Abrir en Model Lab</a><a href="../../geometrika/?s=geo">← Mis proyectos</a></header>
+<main><aside id="pn"><p class="ld">Cargando el proyecto…</p></aside><div class="mw"><div class="bt"><button data-t="sat" class="on">Satélite</button><button data-t="mapa">Mapa</button></div><div id="map"></div></div></main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API='https://api.check-inn.mx',ID=new URLSearchParams(location.search).get('id')||'',esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),$=s=>document.querySelector(s);
+const fmt=v=>v==null?'—':typeof v==='number'?(Math.abs(v)>=100?Math.round(v):Math.round(v*100)/100).toLocaleString('es-MX'):esc(v);
+let mapa,capaT,capas={};
+function pintaMapa(pts){
+  mapa=L.map('map',{zoomControl:true});
+  capas.sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri'});
+  capas.mapa=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri'});
+  capaT=capas.sat.addTo(mapa);
+  document.querySelectorAll('.bt button').forEach(b=>b.onclick=()=>{mapa.removeLayer(capaT);capaT=capas[b.dataset.t].addTo(mapa);document.querySelectorAll('.bt button').forEach(x=>x.classList.toggle('on',x===b));});
+  const g=[];pts.forEach(q=>{const la=+q.lat,lo=+q.lng;if(!isFinite(la)||!isFinite(lo))return;g.push([la,lo]);const m=L.circleMarker([la,lo],{radius:pts.length>400?4:7,color:'#fff',weight:1.5,fillColor:'#4f46e5',fillOpacity:.9}).addTo(mapa);const n=q.nombre||q.name||q.id;if(n)m.bindTooltip(esc(n));});
+  if(g.length)mapa.fitBounds(g,{padding:[40,40],maxZoom:17});else mapa.setView([23.8,-102.3],5);
+}
+function indHtml(I){
+  const t='<h2>Indicadores que aplican a este proyecto</h2>';
+  if(!I)return t+'<p class="ld">Cargando los indicadores de la ubicación…</p>';
+  if(I.err)return t+'<p class="er">'+esc(I.err)+'</p>';
+  if(!I.items.length)return t+'<p class="mu">Ninguno de los indicadores de la malla nacional tiene dato en la ubicación de este proyecto (cae fuera de una zona urbana con cobertura).</p>';
+  const G={};I.items.forEach(i=>{const k=i.c+' › '+i.e;(G[k]=G[k]||[]).push(i);});
+  const val=i=>i.cat?esc(i.v)+(i.rep&&i.rep.length>1?'<small>'+esc(i.rep.join(' · '))+'</small>':''):i.v!=null?fmt(i.v):fmt(i.med)+'<small>mediana de '+i.nv+' puntos · de '+fmt(i.min)+' a '+fmt(i.max)+'</small>';
+  return t+'<p class="mu">'+I.items.length+' de '+I.total+' indicadores de la malla nacional (Censo, DENUE, OpenStreetMap, INEGI, WorldCover, WorldClim) tienen dato en '+(I.puntos>1?'los '+I.puntos+' puntos del proyecto':'el punto del proyecto')+(I.conAgeb<I.puntos?' ('+(I.puntos-I.conAgeb)+' caen fuera de una AGEB urbana y no tienen dato)':'')+'.</p>'
+   +Object.entries(G).map(([g,L2],k)=>'<details'+(k<2?' open':'')+'><summary><b>'+esc(g)+'</b> <i>'+L2.length+'</i></summary><table><tbody>'+L2.map(i=>'<tr><td>'+esc(i.n)+'</td><td>'+val(i)+'</td><td>'+esc(i.u||'')+'</td></tr>').join('')+'</tbody></table></details>').join('');
+}
+(async()=>{
+  if(!/^m[a-z0-9]{6,24}$/.test(ID)){$('#pn').innerHTML='<p class="er">Proyecto no válido.</p>';return;}
+  $('#ml').href='../../geometrika/?s=modelo&p='+ID;
+  let P=null,pts=[];
+  try{const j=await fetch(API+'/geometrika/modelab/proyectos/'+ID).then(r=>r.json());if(!j.ok)throw new Error(j.error||'No se pudo cargar');P=j.proyecto;pts=j.puntos||[];}catch(e){$('#pn').innerHTML='<p class="er">'+esc(e.message)+'</p>';pintaMapa([]);return;}
+  document.title='Geo Lab · '+(P.nombre||'Proyecto');$('#tit').textContent=P.nombre||'Proyecto';
+  pintaMapa(pts);
+  const pan=I=>{$('#pn').innerHTML='<h1>'+esc(P.nombre||'Proyecto')+'</h1><p class="obj">'+esc(P.objetivo||'')+'</p><div class="av">Este proyecto no tiene maqueta 3D. En su lugar se muestran el mapa y todos los indicadores disponibles para su ubicación.</div><div class="kp"><div><b>'+fmt(pts.length)+'</b><span>puntos</span></div><div><b>'+fmt((P.columnas||[]).length)+'</b><span>variables propias</span></div><div><b>'+esc(P.zona||'—')+'</b><span>zona</span></div></div>'+indHtml(I);};
+  pan(null);
+  try{const j=await fetch(API+'/geometrika/indicadores?id='+ID).then(r=>r.json());pan(j.ok?j:{err:j.error||'Sin respuesta'});}catch(e){pan({err:String(e.message||e)});}
+})();
+</script></body></html>
