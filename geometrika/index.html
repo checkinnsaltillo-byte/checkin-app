@@ -270,8 +270,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "modelo") {
     document.getElementById("modelab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=6dc11e7c"; document.head.appendChild(l);
-    gpCarga("modelab-biblioteca.js?v=6dc11e7c", () => gpCarga("modelab-motor.js?v=6dc11e7c", () => gpCarga("modelab.js?v=6dc11e7c", () => window.modelabInit && window.modelabInit())));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=cbf8c2ff"; document.head.appendChild(l);
+    gpCarga("modelab-biblioteca.js?v=cbf8c2ff", () => gpCarga("modelab-motor.js?v=cbf8c2ff", () => gpCarga("modelab.js?v=cbf8c2ff", () => window.modelabInit && window.modelabInit())));
   } else if (sys === "media") {
     document.getElementById("medialab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=0305c841"; document.head.appendChild(l);
