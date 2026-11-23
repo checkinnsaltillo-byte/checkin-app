@@ -342,3 +342,4 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-trs.foco{background:#fffbeb!important;box-shadow:inset 3px 0 0 #f59e0b}
 .mo-pin.on i{width:30px;height:30px;background:#f59e0b}.mo-pin.on i::after{left:9px;top:9px;width:8px;height:8px}
 @media (max-width:1100px){.mo-app .mo-dsplit{grid-template-columns:1fr}.mo-app .mo-dright{position:static}.mo-app .mo-mapd{height:380px}}
+.mo-app .mo-swg{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 14px}.mo-app .mo-swg b{font-size:14px}
