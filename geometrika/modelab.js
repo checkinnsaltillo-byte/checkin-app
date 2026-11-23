@@ -1073,7 +1073,7 @@
     if (S.sec !== "simulacion" || S.wiz) return false;
     if ((b = t.closest(".mo-sg > summary"))) { const d = b.parentNode; setTimeout(() => { s.ab[d.dataset.g] = d.open; }, 0); return false; }
     if ((b = t.closest("[data-smf]"))) { s.fl = b.dataset.smf; $$("[data-smf]").forEach(x => x.classList.toggle("on", x === b)); if (s.repintaCards) s.repintaCards(); return true; }
-    if ((b = t.closest("[data-smcard]")) && s.sel) { s.sel(+b.dataset.smcard, true); return true; }
+    if ((b = t.closest("[data-smcard]")) && s.sel) { s.sel(b.dataset.smcard, true); return true; }
     if ((b = t.closest("[data-smtab]"))) { s.tab = b.dataset.smtab; s.view = null; simPinta(); return true; }
     if ((b = t.closest("[data-smabre]"))) { e.preventDefault(); s.view = b.dataset.smabre; s.tab = "puntos"; simVista(); return true; }
     if ((b = t.closest("[data-smdel]"))) { simElimina(b.dataset.smdel); return true; }
