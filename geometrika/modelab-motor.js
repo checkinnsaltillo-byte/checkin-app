@@ -3319,6 +3319,57 @@
     })();
   }
 
+
+  // ==========================================================================
+  // SIMULACIÓN: ajusta el método elegido con TODAS las filas que tienen valor de respuesta (mismo preprocesamiento e hiperparámetros del análisis)
+  // y predice filas nuevas. cfg: {metodo, y, x, prep}; nuevas: arreglos alineados con ds.cols; opts: {params, clases, semilla, progreso}
+  // Devuelve {pred, prob, clases, motivo, tipoY} con un elemento por fila nueva (pred = null si no se pudo predecir; motivo explica por qué).
+  // ==========================================================================
+  async function simular(cfg, ds, nuevas, opts) {
+    opts = opts || {};
+    const id = cfg.metodo, M = META[id];
+    if (!M || M.tipo === 'nosup') throw new Error('La simulación solo funciona con métodos supervisados (hay una variable de respuesta).');
+    const n0 = ds.rows.length, m = nuevas.length;
+    const ds2 = { cols: ds.cols, rows: ds.rows.concat(nuevas) };
+    const lectura0 = leerDataset(ds), perfiles = lectura0.map(function (c) { return c.perfil; });
+    const lectura = leerDataset(ds2), porNombre = {};
+    lectura.forEach(function (c) { porNombre[c.name] = c; });
+    const colY = porNombre[cfg.y];
+    if (!colY) throw new Error('No se encontró la variable de respuesta «' + cfg.y + '».');
+    const nombresX = (cfg.x && cfg.x.length) ? cfg.x.filter(function (n) { return n !== cfg.y; }) : lectura.filter(function (c) { return c.name !== cfg.y; }).map(function (c) { return c.name; });
+    const colsX = nombresX.map(function (nm) { if (!porNombre[nm]) throw new Error('La variable «' + nm + '» no existe en los datos.'); return porNombre[nm]; });
+    const esReg = M.tipo === 'reg';
+    const clases = esReg ? null : (opts.clases && opts.clases.length ? opts.clases.slice() : null), K = clases ? clases.length : 0;
+    if (!esReg && !clases) throw new Error('Faltan las categorías del modelo; vuelve a modelar.');
+    const validas = []; let yFull;
+    if (esReg) { yFull = new Float64Array(n0 + m).fill(NaN); for (let i = 0; i < n0; i++) { const v = colY.esNum ? colY.num[i] : NaN; if (!isNaN(v)) { yFull[i] = v; validas.push(i); } } }
+    else { const mapa = new Map(); clases.forEach(function (c, i) { mapa.set(String(c), i); }); yFull = new Int32Array(n0 + m).fill(-1);
+      for (let i = 0; i < n0; i++) { const e = colY.esNum ? (isNaN(colY.num[i]) ? null : String(colY.num[i])) : colY.cat[i]; if (e !== null && mapa.has(e)) { yFull[i] = mapa.get(e); validas.push(i); } } }
+    if (validas.length < 10) throw new Error('Hay muy pocas filas con valor de respuesta para ajustar el modelo.');
+    const semilla = opts.semilla == null ? 42 : opts.semilla, cp = configPrep(cfg, perfiles, { enfoque: 'sup', y: cfg.y, x: nombresX, n: validas.length, metodo: id });
+    const rep = opts.progreso || function () { };
+    rep(0.1, 'Preparando los datos');
+    const pa = ajustarPrep(colsX, validas, { g: cp.g, pc: cp.pc, yVals: yFull }), pm = pa.modelo, Atr = aplicarPrep(pm, pa.rows, true), ytr = elegirFilas(yFull, Atr.filas), P = pm.outCols.length;
+    const ctxM = { K: K, rng: crearRng(semilla + 1), p: P, n: Atr.X.length, rep: function (p, d) { rep(0.15 + 0.7 * p, d); } };
+    const par = opts.params && Object.keys(opts.params).length ? opts.params : MODELOS[id].defecto(ctxM);
+    rep(0.15, 'Ajustando el modelo');
+    const modelo = await ajustarModelo(id, Atr.X, ytr, par, ctxM);
+    rep(0.9, 'Prediciendo');
+    const idxNew = []; for (let k = 0; k < m; k++) idxNew.push(n0 + k);
+    const An = idxNew.length ? aplicarPrep(pm, idxNew, false) : { X: [], filas: [] };
+    const out = { pred: new Array(m).fill(null), prob: esReg ? null : new Array(m).fill(null), clases: clases, motivo: new Array(m).fill(null), tipoY: esReg ? 'regresion' : (K === 2 ? 'binaria' : 'multiclase'), nEntrena: Atr.X.length, variables: nombresX };
+    const pr = An.X.length ? await predecirAsync(modelo, An.X) : [];
+    const hecho = new Set();
+    An.filas.forEach(function (r, a) {
+      const k = r - n0; hecho.add(k);
+      if (esReg) out.pred[k] = pr[a];
+      else { const p = Array.from(pr[a]); let b = 0; for (let c = 1; c < p.length; c++) if (p[c] > p[b]) b = c; out.pred[k] = clases[b]; out.prob[k] = p; }
+    });
+    for (let k = 0; k < m; k++) if (!hecho.has(k)) out.motivo[k] = 'Faltan datos de alguna variable que este modelo no sabe rellenar.';
+    rep(1, 'Listo');
+    return out;
+  }
+
   return {
     version: '1.0',
     perfilar: perfilar,
@@ -3326,6 +3377,7 @@
     sugerirPrep: sugerirPrep,
     sugerirMetodos: sugerirMetodos,
     correr: correr,
+    simular: simular,
     // Funciones internas expuestas solo para las pruebas
     _t: {
       parseNum: parseNum, tCDF: tCDF, tPvalor: tPvalor, tInv: tInv, normCDF: normCDF, normInv: normInv, chi2CDF: chi2CDF, chi2Inv: chi2Inv, betainc: betainc,
