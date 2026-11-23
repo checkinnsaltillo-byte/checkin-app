@@ -288,14 +288,14 @@
       const c = W.puntos[0] || { lat: 23.8, lng: -102.3 }, m = L.map(el).setView([c.lat, c.lng], W.puntos.length ? 13 : 5); L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, maxNativeZoom: 16, attribution: "Esri" }).addTo(m); W.gl = m; W.capa = L.layerGroup().addTo(m);
       const pinta = () => { W.capa.clearLayers(); W.puntos.slice(0, 500).forEach((q, i) => L.circleMarker([q.lat, q.lng], { radius: 6, color: "#4f46e5", weight: 2, fillColor: "#818cf8", fillOpacity: .9 }).bindTooltip(esc(q.id || "P" + (i + 1))).addTo(W.capa)); }; W.pinta = pinta; pinta();
       m.on("click", e => { if ((W.modoP || "mapa") !== "mapa") { toast("Para agregar puntos con un clic elige la opción «3 · Seleccionar en el mapa»."); return; } if (W.puntos.length >= 200 && W.fuente === "mapa") { toast("En el modo mapa el máximo son 200 puntos; para más, carga un archivo."); return; } if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; }
-        W.puntos.push({ lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6), id: "P" + (W.puntos.length + 1) }); pinta(); wzPts(W); }); });
+        W.puntos.push({ lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6), id: (W.sim ? "Nuevo " : "P") + (W.puntos.length + 1) }); pinta(); wzPts(W); }); });
   }
   /* coordenadas escritas a mano: una pareja «latitud, longitud» por renglón (acepta coma, punto y coma o espacio) */
   function wzCoord(W) {
     const t = ($("#wzCoord") || {}).value || "", nuevos = [], malos = []; t.split(/\n+/).map(x => x.trim()).filter(Boolean).forEach(l => { const m = l.replace(/[°;]/g, " ").match(/-?\d+(?:\.\d+)?/g); const la = m ? +m[0] : NaN, lo = m ? +m[1] : NaN; if (m && m.length >= 2 && Math.abs(la) <= 90 && Math.abs(lo) <= 180 && !(la === 0 && lo === 0)) nuevos.push({ lat: +la.toFixed(6), lng: +lo.toFixed(6) }); else malos.push(l); });
     if (!nuevos.length) { toast("Escribe una pareja «latitud, longitud» válida, por ejemplo 25.6866, -100.3161."); return; }
     if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; } if (W.puntos.length + nuevos.length > 200) { toast("En el modo mapa el máximo son 200 puntos; para más, carga un archivo."); return; }
-    nuevos.forEach(q => { q.id = "P" + (W.puntos.length + 1); W.puntos.push(q); }); if (W.pinta) W.pinta(); wzPts(W); if (W.gl) { try { W.gl.setView([nuevos[0].lat, nuevos[0].lng], Math.max(W.gl.getZoom(), 14)); } catch (_) { } } const ta = $("#wzCoord"); if (ta) ta.value = ""; toast(nuevos.length + " punto" + (nuevos.length === 1 ? "" : "s") + " agregado" + (nuevos.length === 1 ? "" : "s") + (malos.length ? "; " + malos.length + " renglón(es) no se entendieron." : "."), 4000);
+    nuevos.forEach(q => { q.id = (W.sim ? "Nuevo " : "P") + (W.puntos.length + 1); W.puntos.push(q); }); if (W.pinta) W.pinta(); wzPts(W); if (W.gl) { try { W.gl.setView([nuevos[0].lat, nuevos[0].lng], Math.max(W.gl.getZoom(), 14)); } catch (_) { } } const ta = $("#wzCoord"); if (ta) ta.value = ""; toast(nuevos.length + " punto" + (nuevos.length === 1 ? "" : "s") + " agregado" + (nuevos.length === 1 ? "" : "s") + (malos.length ? "; " + malos.length + " renglón(es) no se entendieron." : "."), 4000);
   }
   /* buscador de lugares con texto libre dentro del mapa (mismas sugerencias que Geo Lab) */
   let _mbt = null, _mbs = 0;
@@ -314,7 +314,7 @@
   async function wzUrl(W) {
     const t = ($("#wzUrl") || {}).value || "", L = t.split(/\n+/).map(x => x.trim()).filter(Boolean); if (!L.length) { toast("Pega un enlace de Google Maps."); return; } if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; }
     let ok = 0, mal = []; const b = $('[data-wz="url"]'); if (b) { b.disabled = true; b.textContent = "Leyendo enlace…"; }
-    for (const u of L) { try { if (W.puntos.length >= 200) break; const j = await api(R + "/gmaps?url=" + encodeURIComponent(u)); W.puntos.push({ lat: j.lat, lng: j.lng, id: j.nombre || "P" + (W.puntos.length + 1) }); ok++; } catch (e) { mal.push(e.message); } }
+    for (const u of L) { try { if (W.puntos.length >= 200) break; const j = await api(R + "/gmaps?url=" + encodeURIComponent(u)); W.puntos.push({ lat: j.lat, lng: j.lng, id: j.nombre || (W.sim ? "Nuevo " : "P") + (W.puntos.length + 1) }); ok++; } catch (e) { mal.push(e.message); } }
     if (b) { b.disabled = false; b.textContent = "Agregar desde el enlace"; } if (ok) { wzPts(W); if (W.pinta) W.pinta(); const q = W.puntos[W.puntos.length - 1]; if (W.gl) { try { W.gl.setView([q.lat, q.lng], Math.max(W.gl.getZoom(), 15)); } catch (_) { } } const ta = $("#wzUrl"); if (ta) ta.value = ""; }
     toast(ok ? ok + " punto" + (ok === 1 ? "" : "s") + " agregado" + (ok === 1 ? "" : "s") + (mal.length ? "; " + mal[0] : ".") : mal[0] || "No se pudo leer el enlace.", 6000);
   }
@@ -991,7 +991,7 @@
   function simPack(res, reg) {
     const ds = S.ds, pts = (simS().cur && simS().cur.puntos) || [], R = simRango(), cl = res.clases || [], jy = ds.cols.findIndex(c => c.name === S.M.y);
     const col = v => v == null ? "#94a3b8" : reg ? rampa(v, R) : PAL_C[Math.max(0, cl.indexOf(v)) % PAL_C.length];
-    const N = pts.map((q, i) => ({ k: "n" + i, i, n: 1, id: q.id || "P" + (i + 1), lat: q.lat, lng: q.lng, v: res.pred[i], pr: res.prob && res.prob[i] ? Math.max.apply(null, res.prob[i]) : null, mot: (res.motivo && res.motivo[i]) || "", fila: (res.filas || [])[i], cols: res.cols })), M = [];
+    const N = pts.map((q, i) => ({ k: "n" + i, i, n: 1, id: (!q.id || /^P\d+$/.test(String(q.id))) ? "Nuevo " + (i + 1) : q.id, lat: q.lat, lng: q.lng, v: res.pred[i], pr: res.prob && res.prob[i] ? Math.max.apply(null, res.prob[i]) : null, mot: (res.motivo && res.motivo[i]) || "", fila: (res.filas || [])[i], cols: res.cols })), M = [];
     if (jy >= 0) ds.rows.forEach((f, j) => { const v = f[jy]; if (v == null || v === "" || (reg && !isFinite(+v))) return; const q = S.puntos[j] || {}; M.push({ k: "m" + j, j, n: 0, id: ds.ids && ds.ids[j] != null ? ds.ids[j] : "P" + (j + 1), lat: ds.lat ? ds.lat[j] : q.lat, lng: ds.lng ? ds.lng[j] : q.lng, v: reg ? +v : String(v), fila: f, cols: ds.cols.map(c => c.name) }); });
     const all = {}; N.concat(M).forEach(p => { all[p.k] = p; });
     return { reg, R, cl, col, N, M, all };
@@ -1062,7 +1062,7 @@
   }
   function simCsv() {
     const j = simS().cur; if (!j || !j.res) return; const res = j.res, pts = j.puntos, cl = res.clases || [];
-    descarga("puntos-nuevos-" + (j.conjunto.nombre || "conjunto").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".csv", [["id", "latitud", "longitud", "prediccion"].concat(cl.map(c => "prob_" + c)).concat(["nota"]).concat(res.cols)].concat(pts.map((q, i) => [q.id || "P" + (i + 1), q.lat, q.lng, res.pred[i] == null ? "" : res.pred[i]].concat(cl.map((_, k) => res.prob && res.prob[i] ? res.prob[i][k] : "")).concat([res.motivo && res.motivo[i] || ""]).concat(res.filas[i] || []))));
+    descarga("puntos-nuevos-" + (j.conjunto.nombre || "conjunto").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".csv", [["id", "latitud", "longitud", "prediccion"].concat(cl.map(c => "prob_" + c)).concat(["nota"]).concat(res.cols)].concat(pts.map((q, i) => [(!q.id || /^P\d+$/.test(String(q.id))) ? "Nuevo " + (i + 1) : q.id, q.lat, q.lng, res.pred[i] == null ? "" : res.pred[i]].concat(cl.map((_, k) => res.prob && res.prob[i] ? res.prob[i][k] : "")).concat([res.motivo && res.motivo[i] || ""]).concat(res.filas[i] || []))));
   }
   async function simGuardaEsc() {
     const s = simS(), L = s.last; if (!L) return; const nom = (($("#smEscNom") || {}).value || "").trim() || "Escenario " + (s.escenarios.length + 1);
