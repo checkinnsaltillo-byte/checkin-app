@@ -834,7 +834,7 @@
     return `<section class="mo-sx2"><h3>Valores de las variables <small>${xs.length}</small></h3><p class="mo-mut">Escribe los valores que quieres evaluar. Empiezan en la mediana de tu proyecto; cámbialos y pulsa «Evaluar». Un campo vacío se rellena como indica el preprocesamiento.</p>
       <div class="mo-sm-lo"><label class="mo-fl">Tomar los valores de un punto del proyecto<select id="smPto" class="mo-in"><option value="">— elegir punto —</option>${ptos.map((q, i) => `<option value="${i}">${esc(q.id || "P" + (i + 1))}</option>`).join("")}</select></label>
       <label class="mo-fl">…o de unas coordenadas (latitud, longitud)<span class="mo-sm-cc"><input id="smLat" class="mo-in" placeholder="Latitud"><input id="smLng" class="mo-in" placeholder="Longitud"><button type="button" class="mo-ghost" data-sm="cargacoord">Leer indicadores</button></span></label></div>
-      <div class="mo-svg">${xs.map(campo).join("")}</div>
+      ${(() => { const G = {}; xs.forEach(n => { const o2 = origen(n); (G[o2.g] = G[o2.g] || { o: o2.o, l: [] }).l.push(n); }); return Object.entries(G).sort((a, b) => a[1].o - b[1].o || a[0].localeCompare(b[0])).map(([g, v]) => `<details class="mo-sx mo-sg" open><summary><b>${esc(g.replace(/^Biblioteca de indicadores · /, "").replace(/^Tu proyecto · /, "Datos de tu proyecto · "))}</b><span>${v.l.length} variable${v.l.length === 1 ? "" : "s"}</span></summary><div class="mo-svg">${v.l.map(campo).join("")}</div></details>`).join(""); })()}
       <div class="mo-chs"><button type="button" class="mo-new" data-sm="eval">Evaluar con el modelo</button><button type="button" class="mo-ghost" data-sm="reset">Volver a las medianas</button></div></section>
       <div id="smRes">${s.last ? simResHtml(s.last) : ""}</div>${simEscHtml()}`;
   }
