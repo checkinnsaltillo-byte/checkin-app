@@ -473,3 +473,11 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-sr.modelado.on{background:#eff6ff;border-color:#2563eb;border-left-color:#2563eb;box-shadow:0 0 0 2px #2563eb,0 8px 22px rgba(37,99,235,.25)}
 .mo-sr.modelado.on .mo-sr-n{background:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.25)}.mo-sr.modelado.on .mo-sr-v b,.mo-sr.modelado.on .mo-sr-t{color:#1d4ed8}
 .mo-sr.modelado.on .mo-sr-dh em{background:#dbeafe;color:#1d4ed8}.mo-sr.modelado.on .mo-sr-dl{border-color:#bfdbfe;background:#fff}
+.mo-sr-st{flex:none;font:500 11.5px system-ui;color:#64748b;padding:2px 4px}.mo-sr-st b{color:#0f172a}
+/* modelado = puntos · nuevos = estrellas */
+.mo-dm{transform:none!important;border-radius:50%!important}
+.mo-dm.sel{background:#2563eb!important;transform:scale(2)!important;box-shadow:0 0 0 4px rgba(37,99,235,.28),0 2px 8px rgba(37,99,235,.55)!important}
+.mo-pw{transform-origin:15px 15px}.mo-pw.sel{transform:scale(1.4)}
+.mo-sr.modelado .mo-sr-n{width:16px!important;height:16px!important;margin:7px!important;border-radius:50%!important;transform:none!important;font-size:0}
+.mo-sr.nuevo .mo-sr-n{width:36px;height:36px;border-radius:0;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);font-size:10.5px;padding-top:3px;box-sizing:border-box;margin:-3px}
+.mo-sr.nuevo.on .mo-sr-n{box-shadow:none}
