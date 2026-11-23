@@ -6899,6 +6899,7 @@ input.gmw-rng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;backgro
 .gm-or.mercadolibre { color: #a16207; border-color: #fde047; background: #fefce8; }
 .gm-or.facebook { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
 .gm-or.modelab { color: #4338ca; border-color: #c7d2fe; background: #eef2ff; }
+.gm-or.simulado { color: #9a3412; border-color: #fed7aa; background: #fff7ed; }
 .gm-ig { margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
 .gm-ig > summary { cursor: pointer; padding: 9px 14px; font: 600 13px system-ui; display: flex; gap: 8px; align-items: baseline; }
 .gm-ig > summary i { font-style: normal; color: #64748b; font-weight: 500; }
