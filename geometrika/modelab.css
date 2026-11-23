@@ -511,3 +511,8 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 
 .mo-rng-k{position:relative;height:24px;margin-top:2px}.mo-rng-k span{position:absolute;top:0;transform:translateX(-50%);font:500 10px system-ui;color:#64748b;white-space:nowrap;display:flex;flex-direction:column;align-items:center}.mo-rng-k span.i{transform:none;align-items:flex-start}.mo-rng-k span.f{transform:translateX(-100%);align-items:flex-end}
 .mo-rng-k i{display:block;width:1px;height:5px;background:#94a3b8;margin-bottom:2px}.mo-rng-k span.i i{margin-left:0}.mo-rng-k span.f i{margin-right:0}
+/* intervalos de confianza / error */
+.mo-app .mo-sm-big .mo-sm-er{font:500 12px/1.5 system-ui;color:#64748b;margin-top:2px}.mo-app .mo-sm-big .mo-sm-er i{font-style:normal;color:#94a3b8}
+.mo-app .mo-sm-big b+span b{color:#1e3a5f}
+.mo-app .mo-sr-ic{grid-column:1/-1;font:500 11.5px system-ui;color:#64748b;padding-top:6px;border-top:1px dashed #e2e8f0}.mo-app .mo-sr-ic b{color:#0f172a}
+.mo-app .mo-sr-v .mo-sr-pc{display:block;font:600 10.5px system-ui;color:#94a3b8;margin-top:1px}
