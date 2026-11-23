@@ -320,7 +320,7 @@
   async function wzModelar(W) {
     if (!W.nombre.trim()) { W.paso = 1; W.msg = "Escribe el nombre del proyecto."; return wizard(); } if (!W.puntos.length) { W.paso = 2; W.msg = "Elige al menos un punto de interés."; return wizard(); }
     const c = costo(W); try { S.busy = true; const j = await api(R + "/proyectos", { id: W.editId || undefined, nombre: W.nombre.trim(), objetivo: W.objetivo.trim(), fuente: W.fuente, puntos: W.puntos, columnas: W.columnas, mapa: W.mapa, cfg: { yVar: W.yVar || null, radio: W.radio, fotos: W.fotos, vias: W.vias, pre: W.pre, dias: W.dias, horas: W.horas, opt: W.opt, costoEstimadoUSD: Math.round(c.total * 100) / 100 } });
-      S.wiz = null; await cargaProy(); await abre(j.proyecto.id); toast(W.editId ? "Proyecto actualizado." : "Proyecto creado."); } catch (e) { S.busy = false; W.msg = e.message; wizard(); }
+      S.wiz = null; api("/geometrika/modelab-precalcular", { id: j.proyecto.id }).catch(() => { }); await cargaProy(); await abre(j.proyecto.id); toast(W.editId ? "Proyecto actualizado." : "Proyecto creado."); } catch (e) { S.busy = false; W.msg = e.message; wizard(); }
   }
   async function editar(id) {
     try { const j = await api(R + "/proyectos/" + id), p = j.proyecto, W = wizVacio(), c = p.cfg || {}; Object.assign(W, { nombre: p.nombre, objetivo: p.objetivo || "", fuente: p.fuente || "mapa", tab: p.fuente === "denue" ? "denue" : p.fuente === "archivo" ? "archivo" : "mapa", puntos: j.puntos || [], columnas: p.columnas || [], mapa: p.mapa || null, editId: id, radio: c.radio || 200, fotos: c.fotos || 24, vias: c.vias || W.vias, pre: c.pre || 12, dias: c.dias || W.dias, horas: c.horas || W.horas, opt: Object.assign(W.opt, c.opt || {}), yVar: c.yVar || null }); S.wiz = W; wizard(); }
