@@ -5102,6 +5102,7 @@ async function mlAmbiente(pid) {
     for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 5000)); const e = await fetch(A + 'estado', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ running: true })); if (!e.running) break; }
     location.reload(); } catch (_) { }
 }
+window.__dbg = { get HXL() { return HXL; }, hxlDatos, S: () => curS, CITY: () => CITY, COB: () => COB };
 const mlNom = (q, i) => q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
 function mlIr(i) { const u = new URL(location.href); u.searchParams.set('p', String(i)); location.href = u.toString(); }
 // los indicadores de la malla nacional (por AGEB) reemplazan al cálculo con la escena, que aquí no existe (sin red vial ni edificios)
