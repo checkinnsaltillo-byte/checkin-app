@@ -4716,7 +4716,7 @@ function indH(id, L, guardar, S) {
     const o2 = H[k] || (H[k] = { v: [] }); o2.v.push({ at: new Date(ahora).toISOString(), val, unit, sem: r.sem, msg }); o2.viz = viz;
     clearTimeout(INDH.t[id]); INDH.t[id] = setTimeout(() => indHEnvia(id), 4000);
   })));
-  return L;
+  return mlInd(L);
 }
 /* versiones guardadas de un indicador, para su detalle */
 function indHHtml(id, k) {
@@ -5091,11 +5091,21 @@ function mqEnCapas() { const el = window.__pdiEl || $('pdi'), cap = $('cap'); if
 async function mlEscena() {
   const mid = qs.get('ml'), j = await fetch('https://api.check-inn.mx/geometrika/modelab/proyectos/' + encodeURIComponent(mid)).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'No se pudo cargar el proyecto');
   const pts = (j.puntos || []).filter(q => isFinite(+q.lat) && isFinite(+q.lng)); if (!pts.length) throw new Error('El proyecto no tiene puntos.');
-  let i = +qs.get('p'); if (!(i >= 0 && i < pts.length)) i = 0; window.__ML = { mid, P: j.proyecto, pts, i, q: '' }; const q = pts[i], nom = q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
+  let i = +qs.get('p'); if (!(i >= 0 && i < pts.length)) i = 0; window.__ML = { mid, P: j.proyecto, pts, i, q: '' }; try { const ji = await fetch('https://api.check-inn.mx/geometrika/indicadores?id=' + encodeURIComponent(mid) + '&i=' + i).then(r => r.json()); if (ji.ok) { window.__ML.ind = {}; ji.items.forEach(x => { window.__ML.ind[x.k] = x; }); } } catch (_) { } const q = pts[i], nom = q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
   return { id: ID, lat: +q.lat, lng: +q.lng, radio: 300, tit: nom, titulo: nom, roads: [], sinMaqueta3D: true };
 }
 const mlNom = (q, i) => q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
 function mlIr(i) { const u = new URL(location.href); u.searchParams.set('p', String(i)); location.href = u.toString(); }
+// los indicadores de la malla nacional (por AGEB) reemplazan al cálculo con la escena, que aquí no existe (sin red vial ni edificios)
+function mlInd(L) {
+  const M = window.__ML; if (!M || !M.ind) return L;
+  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const x = M.ind[e.id + ':' + i.id]; if (!x) return; i.calc = () => {
+    if (x.cat) return { val: x.v, unit: '', viz: '', sem: 'info', msg: 'Categoría predominante en la AGEB del punto (malla nacional)' };
+    const v = x.v != null ? x.v : x.med, un = x.u || '', d = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2, pct = /^(%|\/ ?100|índice 0–100)/.test(un);
+    return { val: indN(v, d), unit: un, viz: pct ? vBar(v / 100, '#4f46e5') : '', sem: 'info', msg: 'Valor de la malla nacional en la AGEB del punto' };
+  }; })));
+  return L;
+}
 function mlRender() {
   const M = window.__ML, el = $('pdi'); if (!M || !el) return; const q0 = M.pts[M.i], cols = (M.P.columnas || []).filter(c => q0.x && q0.x[c.name] != null), f = (M.q || '').trim().toLowerCase();
   const lista = M.pts.map((q, i) => [q, i]).filter(([q, i]) => !f || (mlNom(q, i) + ' #' + (i + 1)).toLowerCase().includes(f)), vis = lista.slice(0, 150);
