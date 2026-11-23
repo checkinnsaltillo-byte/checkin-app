@@ -305,7 +305,7 @@
     if ((b = t.closest("[data-wzcx]"))) { W.den.ciudades.splice(+b.dataset.wzcx, 1); W.den.muns = [...new Set(W.den.ciudades.flatMap(c => c.muns))]; W.den.res = null; wzRe(); return true; }
     if ((b = t.closest("[data-wzds]"))) { const D = W.den, v = b.dataset.wzds, n = D.res ? D.res.items.length : 0;
       if (v === "todas") D.sel = new Set(Array.from({ length: n }, (_, k) => k)); else if (v === "ninguna") D.sel = new Set(); else if (v === "mas") D.vista += 200; else { const k = +v; D.sel.has(k) ? D.sel.delete(k) : D.sel.add(k); }
-      D.keep = true; const y = $("#moMain").scrollTop, ty = (($(".mo-tsc") || {}).scrollTop) || 0; wzRe(); $("#moMain").scrollTop = y; const tsc = $(".mo-tsc"); if (tsc) tsc.scrollTop = ty; return true; }
+      D.keep = false; const y = $("#moMain").scrollTop, ty = (($(".mo-tsc") || {}).scrollTop) || 0; wzRe(); $("#moMain").scrollTop = y; const tsc = $(".mo-tsc"); if (tsc) tsc.scrollTop = ty; return true; }
     if ((b = t.closest("[data-wzgl]"))) { wzTraeGeo(W, +b.dataset.wzgl); return true; }
     if ((b = t.closest("[data-bli]"))) { const l = b.closest(".mo-bl"), it = (l._it || [])[+b.dataset.bli]; if (it && l._al) l._al(it); l.style.display = "none"; return true; }
     return false;
