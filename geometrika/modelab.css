@@ -363,3 +363,9 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-calx{padding:6px 26px 24px}.mo-app .mo-calx[hidden]{display:none}
 
 .mo-app .mo-rpb{display:flex;justify-content:flex-end;margin:6px 0 10px}
+
+.mo-app .mo-twp{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:12px}
+.mo-app .mo-prev th.mo-thc{cursor:pointer;white-space:nowrap;position:sticky;top:0;background:#f8fafc;z-index:2;user-select:none}
+.mo-app .mo-prev th.mo-thc:hover{background:#eef2ff}.mo-app .mo-prev th.mo-thc.on{background:#e0e7ff;color:#3730a3}
+.mo-app .mo-prev th.mo-thc .mo-ck{vertical-align:-4px;margin-right:4px}
+.mo-app .mo-prev th.geo{background:#dcfce7;color:#166534;cursor:default}.mo-app .mo-thg{font-size:9px;font-weight:800;background:#16a34a;color:#fff;border-radius:5px;padding:1px 5px;margin-right:4px}
