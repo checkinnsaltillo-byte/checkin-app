@@ -3201,7 +3201,7 @@ PW_MET.dem = {
     '</ul>',
     '<h5 class="mh">Cómo se calcula</h5>',
     '<ul>',
-    '<li>Los 7 grupos se agrupan en 4: <b>Niños 0 a 11</b> (azul), <b>Adolescentes y jóvenes 12 a 24</b> (verde), <b>Adultos 25 a 59</b> (naranja) y <b>Adultos mayores 60+</b> (rojo).</li>',
+    '<li>Los 7 grupos se agrupan en 4: <b>Niños 0 a 11</b> (azul acero), <b>Adolescentes y jóvenes 12 a 24</b> (verde azulado), <b>Adultos 25 a 59</b> (dorado) y <b>Adultos mayores 60+</b> (ciruela).</li>',
     '<li>El grupo de 25 a 59 se obtiene <b>por diferencia</b> (total menos los demás grupos).</li>',
     '<li>Se incluyen las manzanas con habitantes cuyo centro cae dentro del cuadrado de la maqueta. Los porcentajes se calculan sobre esas manzanas.</li>',
     '<li>«Razón»: hombres por cada 100 mujeres. «Manzana con mayor proporción de adultos mayores»: solo considera manzanas de 30 o más habitantes.</li>',
@@ -7597,7 +7597,7 @@ function emiCsv() { const H = HXL.H; if (!H || !EMI.res) return; const rows = ['
 // ───── Demografía: 4 vistas del Censo 2020 (Población, Viviendas, Densidad, NSE) sobre los hexágonos de 200 m
 // ───── Manzanas: pirámide de edad sobre cada manzana (Censo 2020, INEGI). Cada peldaño es un anillo con la forma de la manzana, a la misma altura en todas, y sobre él caminan las personas de ese grupo de edad (una figura = una persona; más grandes que lo real para notarlas).
 const MZ = { items: null, key: '', g: null, on: false, busy: false, raf: 0, msg: '', n: 1 };
-const MZ_T = [{ n: 'Niños', r: '0 a 11 años', g: [0, 1, 2], c: '#1f6bff' }, { n: 'Adolescentes y jóvenes', r: '12 a 24 años', g: [3, 4], c: '#1fc43c' }, { n: 'Adultos', r: '25 a 59 años', g: [5], c: '#ff8a00' }, { n: 'Adultos mayores', r: '60 años y más', g: [6], c: '#ff1f2f' }];
+const MZ_T = [{ n: 'Niños', r: '0 a 11 años', g: [0, 1, 2], c: '#5b7fa6' }, { n: 'Adolescentes y jóvenes', r: '12 a 24 años', g: [3, 4], c: '#3f8f8b' }, { n: 'Adultos', r: '25 a 59 años', g: [5], c: '#c9a24a' }, { n: 'Adultos mayores', r: '60 años y más', g: [6], c: '#8a4f7d' }];
 async function mzCarga(S) {
   const key = [S.lat, S.lng, S.radio].join('|'); if (MZ.key === key && MZ.items) return MZ.items; MZ.msg = 'Cargando manzanas del Censo…'; manRes();
   try { const j = await fetch(`https://api.check-inn.mx/mercado/maqueta/manzanas?lat=${(+S.lat).toFixed(5)}&lng=${(+S.lng).toFixed(5)}&r=${Math.round(S.radio || 200)}`, { cache: 'no-store' }).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'sin datos'); const R = +S.radio || 200; MZ.all = (j.items || []).filter(m => Math.abs(m.x) <= R && Math.abs(m.y) <= R); MZ.items = MZ.all.filter(m => m.t > 0); MZ.fuente = j.fuente; MZ.fuera = !!j.fuera; MZ.key = key; MZ.msg = ''; }
