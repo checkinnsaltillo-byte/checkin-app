@@ -563,3 +563,6 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-pcd{margin-top:10px;display:flex;flex-direction:column;gap:8px}.mo-app .mo-pcd-h{font:800 12px system-ui;letter-spacing:.05em;text-transform:uppercase;color:#4338ca}
 .mo-app .mo-pcd-i{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:#f8fafc;border-radius:10px}.mo-app .mo-pcd-k{flex:none;min-width:36px;text-align:center;padding:3px 0;border-radius:8px;background:#4f46e5;color:#fff;font:800 11.5px system-ui}
 .mo-app .mo-pcd-i b{color:var(--ink)}.mo-app .mo-pcd-i i{font:600 11px system-ui;color:#64748b;font-style:normal;margin-left:4px}.mo-app .mo-pcd-i p{margin:3px 0 0;font:500 12.5px/1.5 system-ui;color:#334155}.mo-app .mo-pcd-i p b{color:#1e1b4b}
+/* biplot junto a la varianza explicada; observaciones debajo a todo el ancho */
+.mo-app .mo-par{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}.mo-app .mo-par>article{margin:0}
+@media(max-width:900px){.mo-app .mo-par{grid-template-columns:1fr}}
