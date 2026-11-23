@@ -5092,7 +5092,7 @@ async function mlEscena() {
   const mid = qs.get('ml'), j = await fetch('https://api.check-inn.mx/geometrika/modelab/proyectos/' + encodeURIComponent(mid)).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'No se pudo cargar el proyecto');
   const pts = (j.puntos || []).filter(q => isFinite(+q.lat) && isFinite(+q.lng)); if (!pts.length) throw new Error('El proyecto no tiene puntos.');
   const sinSel = !qs.has('p') && pts.length > 1;   // con varios puntos no se carga ninguna maqueta hasta elegir un punto
-  let i = +qs.get('p'); if (!(i >= 0 && i < pts.length)) i = sinSel ? -1 : 0; window.__ML = { mid, P: j.proyecto, pts, i, q: '', sinSel };
+  let i = qs.has('p') ? +qs.get('p') : NaN; if (!(i >= 0 && i < pts.length)) i = sinSel ? -1 : 0; window.__ML = { mid, P: j.proyecto, pts, i, q: '', sinSel };
   { const M0 = window.__ML, okp = a => (a || []).filter(q => isFinite(+q.lat) && isFinite(+q.lng)), cargaG = async id => { try { const r = await fetch('https://api.check-inn.mx/geometrika/modelab/proyectos/' + encodeURIComponent(id)).then(x => x.json()); return r && r.ok ? { mid: id, P: r.proyecto, pts: okp(r.puntos) } : null; } catch (_) { return null; } };
     if (j.proyecto && j.proyecto.tipo === 'sim' && j.proyecto.padre) { const g = await cargaG(j.proyecto.padre); M0.G = [{ k: 'sim', mid, P: j.proyecto, pts }].concat(g ? [Object.assign({ k: 'mod' }, g)] : []); M0.simId = mid; }
     else if (qs.get('sim')) { const g = await cargaG(qs.get('sim')); M0.G = [{ k: 'mod', mid, P: j.proyecto, pts }].concat(g ? [Object.assign({ k: 'sim' }, g)] : []); M0.simId = qs.get('sim'); } }
