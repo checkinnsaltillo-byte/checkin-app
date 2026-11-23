@@ -570,3 +570,5 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-pcx{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);column-gap:20px;align-items:start}
 .mo-app .mo-pcx>h4{grid-column:1/-1}.mo-app .mo-pcx>svg{grid-column:1}.mo-app .mo-pcx>.mo-int{grid-column:1}.mo-app .mo-pcx>.mo-pcd{grid-column:2;grid-row:2/4;margin-top:0}
 @media(max-width:900px){.mo-app .mo-pcx{grid-template-columns:1fr}.mo-app .mo-pcx>.mo-pcd{grid-column:1;grid-row:auto;margin-top:10px}}
+/* leyenda de grupos */
+.mo-app .mo-lgg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 8px;font:500 12px system-ui;color:#475569}.mo-app .mo-lgg span{display:inline-flex;align-items:center;gap:6px}.mo-app .mo-lgg i{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none}.mo-app .mo-lgg b{color:#0f172a}.mo-app .mo-lgg small{color:#94a3b8}
