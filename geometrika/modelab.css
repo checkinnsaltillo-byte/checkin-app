@@ -566,3 +566,7 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 /* biplot junto a la varianza explicada; observaciones debajo a todo el ancho */
 .mo-app .mo-par{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}.mo-app .mo-par>article{margin:0}
 @media(max-width:900px){.mo-app .mo-par{grid-template-columns:1fr}}
+/* perfil de cada componente al lado derecho del mapa de pesos */
+.mo-app .mo-pcx{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);column-gap:20px;align-items:start}
+.mo-app .mo-pcx>h4{grid-column:1/-1}.mo-app .mo-pcx>svg{grid-column:1}.mo-app .mo-pcx>.mo-int{grid-column:1}.mo-app .mo-pcx>.mo-pcd{grid-column:2;grid-row:2/4;margin-top:0}
+@media(max-width:900px){.mo-app .mo-pcx{grid-template-columns:1fr}.mo-app .mo-pcx>.mo-pcd{grid-column:1;grid-row:auto;margin-top:10px}}
