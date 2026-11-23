@@ -1000,7 +1000,7 @@
     if (jy >= 0) ds.rows.forEach((f, j) => { const v = f[jy]; if (v == null || v === "" || (reg && !isFinite(+v))) return; const q = S.puntos[j] || {}; M.push({ k: "m" + j, j, n: 0, id: ds.ids && ds.ids[j] != null ? ds.ids[j] : "P" + (j + 1), lat: ds.lat ? ds.lat[j] : q.lat, lng: ds.lng ? ds.lng[j] : q.lng, v: reg ? +v : String(v), fila: f, cols: ds.cols.map(c => c.name) }); });
     const vr = verDe(res.ver), E = reg ? simErr(vr ? vr.res : S.res) : null; if (E) N.forEach(p => { if (p.v != null) { p.lo = p.v - E.z * E.rmse; p.hi = p.v + E.z * E.rmse; } });
     const all = {}; N.concat(M).forEach(p => { all[p.k] = p; });
-    return { reg, R, cl, col, N, M, all, E };
+    return { reg, R, cl, col, N, M, all, E, sid: simS().cur && simS().cur.conjunto.id, pid: S.id };
   }
   /* indicadores con los que se evaluó (nuevos) o se modeló (modelado) un punto: solo las variables predictoras */
   function simDet(p) {
@@ -1008,10 +1008,16 @@
     (p.cols || []).forEach((n, j) => { if (!xs.has(n)) return; const c = colDs(n) || {}, v = f[j]; L.push(`<div><span>${esc(nomVar(n))}</span><b>${v == null || v === "" ? "—" : typeof v === "number" ? gN(v) : esc(v)}${v != null && v !== "" && c.unit ? ` <i>${esc(c.unit)}</i>` : ""}</b></div>`); });
     return `<div class="mo-sr-dh">${p.n ? "Indicadores usados para evaluar este punto" : "Indicadores con los que se modeló este punto"} <em>${L.length}</em></div><div class="mo-sr-dl">${L.join("")}</div>${p.n ? '<p class="mo-mut mo-sr-dn">«—» = sin dato; el modelo lo rellenó según el preprocesamiento.</p>' : ""}`;
   }
+  /* enlace a la maqueta de Geo Lab con ese punto ya seleccionado (nuevo: su conjunto; modelado: el proyecto, con el conjunto para poder volver) */
+  function simMaqUrl(P, p) {
+    const base = window.GM_MAQ || "/admin/maqueta/entorno.html", v = typeof gmVer_ === "function" ? gmVer_().slice(1) : "", q = new URLSearchParams(); if (v) q.set("v", v); q.set("id", "000000");
+    if (p.n) { q.set("ml", P.sid); q.set("p", String(p.i)); } else { q.set("ml", P.pid); q.set("p", String(p.j)); if (P.sid) q.set("sim", P.sid); }
+    return base + "?" + q.toString();
+  }
   function simCardHtml(P, p) {
     const col = P.col(p.v), val = p.v == null ? "—" : P.reg ? gN(p.v) : esc(p.v); let pcTxt = "", icTxt = ""; if (p.n && P.E && p.lo != null) icTxt = `<small class="mo-sr-ci" title="Intervalo de confianza del 95 %: predicción ± 1.96 × error típico (RMSE ${gN(P.E.rmse)})">IC 95 %: ${gN(p.lo)} – ${gN(p.hi)}</small>`;
     if (P.reg && p.v != null && P.R.vs.length) { const vs = P.R.vs; let a = 0, b = vs.length; while (a < b) { const mid = (a + b) >> 1; if (vs[mid] <= p.v) a = mid + 1; else b = mid; } pcTxt = `<small class="mo-sr-pc" title="Porcentaje de los puntos del modelado con un valor menor o igual">percentil ${Math.round(100 * a / vs.length)}</small>`; }
-    return `<div class="mo-sr ${p.n ? "nuevo" : "modelado"}" data-smcard="${p.k}" style="--c:${p.n ? col : "#64748b"}"><span class="mo-sr-n">${p.n ? p.i + 1 : ""}</span><div class="mo-sr-p"><b>${esc(p.id)}</b><small>${p.lat != null ? p.lat + ", " + p.lng : ""}</small><em class="mo-sr-t">${p.n ? "Punto nuevo · predicho" : "Modelado · observado"}</em></div><div class="mo-sr-v"><b>${val}</b><small>${P.reg ? esc(unidadY().trim()) : p.pr != null ? gN(100 * p.pr, 0) + " % prob." : ""}</small>${icTxt}${pcTxt}</div><span class="mo-mut mo-sr-x">${esc(p.mot || "")}</span><div class="mo-sr-d"></div></div>`;
+    return `<div class="mo-sr ${p.n ? "nuevo" : "modelado"}" data-smcard="${p.k}" style="--c:${p.n ? col : "#64748b"}"><span class="mo-sr-n">${p.n ? p.i + 1 : ""}</span><div class="mo-sr-p"><b>${esc(p.id)}</b><small>${p.lat != null ? p.lat + ", " + p.lng : ""}</small><em class="mo-sr-t">${p.n ? "Punto nuevo · predicho" : "Modelado · observado"}</em></div><div class="mo-sr-v"><b>${val}</b><small>${P.reg ? esc(unidadY().trim()) : p.pr != null ? gN(100 * p.pr, 0) + " % prob." : ""}</small>${icTxt}${pcTxt}</div><span class="mo-mut mo-sr-x">${esc(p.mot || "")}</span><div class="mo-sr-d"></div><div class="mo-sr-ab"><a class="mo-ghost" href="${esc(simMaqUrl(P, p))}" target="_blank" rel="noopener" title="Abre este punto en Geo Lab">Abrir maqueta →</a></div></div>`;
   }
   /* lista con carga progresiva: se agregan 120 tarjetas más cada vez que se llega al final */
   const SIM_CH = 120;
@@ -1122,6 +1128,7 @@
     if ((b = t.closest(".mo-sg > summary"))) { const d = b.parentNode; setTimeout(() => { s.ab[d.dataset.g] = d.open; }, 0); return false; }
     if ((b = t.closest("[data-bx]")) && s.sel) { s.sel(b.dataset.bx, false); return true; }
     if ((b = t.closest("[data-smf]"))) { s.fl = b.dataset.smf; $$("[data-smf]").forEach(x => x.classList.toggle("on", x === b)); if (s.repintaCards) s.repintaCards(); return true; }
+    if (t.closest(".mo-sr-ab")) return false;
     if ((b = t.closest("[data-smcard]")) && s.sel) { s.sel(b.dataset.smcard, true); return true; }
     if ((b = t.closest("[data-smtab]"))) { s.tab = b.dataset.smtab; s.view = null; simPinta(); return true; }
     if ((b = t.closest("[data-smabre]"))) { e.preventDefault(); s.view = b.dataset.smabre; s.tab = "puntos"; simVista(); return true; }

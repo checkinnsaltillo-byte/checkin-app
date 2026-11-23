@@ -517,3 +517,4 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-sr-ic{grid-column:1/-1;font:500 11.5px system-ui;color:#64748b;padding-top:6px;border-top:1px dashed #e2e8f0}.mo-app .mo-sr-ic b{color:#0f172a}
 .mo-app .mo-sr-v .mo-sr-pc{display:block;font:600 10.5px system-ui;color:#94a3b8;margin-top:1px}
 .mo-app .mo-sr-v .mo-sr-ci{display:block;font:600 10.5px system-ui;color:#475569;margin-top:2px;white-space:nowrap}
+.mo-app .mo-sr-ab{grid-column:1/-1;display:flex;justify-content:flex-end;margin-top:2px}.mo-app .mo-sr-ab a{text-decoration:none;font:700 11.5px system-ui;padding:5px 11px;border-radius:8px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;cursor:pointer}.mo-app .mo-sr-ab a:hover{background:#e0e7ff}
