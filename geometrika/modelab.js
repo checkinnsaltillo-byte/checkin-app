@@ -985,7 +985,7 @@
     if (res) { simCardsInit(P); simMapa(P); }
   }
   /* escala continua de color y rango observado de la variable de respuesta en el proyecto */
-  const RAMPA = ["#5b7fa6", "#3f8f8b", "#c9a24a", "#c2703d", "#8a4f7d"];
+  const RAMPA = ["#d64541", "#ec8b3c", "#e9c53f", "#8dc152", "#2e9e5b"];   /* semáforo: el valor más bajo en rojo, el más alto en verde */
   function simRango() {
     const j = S.ds ? S.ds.cols.findIndex(c => c.name === S.M.y) : -1, vs = j >= 0 ? S.ds.rows.map(f => f[j]).filter(v => typeof v === "number" && isFinite(v)).sort((a, b) => a - b) : [];
     return { vs, lo: vs.length ? vs[0] : 0, hi: vs.length ? vs[vs.length - 1] : 1 };
