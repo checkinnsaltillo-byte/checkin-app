@@ -2379,7 +2379,7 @@
     }
     const k5 = Math.min(5, p), cargas = [];
     for (let j = 0; j < p; j++) { const pc = []; for (let c = 0; c < k5; c++) pc.push(eig.vecs[j][c] * Math.sqrt(vals[c])); cargas.push({ idxVar: j, pc: pc }); }
-    return { varianza: varianza, acumulada: acumulada, cargas: cargas, scores: scores, nComponentes80: n80, autovalores: vals };
+    return { varianza: varianza, acumulada: acumulada, cargas: cargas, scores: scores, nComponentes80: n80, autovalores: vals, _vecs: eig.vecs, _mu: cv.mu };
   }
 
   async function kmeansAjustar(Xs, k, rng, nInit) {
@@ -3103,6 +3103,15 @@
     await ej.etapa('ajuste', 'Ajuste del método', async function (rep) {
       if (id === 'pca') {
         if (!pcaR) throw new Error('No se pudo calcular el PCA con ' + P + ' variables.');
+        // Agrupación automática: k-medias sobre los componentes que juntan ~80 % de la variación (mínimo 2, máximo 10); k por silueta
+        const nc = Math.max(2, Math.min(pcaR.nComponentes80, 10, P)), Z = Xs.map(function (r) { const z = new Float64Array(nc); for (let c = 0; c < nc; c++) { let t = 0; for (let j = 0; j < P; j++) t += (r[j] - pcaR._mu[j]) * pcaR._vecs[j][c]; z[c] = t; } return z; });
+        if (nU >= 20) {
+          const kMax = Math.max(2, Math.min(8, Math.floor(nU / 10))), Zsel = nU > 1500 ? rng.muestra(nU, 1500).map(function (i) { return Z[i]; }) : Z;
+          for (let kk = 2; kk <= kMax; kk++) { const r = await kmeansAjustar(Zsel, kk, rng, 2); elbow.push({ k: kk, inercia: r.inercia * nU / Zsel.length, silueta: silueta(Zsel, r.labels, 600, rng) }); rep(0.9 * (kk - 1) / Math.max(1, kMax - 1), 'Probando ' + kk + ' grupos con los componentes'); }
+          let mj = null; elbow.forEach(function (e) { if (e.silueta !== null && (mj === null || e.silueta > mj.silueta)) mj = e; });
+          const k = mj ? mj.k : 2; kElegido = k; notaK = 'k elegido automáticamente por silueta (se probó de 2 a ' + kMax + ') sobre los ' + nc + ' primeros componentes.'; const r = await kmeansAjustar(Z, k, rng, 5); labelsFin = r.labels; extra.autoGrupos = { k: k, nc: nc };
+          return 'Se calcularon ' + P + ' componentes principales y se agruparon los casos en ' + k + ' grupos con los ' + nc + ' primeros.';
+        }
         return 'Se calcularon ' + P + ' componentes principales.';
       }
       if (id === 'kmeans') {
@@ -3240,6 +3249,7 @@
         im.graficas.push({ id: 'scores', texto: 'Cada punto es un caso proyectado en los dos primeros componentes. Casos cercanos se parecen; los alejados son diferentes del resto.' });
       }
       if (cl) {
+        if (extra.autoGrupos) hallazgos.push('Además del PCA, cada caso se asignó automáticamente a un grupo de casos similares (' + extra.autoGrupos.k + ' grupos, calculados con los ' + extra.autoGrupos.nc + ' primeros componentes).');
         const tot = cl.tamanos.reduce(function (s, x) { return s + x; }, 0) || 1;
         res.clusters = {
           k: cl.k, asignacion: cl.asignacion, tamanos: cl.tamanos, centroides: cl.centroides, columnas: outCols.map(function (o) { return o.label; }), perfil: cl.perfil,
