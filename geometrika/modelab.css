@@ -343,3 +343,4 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-pin.on i{width:30px;height:30px;background:#f59e0b}.mo-pin.on i::after{left:9px;top:9px;width:8px;height:8px}
 @media (max-width:1100px){.mo-app .mo-dsplit{grid-template-columns:1fr}.mo-app .mo-dright{position:static}.mo-app .mo-mapd{height:380px}}
 .mo-app .mo-swg{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 14px}.mo-app .mo-swg b{font-size:14px}
+.mo-app .mo-dc td small{display:block;font:500 11px system-ui;color:var(--mut);margin-top:2px}.mo-app .mo-dc th.r,.mo-app .mo-dc td.r{text-align:right;white-space:nowrap}.mo-app .mo-dc tfoot tr.t td{border-top:2px solid var(--ink);font-weight:800;font-size:14px}.mo-app .mo-dn{margin:6px 0 12px;line-height:1.55}
