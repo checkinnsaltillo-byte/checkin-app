@@ -3042,11 +3042,11 @@
       tamanos[lab[i]]++;
       for (let j = 0; j < p; j++) { SU[lab[i]][j] += Xu[i][j]; SZ[lab[i]][j] += Xs[i][j]; }
     }
-    const centroides = [], perfil = [], etiquetaSugerida = [];
+    const centroides = [], centroidesZ = [], perfil = [], etiquetaSugerida = [];
     for (let c = 0; c < k; c++) {
       const cu = [], z = [];
       for (let j = 0; j < p; j++) { cu.push(SU[c][j] / tamanos[c]); z.push(SZ[c][j] / tamanos[c]); }
-      centroides.push(cu);
+      centroides.push(cu); centroidesZ.push(z);
       const idx = z.map(function (v, j) { return j; }).sort(function (a, b) { return Math.abs(z[b]) - Math.abs(z[a]); });
       let dist = idx.filter(function (j) { return Math.abs(z[j]) >= 0.5; }).slice(0, 4);
       if (!dist.length && idx.length) dist = [idx[0]];
@@ -3058,7 +3058,7 @@
       if (bajos.length) partes.push((partes.length ? 'bajo' : 'Bajo') + ' en ' + lista(bajos));
       etiquetaSugerida.push(partes.length ? partes.join(', ') : 'Cercano al promedio en todo');
     }
-    return { k: k, asignacion: asignacion, tamanos: tamanos, centroides: centroides, perfil: perfil, etiquetaSugerida: etiquetaSugerida, ruido: ruido, labels: lab };
+    return { k: k, asignacion: asignacion, tamanos: tamanos, centroides: centroides, centroidesZ: centroidesZ, perfil: perfil, etiquetaSugerida: etiquetaSugerida, ruido: ruido, labels: lab };
   }
 
   async function correrNoSup(cfg, ds, ej) {
@@ -3252,7 +3252,7 @@
         if (extra.autoGrupos) hallazgos.push('Además del PCA, cada caso se asignó automáticamente a un grupo de casos similares (' + extra.autoGrupos.k + ' grupos, calculados con los ' + extra.autoGrupos.nc + ' primeros componentes).');
         const tot = cl.tamanos.reduce(function (s, x) { return s + x; }, 0) || 1;
         res.clusters = {
-          k: cl.k, asignacion: cl.asignacion, tamanos: cl.tamanos, centroides: cl.centroides, columnas: outCols.map(function (o) { return o.label; }), perfil: cl.perfil,
+          k: cl.k, asignacion: cl.asignacion, tamanos: cl.tamanos, centroides: cl.centroides, centroidesZ: cl.centroidesZ, columnas: outCols.map(function (o) { return o.label; }), perfil: cl.perfil,
           silueta: silRes, indiceCH: ch, indiceDB: db, elbow: elbow, etiquetaSugerida: cl.etiquetaSugerida, ruido: cl.ruido
         };
         if (extra.eps !== undefined) { res.clusters.eps = extra.eps; res.clusters.minPts = extra.minPts; }
