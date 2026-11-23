@@ -48,12 +48,12 @@
     if (S.id && S.P) { h += `<div class="mo-prj"><small>Proyecto abierto</small><b>${esc(S.P.nombre)}</b><span>${gN(S.puntos.length, 0)} puntos · ${S.P.fuente === "denue" ? "unidades DENUE" : S.P.fuente === "archivo" ? "archivo" : S.P.fuente === "geolab" ? "Geo Lab" : "mapa"}</span></div>`;
       h += `<button type="button" class="mo-nav${S.sec === "analisis" ? " on" : ""}" data-sec="analisis"><span class="ic">${mi("list")}</span><span class="tx">Análisis del proyecto</span><span class="bd">${(S.AN || []).length}</span></button>`;
       if (S.aid && S.A) h += `<div class="mo-prj mo-prja"><small>Análisis abierto</small><b>${esc(S.A.nombre)}</b><span>${S.M && S.M.enfoque ? (S.M.enfoque === "sup" ? "Supervisado" : "No supervisado") : "Sin configurar"}${S.M && S.M.metodo ? " · " + esc(S.M.metodo === "auto" ? "mejor modelo" : S.M.metodo) : ""}</span></div>`;
-      if (S.aid) SEC.forEach(([k, n2, t, d]) => { h += `<button type="button" class="mo-nav${S.sec === k || (k === "simulacion" && S.sec === "nuevo" && S.wiz && S.wiz.sim) ? " on" : ""}" data-sec="${k}" title="${esc(d)}"><span class="ic mo-n">${n2}</span><span class="tx">${t}</span><span class="bd mo-ok">${hecho(k) ? "✓" : ""}</span></button>`; }); }
+      if (S.aid) SEC.filter(([k]) => !(k === "simulacion" && S.M && S.M.enfoque === "nosup")).forEach(([k, n2, t, d]) => { h += `<button type="button" class="mo-nav${S.sec === k || (k === "simulacion" && S.sec === "nuevo" && S.wiz && S.wiz.sim) ? " on" : ""}" data-sec="${k}" title="${esc(d)}"><span class="ic mo-n">${n2}</span><span class="tx">${t}</span><span class="bd mo-ok">${hecho(k) ? "✓" : ""}</span></button>`; }); }
     n.innerHTML = h;
   }
   const wrap = h => { const w = $("#moWrap"); if (w) { w.innerHTML = h; $("#moMain").scrollTop = 0; } };
   async function ir(sec) {
-    if (sec === "calidad") sec = "resultados";
+    if (sec === "calidad") sec = "resultados"; if (sec === "simulacion" && S.M && S.M.enfoque === "nosup") sec = "resultados";
     if (sec !== "nuevo") S.wiz = (sec === "proyectos" || (S.wiz && S.wiz.sim)) ? null : S.wiz; S.sec = sec; nav();
     try { history.replaceState(null, "", "#" + sec); } catch (_) { }
     if (sec === "proyectos") { vistaProyectos(); cargaProy().then(() => { if (S.sec === "proyectos") vistaProyectos(); }); return; } if (sec === "nuevo") return wizard(); if (sec === "analisis") return S.id ? vistaAnalisis() : ir("proyectos");
