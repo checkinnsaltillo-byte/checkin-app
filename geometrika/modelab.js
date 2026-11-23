@@ -783,7 +783,7 @@
   function cambia(e) { if (e.target.id === "moPSel") { const v = e.target.value; if (v) abre(v); else { S.id = S.P = S.res = null; S.M = null; ir("proyectos"); } return; } if (S.wiz && S.sec === "nuevo" && wizCambia(e)) return; if (typeof flujoCambia === "function") flujoCambia(e); }
   /* arranque */
   /* ═══════════════ 7 · Simulación: valores nuevos y puntos nuevos evaluados con una versión del modelo ═══════════════ */
-  const simS = () => S.sim || (S.sim = { tab: "valores", conjuntos: [], escenarios: [], cargado: false, ver: null, vals: null, last: null, view: null, estado: null });
+  const simS = () => S.sim || (S.sim = { tab: "puntos", ab: {}, conjuntos: [], escenarios: [], cargado: false, ver: null, vals: null, last: null, view: null, estado: null });
   /* «versiones» del modelo = cada método que se comparó al modelar (y el elegido); si solo se corrió uno, hay una sola */
   function versiones() {
     const r = S.res; if (!r || r.enfoque !== "sup") return []; const c = r._cmp;
@@ -822,7 +822,7 @@
   function simPinta() {
     const s = simS(); if (s.view) return simVista(); const v = verDe(s.ver), sup = `${cab("7", "Simulación", "Evalúa valores nuevos o puntos nuevos con el modelo ya construido. Elige con cuál versión del modelo quieres evaluar.")}`;
     const barra = `<section class="mo-sm-b"><label class="mo-fl">Versión del modelo<select id="smVer" class="mo-in">${verOpts(s.ver)}</select></label><p class="mo-mut">${v ? `Predice <b>${esc(nomVar(S.M.y))}</b>${unidadY()} con ${esc(v.nombre)}${v.elegido ? " (el modelo elegido al modelar)" : ""}. Cada evaluación vuelve a ajustar el modelo con todos los datos del proyecto, con el mismo preprocesamiento y los mismos hiperparámetros.` : ""}</p></section>`;
-    const tabs = `<div class="mo-tabs"><button type="button" class="${s.tab === "valores" ? "on" : ""}" data-smtab="valores">Valores manuales</button><button type="button" class="${s.tab === "puntos" ? "on" : ""}" data-smtab="puntos">Puntos nuevos <span class="mo-bd2">${s.conjuntos.length}</span></button></div>`;
+    const tabs = `<div class="mo-tabs"><button type="button" class="${s.tab === "puntos" ? "on" : ""}" data-smtab="puntos">Puntos nuevos <span class="mo-bd2">${s.conjuntos.length}</span></button><button type="button" class="${s.tab === "valores" ? "on" : ""}" data-smtab="valores">Valores manuales</button></div>`;
     wrap(`${sup}${barra}${tabs}${s.tab === "puntos" ? simPuntosHtml() : simValoresHtml()}`);
   }
   /* ── valores manuales ── */
@@ -834,7 +834,9 @@
     return `<section class="mo-sx2"><h3>Valores de las variables <small>${xs.length}</small></h3><p class="mo-mut">Escribe los valores que quieres evaluar. Empiezan en la mediana de tu proyecto; cámbialos y pulsa «Evaluar». Un campo vacío se rellena como indica el preprocesamiento.</p>
       <div class="mo-sm-lo"><label class="mo-fl">Tomar los valores de un punto del proyecto<select id="smPto" class="mo-in"><option value="">— elegir punto —</option>${ptos.map((q, i) => `<option value="${i}">${esc(q.id || "P" + (i + 1))}</option>`).join("")}</select></label>
       <label class="mo-fl">…o de unas coordenadas (latitud, longitud)<span class="mo-sm-cc"><input id="smLat" class="mo-in" placeholder="Latitud"><input id="smLng" class="mo-in" placeholder="Longitud"><button type="button" class="mo-ghost" data-sm="cargacoord">Leer indicadores</button></span></label></div>
-      ${(() => { const G = {}; xs.forEach(n => { const o2 = origen(n); (G[o2.g] = G[o2.g] || { o: o2.o, l: [] }).l.push(n); }); return Object.entries(G).sort((a, b) => a[1].o - b[1].o || a[0].localeCompare(b[0])).map(([g, v]) => `<details class="mo-sx mo-sg" open><summary><b>${esc(g.replace(/^Biblioteca de indicadores · /, "").replace(/^Tu proyecto · /, "Datos de tu proyecto · "))}</b><span>${v.l.length} variable${v.l.length === 1 ? "" : "s"}</span></summary><div class="mo-svg">${v.l.map(campo).join("")}</div></details>`).join(""); })()}
+      ${(() => { const G = {}; xs.forEach(n => { const o2 = origen(n); (G[o2.g] = G[o2.g] || { o: o2.o, l: [] }).l.push(n); }); const E = Object.entries(G).sort((a, b) => a[1].o - b[1].o || a[0].localeCompare(b[0]));
+        return `<div class="mo-chs"><button type="button" class="mo-ghost" data-sm="expande">Expandir todo</button><button type="button" class="mo-ghost" data-sm="contrae">Contraer todo</button></div><div class="mo-sgs">${E.map(([g, v], i) => { const t = g.replace(/^Biblioteca de indicadores · /, "").replace(/^Tu proyecto · /, "Datos de tu proyecto · "), ab = s.ab[g] != null ? s.ab[g] : i === 0, parts = t.split(" › ");
+          return `<details class="mo-sg" data-g="${esc(g)}"${ab ? " open" : ""}><summary><span class="mo-sgt"><b>${esc(parts[parts.length - 1])}</b>${parts.length > 1 ? `<small>${esc(parts.slice(0, -1).join(" › "))}</small>` : ""}</span><em>${v.l.length} variable${v.l.length === 1 ? "" : "s"}</em></summary><div class="mo-svg">${v.l.map(campo).join("")}</div></details>`; }).join("")}</div>`; })()}
       <div class="mo-chs"><button type="button" class="mo-new" data-sm="eval">Evaluar con el modelo</button><button type="button" class="mo-ghost" data-sm="reset">Volver a las medianas</button></div></section>
       <div id="smRes">${s.last ? simResHtml(s.last) : ""}</div>${simEscHtml()}`;
   }
@@ -963,13 +965,14 @@
   function simClic(e) {
     const t = e.target, s = simS(); let b;
     if (S.sec !== "simulacion" || S.wiz) return false;
+    if ((b = t.closest(".mo-sg > summary"))) { const d = b.parentNode; setTimeout(() => { s.ab[d.dataset.g] = d.open; }, 0); return false; }
     if ((b = t.closest("[data-smtab]"))) { s.tab = b.dataset.smtab; s.view = null; simPinta(); return true; }
     if ((b = t.closest("[data-smabre]"))) { e.preventDefault(); s.view = b.dataset.smabre; s.tab = "puntos"; simVista(); return true; }
     if ((b = t.closest("[data-smdel]"))) { simElimina(b.dataset.smdel); return true; }
     if ((b = t.closest("[data-smesccarga]"))) { const x = s.escenarios.find(q => q.id === b.dataset.smesccarga); if (x) { s.vals = Object.assign(simDefaults(), x.valores || {}); if (verDe(x.ver)) s.ver = x.ver; s.last = null; s.tab = "valores"; simPinta(); toast("Valores cargados: pulsa «Evaluar»."); } return true; }
     if ((b = t.closest("[data-smescdel]"))) { api(R + "/proyectos/" + S.id + "/sim-escenarios/" + b.dataset.smescdel, null, "DELETE").then(() => { s.escenarios = s.escenarios.filter(q => q.id !== b.dataset.smescdel); simPinta(); }).catch(er => toast(er.message)); return true; }
     if ((b = t.closest("[data-sm]"))) { const a = b.dataset.sm;
-      if (a === "eval") { simEvalManual(); return true; } if (a === "reset") { s.vals = simDefaults(); s.last = null; simPinta(); return true; } if (a === "guardaesc") { simGuardaEsc(); return true; }
+      if (a === "expande" || a === "contrae") { $$(".mo-sg").forEach(d => { d.open = a === "expande"; s.ab[d.dataset.g] = d.open; }); return true; } if (a === "eval") { simEvalManual(); return true; } if (a === "reset") { s.vals = simDefaults(); s.last = null; simPinta(); return true; } if (a === "guardaesc") { simGuardaEsc(); return true; }
       if (a === "nuevo") { simNuevo(); return true; } if (a === "volver") { s.view = null; clearTimeout(s._tm); simPinta(); return true; } if (a === "refresca") { simVista(); return true; } if (a === "reeval") { simReeval(); return true; } if (a === "csv") { simCsv(); return true; }
       if (a === "cargacoord") { const la = parseFloat($("#smLat").value), lo = parseFloat($("#smLng").value); if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) { toast("Escribe una latitud y una longitud válidas."); return true; } simCargaIndic(la, lo); return true; } }
     return false;
