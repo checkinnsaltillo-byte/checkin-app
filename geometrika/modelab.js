@@ -466,7 +466,7 @@
   const interM = (res, id, def) => { const l = ((res.interpretaciones || {}).metricas || []).find(x => x.id === id); return l ? l.texto : def || ""; };
   const TONO = { bueno: "#059669", medio: "#d97706", malo: "#dc2626", neutro: "#4f46e5" };
   const kpisHtml = res => `<div class="mo-kpis mo-kp2">${(res.kpis || []).map(k => `<div class="mo-kpi" style="--c:${TONO[k.tono] || TONO.neutro}"><b>${esc(fmtK(k))}</b><span>${esc(k.etiqueta)}</span>${k.nota ? `<small>${esc(k.nota)}</small>` : ""}</div>`).join("")}</div>`;
-  const hallHtml = res => (res.hallazgos || []).length ? `<section class="mo-sx2"><h3>Hallazgos principales</h3><ul class="mo-hz">${res.hallazgos.map(h => `<li>${esc(h)}</li>`).join("")}</ul></section>` : "";
+  const hallHtml = res => (res.hallazgos || []).length ? `<section class="mo-sx2"><h3>Hallazgos principales</h3><ul class="mo-hz">${res.hallazgos.map(h => `<li>${esc(hum(h))}</li>`).join("")}</ul></section>` : "";
   function descarga(nombre, filas) { const csv = filas.map(r => r.map(v => { const t = v == null ? "" : String(v); return /[",\n;]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }).join(",")).join("\r\n"), a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })); a.download = nombre; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
   function mapaPuntos(id, colores, rotulos) {
     leaflet(() => { const el = $("#" + id); if (!el || !window.L || !S.ds) return; if (S._mapRes) { try { S._mapRes.remove(); } catch (_) { } } const m = L.map(el).setView([S.ds.lat[0] || 23.8, S.ds.lng[0] || -102.3], 10); L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, maxNativeZoom: 16, attribution: "Esri" }).addTo(m); S._mapRes = m; const g = []; const st = Math.max(1, Math.ceil(S.ds.lat.length / 4000));
@@ -476,7 +476,9 @@
   const MNOM = { r2: "R²", r2_ajustado: "R² ajustado", rmse: "RMSE (error típico)", mae: "MAE (error absoluto medio)", mape: "MAPE (%)", sesgo: "Sesgo medio", ratio_rmse_sd: "RMSE / desviación de la respuesta", exactitud: "Exactitud", exactitud_balanceada: "Exactitud balanceada", precision_macro: "Precisión (promedio)", recall_macro: "Sensibilidad (promedio)", f1_macro: "F1 (promedio)", precision: "Precisión", recall: "Sensibilidad", f1: "F1", auc: "AUC", log_loss: "Pérdida logarítmica", kappa: "Kappa" };
   const MACOT = new Set(["r2", "r2_ajustado", "exactitud", "exactitud_balanceada", "precision_macro", "recall_macro", "f1_macro", "precision", "recall", "f1", "auc", "kappa"]);
   const mNom = k => MNOM[k] || String(k).replace(/_/g, " ");
-  const nombreV = v => nomVar(String(v).replace(/^(num__|cat__)/, ""));
+  const nombreV = v => { const t = String(v).replace(/^(num__|cat__)/, ""), b = t.replace(/__faltante$/, ""); return nomVar(b) + (t !== b ? " (¿faltaba el dato?)" : ""); };
+  /* nombres internos de variables dentro de textos del motor → nombres legibles */
+  const hum = t => String(t == null ? "" : t).replace(/[A-Za-z0-9_:.\-]+/g, tok => { const b = tok.replace(/^(num__|cat__)/, "").replace(/__faltante$/, ""); if (!(BIBK()[b] || colsProy().some(c => c.name === b))) return tok; return "«" + nomVar(b) + "»" + (/__faltante$/.test(tok) ? " (¿faltaba el dato?)" : ""); });
   function secResultados() {
     S.sec = "resultados"; nav(); const r = S.res; if (!r) { wrap(`${cab("6", "Resultados", "")}<div class="mo-empty"><b>Aún no hay resultados.</b><p>Configura el análisis y pulsa «${S.M && S.M.enfoque === "nosup" ? "Analizar" : "Modelar"}».</p><button type="button" class="mo-new" data-sec="${S.M && S.M.metodo ? "modelar" : "variables"}">Ir al flujo</button></div>`); return; }
     const sup = r.enfoque === "sup"; let h = `${cab("6", "Resultados", `${esc(r.nombreMetodo || r.metodo)} · ${sup ? (r.tipoY === "regresion" ? "regresión" : r.tipoY === "binaria" ? "clasificación binaria" : "clasificación multiclase") : "análisis no supervisado"}`)}${kpisHtml(r)}${hallHtml(r)}<div class="mo-gg">`;
@@ -522,7 +524,7 @@
       if (r.anomalias) h += `<tr><td><b>Casos atípicos detectados</b></td><td>${gN((r.anomalias.idx || []).length, 0)}</td><td class="mo-q2">${esc(interM(r, "anom", "Observaciones por encima del umbral de anomalía."))}</td></tr>`;
       h += "</tbody></table></div></section>";
     }
-    h += `<section class="mo-sx2"><h3>Datos y preprocesamiento</h3><ul class="mo-rsm">${((r.prep || {}).pasos || []).map(p => `<li>${esc(p)}</li>`).join("")}</ul><div class="mo-nota">${r.prep && r.prep.nTrain != null ? `Entrenamiento: ${gN(r.prep.nTrain, 0)} observaciones · Prueba: ${gN(r.prep.nTest, 0)}. ` : ""}${((r.prep || {}).descartadas || []).length ? "Variables descartadas: " + r.prep.descartadas.map(d => esc(nombreV(d.name) + " (" + d.razon + ")")).join(", ") + "." : ""}</div></section>`;
+    h += `<section class="mo-sx2"><h3>Datos y preprocesamiento</h3><ul class="mo-rsm">${((r.prep || {}).pasos || []).map(p => `<li>${esc(hum(p))}</li>`).join("")}</ul><div class="mo-nota">${r.prep && r.prep.nTrain != null ? `Entrenamiento: ${gN(r.prep.nTrain, 0)} observaciones · Prueba: ${gN(r.prep.nTest, 0)}. ` : ""}${((r.prep || {}).descartadas || []).length ? "Variables descartadas: " + r.prep.descartadas.map(d => esc(nombreV(d.name) + " (" + d.razon + ")")).join(", ") + "." : ""}</div></section>`;
     wrap(h + pie("resultados", null, "", false));
   }
 
