@@ -539,3 +539,12 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-fpop .mo-fin2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mo-fpop .mo-fin2 label{display:flex;flex-direction:column;gap:3px;font:700 11px system-ui;color:#64748b}
 .mo-fpop .mo-fpf{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #eef2f7;padding-top:8px}.mo-fpop .mo-fpf b{color:#0f172a}.mo-fpop .mo-mut{color:#64748b;font-size:12px}
 .mo-fpop .mo-ghost{all:unset;cursor:pointer;padding:5px 10px;border-radius:8px;border:1px solid #d5dbe5;font:700 12px system-ui;color:#334155}.mo-fpop .mo-ghost:hover{background:#f8fafc}
+/* tabla del archivo: check por renglón y desplazamiento vertical con carga progresiva */
+.mo-app .mo-twv{max-height:440px;overflow:auto}
+.mo-app .mo-prev thead th{position:sticky;top:0;z-index:2}
+.mo-app .mo-prev .mo-thr,.mo-app .mo-prev .mo-rck{width:40px;min-width:40px;text-align:center;padding-left:10px;padding-right:6px}
+.mo-app .mo-prev thead .mo-thr{background:#e0e7ff;left:0;z-index:3}
+.mo-app .mo-prev .mo-rck{position:sticky;left:0;background:#fff;z-index:1}.mo-app .mo-prev tr.sel .mo-rck{background:#eef2ff}.mo-app .mo-prev tr.sel td{background:#f5f7ff}
+.mo-app .mo-prev .mo-rck .mo-ck,.mo-app .mo-prev .mo-thr .mo-ck{cursor:pointer}
+#wzTbSt{margin:6px 0}#wzTbSt b{color:var(--ink)}
+.mo-app .mo-fbar .mo-fbh .mo-ghost{padding:5px 11px;font-size:12px}
