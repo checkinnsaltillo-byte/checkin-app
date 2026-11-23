@@ -548,3 +548,6 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-prev .mo-rck .mo-ck,.mo-app .mo-prev .mo-thr .mo-ck{cursor:pointer}
 #wzTbSt{margin:6px 0}#wzTbSt b{color:var(--ink)}
 .mo-app .mo-fbar .mo-fbh .mo-ghost{padding:5px 11px;font-size:12px}
+/* botones Todos / Ninguno en el encabezado de cada grupo de indicadores */
+.mo-sx>summary .mo-vgb{margin-left:auto;display:flex;gap:6px}.mo-sx>summary .mo-vgb .mo-ghost{padding:3px 10px;font-size:11.5px}
+.mo-sx>summary:has(.mo-vgb)::after{margin-left:12px}
