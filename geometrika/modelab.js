@@ -112,11 +112,11 @@
       <div class="mo-nota">Después podrás elegir variables de la biblioteca de indicadores y definir si el análisis es supervisado (hay una variable de respuesta) o no supervisado.</div>
       <div class="mo-imp"><button type="button" class="mo-ghost" data-wz="geolab">Usar un proyecto de Geo Lab</button><span>Trae su nombre, objetivo, puntos y mapa conceptual.</span></div><div id="wzGL"></div>`;
     if (p === 2) return wzPuntos(W);
-    if (p === 3) return aviso(W, 3) + `<div class="mo-sw"><button type="button" class="mo-swb${W.opt.fotos ? " on" : ""}" data-wzopt="fotos"><i></i></button><div><b>Analizar fotos de calle de cada punto (maqueta con IA)</b><span>Descarga fotos de Street View alrededor de cada punto y las interpreta con IA.</span></div></div>
-      <label class="mo-fl">Radio de la maqueta: <b id="wzRadV">${W.radio} m</b><input type="range" id="wzRad" min="50" max="600" step="10" value="${W.radio}"></label><div class="mo-chs">${[100, 200, 400, 600].map(r => `<button type="button" class="mo-c${W.radio === r ? " on" : ""}" data-wzrad="${r}">${r} m</button>`).join("")}</div>
+    if (p === 3) return aviso(W, 3) + `<div class="mo-swr"><button type="button" class="mo-swb${W.opt.fotos ? " on" : ""}" data-wzopt="fotos"><i></i></button><div><b>Analizar fotos de calle de cada punto (maqueta con IA)</b><span>Descarga fotos de Street View alrededor de cada punto y las interpreta con IA.</span></div></div>
+      ${wzMapaPts(W)}<label class="mo-fl">Radio de la maqueta: <b id="wzRadV">${W.radio} m</b><input type="range" id="wzRad" min="50" max="600" step="10" value="${W.radio}"></label><div class="mo-chs">${[100, 200, 400, 600].map(r => `<button type="button" class="mo-c${W.radio === r ? " on" : ""}" data-wzrad="${r}">${r} m</button>`).join("")}</div>
       <label class="mo-fl">Fotos por punto: <b id="wzFotV">${W.fotos}</b><input type="range" id="wzFot" min="10" max="60" step="2" value="${W.fotos}"></label>`;
-    if (p === 4) return aviso(W, 4) + `<div class="mo-fl">Tipos de vialidad a descargar</div><div class="mo-chs">${chips(VIAS, W.vias, "data-wzvia")}</div><label class="mo-fl">Vías preseleccionadas por punto: <b id="wzPreV">${W.pre}</b><input type="range" id="wzPre" min="2" max="30" step="1" value="${W.pre}"></label>`;
-    if (p === 5) return aviso(W, 5) + `<div class="mo-sw"><button type="button" class="mo-swb${W.opt.trafico ? " on" : ""}" data-wzopt="trafico"><i></i></button><div><b>Consultar el tráfico por día y hora</b><span>Una consulta de Google Routes por cada sentido de vía, día y hora.</span></div></div>
+    if (p === 4) return aviso(W, 4) + `${wzMapaPts(W)}<div class="mo-fl">Tipos de vialidad a descargar</div><div class="mo-chs">${chips(VIAS, W.vias, "data-wzvia")}</div><label class="mo-fl">Vías preseleccionadas por punto: <b id="wzPreV">${W.pre}</b><input type="range" id="wzPre" min="2" max="30" step="1" value="${W.pre}"></label>`;
+    if (p === 5) return aviso(W, 5) + `<div class="mo-swr"><button type="button" class="mo-swb${W.opt.trafico ? " on" : ""}" data-wzopt="trafico"><i></i></button><div><b>Consultar el tráfico por día y hora</b><span>Una consulta de Google Routes por cada sentido de vía, día y hora.</span></div></div>
       <div class="mo-fl">Días</div><div class="mo-chs">${chips(DIAS, W.dias, "data-wzdia")}</div><div class="mo-fl">Horas del día</div><div class="mo-chs mo-hs">${Array.from({ length: 24 }, (_, h) => [h, String(h).padStart(2, "0")]).map(([h, t]) => `<button type="button" class="mo-c${W.horas.includes(h) ? " on" : ""}" data-wzhor="${h}">${t}</button>`).join("")}</div>
       <div class="mo-chs"><button type="button" class="mo-ghost" data-wzq="pico">Hora pico</button><button type="button" class="mo-ghost" data-wzq="habil">Entre semana</button><button type="button" class="mo-ghost" data-wzq="finde">Fin de semana</button><button type="button" class="mo-ghost" data-wzq="todo">Todo el día</button></div>`;
     return wzVerif(W);
@@ -195,7 +195,16 @@
       if (items.length) { if (D.keep && D.view) m.setView(D.view.c, D.view.z); else m.fitBounds(grp.getBounds(), { padding: [30, 30], maxZoom: 16 }); } else m.setView([23.8, -102.3], 5); D.keep = false;
       if (!fija) { const etiq = () => { const cerca = m.getZoom() >= 16, b = m.getBounds().pad(.1); let n = 0; grp.eachLayer(l => { const dentro = cerca && n < 120 && b.contains(l.getLatLng()); if (dentro) n++; if (!!l._perm !== dentro) { l.unbindTooltip(); tt(l, l._nm, dentro); l._perm = dentro; } }); }; m.on("zoomend moveend", etiq); etiq(); } });
   }
+  const wzMapaPts = W => W.puntos.length ? `<div class="mo-fa">${W.paso === 3 ? "Tus puntos de interés y el radio de la maqueta" : "Tus puntos de interés"}${W.puntos.length > 800 ? ` <span class="mo-mut">· se muestran los primeros 800</span>` : ""}</div><div id="wzMap3" class="mo-map"></div>` : '<div class="mo-nota">Aún no hay puntos: vuelve al paso 2 para elegirlos.</div>';
+  function wzRadios(W) { if (!W.capa3 || !window.L) return; W.capa3.clearLayers(); if (W.paso !== 3) return; W.puntos.slice(0, 300).forEach(q => L.circle([q.lat, q.lng], { radius: W.radio, color: "#4f46e5", weight: 1.5, fillColor: "#818cf8", fillOpacity: .15, interactive: false }).addTo(W.capa3)); }
+  function wzMapaPuntos(W) {
+    leaflet(() => { const el = $("#wzMap3"); if (!el || !window.L) return; if (W.gl3) { try { W.gl3.remove(); } catch (_) { } } const m = L.map(el); L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 16, attribution: "Esri" }).addTo(m); W.gl3 = m;
+      const g = L.featureGroup().addTo(m); W.capa3 = L.featureGroup().addTo(m); const pts = W.puntos.slice(0, 800), perm = pts.length <= 30;
+      pts.forEach((q, i) => L.circleMarker([q.lat, q.lng], { radius: 6, color: "#fff", weight: 1.5, fillColor: "#e11d48", fillOpacity: .95 }).bindTooltip(esc(q.id || "P" + (i + 1)), { permanent: perm, direction: "top", offset: [0, -5], className: "mo-etq" }).addTo(g)); wzRadios(W);
+      if (pts.length) { const b = L.latLngBounds(pts.map(q => [q.lat, q.lng])); m.fitBounds(b.pad(W.paso === 3 ? .5 : .1), { padding: [30, 30], maxZoom: W.paso === 3 && W.radio > 300 ? 15 : 16 }); } });
+  }
   function wzPost(W) {
+    if ((W.paso === 3 || W.paso === 4) && W.puntos.length) wzMapaPuntos(W);
     if (W.paso === 2 && W.tab === "denue") wzDenMapa(W);
     if (W.paso === 2 && W.tab === "mapa") wzMapa(W);
     if (W.paso === 2 && W.tab === "denue" && !S.scian) api(R + "/scian").then(j => { S.scian = j; if (S.wiz === W && W.paso === 2 && W.tab === "denue") wzRe(); }).catch(() => { });
@@ -304,7 +313,7 @@
   function wizEntrada(e) {
     const W = S.wiz, t = e.target, id = t.id; if (!W) return false;
     if (id === "wzNom") { W.nombre = t.value; return true; } if (id === "wzObj") { W.objetivo = t.value; return true; }
-    if (id === "wzRad") { W.radio = +t.value; const v = $("#wzRadV"); if (v) v.textContent = W.radio + " m"; return true; } if (id === "wzFot") { W.fotos = +t.value; const v = $("#wzFotV"); if (v) v.textContent = W.fotos; return true; } if (id === "wzPre") { W.pre = +t.value; const v = $("#wzPreV"); if (v) v.textContent = W.pre; return true; }
+    if (id === "wzRad") { W.radio = +t.value; const v = $("#wzRadV"); if (v) v.textContent = W.radio + " m"; wzRadios(W); return true; } if (id === "wzFot") { W.fotos = +t.value; const v = $("#wzFotV"); if (v) v.textContent = W.fotos; return true; } if (id === "wzPre") { W.pre = +t.value; const v = $("#wzPreV"); if (v) v.textContent = W.pre; return true; }
     if (id === "wzQ") { W.den.q = t.value; return true; } if (id === "wzCod") { W.den.cod = t.value; return true; }
     if (id === "wzBus") { busca(t, $("#wzBL"), "/geometrika/malla/buscar?q=", it => it.t + (it.d ? " · " + it.d : ""), it => { const m = W.gl; if (!m) return; const bb = it.bb; if (bb && bb[2] - bb[0] > 1e-4) m.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { maxZoom: 17 }); else m.setView([it.lat, it.lng], 16); t.value = it.n; }); return true; }
     if (id === "wzCiu") { busca(t, $("#wzCL"), R + "/ciudades?q=", it => it.t + " · " + it.d, it => { if (!W.den.ciudades.some(c => c.n === it.n)) W.den.ciudades.push({ n: it.n, muns: it.muns }); W.den.muns = [...new Set(W.den.ciudades.flatMap(c => c.muns))]; W.den.res = null; wzRe(); }); return true; }
