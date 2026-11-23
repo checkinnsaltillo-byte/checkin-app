@@ -369,3 +369,5 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-prev th.mo-thc:hover{background:#eef2ff}.mo-app .mo-prev th.mo-thc.on{background:#e0e7ff;color:#3730a3}
 .mo-app .mo-prev th.mo-thc .mo-ck{vertical-align:-4px;margin-right:4px}
 .mo-app .mo-prev th.geo{background:#dcfce7;color:#166534;cursor:default}.mo-app .mo-thg{font-size:9px;font-weight:800;background:#16a34a;color:#fff;border-radius:5px;padding:1px 5px;margin-right:4px}
+
+.mo-app .mo-prev th.geo.y{background:#fef3c7;color:#92400e}.mo-app .mo-prev th.geo.y .mo-thg{background:#d97706}

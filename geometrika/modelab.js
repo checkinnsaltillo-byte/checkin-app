@@ -74,7 +74,7 @@
     const i = $("#moPQ"); if (i && S._foco) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); S._foco = false; }
   }
   async function abre(id) {
-    try { S.busy = true; wrap('<div class="mo-empty"><b>Abriendo proyecto…</b></div>'); const j = await api(R + "/proyectos/" + id); S.resVer = null; S.id = id; S.P = j.proyecto; S.puntos = j.puntos || []; S.M = j.modelo || { vars: [], enfoque: null, y: null, x: [], metodo: null, prep: null, prepOk: false }; if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name); S.ds = null; S.res = null;
+    try { S.busy = true; wrap('<div class="mo-empty"><b>Abriendo proyecto…</b></div>'); const j = await api(R + "/proyectos/" + id); S.resVer = null; S.id = id; S.P = j.proyecto; S.puntos = j.puntos || []; S.M = j.modelo || { vars: [], enfoque: null, y: null, x: [], metodo: null, prep: null, prepOk: false }; if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name); const yv = S.P.cfg && S.P.cfg.yVar; if (yv && !j.modelo && S.M.vars.includes(yv)) { S.M.enfoque = "sup"; S.M.y = yv; S.M.x = S.M.vars.filter(v => v !== yv); } S.ds = null; S.res = null;
       try { const r = await api(R + "/proyectos/" + id + "/resultados"); S.res = r.res || null; } catch (_) { } S.busy = false; await ir(S.res ? "resultados" : (S.M.vars && S.M.vars.length) || (S.P.columnas || []).length ? "variables" : "variables"); }
     catch (e) { S.busy = false; toast(e.message); ir("proyectos"); }
   }
@@ -177,9 +177,9 @@
     if (A.err) return h + `<div class="mo-av alto"><div class="c">${esc(A.err)}</div></div>`;
     const op = (sel, vacio) => (vacio ? `<option value="-1">${vacio}</option>` : "") + A.cols.map((c, i) => `<option value="${i}"${sel === i ? " selected" : ""}>${esc(c)}</option>`).join("");
     h += `<div class="mo-fa"><b>${esc(A.nombre)}</b> · ${gN(A.rows.length, 0)} filas · ${A.cols.length} columnas</div>
-      <p class="mo-mut">La tabla muestra las ${A.cols.length} columnas y las primeras 8 filas: desliza hacia los lados para verlas todas.</p><div class="mo-tw mo-twp"><table class="mo-t mo-prev"><thead><tr>${A.cols.map((c, i) => i === A.ilat || i === A.ilng ? `<th class="mo-thc geo"><span class="mo-thg">${i === A.ilat ? "LATITUD" : "LONGITUD"}</span> ${esc(c)}</th>` : `<th class="mo-thc${A.extra.includes(i) ? " on" : ""}" data-wzex="${i}" title="Usar como variable">${ck(A.extra.includes(i))} ${esc(c)}</th>`).join("")}</tr></thead><tbody>${A.rows.slice(0, 8).map(r => `<tr>${A.cols.map((_, i) => `<td>${esc(r[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-      <div class="mo-g3"><label class="mo-fl">Columna de latitud<select class="mo-in" id="wzLat">${op(A.ilat, "— elegir —")}</select></label><label class="mo-fl">Columna de longitud<select class="mo-in" id="wzLng">${op(A.ilng, "— elegir —")}</select></label><label class="mo-fl">Nombre o identificador (opcional)<select class="mo-in" id="wzId">${op(A.iid, "— ninguno —")}</select></label></div>
-      <p class="mo-mut">Marca en el encabezado de cada columna las que quieras usar como variables (opcional) · ${A.extra.length} de ${A.cols.length - (A.ilat >= 0 ? 1 : 0) - (A.ilng >= 0 ? 1 : 0)} marcadas.</p>
+      <p class="mo-mut">La tabla muestra las ${A.cols.length} columnas y las primeras 8 filas: desliza hacia los lados para verlas todas.</p><div class="mo-tw mo-twp"><table class="mo-t mo-prev"><thead><tr>${A.cols.map((c, i) => i === A.ilat || i === A.ilng ? `<th class="mo-thc geo"><span class="mo-thg">${i === A.ilat ? "LATITUD" : "LONGITUD"}</span> ${esc(c)}</th>` : i === A.iy ? `<th class="mo-thc geo y"><span class="mo-thg">A MODELAR</span> ${esc(c)}</th>` : `<th class="mo-thc${A.extra.includes(i) ? " on" : ""}" data-wzex="${i}" title="Usar como variable">${ck(A.extra.includes(i))} ${esc(c)}</th>`).join("")}</tr></thead><tbody>${A.rows.slice(0, 8).map(r => `<tr>${A.cols.map((_, i) => `<td>${esc(r[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+      <div class="mo-g3" style="grid-template-columns:repeat(4,minmax(0,1fr))"><label class="mo-fl">Columna de latitud<select class="mo-in" id="wzLat">${op(A.ilat, "— elegir —")}</select></label><label class="mo-fl">Columna de longitud<select class="mo-in" id="wzLng">${op(A.ilng, "— elegir —")}</select></label><label class="mo-fl">Nombre o identificador (opcional)<select class="mo-in" id="wzId">${op(A.iid, "— ninguno —")}</select></label><label class="mo-fl">Variable a modelar (opcional)<select class="mo-in" id="wzY">${op(A.iy, "— ninguna —")}</select></label></div>
+      <p class="mo-mut">Marca en el encabezado de cada columna las que quieras usar como variables (opcional) · <b id="wzExN">${A.extra.length}</b> de ${A.cols.length - (A.ilat >= 0 ? 1 : 0) - (A.ilng >= 0 ? 1 : 0)} marcadas.</p>
       <div class="mo-chs"><button type="button" class="mo-new" data-wz="usaarch">Usar ${gN(A.rows.length, 0)} filas como puntos</button><button type="button" class="mo-ghost" data-wzex="todas">Marcar todas</button><button type="button" class="mo-ghost" data-wzex="ninguna">Quitar todas</button></div>`;
     return h;
   };
@@ -283,7 +283,7 @@
     return [ilat, ilng];
   }
   async function wzArchivo(file) {
-    const W = S.wiz; W.arch = { nombre: file.name, cols: [], rows: [], ilat: -1, ilng: -1, iid: -1, extra: [] }; const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const W = S.wiz; W.arch = { nombre: file.name, cols: [], rows: [], ilat: -1, ilng: -1, iid: -1, iy: -1, extra: [] }; const ext = (file.name.split(".").pop() || "").toLowerCase();
     try { let tabla;
       if (ext === "zip" || ext === "shp") { if (ext === "shp") throw new Error("Sube el shapefile completo en un .zip (con sus archivos .shp, .dbf y .prj)."); if (!window.shp) await cargaScript("https://unpkg.com/shpjs@4.0.4/dist/shp.min.js"); let g = await window.shp(await file.arrayBuffer()); if (Array.isArray(g)) g = g[0]; tabla = geoATabla(g); }
       else if (ext === "geojson" || ext === "json") { const g = JSON.parse(await file.text()); tabla = geoATabla(g.type === "Feature" ? { features: [g] } : g); }
@@ -294,7 +294,7 @@
   }
   function usaArchivo(W) {
     const A = W.arch; if (A.ilat < 0 || A.ilng < 0) { W.msg = "Elige las columnas de latitud y longitud."; return wzRe(); }
-    const ex = A.extra.filter(i => i !== A.ilat && i !== A.ilng), cols = ex.map(i => { const v = A.rows.map(r => numV(r[i])).filter(x => x != null); const tipo = v.length >= A.rows.filter(r => r[i] !== "" && r[i] != null).length * .9 && v.length ? "num" : "cat"; return { name: slug(A.cols[i]), label: String(A.cols[i]), tipo }; });
+    if (A.iy >= 0 && !A.extra.includes(A.iy)) A.extra.push(A.iy); W.yVar = A.iy >= 0 && A.iy !== A.ilat && A.iy !== A.ilng ? slug(A.cols[A.iy]) : null; const ex = A.extra.filter(i => i !== A.ilat && i !== A.ilng), cols = ex.map(i => { const v = A.rows.map(r => numV(r[i])).filter(x => x != null); const tipo = v.length >= A.rows.filter(r => r[i] !== "" && r[i] != null).length * .9 && v.length ? "num" : "cat"; return { name: slug(A.cols[i]), label: String(A.cols[i]), tipo }; });
     const puntos = []; A.rows.forEach((r, k) => { const lat = numV(r[A.ilat]), lng = numV(r[A.ilng]); if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) return; const q = { lat, lng, id: A.iid >= 0 && r[A.iid] != null && r[A.iid] !== "" ? String(r[A.iid]).slice(0, 80) : "F" + (k + 1), x: {} }; ex.forEach((i, j) => { q.x[cols[j].name] = cols[j].tipo === "num" ? numV(r[i]) : (r[i] == null || r[i] === "" ? null : String(r[i]).slice(0, 120)); }); puntos.push(q); });
     if (!puntos.length) { W.msg = "Ninguna fila tiene coordenadas válidas."; return wzRe(); } W.puntos = puntos; W.columnas = cols; W.fuente = "archivo"; W.msg = puntos.length < A.rows.length ? `Se omitieron ${A.rows.length - puntos.length} filas sin coordenadas válidas.` : ""; wzRe(); toast(`${gN(puntos.length, 0)} puntos cargados.`);
   }
@@ -319,11 +319,11 @@
   }
   async function wzModelar(W) {
     if (!W.nombre.trim()) { W.paso = 1; W.msg = "Escribe el nombre del proyecto."; return wizard(); } if (!W.puntos.length) { W.paso = 2; W.msg = "Elige al menos un punto de interés."; return wizard(); }
-    const c = costo(W); try { S.busy = true; const j = await api(R + "/proyectos", { id: W.editId || undefined, nombre: W.nombre.trim(), objetivo: W.objetivo.trim(), fuente: W.fuente, puntos: W.puntos, columnas: W.columnas, mapa: W.mapa, cfg: { radio: W.radio, fotos: W.fotos, vias: W.vias, pre: W.pre, dias: W.dias, horas: W.horas, opt: W.opt, costoEstimadoUSD: Math.round(c.total * 100) / 100 } });
+    const c = costo(W); try { S.busy = true; const j = await api(R + "/proyectos", { id: W.editId || undefined, nombre: W.nombre.trim(), objetivo: W.objetivo.trim(), fuente: W.fuente, puntos: W.puntos, columnas: W.columnas, mapa: W.mapa, cfg: { yVar: W.yVar || null, radio: W.radio, fotos: W.fotos, vias: W.vias, pre: W.pre, dias: W.dias, horas: W.horas, opt: W.opt, costoEstimadoUSD: Math.round(c.total * 100) / 100 } });
       S.wiz = null; await cargaProy(); await abre(j.proyecto.id); toast(W.editId ? "Proyecto actualizado." : "Proyecto creado."); } catch (e) { S.busy = false; W.msg = e.message; wizard(); }
   }
   async function editar(id) {
-    try { const j = await api(R + "/proyectos/" + id), p = j.proyecto, W = wizVacio(), c = p.cfg || {}; Object.assign(W, { nombre: p.nombre, objetivo: p.objetivo || "", fuente: p.fuente || "mapa", tab: p.fuente === "denue" ? "denue" : p.fuente === "archivo" ? "archivo" : "mapa", puntos: j.puntos || [], columnas: p.columnas || [], mapa: p.mapa || null, editId: id, radio: c.radio || 200, fotos: c.fotos || 24, vias: c.vias || W.vias, pre: c.pre || 12, dias: c.dias || W.dias, horas: c.horas || W.horas, opt: Object.assign(W.opt, c.opt || {}) }); S.wiz = W; wizard(); }
+    try { const j = await api(R + "/proyectos/" + id), p = j.proyecto, W = wizVacio(), c = p.cfg || {}; Object.assign(W, { nombre: p.nombre, objetivo: p.objetivo || "", fuente: p.fuente || "mapa", tab: p.fuente === "denue" ? "denue" : p.fuente === "archivo" ? "archivo" : "mapa", puntos: j.puntos || [], columnas: p.columnas || [], mapa: p.mapa || null, editId: id, radio: c.radio || 200, fotos: c.fotos || 24, vias: c.vias || W.vias, pre: c.pre || 12, dias: c.dias || W.dias, horas: c.horas || W.horas, opt: Object.assign(W.opt, c.opt || {}), yVar: c.yVar || null }); S.wiz = W; wizard(); }
     catch (e) { toast(e.message); }
   }
   function wizClic(e) {
@@ -341,7 +341,7 @@
     if ((b = t.closest("[data-wzhor]"))) { const k = +b.dataset.wzhor; W.horas = W.horas.includes(k) ? W.horas.filter(x => x !== k) : W.horas.concat(k); wzRe(); return true; }
     if ((b = t.closest("[data-wzq]"))) { const q = b.dataset.wzq; if (q === "pico") W.horas = [7, 8, 9, 17, 18, 19]; if (q === "habil") W.dias = [1, 2, 3, 4, 5]; if (q === "finde") W.dias = [6, 0]; if (q === "todo") W.horas = Array.from({ length: 24 }, (_, h) => h); wzRe(); return true; }
     if ((b = t.closest("[data-wzrm]"))) { W.puntos.splice(+b.dataset.wzrm, 1); if (W.pinta) W.pinta(); wzPts(W); return true; }
-    if ((b = t.closest("[data-wzex]"))) { const v = b.dataset.wzex, A = W.arch; if (v === "todas") A.extra = A.cols.map((_, i) => i).filter(i => i !== A.ilat && i !== A.ilng); else if (v === "ninguna") A.extra = []; else { const i = +v; A.extra = A.extra.includes(i) ? A.extra.filter(x => x !== i) : A.extra.concat(i); } wzRe(); return true; }
+    if ((b = t.closest("[data-wzex]"))) { const v = b.dataset.wzex, A = W.arch; if (v === "todas") A.extra = A.cols.map((_, i) => i).filter(i => i !== A.ilat && i !== A.ilng); else if (v === "ninguna") A.extra = A.iy >= 0 ? [A.iy] : []; else { const i = +v; A.extra = A.extra.includes(i) ? A.extra.filter(x => x !== i) : A.extra.concat(i); const on = A.extra.includes(i), th = b.closest("th"); if (th) { th.classList.toggle("on", on); const k = th.querySelector(".mo-ck"); if (k) { k.classList.toggle("on", on); k.textContent = on ? "✓" : ""; } const c = $("#wzExN"); if (c) c.textContent = A.extra.length; return true; } } const sc = $(".mo-twp"), sl = sc ? sc.scrollLeft : 0; wzRe(); const sc2 = $(".mo-twp"); if (sc2) sc2.scrollLeft = sl; return true; }
     if ((b = t.closest("[data-wzcx]"))) { W.den.ciudades.splice(+b.dataset.wzcx, 1); W.den.muns = [...new Set(W.den.ciudades.flatMap(c => c.muns))]; W.den.res = null; wzRe(); return true; }
     if (!t.closest("[data-wzds]") && (b = t.closest("[data-wzrow]"))) { wzDenFoco(W, +b.dataset.wzrow); return true; }
     if ((b = t.closest("[data-wzds]"))) { const D = W.den, v = b.dataset.wzds, n = D.res ? D.res.items.length : 0;
@@ -363,7 +363,7 @@
   function wizCambia(e) {
     const W = S.wiz, t = e.target, id = t.id; if (!W) return false;
     if (id === "wzFile") { if (t.files[0]) wzArchivo(t.files[0]); return true; }
-    if (id === "wzLat") { W.arch.ilat = +t.value; wzRe(); return true; } if (id === "wzLng") { W.arch.ilng = +t.value; wzRe(); return true; } if (id === "wzId") { W.arch.iid = +t.value; return true; }
+    if (id === "wzLat") { W.arch.ilat = +t.value; wzRe(); return true; } if (id === "wzLng") { W.arch.ilng = +t.value; wzRe(); return true; } if (id === "wzId") { W.arch.iid = +t.value; return true; } if (id === "wzY") { const A = W.arch; A.iy = +t.value; if (A.iy >= 0 && !A.extra.includes(A.iy)) A.extra.push(A.iy); const sc = $(".mo-twp"), sl = sc ? sc.scrollLeft : 0; wzRe(); const s2 = $(".mo-twp"); if (s2) s2.scrollLeft = sl; return true; }
     if (id === "wzSec") { W.den.sector = t.value; W.den.sub = ""; W.den.res = null; wzRe(); return true; } if (id === "wzSub") { W.den.sub = t.value; W.den.res = null; return true; }
     if (id === "wzTmin") { W.den.tmin = +t.value; if (W.den.tmax < W.den.tmin) W.den.tmax = W.den.tmin; wzRe(); return true; } if (id === "wzTmax") { W.den.tmax = +t.value; if (W.den.tmin > W.den.tmax) W.den.tmin = W.den.tmax; wzRe(); return true; }
     if (id === "wzRad" || id === "wzFot" || id === "wzPre") { wzRe(); return true; }
