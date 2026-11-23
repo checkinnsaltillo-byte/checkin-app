@@ -551,3 +551,5 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 /* botones Todos / Ninguno en el encabezado de cada grupo de indicadores */
 .mo-sx>summary .mo-vgb{margin-left:auto;display:flex;gap:6px}.mo-sx>summary .mo-vgb .mo-ghost{padding:3px 10px;font-size:11.5px}
 .mo-sx>summary:has(.mo-vgb)::after{margin-left:12px}
+/* leyenda de origen de las variables en los resultados */
+.mo-app .mo-lgo{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 8px;font:600 11.5px system-ui;color:#475569}.mo-app .mo-lgo span{display:flex;align-items:center;gap:6px}.mo-app .mo-lgo i{display:inline-block;width:12px;height:12px;border-radius:3px}
