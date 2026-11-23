@@ -492,3 +492,17 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-sr-colw{position:relative;min-height:420px}
 .mo-app .mo-sr-colw .mo-sr-col{position:absolute;inset:0;max-height:none}
 @media(max-width:1100px){.mo-app .mo-sr-colw{min-height:0}.mo-app .mo-sr-colw .mo-sr-col{position:static;max-height:640px}}
+/* etiqueta con línea punteada del punto del modelado seleccionado (mapa) */
+.mo-sl-w{background:none!important;border:0!important}
+.mo-sl{position:absolute;left:0;bottom:9px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.mo-sl b{white-space:nowrap;background:#2563eb;color:#fff;font:800 12px system-ui;padding:3px 9px;border-radius:8px;box-shadow:0 3px 10px rgba(37,99,235,.45)}
+.mo-sl i{display:block;height:34px;border-left:2.5px dotted #2563eb}
+/* controlador de rango con dos cejitas */
+.mo-rng{border-top:1px dashed #e2e8f0;margin-top:6px;padding:8px 6px 2px}
+.mo-rng-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}.mo-rng-h b{font:800 12.5px system-ui;color:#0f172a}.mo-rng-h em{font:600 11.5px system-ui;color:#4338ca;font-style:normal;flex:1}.mo-rng-h button{padding:4px 10px!important;font-size:11.5px!important}
+.mo-rng-t{position:relative;height:10px;border-radius:99px;margin:0 9px;touch-action:none;cursor:pointer}
+.mo-rng-d{position:absolute;top:0;bottom:0;background:rgba(241,245,249,.82)}#simRngD0{left:0;border-radius:99px 0 0 99px}#simRngD1{right:0;border-radius:0 99px 99px 0}
+.mo-rng-h0{position:absolute;top:-7px;width:16px;height:24px;margin-left:-8px;border-radius:7px 7px 9px 9px;background:#fff;border:2px solid #4338ca;box-shadow:0 2px 6px rgba(15,23,42,.3);cursor:grab;box-sizing:border-box;touch-action:none}
+.mo-rng-h0::after{content:"";position:absolute;left:50%;top:6px;width:2px;height:8px;margin-left:-1px;background:#4338ca;border-radius:1px}
+.mo-rng-h0.on,.mo-rng-h0:focus-visible{background:#eef2ff;box-shadow:0 0 0 4px rgba(67,56,202,.25);outline:0;cursor:grabbing}
+.mo-rng-l{display:flex;justify-content:space-between;gap:10px;margin-top:12px;font:700 11.5px system-ui;color:#0f172a}.mo-rng-l .mo-mut{font-weight:500;font-size:10.5px;text-align:center}
