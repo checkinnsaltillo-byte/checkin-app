@@ -395,3 +395,6 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-sm-an{display:flex;flex-wrap:wrap;gap:5px}.mo-app .mo-sm-an .mo-b{font-size:11px}
 .mo-app .mo-sm-lg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:8px 0 12px;font:500 12px system-ui;color:var(--mut)}.mo-app .mo-sm-lg i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-2px}
 #simMap{height:380px;border-radius:12px;margin:10px 0 0}
+/* la lista de resultados de búsqueda comparte clase con un encabezado antiguo: se restablece para que muestre solo texto */
+.mo-app .mo-bus .mo-bl{display:block;gap:0;margin:0;padding:4px;border:1px solid var(--line);font:inherit}
+.mo-app .mo-bus .mo-bl span{display:block;width:auto;height:auto;border-radius:0;background:none;place-items:initial;color:var(--mut);font:500 11px system-ui}
