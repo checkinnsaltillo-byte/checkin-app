@@ -755,3 +755,19 @@ html.dl-dark .dl-emb .dl-side{background:rgba(255,255,255,.80)}
 
 .dl-mlretry{all:unset;cursor:pointer;font:700 11.5px system-ui;color:#0f172a;background:#fff;padding:5px 10px;border-radius:7px}
 .dl-mlretry:hover{background:#e2e8f0}
+
+/* buscador y comparación jerárquica del mapa de la malla */
+.dl-mlsr{position:relative}
+.dl-mlsr input{all:unset;box-sizing:border-box;width:200px;padding:5px 9px;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;font:600 12px system-ui}
+.dl-mlsr input::placeholder{color:#cbd5e1}.dl-mlsr input:focus{background:rgba(255,255,255,.24)}
+.dl-mlsl{position:absolute;left:0;top:30px;width:290px;max-height:300px;overflow:auto;background:#fff;color:#0f172a;border-radius:10px;box-shadow:0 8px 22px rgba(15,23,42,.3);z-index:20;padding:4px}
+.dl-mlsl button{all:unset;display:block;box-sizing:border-box;width:100%;padding:6px 8px;border-radius:7px;cursor:pointer}
+.dl-mlsl button:hover{background:#eff6ff}.dl-mlsl b{display:block;font:700 12px system-ui}.dl-mlsl span{display:block;font:500 10.5px system-ui;color:#64748b}
+.dl-mlsn{padding:8px;font:500 11.5px system-ui;color:#64748b}
+.dl-mlbx{position:absolute;right:10px;bottom:28px;width:268px;max-height:68%;overflow:auto;background:rgba(255,255,255,.96);border-radius:10px;padding:6px 9px 7px;box-shadow:0 2px 8px rgba(15,23,42,.2);color:#334155;z-index:4}
+.dl-mlbt{display:flex;justify-content:space-between;align-items:center;gap:8px;font:800 11px system-ui;color:#0f172a;cursor:pointer}.dl-mlbt u{text-decoration:none;color:#64748b}
+.dl-mlbx.cl .dl-mlbb{display:none}
+.dl-mlbr{margin-top:5px}.dl-mlbh{display:flex;gap:6px;align-items:baseline;font:600 10px system-ui;color:#64748b}.dl-mlbh b{color:#0f172a;font-weight:800}.dl-mlbh em{margin-left:auto;font-style:normal;font-weight:800;white-space:nowrap}
+.dl-mlbk{position:relative;height:20px;margin:1px 6px 0}.dl-mlbk i{display:block}
+.dl-mlbn{margin-top:6px;font:500 10.5px system-ui;color:#64748b}
+@media (max-width:720px){.dl-mlbx{width:210px}.dl-mlsr input{width:150px}}

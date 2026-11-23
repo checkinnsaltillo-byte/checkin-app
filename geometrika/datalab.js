@@ -858,29 +858,84 @@
     L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, maxNativeZoom: 16, attribution: "Esri · INEGI" }).addTo(lm);
     const pop = (f, ll) => L.popup({ closeButton: false }).setLatLng(ll).setContent(`<b>${esc(f.properties.t || "")}</b><br>${esc(ML_D[ML.k].n)}: <b>${esc(f.properties.vt)}</b>`).openOn(lm);
     const m = { getZoom: () => lm.getZoom() - 1, getCenter: () => lm.getCenter(), getBounds: () => lm.getBounds(), getPitch: () => 0, easeTo: () => { }, jumpTo: o => lm.setView([o.center[1], o.center[0]], o.zoom + 1, { animate: false }), resize: () => lm.invalidateSize(), on: (ev, fn) => lm.on(ev, fn),
-      getSource: n => ({ setData: fc => { if (grp[n]) { lm.removeLayer(grp[n]); grp[n] = null; } if (!fc.features.length) return;
-        grp[n] = L.geoJSON(fc, { renderer: rend, style: f => n === "lin" ? { color: f.properties.c, weight: 3, opacity: f.properties.o } : { color: f.properties.c, weight: .6, fillColor: f.properties.c, fillOpacity: .82 }, pointToLayer: (f, ll) => L.circleMarker(ll, { renderer: rend, radius: 3, color: f.properties.c, fillColor: f.properties.c, fillOpacity: .85, weight: 0 }), onEachFeature: (f, l) => { if (f.properties.vt) l.on("click", e => pop(f, e.latlng)); } }).addTo(lm); } }) };
+      ir: it => { const bb = it.bb; if (bb && bb[2] - bb[0] > 1e-4 && bb[3] - bb[1] > 1e-4) lm.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { padding: [30, 30], maxZoom: it.t === "Lugar" ? 17 : 15 }); else lm.setView([it.lat, it.lng], 15); },
+      getSource: n => ({ setData: fc => { if (grp[n]) { lm.removeLayer(grp[n]); grp[n] = null; } if (!fc.features.length) return; if (n === "sel") { grp[n] = L.geoJSON(fc, { style: () => ({ color: "#f59e0b", weight: 4, fill: false }), pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 10, color: "#f59e0b", weight: 3, fillColor: "#f59e0b", fillOpacity: .15 }) }).addTo(lm); return; }
+        grp[n] = L.geoJSON(fc, { renderer: rend, style: f => n === "lin" ? { color: f.properties.c, weight: 3, opacity: f.properties.o } : { color: f.properties.c, weight: .6, fillColor: f.properties.c, fillOpacity: .82 }, pointToLayer: (f, ll) => L.circleMarker(ll, { renderer: rend, radius: 3, color: f.properties.c, fillColor: f.properties.c, fillOpacity: .85, weight: 0 }), onEachFeature: (f, l) => { if (f.properties.vt) l.on("click", e => { pop(f, e.latlng); mlSel(f.geometry, f.properties, e.latlng); }); } }).addTo(lm); } }) };
     const bt = document.createElement("button"); bt.type = "button"; bt.className = "dl-mlretry"; bt.textContent = "Reintentar 3D"; bt.title = "Vuelve a intentar abrir el mapa en 3D"; bt.onclick = () => { const e0 = ML.el; ML.plano = false; ML.listo = false; ML.map = null; ML.el = null; ML.vista = ""; if (e0) e0.remove(); try { mlSync(); } catch (_) { } }; el.querySelector(".dl-mlbar").insertBefore(bt, el.querySelector(".dl-mlmsg"));
     ML.map = m; el._map = m; ML.listo = true; lm.on("moveend", () => { clearTimeout(ML.t); ML.t = setTimeout(() => mlCarga(false), 350); }); mlCarga(true);
+  }
+  /* ═══ Comparación jerárquica (boxplots) y buscador de lugares del mapa de la malla ═══
+     Los boxplots comparan el valor del polígono elegido con la distribución de cada nivel (unidad en pantalla · AGEB · municipio · entidad). Mismo diseño que el boxplot de Geo Lab, en versión compacta. */
+  const mlSpec = d => d.t === "mg" ? (d.cat ? null : d.s) : d.t === "ag" ? d.v : d.t === "wc" ? (d.v === "cons" ? "sk" : "sv") : null;
+  const mlQ21 = a => { const s = a.filter(x => x != null && isFinite(x)).sort((x, y) => x - y), n = s.length; if (n < 5) return null; const o = []; for (let i = 0; i <= 20; i++) { const p = i / 20 * (n - 1), l = Math.floor(p), f = p - l; o.push(s[l] + (s[Math.min(n - 1, l + 1)] - s[l]) * f); } return o; };
+  const mlPct = (q, v) => { if (v <= q[0]) return 0; if (v >= q[20]) return 100; for (let i = 1; i <= 20; i++) if (v <= q[i]) { const a = q[i - 1], b = q[i]; return Math.round(5 * (i - 1) + 5 * (b === a ? .5 : (v - a) / (b - a))); } return 100; };
+  const mlFv = (d, v) => v == null || !isFinite(v) ? "—" : gN(Math.abs(v) < 10 ? Math.round(v * 10) / 10 : Math.round(v)) + (d.u ? " " + d.u : "");
+  function mlBxRow(d, nom, sub, q, ref) {
+    if (!q) return `<div class="dl-mlbr"><div class="dl-mlbh"><b>${nom}</b><span>sin datos</span></div></div>`;
+    const c1 = q[5], c3 = q[15], iq = c3 - c1, wl = Math.max(q[0], c1 - 1.5 * iq), wh = Math.min(q[20], c3 + 1.5 * iq), has = ref != null && isFinite(ref); let lo = wl, hi = wh; if (has) { lo = Math.min(lo, ref); hi = Math.max(hi, ref); }
+    const sp = (hi - lo) || 1, pc = x => Math.max(0, Math.min(100, (x - lo) / sp * 100)), per = has ? mlPct(q, ref) : null, col = per == null ? "#64748b" : per >= 75 ? "#ea580c" : per <= 25 ? "#2563eb" : "#16a34a";
+    const caja = `<i style="position:absolute;left:${pc(wl)}%;width:${Math.max(.5, pc(wh) - pc(wl))}%;top:9px;height:2px;background:#94a3b8"></i><i style="position:absolute;left:${pc(wl)}%;top:5px;width:2px;height:10px;background:#94a3b8"></i><i style="position:absolute;left:calc(${pc(wh)}% - 2px);top:5px;width:2px;height:10px;background:#94a3b8"></i>`
+      + `<i style="position:absolute;left:${pc(c1)}%;width:${Math.max(1.2, pc(c3) - pc(c1))}%;top:3px;height:14px;border:1.5px solid #64748b;border-radius:3px;background:#cbd5e1aa;box-sizing:border-box" title="Q1 ${esc(mlFv(d, c1))} · Q3 ${esc(mlFv(d, c3))}"></i><i style="position:absolute;left:calc(${pc(q[10])}% - 1px);top:3px;width:2px;height:14px;background:#0f172a" title="Mediana ${esc(mlFv(d, q[10]))}"></i>`
+      + (has ? `<i style="position:absolute;left:calc(${pc(ref)}% - 7px);top:3px;width:14px;height:14px;border-radius:50%;background:${col};border:2px solid #fff;box-shadow:0 0 0 2px ${col},0 1px 3px rgba(0,0,0,.35);box-sizing:border-box;z-index:2" title="${esc(nom)}: ${esc(mlFv(d, ref))}"></i>` : "");
+    return `<div class="dl-mlbr"><div class="dl-mlbh"><b>${nom}</b><span>${sub}</span>${has ? `<em style="color:${col}">${esc(mlFv(d, ref))} · P${per}</em>` : ""}</div><div class="dl-mlbk">${caja}</div></div>`;
+  }
+  function mlBxRender() {
+    const P = ML.el && ML.el.querySelector(".dl-mlbx"); if (!P) return; const d = ML_D[ML.k], sp = mlSpec(d), cl = P.classList.contains("cl"), S = ML.bsel;
+    const cab = `<div class="dl-mlbt" data-bxt><span>Comparación · ${esc(d.n)}</span><u>${cl ? "▸" : "▾"}</u></div>`; let cuerpo = "";
+    if (!sp) cuerpo = '<div class="dl-mlbn">Este indicador no se resume por AGEB, así que no tiene comparación por municipio ni entidad.</div>';
+    else if (!ML.box || ML.box.sp !== sp) cuerpo = '<div class="dl-mlbn">Cargando comparación…</div>';
+    else {
+      const b = ML.box, nv = ML.nivAct, un = nv === "hex" ? "Hexágonos" : nv === "mza" ? "Manzanas" : "", aRef = S && (nv === "hex" || nv === "mza" ? (S.ageb && S.ageb.valor) : S.v), rows = [];
+      if (un) rows.push(mlBxRow(d, un + " en pantalla", ML.loc ? "n = " + gN(ML.locN) : "", ML.loc, S ? S.v : null));
+      rows.push(mlBxRow(d, "AGEB", "todo el país · n = " + gN(b.ageb.n), b.ageb.q, aRef));
+      rows.push(mlBxRow(d, "Municipio" + (S && S.mun ? " · " + esc(S.mun.n) : ""), (b.suma ? "total" : "promedio") + " · n = " + gN(b.mun.n), b.mun.q, S && S.mun ? S.mun.valor : null));
+      rows.push(mlBxRow(d, "Entidad" + (S && S.ent ? " · " + esc(S.ent.n) : ""), (b.suma ? "total" : "promedio") + " · n = " + gN(b.ent.n), b.ent.q, S && S.ent ? S.ent.valor : null));
+      cuerpo = rows.join("") + (S ? "" : '<div class="dl-mlbn">Haz clic en un polígono para ubicarlo en cada nivel.</div>');
+    }
+    P.innerHTML = cab + '<div class="dl-mlbb">' + cuerpo + "</div>";
+  }
+  async function mlBxCarga() {
+    const d = ML_D[ML.k], sp = mlSpec(d); if (!sp) { ML.box = null; mlBxRender(); return; } if (ML.box && ML.box.sp === sp) { mlBxRender(); return; } ML.box = null; mlBxRender();
+    try { const j = await api("/geometrika/malla/box?v=" + sp); if (mlSpec(ML_D[ML.k]) === sp && j.ok) { ML.box = j; mlBxRender(); } } catch (_) { }
+  }
+  function mlSetSel(f) { const m = ML.map; if (!m || !ML.listo) return; try { m.getSource("sel").setData({ type: "FeatureCollection", features: f ? [f] : [] }); } catch (_) { } }
+  async function mlSel(geom, props, ll) {
+    const d = ML_D[ML.k], sp = mlSpec(d), S = { v: props && typeof props.v === "number" ? props.v : null, geom, t: props && props.t }; ML.bsel = S; mlSetSel(geom ? { type: "Feature", geometry: geom, properties: {} } : null); mlBxRender(); if (!sp || !ll) return;
+    try { const j = await api(`/geometrika/malla/punto?lat=${(ll.lat).toFixed(5)}&lng=${(ll.lng).toFixed(5)}&v=${sp}`); if (ML.bsel === S && j.ok) { S.ageb = j.ageb; S.mun = j.mun; S.ent = j.ent; mlBxRender(); } } catch (_) { }
+  }
+  function mlIr(it) {
+    const m = ML.map; if (!m) return; if (m.ir) return m.ir(it); const bb = it.bb;
+    if (bb && bb[2] - bb[0] > 1e-4 && bb[3] - bb[1] > 1e-4) m.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: 30, maxZoom: it.t === "Lugar" ? 16 : 14, duration: 900 }); else m.easeTo({ center: [it.lng, it.lat], zoom: 14, duration: 900 });
+  }
+  function mlBuscador(el) {
+    const inp = el.querySelector(".dl-mlsr input"), lst = el.querySelector(".dl-mlsl"); let tm = null, seq = 0; if (!inp) return;
+    const cierra = () => { lst.innerHTML = ""; lst.style.display = "none"; };
+    inp.addEventListener("input", () => { clearTimeout(tm); const q = inp.value.trim(); if (q.length < 2) return cierra(); tm = setTimeout(async () => { const s = ++seq; lst.style.display = ""; lst.innerHTML = '<div class="dl-mlsn">Buscando…</div>';
+      try { const j = await api("/geometrika/malla/buscar?q=" + encodeURIComponent(q)); if (s !== seq) return; const L = j.items || []; lst.innerHTML = L.length ? L.map((it, i) => `<button type="button" data-i="${i}"><b>${esc(it.n)}</b><span>${esc(it.t)}${it.d ? " · " + esc(it.d) : ""}</span></button>`).join("") : '<div class="dl-mlsn">Sin resultados</div>'; lst._it = L; } catch (_) { if (s === seq) lst.innerHTML = '<div class="dl-mlsn">No se pudo buscar</div>'; } }, 350); });
+    lst.addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (!b) return; const it = (lst._it || [])[+b.dataset.i]; if (!it) return; inp.value = it.n; cierra(); mlIr(it); });
+    inp.addEventListener("keydown", e => { if (e.key === "Escape") cierra(); if (e.key === "Enter") { const b = lst.querySelector("[data-i]"); if (b) b.click(); } });
+    document.addEventListener("click", e => { if (!el.contains(e.target) || !e.target.closest(".dl-mlsr")) cierra(); });
+    el.addEventListener("click", e => { if (e.target.closest("[data-bxt]")) { el.querySelector(".dl-mlbx").classList.toggle("cl"); mlBxRender(); } });
   }
   function mlHost() {
     if (ML.el && ML.el.isConnected) return ML.el; const main = $("#dlMain", host); if (!main) return null; main.style.position = "relative";
     const el = document.createElement("div"); el.id = "dlMlHost"; el.style.display = "none";
-    el.innerHTML = `<div class="dl-mlbar"><div class="dl-mlniv" role="group" aria-label="Nivel">${Object.keys(ML_NIV).map(k => `<button type="button" data-mln="${k}">${ML_NIV[k]}</button>`).join("")}</div><b class="dl-mlvar"></b><span class="dl-mlmsg"></span></div><div class="dl-mlmap"></div><div class="dl-mlleg"></div>`;
-    main.appendChild(el); ML.el = el; ML.map = null; ML.listo = false; mlBot();
+    el.innerHTML = `<div class="dl-mlbar"><div class="dl-mlsr"><input type="search" placeholder="Buscar ciudad, municipio o lugar…" aria-label="Buscar lugar" autocomplete="off"><div class="dl-mlsl" style="display:none"></div></div><div class="dl-mlniv" role="group" aria-label="Nivel">${Object.keys(ML_NIV).map(k => `<button type="button" data-mln="${k}">${ML_NIV[k]}</button>`).join("")}</div><b class="dl-mlvar"></b><span class="dl-mlmsg"></span></div><div class="dl-mlmap"></div><div class="dl-mlleg"></div><div class="dl-mlbx"></div>`;
+    main.appendChild(el); ML.el = el; ML.map = null; ML.listo = false; mlBot(); mlBuscador(el); mlBxRender();
     el.querySelector(".dl-mlniv").addEventListener("click", e => { const b = e.target.closest("[data-mln]"); if (!b || b.classList.contains("no")) return; ML.niv = b.dataset.mln; mlBot(); mlCarga(true); });
     mlLib().then(async () => {
       if (!mlGL()) { await new Promise(r => setTimeout(r, 1500)); if (!mlGL()) return mlPlano(el); }   /* un reintento: el WebGL puede estar ocupado un instante */
       const m = new maplibregl.Map({ container: el.querySelector(".dl-mlmap"), style: { version: 8, sources: { base: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 16, attribution: "Esri · INEGI" } }, layers: [{ id: "base", type: "raster", source: "base" }] }, center: [-102.3, 23.8], zoom: 4.2, maxPitch: 70, attributionControl: { compact: true } });
       m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); ML.map = m; el._map = m;
       m.on("load", () => {
-        const vacio = { type: "FeatureCollection", features: [] }; ["nac", "pol", "lin"].forEach(s => m.addSource(s, { type: "geojson", data: vacio }));
+        const vacio = { type: "FeatureCollection", features: [] }; ["nac", "pol", "lin", "sel"].forEach(s => m.addSource(s, { type: "geojson", data: vacio }));
         m.addLayer({ id: "nac", type: "circle", source: "nac", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 8, 2.6, 11, 6], "circle-color": ["get", "c"], "circle-opacity": .8 } });
         m.addLayer({ id: "pol", type: "fill-extrusion", source: "pol", paint: { "fill-extrusion-color": ["get", "c"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": .82 } });
         m.addLayer({ id: "lin", type: "line", source: "lin", layout: { "line-cap": "round" }, paint: { "line-color": ["get", "c"], "line-width": ["interpolate", ["linear"], ["zoom"], 13, 1.5, 16, 5, 18, 9], "line-opacity": ["get", "o"] } });
+        m.addLayer({ id: "selL", type: "line", source: "sel", filter: ["!=", "$type", "Point"], paint: { "line-color": "#f59e0b", "line-width": 4 } }); m.addLayer({ id: "selP", type: "circle", source: "sel", filter: ["==", "$type", "Point"], paint: { "circle-radius": 10, "circle-color": "rgba(245,158,11,.15)", "circle-stroke-color": "#f59e0b", "circle-stroke-width": 3 } });
         ML.listo = true; mlCarga(true);
         m.on("moveend", () => { clearTimeout(ML.t); ML.t = setTimeout(() => mlCarga(false), 350); });
-        m.on("click", e => { const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["lin", "pol", "nac"] })[0]; if (!f || !f.properties.vt) return; new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(`<b>${esc(f.properties.t || "")}</b><br>${esc(ML_D[ML.k].n)}: <b>${esc(f.properties.vt)}</b>`).addTo(m); });
+        m.on("click", e => { const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["lin", "pol", "nac"] })[0]; if (!f) { ML.bsel = null; mlSetSel(null); mlBxRender(); return; } if (!f.properties.vt) return; mlSel(f.geometry, f.properties, e.lngLat); new maplibregl.Popup({ closeButton: false }).setLngLat(e.lngLat).setHTML(`<b>${esc(f.properties.t || "")}</b><br>${esc(ML_D[ML.k].n)}: <b>${esc(f.properties.vt)}</b>`).addTo(m); });
       });
     }).catch(er => { if (!ML.map) mlPlano(el).catch(e2 => { const g = el.querySelector(".dl-mlmsg"); if (g) g.textContent = e2.message || er.message; }); else { const g = el.querySelector(".dl-mlmsg"); if (g) g.textContent = er.message; } });
     return el;
@@ -964,6 +1019,7 @@
     let niv = ML.niv === "auto" || !dispOf(d).includes(ML.niv) ? auto : ML.niv, aviso = ""; const min = { ageb: 9, hex: eco ? 12.2 : 11.2, mza: 14, c90: 10.8 }[niv], nomNiv = niv === "c90" ? "celdas de 90 m" : niv === "mza" && d.t === "eu" && d.m !== "nse" ? "frentes de manzana" : (ML_NIV[niv] || "").toLowerCase();
     if (niv !== "nac" && z < min) { aviso = "Acércate más para ver " + nomNiv + " (doble clic en el mapa)."; niv = "nac"; }
     const b = m.getBounds(), r = Math.max(1500, Math.round(c.distanceTo(b.getNorthEast()))), vista = [niv, ML.k, c.lat.toFixed(niv === "nac" ? 0 : 3), c.lng.toFixed(niv === "nac" ? 0 : 3), Math.round(z * 2)].join("|"); if (!forzar && vista === ML.vista) return; ML.vista = vista; const sec = ++ML.sec;
+    if (ML.nivAct !== niv && ML.bsel) { ML.bsel = null; mlSetSel(null); } ML.nivAct = niv; ML.loc = null; mlBxCarga();
     const vacio = { type: "FeatureCollection", features: [] }, pon = (fuente, F) => { if (sec !== ML.sec) return false; ["nac", "pol", "lin"].forEach(s => m.getSource(s).setData(s === fuente ? { type: "FeatureCollection", features: F } : vacio)); return true; };
     const q5 = `lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}`, kx = 111320 * Math.cos(c.lat * Math.PI / 180), ll = (x, y) => [c.lng + x / kx, c.lat + y / 111320], anillo = p => { const o = []; for (let i = 0; i + 1 < p.length; i += 2) o.push(ll(p[i], p[i + 1])); if (o.length < 3) return null; o.push(o[0]); return o; };
     const pol = (ring, v, t) => ({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: { v, t } }), red = v => v != null && isFinite(v) ? Math.round(v * 100) / 100 : null;
@@ -1015,6 +1071,7 @@
           else { if (e < 5) continue; const k = e - A00[i] >= 7 ? 1 : A75[i] >= 25 ? 3 : e >= 25 ? 2 : 0; P.v = k; P.c = ML_ETA[k][1]; P.h = 6 * e; P.vt = ML_ETA[k][0]; }
           F.push(f); }
         mlLeg(d.v === "edif" ? ML_CAFE.map((c2, i) => [c2, i === 4 ? "≥ 56 % edificado" : i * 14 + " – " + (i + 1) * 14 + " %"]) : d.v === "crec" ? [["#cbd5e1", "Sin cambio (< 3 puntos)"]].concat([1, 2, 3, 4].map(i => [ML_CAFE[i], i === 4 ? "+45 puntos o más" : "+" + Math.max(3, (i - 1) * 15) + " a +" + i * 15 + " puntos"])) : ML_ETA.map(e => [e[1], e[0]])); }
+      if ((niv === "hex" || niv === "mza") && mlSpec(d)) { const vs = F.map(f => f.properties.v); ML.loc = mlQ21(vs); ML.locN = vs.length; } mlBxRender();
       if (!pon(fuente, F)) return; if (m.getPitch() < 30) m.easeTo({ pitch: 52, duration: 700 }); msg(F.length ? F.length.toLocaleString("es-MX") + " " + nomNiv + " en esta zona" + nota : "No hay " + nomNiv + " con dato en esta zona.");
     } catch (er) { if (sec === ML.sec) { pon("pol", []); mlLeg([]); msg(er.message || "No se pudo cargar esta zona."); } }
   }
@@ -1023,7 +1080,7 @@
     const el = mlHost(); if (!el) return; const sx = slot.closest("details"); if ((sx && !sx.open) || !slot.getClientRects().length) { if (el.style.display !== "none") el.style.display = "none"; return; }
     const a = slot.getBoundingClientRect(), b = main.getBoundingClientRect(), st = el.style, top = Math.round(a.top - b.top + main.scrollTop) + "px", left = Math.round(a.left - b.left + main.scrollLeft) + "px", w = Math.round(a.width) + "px", h = Math.round(a.height) + "px";
     let cambio = st.display === "none" || st.width !== w || st.height !== h; if (st.display === "none") st.display = ""; if (st.top !== top) st.top = top; if (st.left !== left) st.left = left; if (st.width !== w) st.width = w; if (st.height !== h) st.height = h;
-    if (cambio && ML.map) ML.map.resize(); const k = ML_D[slot.dataset.v] ? slot.dataset.v : "dem:pob"; if (k !== ML.k) { ML.k = k; mlBot(); if (ML.map && ML.listo) { ["nac", "pol", "lin"].forEach(x => ML.map.getSource(x).setData({ type: "FeatureCollection", features: [] })); mlLeg([]); } mlCarga(true); }
+    if (cambio && ML.map) ML.map.resize(); const k = ML_D[slot.dataset.v] ? slot.dataset.v : "dem:pob"; if (k !== ML.k) { ML.k = k; ML.bsel = null; mlSetSel(null); mlBot(); mlBxCarga(); if (ML.map && ML.listo) { ["nac", "pol", "lin"].forEach(x => ML.map.getSource(x).setData({ type: "FeatureCollection", features: [] })); mlLeg([]); } mlCarga(true); }
   }
   if (!window._dlMlInt) { window._dlMlInt = 1; setInterval(() => { try { mlSync(); } catch (_) { } }, 180); }
   /* boxplot dibujado en la ficha de Data Lab (series de tiempo: su propia historia o los demás estados o ciudades) */
