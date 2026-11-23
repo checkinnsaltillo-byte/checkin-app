@@ -210,11 +210,11 @@
     if (!A) return h;
     if (A.err) return h + `<div class="mo-av alto"><div class="c">${esc(A.err)}</div></div>`;
     const op = (sel, vacio) => (vacio ? `<option value="-1">${vacio}</option>` : "") + A.cols.map((c, i) => `<option value="${i}"${sel === i ? " selected" : ""}>${esc(c)}</option>`).join("");
-    h += `<div class="mo-fa"><b>${esc(A.nombre)}</b> · ${gN(A.rows.length, 0)} filas · ${A.cols.length} columnas</div>
-      <p class="mo-mut">La tabla muestra las ${A.cols.length} columnas y las primeras 8 filas: desliza hacia los lados para verlas todas.</p><div class="mo-tw mo-twp"><table class="mo-t mo-prev"><thead><tr>${A.cols.map((c, i) => i === A.ilat || i === A.ilng ? `<th class="mo-thc geo"><span class="mo-thg">${i === A.ilat ? "LATITUD" : "LONGITUD"}</span> ${esc(c)}</th>` : i === A.iy ? `<th class="mo-thc geo y"><span class="mo-thg">A MODELAR</span> ${esc(c)}</th>` : `<th class="mo-thc${A.extra.includes(i) ? " on" : ""}" data-wzex="${i}" title="Usar como variable">${ck(A.extra.includes(i))} ${esc(c)}</th>`).join("")}</tr></thead><tbody>${A.rows.slice(0, 8).map(r => `<tr>${A.cols.map((_, i) => `<td>${esc(r[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    h += `<div class="mo-fa"><b>${esc(A.nombre)}</b> · ${gN(A.rows.length, 0)} filas · ${A.cols.length} columnas</div>${wzFiltHtml(A)}
+      <p class="mo-mut">La tabla muestra las ${A.cols.length} columnas y las primeras 8 filas: desliza hacia los lados para verlas todas.</p><div class="mo-tw mo-twp"><table class="mo-t mo-prev"><thead><tr>${A.cols.map((c, i) => i === A.ilat || i === A.ilng ? `<th class="mo-thc geo"><span class="mo-thg">${i === A.ilat ? "LATITUD" : "LONGITUD"}</span> ${esc(c)}</th>` : i === A.iy ? `<th class="mo-thc geo y"><span class="mo-thg">A MODELAR</span> ${esc(c)}</th>` : `<th class="mo-thc${A.extra.includes(i) ? " on" : ""}" data-wzex="${i}" title="Usar como variable">${ck(A.extra.includes(i))} ${esc(c)}</th>`).join("")}</tr></thead><tbody>${filasVis(A).slice(0, 8).map(r => `<tr>${A.cols.map((_, i) => `<td>${esc(r[i])}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${A.cols.length}" class="mo-mut">Ninguna fila coincide con los filtros.</td></tr>`}</tbody></table></div>
       <div class="mo-g3" style="grid-template-columns:repeat(4,minmax(0,1fr))"><label class="mo-fl">Columna de latitud<select class="mo-in" id="wzLat">${op(A.ilat, "— elegir —")}</select></label><label class="mo-fl">Columna de longitud<select class="mo-in" id="wzLng">${op(A.ilng, "— elegir —")}</select></label><label class="mo-fl">Nombre o identificador (opcional)<select class="mo-in" id="wzId">${op(A.iid, "— ninguno —")}</select></label><label class="mo-fl">Variable a modelar (opcional)<select class="mo-in" id="wzY">${op(A.iy, "— ninguna —")}</select></label></div>
       <p class="mo-mut">Marca en el encabezado de cada columna las que quieras usar como variables (opcional) · <b id="wzExN">${A.extra.length}</b> de ${A.cols.length - (A.ilat >= 0 ? 1 : 0) - (A.ilng >= 0 ? 1 : 0)} marcadas.</p>
-      <div class="mo-chs"><button type="button" class="mo-new" data-wz="usaarch">Usar ${gN(A.rows.length, 0)} filas como puntos</button><button type="button" class="mo-ghost" data-wzex="todas">Marcar todas</button><button type="button" class="mo-ghost" data-wzex="ninguna">Quitar todas</button></div>`;
+      <div class="mo-chs"><button type="button" class="mo-new" data-wz="usaarch">Usar ${gN(visN(A), 0)} filas como puntos</button><button type="button" class="mo-ghost" data-wzex="todas">Marcar todas</button><button type="button" class="mo-ghost" data-wzex="ninguna">Quitar todas</button></div>`;
     return h;
   };
   const SC_S = () => (S.scian && S.scian.s) || {}, SC_SS = () => (S.scian && S.scian.ss) || {};
@@ -344,6 +344,34 @@
     if (ilat < 0 || ilng < 0) { const s = rows.slice(0, 200); cols.forEach((_, i) => { const v = s.map(r => numV(r[i])).filter(x => x != null); if (v.length < s.length * .8) return; if (ilat < 0 && v.every(x => x >= 14 && x <= 33.5)) ilat = i; else if (ilng < 0 && v.every(x => x >= -119 && x <= -85)) ilng = i; }); }
     return [ilat, ilng];
   }
+  /* ── filtros de las filas del archivo (arriba de la tabla): por valores, rango numérico o texto; solo las filas que coinciden se usan como puntos ── */
+  const FMAXV = 60;
+  function wzCS(A, i) {
+    A.cs = A.cs || {}; if (A.cs[i]) return A.cs[i]; const m = new Map(); let n = 0, nn = 0, mn = Infinity, mx = -Infinity;
+    A.rows.forEach(r => { const t = r[i]; if (t === "" || t == null) return; n++; const x = numV(t); if (x != null) { nn++; if (x < mn) mn = x; if (x > mx) mx = x; } const k = String(t); m.set(k, (m.get(k) || 0) + 1); });
+    const uni = m.size, num = n > 0 && nn >= n * .9, tipo = uni <= 20 || (uni <= FMAXV && !num) ? "cat" : num ? "num" : "txt";
+    return A.cs[i] = { tipo, uni, n, mn, mx, vals: tipo === "cat" ? [...m].sort((a, b) => num ? numV(a[0]) - numV(b[0]) : b[1] - a[1]) : [] };
+  }
+  const fOk = (f, r) => { const t = r[f.i], v = t == null ? "" : String(t); if (f.tipo === "cat") return f.sel.has(v); if (f.tipo === "num") { const x = numV(t); return x != null && (f.min == null || x >= f.min) && (f.max == null || x <= f.max); } return v.toLowerCase().includes(String(f.q || "").toLowerCase()); };
+  const fValido = f => f.tipo === "cat" ? f.sel.size > 0 : f.tipo === "num" ? (f.min != null || f.max != null) : !!String(f.q || "").trim();
+  function visIdx(A, extra) { const fs = (A.f || []).concat(extra && fValido(extra) ? [extra] : []); if (!fs.length) return null; const o = []; A.rows.forEach((r, k) => { if (fs.every(f => fOk(f, r))) o.push(k); }); return o; }
+  const filasVis = A => { const v = A._vis !== undefined ? A._vis : (A._vis = visIdx(A)); return v ? v.map(k => A.rows[k]) : A.rows; }, visN = A => { const v = A._vis !== undefined ? A._vis : (A._vis = visIdx(A)); return v ? v.length : A.rows.length; };
+  const fDesc = (A, f) => f.tipo === "cat" ? [...f.sel].slice(0, 3).join(", ") + (f.sel.size > 3 ? " +" + (f.sel.size - 3) : "") : f.tipo === "num" ? (f.min != null ? "≥ " + gN(f.min) : "") + (f.min != null && f.max != null ? " y " : "") + (f.max != null ? "≤ " + gN(f.max) : "") : "contiene «" + f.q + "»";
+  function wzFiltHtml(A) {
+    A.f = A.f || []; const nAll = A.rows.length, n = visN(A), fe = A.fe;
+    const chips = A.f.map((f, k) => `<span class="mo-c on"><b>${esc(A.cols[f.i])}</b>: ${esc(fDesc(A, f))} <button type="button" data-wzfrm="${k}" aria-label="Quitar filtro">×</button></span>`).join("");
+    let ed = ""; if (fe) { const cs = wzCS(A, fe.i), pre = visIdx(A, fe), nPre = pre ? pre.length : n, vq = (fe.vq || "").toLowerCase();
+      const cuerpo = fe.tipo === "cat" ? `<input id="wzFvq" class="mo-in" placeholder="Buscar valor…" value="${esc(fe.vq || "")}"><div class="mo-chs mo-fvals" id="wzFvals">${wzFvals(A, fe)}</div><div class="mo-chs"><button type="button" class="mo-ghost" data-wzfall="1">Marcar todos los visibles</button><button type="button" class="mo-ghost" data-wzfnone="1">Quitar todos</button></div>`
+        : fe.tipo === "num" ? `<div class="mo-g3" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:420px"><label class="mo-fl">Mínimo<input id="wzFmin" class="mo-in" inputmode="decimal" placeholder="${gN(cs.mn)}" value="${fe.min == null ? "" : fe.min}"></label><label class="mo-fl">Máximo<input id="wzFmax" class="mo-in" inputmode="decimal" placeholder="${gN(cs.mx)}" value="${fe.max == null ? "" : fe.max}"></label></div><p class="mo-mut">Rango en el archivo: ${gN(cs.mn)} a ${gN(cs.mx)}.</p>`
+        : `<label class="mo-fl">La columna contiene<input id="wzFq" class="mo-in" placeholder="Texto a buscar" value="${esc(fe.q || "")}"></label>`;
+      ed = `<div class="mo-fe"><label class="mo-fl" style="max-width:340px">Columna<select id="wzFcol" class="mo-in">${A.cols.map((c, i) => `<option value="${i}"${i === fe.i ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></label><small class="mo-mut">${fe.tipo === "cat" ? "Elige uno o varios valores." : fe.tipo === "num" ? "Número: filtra por rango." : "Texto con muchos valores distintos: filtra por coincidencia."}</small>${cuerpo}<div class="mo-chs"><b id="wzFn" class="mo-mut">${gN(nPre, 0)} filas coinciden</b><button type="button" class="mo-new" data-wzfok="1">Aplicar filtro</button><button type="button" class="mo-ghost" data-wzfno="1">Cancelar</button></div></div>`; }
+    return `<div class="mo-fb" id="wzFilt"><div class="mo-fbh"><b>Filtros</b><span class="mo-mut"><b>${gN(n, 0)}</b> de ${gN(nAll, 0)} filas coinciden</span><span class="mo-sp"></span>${A.f.length ? '<button type="button" class="mo-ghost" data-wzfclear="1">Quitar filtros</button>' : ""}${fe ? "" : '<button type="button" class="mo-new" data-wzfadd="1">＋ Agregar filtro</button>'}</div>${chips ? `<div class="mo-chs">${chips}</div>` : ""}${ed}</div>`;
+  }
+  const wzFvals = (A, fe) => { const cs = wzCS(A, fe.i), vq = (fe.vq || "").toLowerCase(), L = cs.vals.map((v, k) => [v, k]).filter(([v]) => !vq || v[0].toLowerCase().includes(vq)).slice(0, 300); return L.map(([v, k]) => `<button type="button" class="mo-c${fe.sel.has(v[0]) ? " on" : ""}" data-wzfv="${k}">${ck(fe.sel.has(v[0]))} ${esc(v[0] === "" ? "(vacío)" : v[0])} <small>${gN(v[1], 0)}</small></button>`).join("") || '<span class="mo-mut">Sin valores.</span>'; };
+  function wzFiltNuevo(A, i) { const cs = wzCS(A, i); return { i, tipo: cs.tipo, sel: new Set(), min: null, max: null, q: "", vq: "" }; }
+  function wzFiltRe(W) { const A = W.arch, el = $("#wzFilt"); if (!el) return wzRe(); const t = $(".mo-twp"), sl = t ? t.scrollLeft : 0, y = $("#moMain").scrollTop; el.outerHTML = wzFiltHtml(A); const t2 = $(".mo-twp"); if (t2) t2.scrollLeft = sl; $("#moMain").scrollTop = y; }
+  function wzFiltAplica(W) { A_ = W.arch; A_._vis = undefined; const t = $(".mo-twp"), sl = t ? t.scrollLeft : 0, y = $("#moMain").scrollTop; wzRe(); const t2 = $(".mo-twp"); if (t2) t2.scrollLeft = sl; $("#moMain").scrollTop = y; }
+  let A_ = null;
   async function wzArchivo(file) {
     const W = S.wiz; W.arch = { nombre: file.name, cols: [], rows: [], ilat: -1, ilng: -1, iid: -1, iy: -1, extra: [] }; const ext = (file.name.split(".").pop() || "").toLowerCase();
     try { let tabla;
@@ -357,8 +385,8 @@
   function usaArchivo(W) {
     const A = W.arch; if (A.ilat < 0 || A.ilng < 0) { W.msg = "Elige las columnas de latitud y longitud."; return wzRe(); }
     if (A.iy >= 0 && !A.extra.includes(A.iy)) A.extra.push(A.iy); W.yVar = A.iy >= 0 && A.iy !== A.ilat && A.iy !== A.ilng ? slug(A.cols[A.iy]) : null; const ex = A.extra.filter(i => i !== A.ilat && i !== A.ilng), cols = ex.map(i => { const v = A.rows.map(r => numV(r[i])).filter(x => x != null); const tipo = v.length >= A.rows.filter(r => r[i] !== "" && r[i] != null).length * .9 && v.length ? "num" : "cat"; return { name: slug(A.cols[i]), label: String(A.cols[i]), tipo }; });
-    const puntos = []; A.rows.forEach((r, k) => { const lat = numV(r[A.ilat]), lng = numV(r[A.ilng]); if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) return; const q = { lat, lng, id: A.iid >= 0 && r[A.iid] != null && r[A.iid] !== "" ? String(r[A.iid]).slice(0, 80) : "F" + (k + 1), x: {} }; ex.forEach((i, j) => { q.x[cols[j].name] = cols[j].tipo === "num" ? numV(r[i]) : (r[i] == null || r[i] === "" ? null : String(r[i]).slice(0, 120)); }); puntos.push(q); });
-    if (!puntos.length) { W.msg = "Ninguna fila tiene coordenadas válidas."; return wzRe(); } W.puntos = puntos; W.columnas = cols; W.fuente = "archivo"; W.msg = puntos.length < A.rows.length ? `Se omitieron ${A.rows.length - puntos.length} filas sin coordenadas válidas.` : ""; wzRe(); toast(`${gN(puntos.length, 0)} puntos cargados.`);
+    const puntos = []; (visIdx(A) || A.rows.map((_, k) => k)).forEach(k => { const r = A.rows[k], lat = numV(r[A.ilat]), lng = numV(r[A.ilng]); if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) return; const q = { lat, lng, id: A.iid >= 0 && r[A.iid] != null && r[A.iid] !== "" ? String(r[A.iid]).slice(0, 80) : "F" + (k + 1), x: {} }; ex.forEach((i, j) => { q.x[cols[j].name] = cols[j].tipo === "num" ? numV(r[i]) : (r[i] == null || r[i] === "" ? null : String(r[i]).slice(0, 120)); }); puntos.push(q); });
+    if (!puntos.length) { W.msg = "Ninguna fila tiene coordenadas válidas."; return wzRe(); } W.puntos = puntos; W.columnas = cols; W.fuente = "archivo"; W.msg = puntos.length < visN(A) ? `Se omitieron ${visN(A) - puntos.length} filas sin coordenadas válidas.` : ""; wzRe(); toast(`${gN(puntos.length, 0)} puntos cargados.`);
   }
   async function denBusca(W) {
     const D = W.den; if (!D.ciudades.length) return; D.cargando = true; wzRe(); const cod = D.cod.split(/[,\s]+/).filter(c => /^\d{4,6}$/.test(c)), scian = cod.length ? cod : D.sub ? [D.sub] : D.sector ? [D.sector] : [];
@@ -397,6 +425,13 @@
       if (a === "geolab") { wzGeoLab(W); return true; } if (a === "usaarch") { usaArchivo(W); return true; } if (a === "denbusca") { denBusca(W); return true; } if (a === "usaden") { usaDenue(W); return true; } }
     if ((b = t.closest("[data-wzmb]"))) { wzMbElige(W, +b.dataset.wzmb); return true; }
     if ((b = t.closest("[data-wzmodo]"))) { W.modoP = b.dataset.wzmodo; wzRe(); return true; }
+    if ((b = t.closest("[data-wzfadd]")) && W.arch) { const A = W.arch, i0 = A.cols.findIndex((_, i) => i !== A.ilat && i !== A.ilng); A.fe = wzFiltNuevo(A, Math.max(0, i0)); wzFiltRe(W); return true; }
+    if ((b = t.closest("[data-wzfno]")) && W.arch) { W.arch.fe = null; wzFiltRe(W); return true; }
+    if ((b = t.closest("[data-wzfok]")) && W.arch) { const A = W.arch; if (A.fe && fValido(A.fe)) { A.f.push(A.fe); } A.fe = null; wzFiltAplica(W); return true; }
+    if ((b = t.closest("[data-wzfrm]")) && W.arch) { W.arch.f.splice(+b.dataset.wzfrm, 1); wzFiltAplica(W); return true; }
+    if ((b = t.closest("[data-wzfclear]")) && W.arch) { W.arch.f = []; W.arch.fe = null; wzFiltAplica(W); return true; }
+    if ((b = t.closest("[data-wzfv]")) && W.arch && W.arch.fe) { const A = W.arch, fe = A.fe, v = wzCS(A, fe.i).vals[+b.dataset.wzfv][0]; fe.sel.has(v) ? fe.sel.delete(v) : fe.sel.add(v); const on = fe.sel.has(v), k = b.querySelector(".mo-ck"); b.classList.toggle("on", on); if (k) { k.classList.toggle("on", on); k.textContent = on ? "✓" : ""; } const n = $("#wzFn"), pre = visIdx(A, fe); if (n) n.textContent = gN(pre ? pre.length : A.rows.length, 0) + " filas coinciden"; return true; }
+    if ((b = t.closest("[data-wzfall],[data-wzfnone]")) && W.arch && W.arch.fe) { const A = W.arch, fe = A.fe; if (b.dataset.wzfall) { const vq = (fe.vq || "").toLowerCase(); wzCS(A, fe.i).vals.forEach(v => { if (!vq || v[0].toLowerCase().includes(vq)) fe.sel.add(v[0]); }); } else fe.sel.clear(); wzFiltRe(W); return true; }
     if ((b = t.closest("[data-wzt]"))) { W.tab = b.dataset.wzt; W.msg = ""; wzRe(); const bar = $(".mo-tabs"); if (bar) bar.outerHTML = bar.outerHTML; return true; }
     if ((b = t.closest("[data-wzod]"))) { const k = b.dataset.wzod; if (k === "on") W.odOn = !W.odOn; else W.odModo = k; W.opt.od = !!(W.odOn && W.odModo === "google"); wzRe(); return true; }
     if ((b = t.closest("[data-wzopt]"))) { const k = b.dataset.wzopt; W.opt[k] = !W.opt[k]; wzRe(); return true; }
@@ -420,6 +455,9 @@
     const W = S.wiz, t = e.target, id = t.id; if (!W) return false;
     if (id === "wzNom" || id === "wzNomS") { W.nombre = t.value; return true; } if (id === "wzObj") { W.objetivo = t.value; return true; }
     if (id === "wzRad") { W.radio = +t.value; const v = $("#wzRadV"); if (v) v.textContent = W.radio + " m"; wzRadios(W); return true; } if (id === "wzFot") { W.fotos = +t.value; const v = $("#wzFotV"); if (v) v.textContent = W.fotos; return true; } if (id === "wzPre") { W.pre = +t.value; const v = $("#wzPreV"); if (v) v.textContent = W.pre; return true; }
+    if (W.arch && W.arch.fe && (id === "wzFvq" || id === "wzFq" || id === "wzFmin" || id === "wzFmax")) { const A = W.arch, fe = A.fe;
+      if (id === "wzFvq") { fe.vq = t.value; const v = $("#wzFvals"); if (v) v.innerHTML = wzFvals(A, fe); return true; } if (id === "wzFq") fe.q = t.value; else { const x = t.value.trim() === "" ? null : numV(t.value); if (id === "wzFmin") fe.min = x; else fe.max = x; }
+      const n = $("#wzFn"), pre = visIdx(A, fe); if (n) n.textContent = gN(pre ? pre.length : A.rows.length, 0) + " filas coinciden"; return true; }
     if (id === "wzQ") { W.den.q = t.value; return true; } if (id === "wzCod") { W.den.cod = t.value; return true; }
     if (id === "wzMb") { wzMbBusca(W, t.value); return true; }
     if (id === "wzBus") { busca(t, $("#wzBL"), "/geometrika/malla/buscar?q=", it => it.t + (it.d ? " · " + it.d : ""), it => { const m = W.gl; if (!m) return; const bb = it.bb; if (bb && bb[2] - bb[0] > 1e-4) m.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { maxZoom: 17 }); else m.setView([it.lat, it.lng], 16); t.value = it.n; }); return true; }
@@ -428,7 +466,7 @@
   }
   function wizCambia(e) {
     const W = S.wiz, t = e.target, id = t.id; if (!W) return false;
-    if (id === "wzFile") { if (t.files[0]) wzArchivo(t.files[0]); return true; } if (id === "wzVer") { W.simVer = t.value; return true; }
+    if (id === "wzFile") { if (t.files[0]) wzArchivo(t.files[0]); return true; } if (id === "wzVer") { W.simVer = t.value; return true; } if (id === "wzFcol" && W.arch && W.arch.fe) { W.arch.fe = wzFiltNuevo(W.arch, +t.value); wzFiltRe(W); return true; }
     if (id === "wzLat") { W.arch.ilat = +t.value; wzRe(); return true; } if (id === "wzLng") { W.arch.ilng = +t.value; wzRe(); return true; } if (id === "wzId") { W.arch.iid = +t.value; return true; } if (id === "wzY") { const A = W.arch; A.iy = +t.value; if (A.iy >= 0 && !A.extra.includes(A.iy)) A.extra.push(A.iy); const sc = $(".mo-twp"), sl = sc ? sc.scrollLeft : 0; wzRe(); const s2 = $(".mo-twp"); if (s2) s2.scrollLeft = sl; return true; }
     if (id === "wzSec") { W.den.sector = t.value; W.den.sub = ""; W.den.res = null; wzRe(); return true; } if (id === "wzSub") { W.den.sub = t.value; W.den.res = null; return true; }
     if (id === "wzTmin") { W.den.tmin = +t.value; if (W.den.tmax < W.den.tmin) W.den.tmax = W.den.tmin; wzRe(); return true; } if (id === "wzTmax") { W.den.tmax = +t.value; if (W.den.tmin > W.den.tmax) W.den.tmin = W.den.tmax; wzRe(); return true; }
