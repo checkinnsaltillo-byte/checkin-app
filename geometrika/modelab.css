@@ -418,3 +418,8 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-mbl button{all:unset;cursor:pointer;box-sizing:border-box;display:block;width:100%;padding:8px 10px;border-radius:8px}.mo-app .mo-mbl button:hover{background:#eef2ff}
 .mo-app .mo-mbl b{display:block;font:700 12.5px system-ui;color:var(--ink)}.mo-app .mo-mbl span{display:block;font:500 11px system-ui;color:var(--mut)}
 .mo-app .mo-mapw .mo-map{height:560px}@media(max-width:760px){.mo-app .mo-mapw .mo-map{height:440px}}
+/* franja de variable de respuesta */
+.mo-app .mo-yb{display:flex;flex-direction:column;gap:3px;margin:0 0 14px;padding:12px 16px;border-left:5px solid #4f46e5;background:#eef2ff;border-radius:0 12px 12px 0}
+.mo-app .mo-ybt{font:700 11px system-ui;letter-spacing:.06em;text-transform:uppercase;color:#4338ca}
+.mo-app .mo-yb>b{font:800 22px/1.2 system-ui;color:#1e1b4b}
+.mo-app .mo-ybd{font:500 13px/1.5 system-ui;color:#475569}.mo-app .mo-ybd b{color:#1e1b4b}
