@@ -361,3 +361,5 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-calt{flex:1;display:grid;gap:3px}.mo-app .mo-calt b{font:800 24px system-ui;color:#1e1b4b}.mo-app .mo-calt small{font:500 14px system-ui;color:#64748b}
 .mo-app .mo-calc{font-size:26px;color:#4f46e5;transition:transform .2s}.mo-app .mo-cal.on .mo-calc{transform:rotate(180deg)}
 .mo-app .mo-calx{padding:6px 26px 24px}.mo-app .mo-calx[hidden]{display:none}
+
+.mo-app .mo-rpb{display:flex;justify-content:flex-end;margin:6px 0 10px}
