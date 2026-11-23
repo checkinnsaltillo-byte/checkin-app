@@ -648,7 +648,8 @@
     if ((b = t.closest("[data-v]")) && S.sec === "variables") { const k = b.dataset.v, s = new Set(S.M.vars || []); s.has(k) ? s.delete(k) : s.add(k); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vg]"))) { const ks = b.dataset.vg.split("|").filter(Boolean), s = new Set(S.M.vars || []); ks.forEach(k => b.dataset.on === "1" ? s.add(k) : s.delete(k)); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vermod]"))) { S.resVer = b.dataset.vermod; secResultados(); return true; }
-    if ((b = t.closest("[data-jmp]"))) { const el = $(b.dataset.jmp === "cal" ? "#moSecCal" : "#moSecRes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
+    if ((b = t.closest("[data-calt]"))) { const sec = b.closest(".mo-cal"), x = $(".mo-calx", sec), ab = x.hidden; x.hidden = !ab; b.setAttribute("aria-expanded", String(ab)); sec.classList.toggle("on", ab); return true; }
+    if ((b = t.closest("[data-jmp]"))) { const el = $(b.dataset.jmp === "cal" ? "#moSecCal" : "#moSecRes"); if (b.dataset.jmp === "cal" && el) { const x = $(".mo-calx", el); if (x && x.hidden) { x.hidden = false; $(".mo-calh", el).setAttribute("aria-expanded", "true"); el.classList.add("on"); } } if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
     if ((b = t.closest("[data-vcat]"))) { S.vcat = b.dataset.vcat; secVariables(); return true; }
     if ((b = t.closest("[data-enf]"))) { const M = S.M; if (M.enfoque !== b.dataset.enf) { M.enfoque = b.dataset.enf; M.y = null; M.metodo = null; M.prep = null; M.prepOk = false; const P = perfiles(); M.x = P.filter(p => p.tipo !== "texto" && !p.constante).map(p => p.name); guardaModelo(); } secEnfoque(); return true; }
     if ((b = t.closest("[data-x]"))) { const k = b.dataset.x, s = new Set(S.M.x || []); s.has(k) ? s.delete(k) : s.add(k); S.M.x = [...s]; S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); const y = $("#moMain").scrollTop; secEnfoque().then(() => { $("#moMain").scrollTop = y; }); return true; }
@@ -710,8 +711,8 @@
     S.sec = "resultados"; nav(); const r = resActual();
     if (!r) { wrap(`${cab("6", "Resultados y calidad del modelo", "")}<div class="mo-empty"><b>Aún no hay resultados.</b><p>Configura el análisis y pulsa «${S.M && S.M.enfoque === "nosup" ? "Analizar" : "Modelar"}».</p><button type="button" class="mo-new" data-sec="${S.M && S.M.metodo ? "modelar" : "variables"}">Ir al flujo</button></div>`); return; }
     const sup = r.enfoque === "sup", tipo = sup ? (r.tipoY === "regresion" ? "regresión" : r.tipoY === "binaria" ? "clasificación binaria" : "clasificación multiclase") : "análisis no supervisado";
-    wrap(`${cab("6", "Resultados y calidad del modelo", `${esc(r.nombreMetodo || r.metodo)} · ${tipo}`)}${bannerModelo()}<nav class="mo-jmp"><button type="button" data-jmp="res">Resultados</button><button type="button" data-jmp="cal">Calidad del modelo</button></nav>
-      <section id="moSecRes"><h2 class="mo-bl"><span>A</span> Resultados</h2>${resultadosHtml(r)}</section><section id="moSecCal"><h2 class="mo-bl"><span>B</span> Calidad del modelo</h2><p class="mo-mut">Estadísticos y diagnósticos para saber cuánto confiar en los resultados.</p>${calidadHtml(r)}</section>${pie("modelar", null, "", false)}`);
+    wrap(`${cab("6", "Resultados y calidad del modelo", `${esc(r.nombreMetodo || r.metodo)} · ${tipo}`)}${bannerModelo()}<nav class="mo-jmp"><button type="button" data-jmp="res">Resultados</button><button type="button" data-jmp="cal">Confiabilidad del modelo</button></nav>
+      <section id="moSecRes"><h2 class="mo-bl"><span>A</span> Resultados</h2>${resultadosHtml(r)}</section><section id="moSecCal" class="mo-cal"><button type="button" class="mo-calh" data-calt="1" aria-expanded="false"><span class="mo-calb">B</span><span class="mo-calt"><b>Confiabilidad del modelo</b><small>Estadísticos y diagnósticos para saber cuánto confiar en los resultados</small></span><span class="mo-calc">▾</span></button><div class="mo-calx" hidden>${calidadHtml(r)}</div></section>${pie("modelar", null, "", false)}`);
     postResultados(r);
   }
 
@@ -738,5 +739,6 @@
   /* arranque */
   window.modelabInit = async function () {
     host = document.getElementById("modelab-host"); if (!host) return; shell(); nav(); vistaProyectos(); await cargaProy(); if (S.sec === "proyectos") vistaProyectos();
+    const pid = new URLSearchParams(location.search).get("p"); if (pid && (S.proy || []).some(x => x.id === pid)) abre(pid);
   };
 })();
