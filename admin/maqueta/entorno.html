@@ -5092,8 +5092,15 @@ async function mlEscena() {
   const mid = qs.get('ml'), j = await fetch('https://api.check-inn.mx/geometrika/modelab/proyectos/' + encodeURIComponent(mid)).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'No se pudo cargar el proyecto');
   const pts = (j.puntos || []).filter(q => isFinite(+q.lat) && isFinite(+q.lng)); if (!pts.length) throw new Error('El proyecto no tiene puntos.');
   let i = +qs.get('p'); if (!(i >= 0 && i < pts.length)) i = 0; window.__ML = { mid, P: j.proyecto, pts, i, q: '' }; try { const ji = await fetch('https://api.check-inn.mx/geometrika/indicadores?id=' + encodeURIComponent(mid) + '&i=' + i).then(r => r.json()); if (ji.ok) { window.__ML.ind = {}; ji.items.forEach(x => { window.__ML.ind[x.k] = x; }); } } catch (_) { } const q = pts[i], nom = q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
-  try { const je = await fetch('https://api.check-inn.mx/geometrika/modelab-escena?id=' + encodeURIComponent(mid) + '&p=' + i).then(r => r.json()); if (je.ok && je.escena && je.escena.roads) { je.escena.id = ID; return je.escena; } } catch (_) { }
+  try { const je = await fetch('https://api.check-inn.mx/geometrika/modelab-escena?id=' + encodeURIComponent(mid) + '&p=' + i).then(r => r.json()); if (je.ok && je.escena && je.escena.roads) { if (je.pid) { window.__PID = je.pid; je.escena.id = je.pid; window.__ML.pid = je.pid; mlAmbiente(je.pid); } else je.escena.id = ID; return je.escena; } } catch (_) { }
   return { id: ID, lat: +q.lat, lng: +q.lng, radio: 300, tit: nom, titulo: nom, roads: [], sinMaqueta3D: true };
+}
+// datos ambientales del punto (clima, aire, terreno): si aún no existen se calculan una vez (fuentes gratuitas) y se recarga la página
+async function mlAmbiente(pid) {
+  try { const A = 'https://api.check-inn.mx/mercado/airbnb/ambiente/', d = await fetch(A + 'dato?id=' + pid, { cache: 'no-store' }).then(r => r.json()); if (d && d.ambiente) return; const k = 'mlAm' + pid; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1');
+    const c = await fetch(A + 'calcular', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [pid] }) }); if (!c.ok) return;
+    for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 5000)); const e = await fetch(A + 'estado', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ running: true })); if (!e.running) break; }
+    location.reload(); } catch (_) { }
 }
 const mlNom = (q, i) => q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
 function mlIr(i) { const u = new URL(location.href); u.searchParams.set('p', String(i)); location.href = u.toString(); }
