@@ -593,3 +593,14 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-cgrow{cursor:pointer;border-radius:8px}.mo-app .mo-cgrow:hover{background:#f8fafc}.mo-app .mo-cgr.on .mo-cgrow:hover{background:transparent}
 .mo-app .mo-cgr .mo-cgd{margin:0 8px 10px;background:#fff}
 .mo-app .mo-cgr .mo-cmp{width:100%;table-layout:auto}.mo-app .mo-cgr .mo-cmp td:first-child,.mo-app .mo-cgr .mo-cmp th:first-child{white-space:nowrap;max-width:none;min-width:0}.mo-app .mo-cgr .mo-cmp td,.mo-app .mo-cgr .mo-cmp th{padding:6px 8px;font-size:12px}
+/* mapa de grupos con tabla y buscador */
+.mo-app .mo-mgb{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 10px}.mo-app .mo-mgb .mo-q{flex:1;min-width:240px;max-width:460px}
+.mo-app .mo-mgg{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:14px;align-items:start}.mo-app .mo-mgg .mo-map{height:520px;margin:0}
+.mo-app .mo-mgt{display:flex;flex-direction:column;gap:6px;min-width:0}.mo-app .mo-mgt .mo-tsc{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.mo-app .mo-mgt thead th{position:sticky;top:0;background:#f1f5f9;z-index:1}.mo-app .mo-mgt tbody tr{cursor:pointer}.mo-app .mo-mgt tbody tr:hover{background:#f8fafc}.mo-app .mo-mgt tbody tr.on{background:#eef2ff;box-shadow:inset 3px 0 0 #4f46e5}
+.mo-app .mo-mgc{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px}
+@media(max-width:1000px){.mo-app .mo-mgg{grid-template-columns:1fr}}
+/* secciones del resultado del PCA */
+.mo-app .mo-sech{grid-column:1/-1;display:flex;align-items:center;gap:12px;margin:18px 0 4px;padding:10px 16px;background:linear-gradient(90deg,#eef2ff,#fff);border-left:5px solid #4f46e5;border-radius:0 12px 12px 0;font:800 17px system-ui;color:#1e1b4b}
+.mo-app .mo-sech span{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#4f46e5;color:#fff;font:800 14px system-ui}.mo-app .mo-sech small{margin-left:auto;font:500 12px system-ui;color:#64748b}
+.mo-app .mo-mgs{display:block;font:500 11px system-ui;color:#94a3b8;margin-top:1px}
