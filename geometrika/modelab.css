@@ -436,3 +436,12 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-sr-b i{display:block;position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,#5b7fa6,#3f8f8b,#c9a24a,#c2703d,#8a4f7d)}.mo-sr-b u{position:absolute;top:-4px;width:4px;height:16px;border-radius:2px;background:#0f172a;transform:translateX(-2px)}.mo-sr-b small{display:block;margin-top:5px;font:500 11px system-ui;color:var(--mut)}
 .mo-sr-x{grid-column:2/-1;font-size:11px}.mo-sr-x:empty{display:none}
 @media(max-width:760px){.mo-sr{grid-template-columns:34px 1fr}.mo-sr-v,.mo-sr-b{grid-column:2}}
+/* mapa a la izquierda y tarjetas a la derecha, enlazados */
+.mo-app .mo-sr-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:16px;align-items:start;margin-top:10px}
+.mo-app .mo-sr-grid .mo-mapw .mo-map,.mo-app .mo-sr-grid #simMap{height:640px;margin:0}
+.mo-app .mo-sr-grid .mo-sr-l{margin-top:0;max-height:640px;overflow:auto;padding-right:4px}
+.mo-app .mo-sr-grid .mo-sr{grid-template-columns:30px 1fr auto;gap:6px 12px;cursor:pointer;transition:box-shadow .15s,background .15s}
+.mo-app .mo-sr-grid .mo-sr:hover{background:#f8fafc}.mo-app .mo-sr.on{background:#eef2ff;box-shadow:0 0 0 2px var(--c),0 6px 18px rgba(15,23,42,.15)}
+.mo-app .mo-sr-grid .mo-sr-v{grid-column:3;text-align:right}.mo-app .mo-sr-grid .mo-sr-v b{font-size:24px}
+.mo-app .mo-sr-grid .mo-sr-b{grid-column:1/-1}.mo-app .mo-sr-grid .mo-sr-x{grid-column:1/-1}
+@media(max-width:1100px){.mo-app .mo-sr-grid{grid-template-columns:1fr}.mo-app .mo-sr-grid .mo-sr-l{max-height:none}}
