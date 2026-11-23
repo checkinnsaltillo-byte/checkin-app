@@ -334,3 +334,6 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-pin i{display:block;width:22px;height:22px;background:#e11d48;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 5px rgba(15,23,42,.4)}
 .mo-pin i::after{content:"";position:absolute;left:6px;top:6px;width:6px;height:6px;border-radius:50%;background:#fff}
 .mo-etq{font:700 11px system-ui;color:#0f172a;border:0;border-radius:6px;padding:2px 6px;box-shadow:0 1px 4px rgba(15,23,42,.3)}
+
+/* ancho completo de la ventana */
+.mo-app .mo-wrap,.mo-app .mo-pv,.mo-app .mo-wz{max-width:none!important;width:100%}
