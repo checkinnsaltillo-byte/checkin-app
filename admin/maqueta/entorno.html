@@ -5092,6 +5092,7 @@ async function mlEscena() {
   const mid = qs.get('ml'), j = await fetch('https://api.check-inn.mx/geometrika/modelab/proyectos/' + encodeURIComponent(mid)).then(r => r.json()); if (!j.ok) throw new Error(j.error || 'No se pudo cargar el proyecto');
   const pts = (j.puntos || []).filter(q => isFinite(+q.lat) && isFinite(+q.lng)); if (!pts.length) throw new Error('El proyecto no tiene puntos.');
   let i = +qs.get('p'); if (!(i >= 0 && i < pts.length)) i = 0; window.__ML = { mid, P: j.proyecto, pts, i, q: '' }; try { const ji = await fetch('https://api.check-inn.mx/geometrika/indicadores?id=' + encodeURIComponent(mid) + '&i=' + i).then(r => r.json()); if (ji.ok) { window.__ML.ind = {}; ji.items.forEach(x => { window.__ML.ind[x.k] = x; }); } } catch (_) { } const q = pts[i], nom = q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
+  try { const je = await fetch('https://api.check-inn.mx/geometrika/modelab-escena?id=' + encodeURIComponent(mid) + '&p=' + i).then(r => r.json()); if (je.ok && je.escena && je.escena.roads) { je.escena.id = ID; return je.escena; } } catch (_) { }
   return { id: ID, lat: +q.lat, lng: +q.lng, radio: 300, tit: nom, titulo: nom, roads: [], sinMaqueta3D: true };
 }
 const mlNom = (q, i) => q.id != null && q.id !== '' ? String(q.id) : 'Punto ' + (i + 1);
@@ -5099,7 +5100,7 @@ function mlIr(i) { const u = new URL(location.href); u.searchParams.set('p', Str
 // los indicadores de la malla nacional (por AGEB) reemplazan al cálculo con la escena, que aquí no existe (sin red vial ni edificios)
 function mlInd(L) {
   const M = window.__ML; if (!M || !M.ind) return L;
-  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const x = M.ind[e.id + ':' + i.id]; if (!x) return; i.calc = () => {
+  L.forEach(c => c.an.forEach(e => e.ind.forEach(i => { const x = M.ind[e.id + ':' + i.id]; if (!x) return; const orig = i.calc; i.calc = () => { try { const r0 = orig(); if (r0 && r0.sem !== 'na' && r0.val !== '—') return r0; } catch (_) { }
     if (x.cat) return { val: x.v, unit: '', viz: '', sem: 'info', msg: 'Categoría predominante en la AGEB del punto (malla nacional)' };
     const v = x.v != null ? x.v : x.med, un = x.u || '', d = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2, pct = /^(%|\/ ?100|índice 0–100)/.test(un);
     return { val: indN(v, d), unit: un, viz: pct ? vBar(v / 100, '#4f46e5') : '', sem: 'info', msg: 'Valor de la malla nacional en la AGEB del punto' };
