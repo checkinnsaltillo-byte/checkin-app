@@ -906,12 +906,12 @@
   }
   async function mlBxCarga() {
     const d = ML_D[ML.k], sp = mlSpec(d); if (!sp) { ML.box = null; mlBxRender(); return; } if (ML.box && ML.box.sp === sp) { mlBxRender(); return; } ML.box = null; mlBxRender();
-    try { const j = await api("/geometrika/malla/box?v=" + sp); if (mlSpec(ML_D[ML.k]) === sp && j.ok) { ML.box = j; mlBxRender(); } } catch (_) { }
+    try { const j = await api("/geometrika/malla/box?w=2&v=" + sp); if (mlSpec(ML_D[ML.k]) === sp && j.ok) { ML.box = j; mlBxRender(); } } catch (_) { }
   }
   function mlSetSel(f) { const m = ML.map; if (!m || !ML.listo) return; try { m.getSource("sel").setData({ type: "FeatureCollection", features: f ? [f] : [] }); } catch (_) { } }
   async function mlSel(geom, props, ll) {
     const d = ML_D[ML.k], sp = mlSpec(d), S = { v: props && typeof props.v === "number" ? props.v : null, geom, t: props && props.t }; ML.bsel = S; mlSetSel(geom ? { type: "Feature", geometry: geom, properties: {} } : null); mlBxRender(); if (!sp || !ll) return;
-    try { const j = await api(`/geometrika/malla/punto?lat=${(ll.lat).toFixed(5)}&lng=${(ll.lng).toFixed(5)}&v=${sp}`); if (ML.bsel === S && j.ok) { S.ageb = j.ageb; S.mun = j.mun; S.city = j.city; S.ent = j.ent; mlBxRender(); } } catch (_) { }
+    try { const j = await api(`/geometrika/malla/punto?w=2&lat=${(ll.lat).toFixed(5)}&lng=${(ll.lng).toFixed(5)}&v=${sp}`); if (ML.bsel === S && j.ok) { S.ageb = j.ageb; S.mun = j.mun; S.city = j.city; S.ent = j.ent; mlBxRender(); } } catch (_) { }
   }
   function mlIr(it) {
     const m = ML.map; if (!m) return; if (m.ir) return m.ir(it); const bb = it.bb;
