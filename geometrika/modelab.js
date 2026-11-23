@@ -174,6 +174,7 @@
       <div class="mo-chs"><button type="button" class="mo-ghost" data-wzds="todas">Seleccionar todas</button><button type="button" class="mo-ghost" data-wzds="ninguna">Ninguna</button></div>
       <div class="mo-tw mo-tsc"><table class="mo-t mo-prev"><thead><tr><th class="mo-tck"><button type="button" class="mo-ckb" data-wzds="${todas ? "ninguna" : "todas"}" aria-label="Seleccionar o quitar todas">${ck(todas)}</button></th><th>Nombre</th><th>SCIAN</th><th>Sector</th><th>Personal</th></tr></thead><tbody>${vis.map((i, k) => `<tr class="mo-trs${D.sel.has(k) ? " on" : ""}" data-wzds="${k}"><td class="mo-tck">${ck(D.sel.has(k))}</td><td>${esc(i.nombre)}</td><td>${esc(i.scian)}</td><td>${esc(SC_S()[i.scian.slice(0, 2)] ? SC_S()[i.scian.slice(0, 2)].slice(0, 40) : i.scian.slice(0, 2))}</td><td>${r.tamanos[i.tam]}</td></tr>`).join("")}</tbody></table></div>
       ${r.items.length > D.vista ? `<div class="mo-chs"><span class="mo-mut">Mostrando ${gN(D.vista, 0)} de ${gN(r.items.length, 0)}.</span><button type="button" class="mo-ghost" data-wzds="mas">Mostrar 200 más</button></div>` : ""}
+      <div class="mo-fa">Mapa de las unidades seleccionadas <span class="mo-mut">· ${ns > 100 ? "acércate para ver las etiquetas" : "pin y nombre de cada una"}</span></div><div id="wzDMap" class="mo-map"></div>
       ${r.total ? `<div class="mo-chs"><button type="button" class="mo-new" data-wz="usaden"${ns ? "" : " disabled"}>Usar ${gN(ns, 0)} unidades seleccionadas como puntos</button><span class="mo-mut">Se guardan como variables: sector, subsector, rama, grupo de giro y tamaño.</span></div>` : ""}`; }
     return h;
   };
@@ -184,7 +185,18 @@
   function leaflet(cb) { if (window.L) return cb(); if (window._rsvEnsureLeaflet_) return window._rsvEnsureLeaflet_(cb); const c = document.createElement("link"); c.rel = "stylesheet"; c.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(c); const s = document.createElement("script"); s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload = cb; document.head.appendChild(s); }
   function cargaScript(src) { return new Promise((ok, mal) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => mal(new Error("No se pudo cargar una biblioteca necesaria.")); document.head.appendChild(s); }); }
   function wzRe() { const W = S.wiz; if (!W) return; const b = $("#wzBody"); if (b) { b.innerHTML = wzPaso(W); wzPost(W); } const m = $("#wzMsg"); if (m) m.textContent = W.msg || ""; }
+  function wzDenMapa(W) {
+    const D = W.den; if (!D.res) return;
+    leaflet(() => { const el = $("#wzDMap"); if (!el || !window.L) return; if (D.gl) { try { D.view = { c: D.gl.getCenter(), z: D.gl.getZoom() }; D.gl.remove(); } catch (_) { } }
+      const m = L.map(el); L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 16, attribution: "Esri" }).addTo(m); D.gl = m;
+      const items = D.res.items.filter((_, k) => D.sel.has(k)).slice(0, 1500), grp = L.featureGroup().addTo(m), pin = L.divIcon({ className: "mo-pin", html: "<i></i>", iconSize: [22, 28], iconAnchor: [11, 28] }), pines = items.length <= 600, fija = items.length <= 100, off = pines ? [0, -26] : [0, -5];
+      const tt = (mk, nom, perm) => mk.bindTooltip(esc(nom), { permanent: perm, direction: "top", offset: off, className: "mo-etq" });
+      items.forEach(i => { const mk = pines ? L.marker([i.lat, i.lng], { icon: pin }) : L.circleMarker([i.lat, i.lng], { radius: 5, color: "#fff", weight: 1, fillColor: "#e11d48", fillOpacity: .9 }); mk._nm = i.nombre; tt(mk, i.nombre, fija); mk.addTo(grp); });
+      if (items.length) { if (D.keep && D.view) m.setView(D.view.c, D.view.z); else m.fitBounds(grp.getBounds(), { padding: [30, 30], maxZoom: 16 }); } else m.setView([23.8, -102.3], 5); D.keep = false;
+      if (!fija) { const etiq = () => { const cerca = m.getZoom() >= 16, b = m.getBounds().pad(.1); let n = 0; grp.eachLayer(l => { const dentro = cerca && n < 120 && b.contains(l.getLatLng()); if (dentro) n++; if (!!l._perm !== dentro) { l.unbindTooltip(); tt(l, l._nm, dentro); l._perm = dentro; } }); }; m.on("zoomend moveend", etiq); etiq(); } });
+  }
   function wzPost(W) {
+    if (W.paso === 2 && W.tab === "denue") wzDenMapa(W);
     if (W.paso === 2 && W.tab === "mapa") wzMapa(W);
     if (W.paso === 2 && W.tab === "denue" && !S.scian) api(R + "/scian").then(j => { S.scian = j; if (S.wiz === W && W.paso === 2 && W.tab === "denue") wzRe(); }).catch(() => { });
   }
@@ -284,7 +296,7 @@
     if ((b = t.closest("[data-wzcx]"))) { W.den.ciudades.splice(+b.dataset.wzcx, 1); W.den.muns = [...new Set(W.den.ciudades.flatMap(c => c.muns))]; W.den.res = null; wzRe(); return true; }
     if ((b = t.closest("[data-wzds]"))) { const D = W.den, v = b.dataset.wzds, n = D.res ? D.res.items.length : 0;
       if (v === "todas") D.sel = new Set(Array.from({ length: n }, (_, k) => k)); else if (v === "ninguna") D.sel = new Set(); else if (v === "mas") D.vista += 200; else { const k = +v; D.sel.has(k) ? D.sel.delete(k) : D.sel.add(k); }
-      const y = $("#moMain").scrollTop, ty = (($(".mo-tsc") || {}).scrollTop) || 0; wzRe(); $("#moMain").scrollTop = y; const tsc = $(".mo-tsc"); if (tsc) tsc.scrollTop = ty; return true; }
+      D.keep = true; const y = $("#moMain").scrollTop, ty = (($(".mo-tsc") || {}).scrollTop) || 0; wzRe(); $("#moMain").scrollTop = y; const tsc = $(".mo-tsc"); if (tsc) tsc.scrollTop = ty; return true; }
     if ((b = t.closest("[data-wzgl]"))) { wzTraeGeo(W, +b.dataset.wzgl); return true; }
     if ((b = t.closest("[data-bli]"))) { const l = b.closest(".mo-bl"), it = (l._it || [])[+b.dataset.bli]; if (it && l._al) l._al(it); l.style.display = "none"; return true; }
     return false;

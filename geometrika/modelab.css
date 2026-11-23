@@ -331,3 +331,6 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-psel{display:block;margin:10px 10px 6px}.mo-app .mo-psel small{display:block;font:800 9.5px system-ui;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}.mo-app .mo-psel select{padding:7px 9px;font-size:12.5px}
 .mo-app .mo-tsc{max-height:380px;overflow:auto}.mo-app .mo-tsc thead th{position:sticky;top:0;z-index:2}
 .mo-app .mo-tck{width:38px;text-align:center}.mo-app .mo-ckb{all:unset;cursor:pointer;display:inline-grid}.mo-app .mo-trs{cursor:pointer}.mo-app .mo-trs:hover{background:#f1f5f9}.mo-app .mo-trs.on{background:#eef2ff}
+.mo-pin i{display:block;width:22px;height:22px;background:#e11d48;border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 5px rgba(15,23,42,.4)}
+.mo-pin i::after{content:"";position:absolute;left:6px;top:6px;width:6px;height:6px;border-radius:50%;background:#fff}
+.mo-etq{font:700 11px system-ui;color:#0f172a;border:0;border-radius:6px;padding:2px 6px;box-shadow:0 1px 4px rgba(15,23,42,.3)}
