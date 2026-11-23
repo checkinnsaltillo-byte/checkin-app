@@ -190,10 +190,15 @@
       <div class="mo-pts"><b>${gN(W.puntos.length, 0)}</b> punto${W.puntos.length === 1 ? "" : "s"} listo${W.puntos.length === 1 ? "" : "s"}${W.puntos.length ? ` <i>· ${{ mapa: "elegidos en el mapa", archivo: "del archivo", denue: "del DENUE", geolab: "de Geo Lab" }[W.fuente] || ""}</i> <button type="button" class="mo-ghost" data-wz="limpia">Quitar todos</button>` : ""}</div>
       ${tab === "mapa" ? wzMapaHtml(W) : tab === "archivo" ? wzArchHtml(W) : wzDenueHtml(W)}`;
   }
-  const wzMapaHtml = W => `<div class="mo-nota">Haz clic en el mapa para agregar puntos de interés (máximo 200 en este modo; para más, carga un archivo) o escribe sus coordenadas. Busca un lugar para moverte.</div>
-    <div class="mo-sm-cc2"><textarea id="wzCoord" class="mo-in" rows="2" placeholder="Coordenadas: latitud, longitud (una pareja por renglón). Ej. 25.6866, -100.3161"></textarea><button type="button" class="mo-ghost" data-wz="coord">Agregar coordenadas</button></div>
-    <div class="mo-bus"><input id="wzBus" class="mo-in" placeholder="Buscar ciudad, colonia o dirección…" autocomplete="off"><div class="mo-bl" id="wzBL" style="display:none"></div></div><div id="wzMap" class="mo-map"></div>
-    <div class="mo-chs" id="wzPL">${W.puntos.slice(0, 200).map((q, i) => `<span class="mo-c on">${esc(q.id || "P" + (i + 1))} <button type="button" data-wzrm="${i}" aria-label="Quitar">×</button></span>`).join("")}</div>`;
+  const wzMapaHtml = W => {
+    const M = W.modoP || "mapa", OPC = [["coord", "1 · Coordenada manual", "Escribe latitud y longitud"], ["url", "2 · URL de Google Maps", "Pega el enlace de un lugar"], ["mapa", "3 · Seleccionar en el mapa", "Busca un lugar y haz clic"]];
+    const panel = M === "coord" ? `<div class="mo-sm-cc2"><textarea id="wzCoord" class="mo-in" rows="2" placeholder="Latitud, longitud (una pareja por renglón). Ej. 25.6866, -100.3161"></textarea><button type="button" class="mo-new" data-wz="coord">Agregar coordenadas</button></div>`
+      : M === "url" ? `<div class="mo-sm-cc2"><textarea id="wzUrl" class="mo-in" rows="2" placeholder="Pega el enlace de Google Maps (largo o corto, como maps.app.goo.gl/…). Uno por renglón."></textarea><button type="button" class="mo-new" data-wz="url">Agregar desde el enlace</button></div>`
+      : `<div class="mo-nota">Haz clic en el mapa para agregar puntos (máximo 200 en este modo; para más, carga un archivo). Busca un lugar para moverte.</div><div class="mo-bus"><input id="wzBus" class="mo-in" placeholder="Buscar ciudad, colonia o dirección…" autocomplete="off"><div class="mo-bl" id="wzBL" style="display:none"></div></div>`;
+    return `<div class="mo-fa">¿Cómo quieres agregar los puntos?</div><div class="mo-gl2 mo-gl3">${OPC.map(([k, t, d]) => `<button type="button" class="mo-opc${M === k ? " on" : ""}" data-wzmodo="${k}"><b>${t}</b><span>${d}</span></button>`).join("")}</div>${panel}
+    <div class="mo-fa">Puntos agregados</div><div class="mo-chs" id="wzPL">${wzChips(W)}</div><div id="wzMap" class="mo-map"></div>`;
+  };
+  const wzChips = W => W.puntos.length ? W.puntos.slice(0, 200).map((q, i) => `<span class="mo-c on">${esc(q.id || "P" + (i + 1))} <i class="mo-mut">${q.lat}, ${q.lng}</i> <button type="button" data-wzrm="${i}" aria-label="Quitar">×</button></span>`).join("") : '<span class="mo-mut">Aún no hay puntos.</span>';
   const wzArchHtml = W => {
     const A = W.arch; let h = `<div class="mo-nota">Carga un <b>CSV</b>, <b>GeoJSON</b> o <b>Shapefile (.zip)</b> con las coordenadas. Verás una vista previa y podrás elegir la columna de coordenadas, la de nombre o identificador y otras columnas para usarlas como variables.</div>
       <label class="mo-file"><input type="file" id="wzFile" accept=".csv,.txt,.tsv,.geojson,.json,.zip,.shp"></label>`;
@@ -277,7 +282,7 @@
     leaflet(() => { const el = $("#wzMap"); if (!el || !window.L) return; if (W.gl) { try { W.gl.remove(); } catch (_) { } }
       const c = W.puntos[0] || { lat: 23.8, lng: -102.3 }, m = L.map(el).setView([c.lat, c.lng], W.puntos.length ? 13 : 5); L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, maxNativeZoom: 16, attribution: "Esri" }).addTo(m); W.gl = m; W.capa = L.layerGroup().addTo(m);
       const pinta = () => { W.capa.clearLayers(); W.puntos.slice(0, 500).forEach((q, i) => L.circleMarker([q.lat, q.lng], { radius: 6, color: "#4f46e5", weight: 2, fillColor: "#818cf8", fillOpacity: .9 }).bindTooltip(esc(q.id || "P" + (i + 1))).addTo(W.capa)); }; W.pinta = pinta; pinta();
-      m.on("click", e => { if (W.puntos.length >= 200 && W.fuente === "mapa") { toast("En el modo mapa el máximo son 200 puntos; para más, carga un archivo."); return; } if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; }
+      m.on("click", e => { if ((W.modoP || "mapa") !== "mapa") { toast("Para agregar puntos con un clic elige la opción «3 · Seleccionar en el mapa»."); return; } if (W.puntos.length >= 200 && W.fuente === "mapa") { toast("En el modo mapa el máximo son 200 puntos; para más, carga un archivo."); return; } if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; }
         W.puntos.push({ lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6), id: "P" + (W.puntos.length + 1) }); pinta(); wzPts(W); }); });
   }
   /* coordenadas escritas a mano: una pareja «latitud, longitud» por renglón (acepta coma, punto y coma o espacio) */
@@ -287,8 +292,15 @@
     if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; } if (W.puntos.length + nuevos.length > 200) { toast("En el modo mapa el máximo son 200 puntos; para más, carga un archivo."); return; }
     nuevos.forEach(q => { q.id = "P" + (W.puntos.length + 1); W.puntos.push(q); }); if (W.pinta) W.pinta(); wzPts(W); if (W.gl) { try { W.gl.setView([nuevos[0].lat, nuevos[0].lng], Math.max(W.gl.getZoom(), 14)); } catch (_) { } } const ta = $("#wzCoord"); if (ta) ta.value = ""; toast(nuevos.length + " punto" + (nuevos.length === 1 ? "" : "s") + " agregado" + (nuevos.length === 1 ? "" : "s") + (malos.length ? "; " + malos.length + " renglón(es) no se entendieron." : "."), 4000);
   }
+  async function wzUrl(W) {
+    const t = ($("#wzUrl") || {}).value || "", L = t.split(/\n+/).map(x => x.trim()).filter(Boolean); if (!L.length) { toast("Pega un enlace de Google Maps."); return; } if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; }
+    let ok = 0, mal = []; const b = $('[data-wz="url"]'); if (b) { b.disabled = true; b.textContent = "Leyendo enlace…"; }
+    for (const u of L) { try { if (W.puntos.length >= 200) break; const j = await api(R + "/gmaps?url=" + encodeURIComponent(u)); W.puntos.push({ lat: j.lat, lng: j.lng, id: j.nombre || "P" + (W.puntos.length + 1) }); ok++; } catch (e) { mal.push(e.message); } }
+    if (b) { b.disabled = false; b.textContent = "Agregar desde el enlace"; } if (ok) { wzPts(W); if (W.pinta) W.pinta(); const q = W.puntos[W.puntos.length - 1]; if (W.gl) { try { W.gl.setView([q.lat, q.lng], Math.max(W.gl.getZoom(), 15)); } catch (_) { } } const ta = $("#wzUrl"); if (ta) ta.value = ""; }
+    toast(ok ? ok + " punto" + (ok === 1 ? "" : "s") + " agregado" + (ok === 1 ? "" : "s") + (mal.length ? "; " + mal[0] : ".") : mal[0] || "No se pudo leer el enlace.", 6000);
+  }
   function wzPts(W) {
-    const n = $(".mo-pts b"); if (n) n.textContent = gN(W.puntos.length, 0); const pl = $("#wzPL"); if (pl) pl.innerHTML = W.puntos.slice(0, 200).map((q, i) => `<span class="mo-c on">${esc(q.id || "P" + (i + 1))} <button type="button" data-wzrm="${i}" aria-label="Quitar">×</button></span>`).join("");
+    const n = $(".mo-pts b"); if (n) n.textContent = gN(W.puntos.length, 0); const pl = $("#wzPL"); if (pl) pl.innerHTML = wzChips(W);
     const pp = $(".mo-pts"); if (pp) { const b = $(".mo-pts b"); const txt = pp.querySelector("i"); if (txt) txt.textContent = "· elegidos en el mapa"; if (!pp.querySelector("[data-wz=limpia]") && W.puntos.length) pp.insertAdjacentHTML("beforeend", ' <button type="button" class="mo-ghost" data-wz="limpia">Quitar todos</button>'); }
   }
   /* búsqueda de lugares (mapa y ciudades) */
@@ -362,8 +374,9 @@
     if ((b = t.closest("[data-wz]"))) { const a = b.dataset.wz;
       if (a === "atras") { if (W.paso === (W.sim ? 2 : 1)) { S.wiz = null; return ir(W.sim ? "simulacion" : "proyectos"), true; } W.paso--; W.msg = ""; wizard(); return true; }
       if (a === "sig") { if (W.paso === 1 && !W.nombre.trim()) { W.msg = "Escribe el nombre del proyecto."; wzRe(); return true; } if (W.paso === 2 && W.sim && !W.nombre.trim()) { W.msg = "Escribe el nombre del conjunto."; wzRe(); return true; } if (W.paso === 2 && !W.puntos.length) { W.msg = W.sim ? "Agrega al menos un punto nuevo." : "Elige al menos un punto de interés."; wzRe(); return true; } W.paso++; W.msg = ""; wizard(); return true; }
-      if (a === "modelar") { wzModelar(W); return true; } if (a === "simular") { wzSimular(W); return true; } if (a === "coord") { wzCoord(W); return true; } if (a === "limpia") { W.puntos = []; W.columnas = []; W.fuente = W.tab === "denue" ? "denue" : W.tab; if (W.pinta) W.pinta(); wzRe(); return true; }
+      if (a === "modelar") { wzModelar(W); return true; } if (a === "simular") { wzSimular(W); return true; } if (a === "coord") { wzCoord(W); return true; } if (a === "url") { wzUrl(W); return true; } if (a === "limpia") { W.puntos = []; W.columnas = []; W.fuente = W.tab === "denue" ? "denue" : W.tab; if (W.pinta) W.pinta(); wzRe(); return true; }
       if (a === "geolab") { wzGeoLab(W); return true; } if (a === "usaarch") { usaArchivo(W); return true; } if (a === "denbusca") { denBusca(W); return true; } if (a === "usaden") { usaDenue(W); return true; } }
+    if ((b = t.closest("[data-wzmodo]"))) { W.modoP = b.dataset.wzmodo; wzRe(); return true; }
     if ((b = t.closest("[data-wzt]"))) { W.tab = b.dataset.wzt; W.msg = ""; wzRe(); const bar = $(".mo-tabs"); if (bar) bar.outerHTML = bar.outerHTML; return true; }
     if ((b = t.closest("[data-wzod]"))) { const k = b.dataset.wzod; if (k === "on") W.odOn = !W.odOn; else W.odModo = k; W.opt.od = !!(W.odOn && W.odModo === "google"); wzRe(); return true; }
     if ((b = t.closest("[data-wzopt]"))) { const k = b.dataset.wzopt; W.opt[k] = !W.opt[k]; wzRe(); return true; }

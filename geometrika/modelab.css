@@ -398,3 +398,4 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 /* la lista de resultados de búsqueda comparte clase con un encabezado antiguo: se restablece para que muestre solo texto */
 .mo-app .mo-bus .mo-bl{display:block;gap:0;margin:0;padding:4px;border:1px solid var(--line);font:inherit}
 .mo-app .mo-bus .mo-bl span{display:block;width:auto;height:auto;border-radius:0;background:none;place-items:initial;color:var(--mut);font:500 11px system-ui}
+.mo-app .mo-gl3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
