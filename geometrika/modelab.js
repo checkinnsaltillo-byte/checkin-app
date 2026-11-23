@@ -13,7 +13,7 @@
   const $ = (s, r) => (r || host).querySelector(s), $$ = (s, r) => Array.from((r || host).querySelectorAll(s));
   const tick = () => new Promise(r => setTimeout(r, 0));
   const S = { sec: "proyectos", proy: [], cargado: false, pv: "card", pf: "", pq: "", id: null, P: null, puntos: [], M: null, ds: null, res: null, bib: window.MO_BIBLIO || [], wiz: null, busy: false };
-  const SEC = [["variables", "1", "Variables", "Elige las variables del modelo"], ["enfoque", "2", "Enfoque", "Supervisado o no supervisado"], ["metodos", "3", "Métodos", "Métodos analíticos factibles"], ["prep", "4", "Preprocesamiento", "Limpieza y preparación"], ["modelar", "5", "Modelar", "Entrenar, calibrar y evaluar"], ["resultados", "6", "Resultados", "Hallazgos y gráficas"], ["calidad", "7", "Calidad del modelo", "Estadísticos y diagnóstico"]];
+  const SEC = [["variables", "1", "Variables", "Elige las variables del modelo"], ["enfoque", "2", "Enfoque", "Supervisado o no supervisado"], ["metodos", "3", "Métodos", "Métodos analíticos factibles"], ["prep", "4", "Preprocesamiento", "Limpieza y preparación"], ["modelar", "5", "Modelar", "Entrenar, calibrar y evaluar"], ["resultados", "6", "Resultados y calidad", "Hallazgos, gráficas y calidad del modelo"]];
 
   /* ───────── servidor ───────── */
   const token = () => { try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); return g && g.token ? g.token : ""; } catch (_) { return ""; } };
@@ -40,7 +40,7 @@
     $("#moSalir").onclick = () => { if (window.GM_SALIR) window.GM_SALIR(); else location.reload(); };
     host.addEventListener("click", clic); host.addEventListener("input", entrada); host.addEventListener("change", cambia);
   }
-  const hecho = k => { const M = S.M || {}; return k === "variables" ? !!(M.vars && M.vars.length) : k === "enfoque" ? !!(M.enfoque && (M.enfoque === "nosup" || M.y)) : k === "metodos" ? !!M.metodo : k === "prep" ? !!M.prepOk : k === "modelar" || k === "resultados" || k === "calidad" ? !!S.res : false; };
+  const hecho = k => { const M = S.M || {}; return k === "variables" ? !!(M.vars && M.vars.length) : k === "enfoque" ? !!(M.enfoque && (M.enfoque === "nosup" || M.y)) : k === "metodos" ? !!M.metodo : k === "prep" ? !!M.prepOk : k === "modelar" || k === "resultados" ? !!S.res : false; };
   function nav() {
     const n = $("#moNav"); if (!n) return; let h = `<label class="mo-psel"><small>Proyecto</small><select id="moPSel" class="mo-in"><option value="">Todos los proyectos</option>${S.proy.map(p => `<option value="${p.id}"${p.id === S.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label><button type="button" class="mo-nav${S.sec === "proyectos" || S.sec === "nuevo" ? " on" : ""}" data-sec="proyectos"><span class="ic">${mi("folder")}</span><span class="tx">Mis proyectos</span><span class="bd">${S.proy.length}</span></button>`;
     if (S.id && S.P) { h += `<div class="mo-prj"><small>Proyecto abierto</small><b>${esc(S.P.nombre)}</b><span>${gN(S.puntos.length, 0)} puntos · ${S.P.fuente === "denue" ? "unidades DENUE" : S.P.fuente === "archivo" ? "archivo" : S.P.fuente === "geolab" ? "Geo Lab" : "mapa"}</span></div>`;
@@ -49,10 +49,11 @@
   }
   const wrap = h => { const w = $("#moWrap"); if (w) { w.innerHTML = h; $("#moMain").scrollTop = 0; } };
   async function ir(sec) {
+    if (sec === "calidad") sec = "resultados";
     if (sec !== "nuevo") S.wiz = sec === "proyectos" ? null : S.wiz; S.sec = sec; nav();
     try { history.replaceState(null, "", "#" + sec); } catch (_) { }
     if (sec === "proyectos") return vistaProyectos(); if (sec === "nuevo") return wizard();
-    if (!S.id) return ir("proyectos"); const f = { variables: secVariables, enfoque: secEnfoque, metodos: secMetodos, prep: secPrep, modelar: secModelar, resultados: secResultados, calidad: secCalidad }[sec]; if (f) f();
+    if (!S.id) return ir("proyectos"); const f = { variables: secVariables, enfoque: secEnfoque, metodos: secMetodos, prep: secPrep, modelar: secModelar, resultados: secResultados }[sec]; if (f) f();
   }
 
   /* ───────── Mis proyectos (misma estructura que Media Lab: KPIs arriba y tarjetas o tabla) ───────── */
@@ -73,7 +74,7 @@
     const i = $("#moPQ"); if (i && S._foco) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); S._foco = false; }
   }
   async function abre(id) {
-    try { S.busy = true; wrap('<div class="mo-empty"><b>Abriendo proyecto…</b></div>'); const j = await api(R + "/proyectos/" + id); S.id = id; S.P = j.proyecto; S.puntos = j.puntos || []; S.M = j.modelo || { vars: [], enfoque: null, y: null, x: [], metodo: null, prep: null, prepOk: false }; if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name); S.ds = null; S.res = null;
+    try { S.busy = true; wrap('<div class="mo-empty"><b>Abriendo proyecto…</b></div>'); const j = await api(R + "/proyectos/" + id); S.resVer = null; S.id = id; S.P = j.proyecto; S.puntos = j.puntos || []; S.M = j.modelo || { vars: [], enfoque: null, y: null, x: [], metodo: null, prep: null, prepOk: false }; if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name); S.ds = null; S.res = null;
       try { const r = await api(R + "/proyectos/" + id + "/resultados"); S.res = r.res || null; } catch (_) { } S.busy = false; await ir(S.res ? "resultados" : (S.M.vars && S.M.vars.length) || (S.P.columnas || []).length ? "variables" : "variables"); }
     catch (e) { S.busy = false; toast(e.message); ir("proyectos"); }
   }
@@ -444,11 +445,15 @@
     S.sec = "metodos"; nav(); if (!(await aseguraDs()) || !S.M.enfoque) return ir("enfoque"); if (!window.MLMotor) { wrap('<div class="mo-empty"><b>No se cargó el motor de modelado.</b></div>'); return; }
     const M = S.M, P = perfiles(), py = M.y ? perfilDe(M.y) : null, px = (M.x || []).map(perfilDe).filter(Boolean); let L2 = [];
     try { L2 = window.MLMotor.sugerirMetodos(M.enfoque, py, px, S.ds.rows.length) || []; } catch (e) { toast(e.message); }
-    const rec = L2.find(m => m.recomendado && m.aplica); if (!M.metodo && rec) { M.metodo = rec.id; M.metodoNombre = rec.nombre; guardaModelo(); } const sm = L2.find(m => m.id === M.metodo); if (sm) M.metodoNombre = sm.nombre;
+    const rec = L2.find(m => m.recomendado && m.aplica), aplic = L2.filter(m => m.aplica), hayAuto = M.enfoque === "sup" && aplic.length > 1; if (M.metodo === "auto" && !hayAuto) M.metodo = null;
+    if (!M.metodo) { if (hayAuto) { M.metodo = "auto"; M.metodoNombre = "Elegir el mejor modelo"; guardaModelo(); } else if (rec) { M.metodo = rec.id; M.metodoNombre = rec.nombre; guardaModelo(); } } const sm = L2.find(m => m.id === M.metodo); if (sm) M.metodoNombre = sm.nombre; else if (M.metodo === "auto") M.metodoNombre = "Elegir el mejor modelo";
+    const peso = { bajo: 1, baja: 1, medio: 4, media: 4, alto: 12, alta: 12 }, nfil = S.ds.rows.length, seg = Math.round(aplic.reduce((a, m) => a + (peso[m.recursos.tiempo] || 3), 0) * Math.pow(Math.max(nfil, 300) / 3000, .8) + 2);
+    const autoCard = hayAuto ? `<section class="mo-sx2 mo-auto"><button type="button" class="mo-mt auto${M.metodo === "auto" ? " on" : ""}" data-met="auto"><div class="mo-mh"><span class="mo-mi">${iconoMetodo("auto")}</span><div class="t"><b>Elegir el mejor modelo</b><span class="mo-rec">Predeterminado</span></div></div><p>Entrena <b>todos los métodos aplicables (${aplic.length})</b>, los compara por precisión y calidad (validación cruzada y datos de prueba, penalizando el sobreajuste) y se queda con los resultados del mejor. Después puedes consultar también los resultados de los demás.</p><div class="mo-razon">Probará: ${aplic.map(m => esc(m.nombre)).join(" · ")}.</div><div class="mo-rs"><span>Tiempo <span class="mo-nv ${seg > 90 ? "alto" : seg > 20 ? "medio" : "bajo"}">${seg > 90 ? "Alto" : seg > 20 ? "Medio" : "Bajo"}</span></span><i>aprox. ${seg} segundos con tus ${gN(nfil, 0)} filas</i></div></button><p class="mo-mut mo-o">…o elige un solo método:</p></section>` : "";
     const nivel = v => `<span class="mo-nv ${v}">${{ bajo: "Bajo", baja: "Baja", medio: "Medio", media: "Media", alto: "Alto", alta: "Alta" }[v] || v}</span>`;
     const fam = [...new Set(L2.map(m => m.familia))];
     wrap(`${cab("3", "Métodos analíticos factibles", M.enfoque === "sup" ? `Con tu variable de respuesta (${py ? esc(py.tipo === "num" || py.tipo === "int" ? "numérica" : py.tipo === "bin" ? "binaria" : "categórica") : "—"}) y ${px.length} variables explicativas, estos son los métodos aplicables.` : `Con ${px.length} variables y sin variable objetivo, estos son los métodos de exploración aplicables.`)}
-      ${fam.map(f => `<section class="mo-sx2"><h3>${esc(f)}</h3><div class="mo-mg">${L2.filter(m => m.familia === f).map(m => `<button type="button" class="mo-mt${M.metodo === m.id ? " on" : ""}${m.aplica ? "" : " no"}" data-met="${m.id}"${m.aplica ? "" : " disabled"}><div class="t"><b>${esc(m.nombre)}</b>${m.recomendado && m.aplica ? '<span class="mo-rec">Recomendado</span>' : ""}${m.aplica ? "" : '<span class="mo-no">No aplica</span>'}</div><p>${esc(m.desc)}</p><div class="mo-razon">${esc(m.razon || "")}</div>
+      ${autoCard}
+      ${fam.map(f => `<section class="mo-sx2"><h3>${esc(f)}</h3><div class="mo-mg">${L2.filter(m => m.familia === f).map(m => `<button type="button" class="mo-mt${M.metodo === m.id ? " on" : ""}${m.aplica ? "" : " no"}" data-met="${m.id}"${m.aplica ? "" : " disabled"}><div class="mo-mh"><span class="mo-mi">${iconoMetodo(m.id)}</span><div class="t"><b>${esc(m.nombre)}</b>${m.recomendado && m.aplica ? '<span class="mo-rec">Recomendado</span>' : ""}${m.aplica ? "" : '<span class="mo-no">No aplica</span>'}</div></div><p>${esc(m.desc)}</p><div class="mo-razon">${esc(m.razon || "")}</div>
         <div class="mo-pc2"><div><small>Ventajas</small><ul>${(m.ventajas || []).map(v => `<li>${esc(v)}</li>`).join("")}</ul></div><div><small>Alcances y límites</small><ul>${(m.limites || []).map(v => `<li>${esc(v)}</li>`).join("")}</ul></div></div>
         <div class="mo-rs"><span>Tiempo ${nivel(m.recursos.tiempo)}</span><span>Memoria ${nivel(m.recursos.memoria)}</span><i>${esc(m.recursos.etiqueta || "")}</i></div></button>`).join("")}</div></section>`).join("")}
       ${M.enfoque === "nosup" && (M.metodo === "kmeans" || M.metodo === "jerarquico") ? `<label class="mo-fl">Número de grupos <small class="mo-mut">(déjalo vacío para que Model Lab lo elija)</small><input class="mo-in mo-num" id="moK" type="number" min="2" max="20" value="${M.k || ""}"></label>` : ""}
@@ -459,7 +464,7 @@
   const CAT_NOM = { faltantes: "Datos faltantes e imputación", outliers: "Valores atípicos (outliers)", escalado: "Estandarización de unidades y escalas", codificacion: "Codificación de categorías", transformacion: "Transformaciones de forma", duplicados: "Filas duplicadas", colineales: "Variables muy correlacionadas entre sí", constantes: "Variables constantes", columnaFaltantes: "Columnas con demasiados faltantes" };
   async function secPrep() {
     S.sec = "prep"; nav(); if (!(await aseguraDs()) || !S.M.metodo) return ir("metodos"); const M = S.M, P = perfiles(), cat = window.MLMotor.catalogoPrep;
-    const ctx = { enfoque: M.enfoque, y: M.y || null, x: M.x || [], n: S.ds.rows.length, metodo: M.metodo }; let sug; try { sug = window.MLMotor.sugerirPrep(P, ctx); } catch (e) { toast(e.message); return; }
+    const ctx = { enfoque: M.enfoque, y: M.y || null, x: M.x || [], n: S.ds.rows.length, metodo: M.metodo === "auto" ? undefined : M.metodo }; let sug; try { sug = window.MLMotor.sugerirPrep(P, ctx); } catch (e) { toast(e.message); return; }
     if (!M.prep) { M.prep = { global: Object.fromEntries(Object.entries(sug.global).map(([k, v]) => [k, v.id])), porColumna: {} }; }
     const g = M.prep.global;
     wrap(`${cab("4", "Preprocesamiento", "Model Lab eligió automáticamente cómo limpiar y preparar los datos según la naturaleza de cada variable. Revisa lo que se hará y cámbialo si lo prefieres.")}
@@ -470,6 +475,41 @@
       <div class="mo-nota">Para evitar contaminar la evaluación, todo el preprocesamiento se calcula <b>solo con los datos de entrenamiento</b> y después se aplica a los de prueba.</div>${pie("metodos", "modelar", "Confirmar y continuar", false)}`);
     M.prep.porColumna = Object.assign({}, sug.porColumna || {}, M.prep.porColumna || {});
   }
+
+  /* ilustraciones simples de cada método (SVG en línea, 96 × 64) */
+  const ICO_M = (() => {
+    const P = (xy, c, r) => xy.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="${r || 2.6}" fill="${c}"/>`).join(""), L = (a, b, c, w, d) => `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${w || 2.2}" stroke-linecap="round"${d ? ` stroke-dasharray="${d}"` : ""}/>`;
+    const AZ = "#4f46e5", AZ2 = "#818cf8", NA = "#f59e0b", VE = "#10b981", RO = "#e11d48", GR = "#94a3b8", CI = "#06b6d4";
+    const arbol = (x, y, s, c) => `<g stroke="${c}" stroke-width="${1.6 * s}" fill="none" stroke-linecap="round"><path d="M${x} ${y} L${x - 9 * s} ${y + 11 * s} M${x} ${y} L${x + 9 * s} ${y + 11 * s} M${x - 9 * s} ${y + 11 * s} L${x - 14 * s} ${y + 22 * s} M${x - 9 * s} ${y + 11 * s} L${x - 4 * s} ${y + 22 * s} M${x + 9 * s} ${y + 11 * s} L${x + 4 * s} ${y + 22 * s} M${x + 9 * s} ${y + 11 * s} L${x + 14 * s} ${y + 22 * s}"/></g><circle cx="${x}" cy="${y}" r="${3.2 * s}" fill="${c}"/><circle cx="${x - 9 * s}" cy="${y + 11 * s}" r="${2.6 * s}" fill="${c}"/><circle cx="${x + 9 * s}" cy="${y + 11 * s}" r="${2.6 * s}" fill="${c}"/>` + [[-14, 22, VE], [-4, 22, NA], [4, 22, VE], [14, 22, NA]].map(q => `<rect x="${x + q[0] * s - 2.8 * s}" y="${y + q[1] * s}" width="${5.6 * s}" height="${5.6 * s}" rx="1" fill="${q[2]}"/>`).join("");
+    const sc = (s) => `<svg viewBox="0 0 96 64" aria-hidden="true">${s}</svg>`;
+    const puntos = [[14, 48], [22, 41], [28, 45], [36, 33], [44, 35], [52, 25], [60, 29], [70, 17], [78, 19], [86, 11]];
+    const o = {};
+    o.ols = sc(P(puntos, AZ2) + L([8, 53], [90, 8], AZ, 2.8));
+    o.ridge = sc(`<path d="M8 52 C16 30 22 58 32 38 S48 44 56 24 S72 30 90 8" fill="none" stroke="${GR}" stroke-width="1.8" stroke-dasharray="3 3"/>` + P(puntos, AZ2) + L([8, 53], [90, 8], AZ, 2.8));
+    o.lasso = sc([[44, 4], [30, 14], [0, 24], [18, 34], [0, 44], [36, 54]].map((b, i) => b[0] ? `<rect x="14" y="${b[1] - 4}" width="${b[0] * 1.6}" height="7" rx="3.5" fill="${AZ}"/>` : `<circle cx="16" cy="${b[1] - .5}" r="2.6" fill="${GR}"/><text x="24" y="${b[1] + 3}" font-size="9" font-weight="700" fill="${GR}" font-family="system-ui">0</text>`).join(""));
+    o.logistica = sc(`<path d="M8 50 C34 50 38 48 48 32 S62 14 88 14" fill="none" stroke="${AZ}" stroke-width="2.8" stroke-linecap="round"/>` + P([[14, 52], [26, 52], [38, 52], [46, 52]], VE, 3) + P([[52, 12], [64, 12], [76, 12], [88, 12]], NA, 3) + L([8, 32], [90, 32], GR, 1, "2 3"));
+    o.arbol_reg = sc(arbol(48, 8, 1.6, AZ)); o.arbol_clf = o.arbol_reg;
+    o.bosque_reg = sc(arbol(18, 14, .62, AZ) + arbol(48, 14, .62, AZ2) + arbol(78, 14, .62, AZ) + arbol(33, 36, .5, CI) + arbol(63, 36, .5, VE)); o.bosque_clf = o.bosque_reg;
+    const knnP = P([[16, 48], [24, 40], [20, 28], [30, 50], [70, 14], [80, 24], [62, 22], [76, 34]], NA) + P([[22, 20], [34, 44], [28, 34], [40, 24], [18, 38]], AZ2);
+    o.knn_reg = sc(knnP + `<circle cx="48" cy="34" r="17" fill="none" stroke="${AZ}" stroke-width="1.6" stroke-dasharray="3 3"/><path d="M48 28 l2 4 4 .6 -3 3 .8 4 -3.8 -2 -3.8 2 .8 -4 -3 -3 4 -.6z" fill="${RO}"/>`); o.knn_clf = o.knn_reg;
+    o.naive_bayes = sc(`<path d="M6 54 C20 54 26 8 38 8 S54 54 70 54" fill="${AZ2}" fill-opacity=".35" stroke="${AZ}" stroke-width="2"/><path d="M28 54 C42 54 54 6 66 6 S80 54 90 54" fill="${NA}" fill-opacity=".35" stroke="${NA}" stroke-width="2"/>` + L([4, 55], [92, 55], GR, 1.2));
+    o.lda = sc(P([[14, 14], [22, 22], [16, 30], [28, 16], [26, 32], [12, 24]], AZ2) + P([[62, 42], [72, 34], [80, 46], [70, 50], [84, 36], [58, 52]], NA) + L([30, 58], [66, 6], AZ, 2.6));
+    o.pca = sc(`<g transform="rotate(-28 48 34)"><ellipse cx="48" cy="34" rx="36" ry="12" fill="${AZ2}" fill-opacity=".25" stroke="${AZ2}" stroke-width="1.2"/></g>` + P([[24, 44], [34, 38], [42, 36], [54, 30], [62, 24], [72, 20], [40, 42], [58, 36]], AZ2, 2.2) + L([48, 34], [82, 14], AZ, 2.6) + L([48, 34], [38, 18], VE, 2.6) + `<path d="M82 14 l-7 .5 m7 -.5 l-3 6" stroke="${AZ}" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M38 18 l1 6 m-1 -6 l5 3" stroke="${VE}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`);
+    const cx = (x, y, c) => `<path d="M${x - 3.5} ${y - 3.5} l7 7 m0 -7 l-7 7" stroke="${c}" stroke-width="2.4" stroke-linecap="round"/>`;
+    o.kmeans = sc(P([[16, 14], [24, 20], [14, 24], [22, 12], [26, 24]], AZ2) + P([[66, 12], [74, 18], [80, 10], [70, 24], [84, 20]], NA) + P([[40, 48], [50, 54], [58, 46], [44, 56], [54, 44]], VE) + cx(20, 18, AZ) + cx(75, 17, "#b45309") + cx(49, 50, "#047857"));
+    o.jerarquico = sc(`<g stroke="${AZ}" stroke-width="2" fill="none" stroke-linecap="round"><path d="M12 56 V38 H24 V56 M18 38 V26 H40 M40 26 V56 M30 26 V14 H66 M66 14 V30 M52 30 H80 M52 30 V56 M80 30 V56 M66 30 V30"/></g>` + P([[12, 58], [24, 58], [40, 58], [52, 58], [80, 58]], AZ2, 2.4));
+    o.dbscan = sc(P([[18, 18], [26, 14], [24, 24], [16, 26], [30, 22], [22, 20]], AZ2) + P([[66, 40], [74, 36], [72, 48], [62, 46], [80, 44], [70, 42]], NA) + `<circle cx="23" cy="20" r="14" fill="none" stroke="${AZ2}" stroke-width="1.2" stroke-dasharray="3 3"/><circle cx="71" cy="42" r="14" fill="none" stroke="${NA}" stroke-width="1.2" stroke-dasharray="3 3"/>` + P([[50, 10], [44, 52], [88, 12], [8, 52]], GR, 2.2));
+    o.correlaciones = sc([0, 1, 2, 3].map(i => [0, 1, 2, 3].map(j => { const v = i === j ? 1 : Math.abs(Math.cos((i + 1) * (j + 2))), c = (i * 3 + j) % 3 === 1 && i !== j ? RO : AZ; return `<rect x="${20 + j * 15}" y="${5 + i * 14}" width="13" height="12" rx="2.5" fill="${c}" fill-opacity="${(.15 + .8 * v).toFixed(2)}"/>`; }).join("")).join(""));
+    o.anomalias = sc(P([[22, 40], [30, 34], [28, 46], [38, 42], [34, 30], [44, 38], [26, 38], [40, 48]], AZ2) + `<circle cx="78" cy="14" r="9" fill="none" stroke="${RO}" stroke-width="2"/>` + P([[78, 14]], RO, 3.6) + L([70, 20], [46, 36], GR, 1.2, "2 3"));
+    o.svm_clf = sc(P([[14, 14], [24, 20], [18, 30], [30, 12], [26, 28]], AZ2) + P([[64, 44], [74, 38], [82, 50], [70, 54], [86, 40]], NA) + L([40, 60], [58, 4], AZ, 2.8) + L([30, 60], [48, 4], AZ2, 1.2, "3 3") + L([50, 60], [68, 4], AZ2, 1.2, "3 3") + `<circle cx="30" cy="12" r="5" fill="none" stroke="${RO}" stroke-width="1.6"/><circle cx="64" cy="44" r="5" fill="none" stroke="${RO}" stroke-width="1.6"/>`);
+    o.svm_reg = sc(`<path d="M8 50 L90 12 L90 24 L8 62 Z" fill="${AZ2}" fill-opacity=".18"/>` + P([[16, 46], [26, 44], [36, 40], [46, 32], [54, 34], [66, 22], [78, 18], [86, 14]], AZ2) + L([8, 56], [90, 18], AZ, 2.6) + L([8, 50], [90, 12], AZ2, 1.2, "3 3") + L([8, 62], [90, 24], AZ2, 1.2, "3 3"));
+    const nodos = (cols) => { let h = ""; const xs = [14, 38, 62, 84]; cols.forEach((n, i) => { for (let j = 0; j < n; j++) cols[i + 1] && Array.from({ length: cols[i + 1] }, (_, k) => k).forEach(k => { h += `<line x1="${xs[i]}" y1="${32 + (j - (n - 1) / 2) * 14}" x2="${xs[i + 1]}" y2="${32 + (k - (cols[i + 1] - 1) / 2) * 14}" stroke="${GR}" stroke-width=".8"/>`; }); }); cols.forEach((n, i) => { for (let j = 0; j < n; j++) h += `<circle cx="${xs[i]}" cy="${32 + (j - (n - 1) / 2) * 14}" r="4.2" fill="${i === 0 ? AZ2 : i === cols.length - 1 ? NA : AZ}"/>`; }); return h; };
+    o.mlp_clf = sc(nodos([3, 4, 4, 1])); o.mlp_reg = o.mlp_clf;
+    const mini = (x, c) => arbol(x, 10, .62, c);
+    o.gbm_clf = sc(mini(14, AZ) + `<text x="31" y="26" font-size="15" font-weight="800" fill="${GR}" font-family="system-ui">+</text>` + mini(50, AZ2) + `<text x="67" y="26" font-size="15" font-weight="800" fill="${GR}" font-family="system-ui">+</text>` + mini(84, CI)); o.gbm_reg = o.gbm_clf;
+    return o;
+  })();
+  const iconoMetodo = id => ICO_M[id] || '<svg viewBox="0 0 96 64" aria-hidden="true"><circle cx="48" cy="32" r="14" fill="none" stroke="#818cf8" stroke-width="3"/></svg>';
 
   /* ── ventana emergente de etapas ── */
   function popup(titulo, sub) {
@@ -494,6 +534,7 @@
   }
   const fmtK = k => typeof k.valor === "number" ? (k.formato === "pct" ? gN(k.valor * 100, 1) + " %" : gN(k.valor)) : String(k.valor == null ? "—" : k.valor);
   async function corre() {
+    if (S.M.metodo === "auto") return correAuto();
     const M = S.M, sup = M.enfoque === "sup", E = ETAPAS[sup ? "sup" : "nosup"]; if (!(await aseguraDs())) { toast("Falta la tabla de datos."); return; } S.perfiles = null;
     const o = popup(sup ? "Modelando" : "Analizando", `${S.ds.rows.length} observaciones · ${M.metodoNombre || M.metodo}`), hechas = new Map(); let act = E[0][0], t0 = Date.now(), ult = null; const tIni = Date.now(); popupEtapas(o, E, act, hechas, "");
     const cfg = { enfoque: M.enfoque, y: M.y || null, x: M.x, metodo: M.metodo, prep: M.prep, semilla: 42, prop_prueba: .2, folds: 5, k: M.k || null };
@@ -525,7 +566,7 @@
   }
   function svgHist(vals, o) {
     o = base(o); const v = vals.filter(nz); if (v.length < 2) return '<div class="mo-mut">Sin datos para graficar.</div>'; const nb = Math.min(24, Math.max(6, Math.round(Math.sqrt(v.length)))), a = Math.min(...v), b = Math.max(...v), w = (b - a) / nb || 1, c = new Array(nb).fill(0); v.forEach(x => { c[Math.min(nb - 1, Math.floor((x - a) / w))]++; });
-    const my = Math.max(...c), E = ejes(a, b, 0, my, o); return `<svg viewBox="0 0 ${o.w} ${o.h}" class="mo-svg" role="img"><g class="ejes">${E.h}</g>${c.map((k, i) => `<rect x="${E.sx(a + i * w) + 1}" y="${E.sy(k)}" width="${Math.max(1, E.sx(a + (i + 1) * w) - E.sx(a + i * w) - 2)}" height="${E.sy(0) - E.sy(k)}" fill="${o.c || "#06b6d4"}" fill-opacity=".8"/>`).join("")}${o.ref != null ? `<line x1="${E.sx(o.ref)}" y1="${o.m.t}" x2="${E.sx(o.ref)}" y2="${o.h - o.m.b}" stroke="#ef4444" stroke-dasharray="4 3"/>` : ""}</svg>`;
+    const my = Math.max(...c), E = ejes(a, b, 0, my, o); return `<svg viewBox="0 0 ${o.w} ${o.h}" class="mo-svg" role="img"><g class="ejes">${E.h}</g>${c.map((k, i) => `<rect x="${E.sx(a + i * w) + 1}" y="${E.sy(k)}" width="${Math.max(1, E.sx(a + (i + 1) * w) - E.sx(a + i * w) - 2)}" height="${E.sy(0) - E.sy(k)}" fill="${o.c || "#06b6d4"}" fill-opacity=".8"/>`).join("")}${o.ref != null ? `<line x1="${E.sx(o.ref)}" y1="${o.m.t}" x2="${E.sx(o.ref)}" y2="${o.h - o.m.b}" stroke="#ef4444" stroke-width="2" stroke-dasharray="5 3"/><text x="${E.sx(o.ref) + 4}" y="${o.m.t + 10}" class="ax" fill="#ef4444">0</text>` : ""}</svg>`;
   }
   function svgCalor(m, filas, cols, o) {
     o = o || {}; const nr = m.length, nc = (m[0] || []).length, cw = Math.max(34, Math.min(78, Math.floor(440 / Math.max(1, nc)))), rh = 26, lw = 150, th = o.rot ? 80 : 28, W = lw + nc * cw + 10, H = th + nr * rh + 6, cm = o.max != null ? o.max : Math.max(1e-9, ...m.flat().filter(nz).map(Math.abs)), neg = o.div !== false && m.flat().some(v => v < 0);
@@ -550,13 +591,12 @@
   const nombreV = v => { const t = String(v).replace(/^(num__|cat__)/, ""), b = t.replace(/__faltante$/, ""); return nomVar(b) + (t !== b ? " (¿faltaba el dato?)" : ""); };
   /* nombres internos de variables dentro de textos del motor → nombres legibles */
   const hum = t => String(t == null ? "" : t).replace(/[A-Za-z0-9_:.\-]+/g, tok => { const b = tok.replace(/^(num__|cat__)/, "").replace(/__faltante$/, ""); if (!(BIBK()[b] || colsProy().some(c => c.name === b))) return tok; return "«" + nomVar(b) + "»" + (/__faltante$/.test(tok) ? " (¿faltaba el dato?)" : ""); });
-  function secResultados() {
-    S.sec = "resultados"; nav(); const r = S.res; if (!r) { wrap(`${cab("6", "Resultados", "")}<div class="mo-empty"><b>Aún no hay resultados.</b><p>Configura el análisis y pulsa «${S.M && S.M.enfoque === "nosup" ? "Analizar" : "Modelar"}».</p><button type="button" class="mo-new" data-sec="${S.M && S.M.metodo ? "modelar" : "variables"}">Ir al flujo</button></div>`); return; }
-    const sup = r.enfoque === "sup"; let h = `${cab("6", "Resultados", `${esc(r.nombreMetodo || r.metodo)} · ${sup ? (r.tipoY === "regresion" ? "regresión" : r.tipoY === "binaria" ? "clasificación binaria" : "clasificación multiclase") : "análisis no supervisado"}`)}${kpisHtml(r)}${hallHtml(r)}<div class="mo-gg">`;
+  function resultadosHtml(r) {
+    const sup = r.enfoque === "sup"; let h = `${kpisHtml(r)}${hallHtml(r)}<div class="mo-gg">`;
     if (sup) {
       const imp = (r.importancias || []).slice(0, 15); if (imp.length) h += bloque("Variables que más influyen", svgBarras(imp.map(i => ({ n: nombreV(i.var), v: i.valor, t: gN(i.valor, 0) }))), inter(r, "importancias", "Mide cuánto empeora el modelo cuando se desordena cada variable: más largo, más influyente. La escala va de 0 a 100."));
       const P = r.predicciones || {};
-      if (r.tipoY === "regresion" && P.real) { const res2 = P.real.map((v, i) => v - P.pred[i]); h += bloque("Valores reales frente a predichos (datos de prueba)", svgDisp(P.real, P.pred, { diag: true, xl: "Real", yl: "Predicho" }), inter(r, "real_vs_pred", "Cada punto es una observación que el modelo no vio al entrenar. Cuanto más cerca de la línea punteada, mejor la predicción.")); h += bloque("Errores del modelo (residuos)", svgHist(res2, { xl: "Real − predicho", ref: 0 }), inter(r, "residuos", "Lo ideal es una campana centrada en cero: errores pequeños y sin sesgo hacia arriba o abajo.")); }
+      if (r.tipoY === "regresion" && P.real) { const res2 = P.real.map((v, i) => v - P.pred[i]); h += bloque("Valores reales frente a predichos (datos de prueba)", svgDisp(P.real, P.pred, { diag: true, xl: "Real", yl: "Predicho" }), inter(r, "real_vs_pred", "Cada punto es una observación que el modelo no vio al entrenar. Cuanto más cerca de la línea punteada, mejor la predicción.")); h += bloque("Errores del modelo (residuos)", svgHist(res2, { xl: "Error = real − predicho" + ((S.ds && S.M && (S.ds.cols.find(c => c.name === S.M.y) || {}).unit) ? " (" + S.ds.cols.find(c => c.name === S.M.y).unit + ")" : " (unidades de la respuesta)") + " · 0 = predicción exacta", yl: "Número de observaciones", ref: 0 }), inter(r, "residuos", "Lo ideal es una campana centrada en cero: errores pequeños y sin sesgo hacia arriba o abajo.")); }
       if (r.tipoY !== "regresion" && r.matrizConfusion) { const C = r.matrizConfusion; h += bloque("Matriz de confusión (datos de prueba)", svgCalor(C.m, C.clases.map(c => "real: " + c), C.clases.map(c => "pred: " + c), { div: false, entero: true, rot: true }), inter(r, "confusion", "Las filas son lo que realmente fue y las columnas lo que predijo el modelo. La diagonal son los aciertos.")); }
       if (r.roc && r.roc.fpr) h += bloque(`Curva ROC · AUC ${gN(r.roc.auc, 3)}`, svgLineas([{ n: "Modelo", x: r.roc.fpr, y: r.roc.tpr, pts: false }], { diag: true, x0: 0, x1: 1, y0: 0, y1: 1, xl: "Falsos positivos", yl: "Verdaderos positivos" }), inter(r, "roc", "Cuanto más se pega la curva a la esquina superior izquierda, mejor separa las clases. La diagonal es el azar (AUC 0.5)."));
       if ((r.coeficientes || []).length) h += `<article class="mo-gr mo-ancho"><h4>${r.tipoY === "regresion" ? "Coeficientes del modelo" : "Coeficientes y razones de momios"}</h4><div class="mo-tw"><table class="mo-t"><thead><tr><th>Variable</th><th>Coeficiente</th><th>Error</th><th>t</th><th>p</th><th>IC 95 %</th>${r.tipoY !== "regresion" ? "<th>Razón de momios</th>" : ""}</tr></thead><tbody>${r.coeficientes.map(c => `<tr><td>${esc(nombreV(c.var))}</td><td>${gN(c.coef, 4)}</td><td>${gN(c.error, 4)}</td><td>${gN(c.t, 2)}</td><td class="${c.p != null && c.p < .05 ? "mo-sig" : ""}">${c.p == null ? "—" : c.p < .001 ? "< 0.001" : gN(c.p, 3)}</td><td>${c.ic95 ? gN(c.ic95[0], 3) + " a " + gN(c.ic95[1], 3) : "—"}</td>${r.tipoY !== "regresion" ? `<td>${gN(c.oddsRatio, 3)}</td>` : ""}</tr>`).join("")}</tbody></table></div><div class="mo-int"><b>Cómo leerla</b><p>${esc(inter(r, "coeficientes", "El signo indica si la variable sube o baja la respuesta; una p menor a 0.05 sugiere que el efecto es distinguible del azar."))}</p></div></article>`;
@@ -571,14 +611,16 @@
       if (r.correlaciones) { const C = r.correlaciones, vs = C.vars.slice(0, 18); h += bloque("Correlaciones entre variables (Pearson)", svgCalor(C.pearson.slice(0, 18).map(f => f.slice(0, 18)), vs.map(nombreV), vs.map(nombreV), { rot: true, max: 1 }), inter(r, "correlaciones", "Azul: cuando una sube la otra también; rojo: cuando una sube la otra baja. Cerca de 0: no hay relación lineal.")); h += `<article class="mo-gr"><h4>Relaciones más fuertes</h4><table class="mo-t"><thead><tr><th>Variable A</th><th>Variable B</th><th>Pearson</th><th>Spearman</th></tr></thead><tbody>${(C.paresFuertes || []).slice(0, 10).map(p => `<tr><td>${esc(nombreV(p.a))}</td><td>${esc(nombreV(p.b))}</td><td>${gN(p.r, 2)}</td><td>${gN(p.rho, 2)}</td></tr>`).join("")}</tbody></table></article>`; }
       if (r.anomalias) { const A = r.anomalias; h += bloque("Casos atípicos (puntaje de anomalía)", svgHist(A.puntaje.filter(nz), { xl: "Puntaje", ref: A.umbral }), inter(r, "anomalias", "A la derecha de la línea roja están las observaciones que se alejan mucho del patrón del resto: conviene revisarlas.")); h += `<article class="mo-gr"><h4>Observaciones más atípicas</h4><table class="mo-t"><thead><tr><th>Observación</th><th>Puntaje</th><th>Variables que más aportan</th></tr></thead><tbody>${(A.idx || []).slice(0, 10).map((i, k) => `<tr><td>${esc(S.ds && S.ds.ids ? S.ds.ids[i] : "#" + (i + 1))}</td><td>${gN(A.puntaje[i], 2)}</td><td>${esc((((A.variablesQueMasAportan || []).find(v => v.idx === i) || {}).vars || []).map(nombreV).join(", "))}</td></tr>`).join("")}</tbody></table></article>`; }
     }
-    h += "</div>" + pie("modelar", "calidad", "Ver calidad del modelo", false); wrap(h);
-    if (!sup && r.clusters && S.ds) { const a = r.clusters.asignacion || []; mapaPuntos("moMapRes", a.map(x => x >= 0 ? PAL[x % PAL.length] : "#94a3b8"), a.map((x, i) => (S.ds.ids[i] || "") + " · grupo " + (x + 1))); }
+    h += "</div>"; return h;
+  }
+  function postResultados(r) {
+    const sup = r.enfoque === "sup"; if (!sup && r.clusters && S.ds) { const a = r.clusters.asignacion || []; mapaPuntos("moMapRes", a.map(x => x >= 0 ? PAL[x % PAL.length] : "#94a3b8"), a.map((x, i) => (S.ds.ids[i] || "") + " · grupo " + (x + 1))); }
   }
 
   /* ── 7 · Calidad del modelo ── */
   const gauge = (k, v) => !nz(v) ? "—" : MACOT.has(k) ? `<div class="mo-ga"><i style="width:${Math.max(0, Math.min(100, v * 100))}%;background:${v >= .8 ? "#059669" : v >= .6 ? "#d97706" : "#dc2626"}"></i><b>${gN(v, 3)}</b></div>` : gN(v, 3);
-  function secCalidad() {
-    S.sec = "calidad"; nav(); const r = S.res; if (!r) return ir("resultados"); const sup = r.enfoque === "sup"; let h = cab("7", "Calidad del modelo", "Estadísticos y diagnósticos para saber cuánto confiar en los resultados.");
+  function calidadHtml(r) {
+    const sup = r.enfoque === "sup"; let h = "";
     if (sup) {
       const M2 = r.metricas || {}, tr = M2.entrenamiento || {}, te = M2.prueba || {}, cv = M2.cv || {}, keys = [...new Set([...Object.keys(te), ...Object.keys(tr)])].filter(k => nz(te[k]) || nz(tr[k]));
       h += `<section class="mo-sx2"><h3>Medidas de ajuste</h3><div class="mo-tw"><table class="mo-t mo-mq"><thead><tr><th>Medida</th><th>Entrenamiento</th><th>Prueba</th><th>Validación cruzada</th><th>Qué significa</th></tr></thead><tbody>${keys.map(k => `<tr><td><b>${esc(mNom(k))}</b></td><td>${gauge(k, tr[k])}</td><td>${gauge(k, te[k])}</td><td>${cv.media && nz(cv.media[k]) ? gN(cv.media[k], 3) + (cv.sd && nz(cv.sd[k]) ? ` <small>± ${gN(cv.sd[k], 3)}</small>` : "") : "—"}</td><td class="mo-q2">${esc(interM(r, k, ""))}</td></tr>`).join("")}</tbody></table></div><div class="mo-nota">«Entrenamiento» mide qué tan bien se ajusta a los datos con que aprendió; «Prueba», con datos que no vio (la medida honesta); «Validación cruzada» repite la prueba en ${(cv.folds || []).length || 5} partes distintas para ver qué tan estable es.</div></section>`;
@@ -596,7 +638,7 @@
       h += "</tbody></table></div></section>";
     }
     h += `<section class="mo-sx2"><h3>Datos y preprocesamiento</h3><ul class="mo-rsm">${((r.prep || {}).pasos || []).map(p => `<li>${esc(hum(p))}</li>`).join("")}</ul><div class="mo-nota">${r.prep && r.prep.nTrain != null ? `Entrenamiento: ${gN(r.prep.nTrain, 0)} observaciones · Prueba: ${gN(r.prep.nTest, 0)}. ` : ""}${((r.prep || {}).descartadas || []).length ? "Variables descartadas: " + r.prep.descartadas.map(d => esc(nombreV(d.name) + " (" + d.razon + ")")).join(", ") + "." : ""}</div></section>`;
-    wrap(h + pie("resultados", null, "", false));
+    return h;
   }
 
   /* ── eventos del flujo ── */
@@ -605,6 +647,8 @@
     const t = e.target; let b;
     if ((b = t.closest("[data-v]")) && S.sec === "variables") { const k = b.dataset.v, s = new Set(S.M.vars || []); s.has(k) ? s.delete(k) : s.add(k); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vg]"))) { const ks = b.dataset.vg.split("|").filter(Boolean), s = new Set(S.M.vars || []); ks.forEach(k => b.dataset.on === "1" ? s.add(k) : s.delete(k)); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
+    if ((b = t.closest("[data-vermod]"))) { S.resVer = b.dataset.vermod; secResultados(); return true; }
+    if ((b = t.closest("[data-jmp]"))) { const el = $(b.dataset.jmp === "cal" ? "#moSecCal" : "#moSecRes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
     if ((b = t.closest("[data-vcat]"))) { S.vcat = b.dataset.vcat; secVariables(); return true; }
     if ((b = t.closest("[data-enf]"))) { const M = S.M; if (M.enfoque !== b.dataset.enf) { M.enfoque = b.dataset.enf; M.y = null; M.metodo = null; M.prep = null; M.prepOk = false; const P = perfiles(); M.x = P.filter(p => p.tipo !== "texto" && !p.constante).map(p => p.name); guardaModelo(); } secEnfoque(); return true; }
     if ((b = t.closest("[data-x]"))) { const k = b.dataset.x, s = new Set(S.M.x || []); s.has(k) ? s.delete(k) : s.add(k); S.M.x = [...s]; S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); const y = $("#moMain").scrollTop; secEnfoque().then(() => { $("#moMain").scrollTop = y; }); return true; }
@@ -612,8 +656,8 @@
     if ((b = t.closest("[data-met]"))) { if (b.disabled) return true; S.M.metodo = b.dataset.met; S.M.prep = null; S.M.prepOk = false; guardaModelo(); const y = $("#moMain").scrollTop; secMetodos().then(() => { $("#moMain").scrollTop = y; }); return true; }
     if ((b = t.closest("[data-fl]"))) { const a = b.dataset.fl;
       if (a === "construir") { construyeDatos(); return true; } if (a === "metodos") { ir("metodos"); return true; } if (a === "prep") { ir("prep"); return true; } if (a === "modelar") { S.M.prepOk = true; guardaModelo(); ir("modelar"); return true; }
-      if (a === "correr") { corre(); return true; } if (a === "calidad") { ir("calidad"); return true; } if (a === "cierrapop") { $$(".mo-pop").forEach(popupCierra); return true; }
-      if (a === "csv") { const r = S.res, ds = S.ds; if (!r || !ds) return true; if (r.clusters) { descarga("grupos.csv", [["id", "latitud", "longitud", "grupo"]].concat((r.clusters.asignacion || []).map((g, i) => [ds.ids[i], ds.lat[i], ds.lng[i], g >= 0 ? g + 1 : ""]))); } else if (r.predicciones) { const P = r.predicciones; descarga("predicciones.csv", [["id", "latitud", "longitud", "real", "predicho"]].concat((P.idx || []).map((i, k) => [ds.ids[i], ds.lat[i], ds.lng[i], P.real[k], P.pred[k]]))); } return true; } }
+      if (a === "correr") { corre(); return true; } if (a === "detener") { S._stop = true; const bt = t.closest("[data-fl]"); if (bt) { bt.disabled = true; bt.textContent = "Deteniendo al terminar el modelo en curso…"; } return true; } if (a === "calidad") { ir("calidad"); return true; } if (a === "cierrapop") { $$(".mo-pop").forEach(popupCierra); return true; }
+      if (a === "csv") { const r = resActual(), ds = S.ds; if (!r || !ds) return true; if (r.clusters) { descarga("grupos.csv", [["id", "latitud", "longitud", "grupo"]].concat((r.clusters.asignacion || []).map((g, i) => [ds.ids[i], ds.lat[i], ds.lng[i], g >= 0 ? g + 1 : ""]))); } else if (r.predicciones) { const P = r.predicciones; descarga("predicciones.csv", [["id", "latitud", "longitud", "real", "predicho"]].concat((P.idx || []).map((i, k) => [ds.ids[i], ds.lat[i], ds.lng[i], P.real[k], P.pred[k]]))); } return true; } }
     return false;
   }
   function resetModelo() { const M = S.M; M.metodo = null; M.prep = null; M.prepOk = false; M.y = null; M.x = []; M.enfoque = M.enfoque; S.ds = null; S.perfiles = null; const r = $("#vRes"); if (r) r.innerHTML = resumenVars(); }
@@ -621,6 +665,54 @@
   function flujoCambia(e) {
     const t = e.target; if (t.id === "moY") { S.M.y = t.value || null; S.M.x = (S.M.x || []).filter(k => k !== S.M.y); if (S.M.y && !(S.M.x || []).length) { S.M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== S.M.y).map(p => p.name); } S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); secEnfoque(); return; }
     if (t.dataset && t.dataset.prep) { S.M.prep.global[t.dataset.prep] = t.value; guardaModelo(); secPrep(); return; } if (t.id === "moK") { S.M.k = t.value ? Math.max(2, Math.min(20, +t.value)) : null; guardaModelo(); }
+  }
+
+  /* ═══════════════ Elegir el mejor modelo (compara todos los métodos factibles) + Resultados y calidad en una sola ventana ═══════════════ */
+  const resActual = () => { const r = S.res; if (!r) return null; return S.resVer && r._todos && r._todos[S.resVer] ? r._todos[S.resVer] : r; };
+  ICO_M.auto = '<svg viewBox="0 0 96 64" aria-hidden="true"><rect x="10" y="38" width="24" height="20" rx="3" fill="#818cf8"/><rect x="36" y="26" width="24" height="32" rx="3" fill="#4f46e5"/><rect x="62" y="44" width="24" height="14" rx="3" fill="#06b6d4"/><path d="M48 4 l3.6 7.2 7.9 1.2 -5.7 5.5 1.3 7.9 -7.1 -3.8 -7.1 3.8 1.3 -7.9 -5.7 -5.5 7.9 -1.2z" fill="#f59e0b"/><g font-family="system-ui" font-weight="800" font-size="11" fill="#fff" text-anchor="middle"><text x="22" y="52">2</text><text x="48" y="48">1</text><text x="74" y="55">3</text></g></svg>';
+  function puntajeModelo(r) {
+    const reg = r.tipoY === "regresion", M2 = r.metricas || {}, claves = reg ? ["r2"] : ["exactitud_balanceada", "f1_macro", "exactitud"], k = claves.find(c => nz((M2.prueba || {})[c]));
+    if (!k) return { score: null }; const te = M2.prueba[k], tr = (M2.entrenamiento || {})[k], cv = ((M2.cv || {}).media || {})[k], base = nz(cv) ? (te + cv) / 2 : te, gap = nz(tr) ? tr - te : 0, score = base - Math.max(0, gap - .10) * .5;
+    return { score, test: te, cv: nz(cv) ? cv : null, gap, clave: k, txt: (reg ? "R² " : "exactitud ") + gN(te, 2) };
+  }
+  async function correAuto() {
+    const M = S.M; if (!(await aseguraDs())) { toast("Falta la tabla de datos."); return; } S.perfiles = null; const py = perfilDe(M.y), px = (M.x || []).map(perfilDe).filter(Boolean), n = S.ds.rows.length; let cand = [];
+    try { cand = window.MLMotor.sugerirMetodos("sup", py, px, n).filter(m => m.aplica); } catch (e) { toast(e.message); return; } let nota = ""; if (n > 8000) { const antes = cand.length; cand = cand.filter(m => m.recursos.tiempo !== "alto"); if (cand.length < antes) nota = "Con más de 8 000 observaciones se omitieron los métodos más lentos."; }
+    if (!cand.length) { toast("No hay métodos aplicables a estas variables."); return; }
+    const o = popup("Eligiendo el mejor modelo", `${cand.length} modelos · ${gN(n, 0)} observaciones${nota ? " · " + nota : ""}`), est = {}, todos = {}, tabla = []; S._stop = false; const t00 = Date.now();
+    const pinta = det => { o.querySelector(".mo-pet").innerHTML = cand.map(m => { const e = est[m.id] || {}; return `<li class="${e.ok ? "ok" : e.act ? "on" : ""}"><i>${e.ok ? "✓" : e.act ? '<b class="mo-spin"></b>' : e.err ? "!" : "·"}</i><span>${esc(m.nombre)}</span><em>${e.ok ? esc(e.txt) : e.err ? "no se pudo" : e.act ? esc((e.sub || "entrenando…").slice(0, 46)) : ""}</em></li>`; }).join(""); o.querySelector(".mo-pd").textContent = det || ""; };
+    o.querySelector("footer").innerHTML = '<button type="button" class="mo-ghost" data-fl="detener">Detener y quedarme con lo ya calculado</button>'; pinta("");
+    for (let i = 0; i < cand.length; i++) {
+      if (S._stop && tabla.some(t => !t.error)) break; const m = cand[i]; est[m.id] = { act: true }; popupAv(o, i / cand.length); pinta(`Modelo ${i + 1} de ${cand.length}`); await tick(); const t0 = Date.now();
+      try { const res = await window.MLMotor.correr({ enfoque: "sup", y: M.y, x: M.x, metodo: m.id, prep: M.prep, semilla: 42, prop_prueba: .2, folds: 5, k: null }, S.ds, ev => { if (ev) { est[m.id].sub = (ev.nombre || ev.id) + (ev.detalle ? " · " + ev.detalle : ""); const em = o.querySelector(".mo-pet li.on em"); if (em) em.textContent = est[m.id].sub.slice(0, 46); popupAv(o, (i + (ev.progreso || 0) * .9) / cand.length); } });
+        const sc = puntajeModelo(res); todos[m.id] = res; est[m.id] = { ok: true, txt: sc.txt || "listo" }; tabla.push({ id: m.id, nombre: res.nombreMetodo || m.nombre, familia: m.familia, score: sc.score, prueba: sc.test, cv: sc.cv, gap: sc.gap, clave: sc.clave, ms: Date.now() - t0 }); }
+      catch (e) { est[m.id] = { err: true }; tabla.push({ id: m.id, nombre: m.nombre, familia: m.familia, error: String(e.message || e), ms: Date.now() - t0 }); }
+      pinta(""); await tick();
+    }
+    const ok = tabla.filter(t => !t.error && nz(t.score)).sort((a, b) => b.score - a.score);
+    if (!ok.length) { o.querySelector(".mo-pbar").classList.add("err"); o.querySelector(".mo-pd").innerHTML = '<b class="mo-mal">Ningún modelo se pudo ajustar con estas variables.</b>'; o.querySelector("footer").innerHTML = '<button type="button" class="mo-ghost" data-fl="cierrapop">Cerrar</button>'; return; }
+    const mejor = ok[0], fallidos = tabla.filter(t => t.error || !nz(t.score)), res0 = todos[mejor.id], reg = res0.tipoY === "regresion";
+    const cmp = { elegido: mejor.id, tipoY: res0.tipoY, clave: mejor.clave, criterio: reg ? "R² (promedio entre datos de prueba y validación cruzada)" : "exactitud balanceada (promedio entre datos de prueba y validación cruzada)", modelos: ok.concat(fallidos), seg: Math.round((Date.now() - t00) / 1000), parcial: cand.length > tabla.length, nota };
+    popupAv(o, 1); S.res = Object.assign({}, res0, { _cmp: cmp, _todos: todos }); S.resVer = null; S.M.prepOk = true; S.M.hecho = new Date().toISOString(); await guardaModelo();
+    try { const kp = (res0.kpis || []).slice(0, 2).map(k => ({ etiqueta: k.etiqueta, valor: fmtK(k) })); await api(R + "/proyectos/" + S.id + "/resultados", { res: S.res, kpi: kp }); const p = S.proy.find(x => x.id === S.id); if (p) { p.estado = "modelado"; p.kpi = kp; p.metodo = "Mejor: " + (res0.nombreMetodo || mejor.nombre); } } catch (e) { toast("El resultado se calculó pero no se pudo guardar: " + e.message, 6000); }
+    popupCierra(o); nav(); ir("resultados");
+  }
+  /* banner con el modelo elegido y la comparación de todos los modelos */
+  function bannerModelo() {
+    const r0 = S.res, c = r0 && r0._cmp; if (!c) return ""; const ver = S.resVer && r0._todos[S.resVer] ? S.resVer : c.elegido, ganador = c.modelos.find(m => m.id === c.elegido), vista = c.modelos.find(m => m.id === ver), seg2 = c.modelos.filter(m => !m.error && nz(m.score))[1], rn = c.tipoY === "regresion" ? "R²" : "exactitud balanceada";
+    const fila = (m, i) => m.error || !nz(m.score) ? `<tr class="mo-trx"><td>—</td><td><b>${esc(m.nombre)}</b><small>${esc(m.familia || "")}</small></td><td colspan="5" class="mo-q2">No se pudo ajustar: ${esc(m.error || "sin métricas")}</td></tr>` : `<tr class="mo-trv${m.id === ver ? " foco" : ""}" data-vermod="${m.id}" title="Ver los resultados de este modelo"><td>${i + 1}</td><td><b>${esc(m.nombre)}</b><small>${esc(m.familia || "")}</small></td><td>${gauge("r2", Math.max(0, m.score))}</td><td>${gN(m.prueba, 3)}</td><td>${m.cv != null ? gN(m.cv, 3) : "—"}</td><td class="${m.gap > .2 ? "mo-mal" : ""}">${m.gap == null ? "—" : (m.gap > .2 ? "alto · " : m.gap > .1 ? "algo · " : "bajo · ") + gN(m.gap, 2)}</td><td>${gN(m.ms / 1000, 1)} s</td><td>${m.id === c.elegido ? '<span class="mo-rec">Elegido</span>' : m.id === ver ? '<span class="mo-or archivo">Viendo</span>' : ""}</td></tr>`;
+    return `<section class="mo-sx2 mo-bnr"><small class="mo-bk">Selección automática del mejor modelo</small><h3>Modelo elegido: <b>${esc(ganador ? ganador.nombre : "")}</b></h3>
+      <p>Se entrenaron y compararon <b>${c.modelos.length} modelos</b> con los mismos datos de entrenamiento y de prueba. Ganó <b>${esc(ganador ? ganador.nombre : "")}</b> con un puntaje de ${gN(ganador ? ganador.score : null, 3)}${seg2 ? `, ${gN(ganador.score - seg2.score, 3)} por encima del segundo (${esc(seg2.nombre)})` : ""}. El puntaje combina ${rn} en datos de prueba y en validación cruzada, y resta una penalización cuando el modelo se ajusta mucho mejor al entrenamiento que a datos nuevos (sobreajuste). ${c.parcial ? "<b>Se detuvo antes de probar todos.</b> " : ""}${esc(c.nota || "")}</p>
+      ${ver !== c.elegido ? `<div class="mo-av"><div>Estás viendo los resultados de <b>${esc(vista ? vista.nombre : ver)}</b>, que <b>no fue el elegido</b>. <button type="button" class="mo-ghost" data-vermod="${c.elegido}">Volver al modelo elegido</button></div></div>` : ""}
+      <details class="mo-sx" open><summary><b>Comparación de los modelos</b><span>clic en un renglón para ver los resultados de ese modelo</span></summary><div class="mo-tw"><table class="mo-t mo-cmpt"><thead><tr><th>#</th><th>Modelo</th><th>Puntaje</th><th>${rn} prueba</th><th>${rn} validación cruzada</th><th>Sobreajuste</th><th>Tiempo</th><th></th></tr></thead><tbody>${c.modelos.map(fila).join("")}</tbody></table></div></details></section>`;
+  }
+  function secResultados() {
+    S.sec = "resultados"; nav(); const r = resActual();
+    if (!r) { wrap(`${cab("6", "Resultados y calidad del modelo", "")}<div class="mo-empty"><b>Aún no hay resultados.</b><p>Configura el análisis y pulsa «${S.M && S.M.enfoque === "nosup" ? "Analizar" : "Modelar"}».</p><button type="button" class="mo-new" data-sec="${S.M && S.M.metodo ? "modelar" : "variables"}">Ir al flujo</button></div>`); return; }
+    const sup = r.enfoque === "sup", tipo = sup ? (r.tipoY === "regresion" ? "regresión" : r.tipoY === "binaria" ? "clasificación binaria" : "clasificación multiclase") : "análisis no supervisado";
+    wrap(`${cab("6", "Resultados y calidad del modelo", `${esc(r.nombreMetodo || r.metodo)} · ${tipo}`)}${bannerModelo()}<nav class="mo-jmp"><button type="button" data-jmp="res">Resultados</button><button type="button" data-jmp="cal">Calidad del modelo</button></nav>
+      <section id="moSecRes"><h2 class="mo-bl"><span>A</span> Resultados</h2>${resultadosHtml(r)}</section><section id="moSecCal"><h2 class="mo-bl"><span>B</span> Calidad del modelo</h2><p class="mo-mut">Estadísticos y diagnósticos para saber cuánto confiar en los resultados.</p>${calidadHtml(r)}</section>${pie("modelar", null, "", false)}`);
+    postResultados(r);
   }
 
   /* ───────── eventos ───────── */

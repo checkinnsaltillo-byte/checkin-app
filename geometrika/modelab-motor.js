@@ -615,7 +615,8 @@
     return id;
   }
 
-  const ARBOLES = ['arbol_reg', 'bosque_reg', 'arbol_clf', 'bosque_clf'];
+  const ARBOLES = ['arbol_reg', 'bosque_reg', 'arbol_clf', 'bosque_clf', 'gbm_reg', 'gbm_clf'];
+  const ESCALA_OBLIGADA = ['svm_reg', 'svm_clf', 'mlp_reg', 'mlp_clf'];
 
   /** Decisiones automáticas de preprocesamiento con su razón, a partir de los perfiles. */
   function sugerirPrep(perfiles, ctx) {
@@ -680,6 +681,7 @@
     // --- Escalado
     if (esArbol) g.escalado = { id: 'ninguno', razon: 'Los árboles no dependen de la escala de las variables.' };
     else if (met === 'correlaciones') g.escalado = { id: 'ninguno', razon: 'La correlación no cambia con la escala.' };
+    else if (ESCALA_OBLIGADA.indexOf(met) >= 0) g.escalado = { id: 'estandar', razon: 'Este método (vectores de soporte o red neuronal) se desajusta si unas variables tienen unidades mucho mayores que otras; poner todas en la misma escala es indispensable.' };
     else if (g.outliers.id === 'ninguno' && fuertes.length) g.escalado = { id: 'robusto', razon: 'Quedan valores extremos sin recortar; la escala robusta evita que distorsionen la comparación entre variables.' };
     else g.escalado = { id: 'estandar', razon: 'Pone todas las variables en la misma escala para que ninguna pese más solo por sus unidades (necesario en métodos basados en distancias o penalizaciones).' };
 
@@ -764,9 +766,27 @@
       v: ['Muy fácil de leer', 'Detecta variables repetidas'], l: ['Correlación no implica causa', 'Solo variables numéricas'] },
     anomalias: { nombre: 'Detección de casos anómalos', familia: 'Anomalías', tipo: 'nosup', min: 50, t: 'bajo', m: 'baja', et: 'menos de 1 segundo en 5 000 filas',
       desc: 'Marca los casos que se alejan mucho del patrón general, considerando varias variables a la vez (distancia de Mahalanobis robusta).',
-      v: ['Considera combinaciones raras de variables', 'Resistente a que los propios extremos la distorsionen'], l: ['Supone una nube de puntos de una sola «masa»'] }
+      v: ['Considera combinaciones raras de variables', 'Resistente a que los propios extremos la distorsionen'], l: ['Supone una nube de puntos de una sola «masa»'] },
+    svm_clf: { nombre: 'Máquina de vectores de soporte (clasificación)', familia: 'Vectores de soporte', tipo: 'clf', min: 100, t: 'medio', m: 'alta', et: 'de segundos a medio minuto; usa como máximo 3 000 filas de aprendizaje',
+      desc: 'Traza la frontera que mejor separa las categorías dejando el mayor margen posible; con el núcleo curvo (RBF) puede dibujar fronteras muy flexibles. Entrega probabilidades mediante un ajuste adicional.',
+      v: ['Capta fronteras curvas y complejas', 'Muy buena precisión con pocas o medianas cantidades de filas', 'Robusta cuando hay muchas variables'], l: ['Lenta y pesada en memoria con muchas filas (por eso se limita a 3 000 de aprendizaje)', 'Difícil de explicar: no da coeficientes simples', 'Exige variables en la misma escala y ajustar dos parámetros (C y gamma)'] },
+    svm_reg: { nombre: 'Regresión por vectores de soporte', familia: 'Vectores de soporte', tipo: 'reg', min: 100, t: 'medio', m: 'alta', et: 'de segundos a medio minuto; usa como máximo 3 000 filas de aprendizaje',
+      desc: 'Ajusta una curva suave que deja a los casos dentro de una «banda» de tolerancia; solo los casos fuera de la banda influyen en el resultado. Con el núcleo curvo (RBF) capta relaciones no lineales.',
+      v: ['Capta relaciones curvas', 'Poco afectada por unos cuantos valores extremos', 'Buena precisión con filas moderadas'], l: ['Lenta y pesada en memoria con muchas filas (se limita a 3 000 de aprendizaje)', 'Difícil de explicar', 'Exige variables en la misma escala y ajustar tres parámetros (C, ε y gamma)'] },
+    mlp_clf: { nombre: 'Red neuronal (clasificación)', familia: 'Redes neuronales', tipo: 'clf', min: 100, t: 'medio', m: 'media', et: 'segundos a decenas de segundos en 3 000 filas',
+      desc: 'Una red de neuronas artificiales organizadas en capas aprende combinaciones complejas de las variables para asignar la categoría y calcula la probabilidad de cada una.',
+      v: ['Capta relaciones muy complejas e interacciones entre variables', 'Funciona con muchas variables y categorías', 'Da probabilidades por categoría'], l: ['Necesita más datos que otros métodos', 'Difícil de explicar: es una «caja negra»', 'Puede sobreajustar (se frena con parada temprana)', 'Exige variables en la misma escala'] },
+    mlp_reg: { nombre: 'Red neuronal (regresión)', familia: 'Redes neuronales', tipo: 'reg', min: 100, t: 'medio', m: 'media', et: 'segundos a decenas de segundos en 3 000 filas',
+      desc: 'Una red de neuronas artificiales aprende combinaciones complejas de las variables para predecir un número, incluso con curvas e interacciones.',
+      v: ['Capta relaciones muy complejas e interacciones entre variables', 'Funciona con muchas variables', 'Predice con curvas suaves'], l: ['Necesita más datos que otros métodos', 'Difícil de explicar: es una «caja negra»', 'Puede sobreajustar (se frena con parada temprana)', 'Exige variables en la misma escala'] },
+    gbm_clf: { nombre: 'Boosting de árboles (clasificación)', familia: 'Árboles', tipo: 'clf', min: 200, t: 'medio', m: 'media', et: 'segundos en 3 000 filas',
+      desc: 'Construye árboles pequeños uno tras otro, y cada uno corrige los errores de los anteriores. Suele ser de los métodos más precisos con datos de tabla.',
+      v: ['Muy alta precisión en datos de tabla', 'Capta relaciones complejas sin preparar mucho los datos', 'No exige escalar variables ni es sensible a extremos'], l: ['Más difícil de explicar que un solo árbol', 'Puede sobreajustar con pocos datos (se frena con parada temprana)', 'Más lento que los modelos lineales'] },
+    gbm_reg: { nombre: 'Boosting de árboles (regresión)', familia: 'Árboles', tipo: 'reg', min: 200, t: 'medio', m: 'media', et: 'segundos en 3 000 filas',
+      desc: 'Construye árboles pequeños uno tras otro, y cada uno corrige los errores de los anteriores. Si detecta valores atípicos usa una pérdida robusta para que no lo desvíen.',
+      v: ['Muy alta precisión en datos de tabla', 'Capta curvas e interacciones sin preparar mucho los datos', 'No exige escalar variables'], l: ['Más difícil de explicar que un solo árbol', 'No extrapola fuera del rango visto', 'Puede sobreajustar con pocos datos (se frena con parada temprana)'] }
   };
-  const ID_SUP = ['ols', 'ridge', 'lasso', 'arbol_reg', 'bosque_reg', 'knn_reg', 'logistica', 'arbol_clf', 'bosque_clf', 'knn_clf', 'naive_bayes', 'lda'];
+  const ID_SUP = ['ols', 'ridge', 'lasso', 'arbol_reg', 'bosque_reg', 'knn_reg', 'logistica', 'arbol_clf', 'bosque_clf', 'knn_clf', 'naive_bayes', 'lda', 'svm_clf', 'svm_reg', 'mlp_clf', 'mlp_reg', 'gbm_clf', 'gbm_reg'];
   const ID_NOSUP = ['pca', 'kmeans', 'jerarquico', 'dbscan', 'correlaciones', 'anomalias'];
 
   function tipoRespuestaDe(p) {
@@ -821,6 +841,9 @@
         else if (id === 'logistica') razon = (info.tipo === 'binaria' ? 'Dos resultados posibles: da la probabilidad y cuánto pesa cada variable.' : 'Varias categorías: da la probabilidad de cada una.') + ' Rápida y explicable.';
         else if (id === 'naive_bayes') razon = 'Muy rápido y estable aun con pocas filas; las probabilidades suelen ser menos finas.';
         else if (id === 'lda') razon = 'Buena opción si los grupos son compactos y de forma parecida.';
+        else if (id === 'svm_clf' || id === 'svm_reg') razon = 'Útil si la relación es curva o las categorías no se separan con una línea recta' + (n > 3000 ? '; con ' + fmt(n, 0) + ' filas aprenderá solo de una muestra de 3 000 por velocidad.' : '.') + ' Compara con modelos más simples.';
+        else if (id === 'mlp_clf' || id === 'mlp_reg') razon = n < 500 ? 'Capta relaciones muy complejas, pero con solo ' + n + ' filas una red puede sobreajustar; úsala como comparación.' : 'Capta relaciones muy complejas e interacciones entre variables; conviene si los modelos simples se quedan cortos.';
+        else if (id === 'gbm_clf' || id === 'gbm_reg') razon = 'Suele dar de las mejores precisiones en datos de tabla' + (nCat ? ' y maneja bien tus variables de categorías' : '') + '; es la alternativa natural si el bosque aleatorio no basta.';
         else if (id === 'pca') razon = 'Resume tus ' + X.length + ' variables en pocos ejes y muestra cuáles se mueven juntas.';
         else if (id === 'kmeans') razon = 'Forma grupos de casos parecidos y calcula solo cuántos grupos conviene.';
         else if (id === 'jerarquico') razon = n > 1500 ? 'Mismo fin que k-medias, pero con ' + n + ' filas trabajará con una muestra de 1 500 y asignará el resto.' : 'Alternativa a k-medias que muestra cómo se van uniendo los grupos.';
@@ -1654,6 +1677,446 @@
     };
   }
 
+  // --- Máquinas de vectores de soporte (SMO con selección de segundo orden) --------
+  const SVM_MAX = 3000;
+
+  /** Matriz de núcleo (Float32, simétrica) de n puntos en Z (arreglo plano n×p). */
+  function svmNucleo(Z, n, p, tipo, gamma) {
+    const Kd = new Float32Array(n * n), nm = new Float64Array(n);
+    for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < p; j++) { const v = Z[i * p + j]; s += v * v; } nm[i] = s; }
+    for (let i = 0; i < n; i++) {
+      const oi = i * p, fi = i * n;
+      for (let k = 0; k <= i; k++) {
+        const ok = k * p; let d = 0;
+        for (let j = 0; j < p; j++) d += Z[oi + j] * Z[ok + j];
+        Kd[fi + k] = tipo === 'lineal' ? d : Math.exp(-gamma * Math.max(0, nm[i] + nm[k] - 2 * d));
+      }
+    }
+    // Reflejo del triángulo inferior por bloques (más amable con la memoria caché)
+    const B = 32;
+    for (let bi = 0; bi < n; bi += B) for (let bk = 0; bk <= bi; bk += B) {
+      const ie = Math.min(n, bi + B);
+      for (let i = bi; i < ie; i++) { const ke = Math.min(i, bk + B); for (let k = bk; k < ke; k++) Kd[k * n + i] = Kd[i * n + k]; }
+    }
+    return Kd;
+  }
+
+  /**
+   * SMO genérico: minimiza ½αᵀQα + pᵀα con 0≤α≤C y Σ yα = 0, donde Q_ij = y_i y_j K(map[i], map[j]).
+   * Sirve para clasificación (p = −1) y para regresión ε-SVR (2n variables).
+   * Devuelve α y el sesgo b (la función es f(x) = Σ α_i y_i K(x, x_map[i]) + b).
+   */
+  function svmSMO(Kd, N, map, y, pv, C, tol, maxIter) {
+    const L = map.length, a = new Float64Array(L), G = Float64Array.from(pv), dg = new Float64Array(L);
+    let ident = L === N;
+    for (let t = 0; t < L; t++) { dg[t] = Kd[map[t] * N + map[t]]; if (map[t] !== t) ident = false; }
+    const bi = new Float64Array(L), bj = new Float64Array(L);
+    const fila = function (m, buf) { if (ident) return Kd.subarray(m * N, m * N + N); const o = m * N; for (let t = 0; t < L; t++) buf[t] = Kd[o + map[t]]; return buf; };
+    let iter = 0, Gmax = -Infinity, i = -1;
+    for (let t = 0; t < L; t++) {
+      const yt = y[t];
+      if (yt > 0 ? a[t] < C : a[t] > 0) { const v = -yt * G[t]; if (v > Gmax) { Gmax = v; i = t; } }
+    }
+    for (; iter < maxIter; iter++) {
+      if (i < 0) break;
+      const yi = y[i], ki = fila(map[i], bi), Kii = dg[i];
+      let Gmin = Infinity, j = -1, mejor = Infinity, vj = 0;
+      for (let t = 0; t < L; t++) {
+        const yt = y[t];
+        if (yt > 0 ? a[t] > 0 : a[t] < C) {
+          const v = -yt * G[t];
+          if (v < Gmin) Gmin = v;
+          const d = Gmax - v;
+          if (d > 0) {
+            let q = Kii + dg[t] - 2 * ki[t]; if (q < 1e-12) q = 1e-12;
+            const obj = -d * d / q;
+            if (obj < mejor) { mejor = obj; j = t; vj = v; }
+          }
+        }
+      }
+      if (Gmax - Gmin < tol || j < 0) break;
+      const yj = y[j], kj = fila(map[j], bj);
+      let q = Kii + dg[j] - 2 * ki[j]; if (q < 1e-12) q = 1e-12;
+      let d = (Gmax - vj) / q;
+      const di = yi > 0 ? C - a[i] : a[i], dj = yj > 0 ? a[j] : C - a[j];
+      if (di < d) d = di; if (dj < d) d = dj;
+      if (!(d > 0)) break;
+      a[i] += yi * d; a[j] -= yj * d;
+      Gmax = -Infinity; i = -1;
+      for (let t = 0; t < L; t++) {
+        const yt = y[t], g = G[t] + yt * d * (ki[t] - kj[t]); G[t] = g;
+        if (yt > 0 ? a[t] < C : a[t] > 0) { const v = -yt * g; if (v > Gmax) { Gmax = v; i = t; } }
+      }
+    }
+    // Sesgo: promedio de −yG en las variables libres; si no hay, punto medio del intervalo permitido
+    let sl = 0, nl = 0, ub = Infinity, lb = -Infinity;
+    for (let t = 0; t < L; t++) {
+      const v = -y[t] * G[t];
+      if (a[t] > 1e-10 && a[t] < C - 1e-10) { sl += v; nl++; }
+      if (y[t] > 0 ? a[t] < C : a[t] > 0) { if (v > lb) lb = v; }
+      if (y[t] > 0 ? a[t] > 0 : a[t] < C) { if (v < ub) ub = v; }
+    }
+    const b = nl ? sl / nl : (isFinite(lb) && isFinite(ub) ? (lb + ub) / 2 : 0);
+    return { a: a, b: b, iter: iter };
+  }
+
+  /** Escalado de Platt: P(y=1) = 1/(1+exp(−(A·f + B))), ajustado por Newton con objetivos suavizados. */
+  function platt(f, pos) {
+    const n = f.length; let np = 0; for (let i = 0; i < n; i++) if (pos[i]) np++;
+    const nn = n - np, tp = (np + 1) / (np + 2), tn = 1 / (nn + 2);
+    let A = 1, B = 0;
+    const nll = function (A, B) { let s = 0; for (let i = 0; i < n; i++) { const z = A * f[i] + B, t = pos[i] ? tp : tn; s += (z > 0 ? z + Math.log1p(Math.exp(-z)) : Math.log1p(Math.exp(z))) - t * z; } return s; };
+    let fv = nll(A, B);
+    for (let it = 0; it < 30; it++) {
+      let gA = 0, gB = 0, hAA = 1e-6, hAB = 0, hBB = 1e-6;
+      for (let i = 0; i < n; i++) {
+        const z = A * f[i] + B, pr = 1 / (1 + Math.exp(-z)), t = pos[i] ? tp : tn, e = pr - t, w = Math.max(pr * (1 - pr), 1e-9);
+        gA += e * f[i]; gB += e; hAA += w * f[i] * f[i]; hAB += w * f[i]; hBB += w;
+      }
+      const det = hAA * hBB - hAB * hAB;
+      if (!(Math.abs(det) > 1e-18)) break;
+      const dA = -(hBB * gA - hAB * gB) / det, dB = -(-hAB * gA + hAA * gB) / det;
+      let paso = 1, mejoro = false;
+      for (let k = 0; k < 20; k++) { const f2 = nll(A + paso * dA, B + paso * dB); if (f2 <= fv + 1e-12) { A += paso * dA; B += paso * dB; fv = f2; mejoro = true; break; } paso /= 2; }
+      if (!mejoro || Math.abs(gA) + Math.abs(gB) < 1e-7) break;
+    }
+    return { A: A, B: B };
+  }
+
+  /** Muestra estratificada (o simple si cl es null) de `m` posiciones entre n. */
+  function submuestra(n, m, cl, rng) {
+    if (!cl) return rng.muestra(n, m).sort(function (a, b) { return a - b; });
+    const g = new Map();
+    for (let i = 0; i < n; i++) { if (!g.has(cl[i])) g.set(cl[i], []); g.get(cl[i]).push(i); }
+    const out = [];
+    g.forEach(function (l) { rng.shuffle(l); const k = Math.max(1, Math.round(m * l.length / n)); for (let i = 0; i < Math.min(k, l.length); i++) out.push(l[i]); });
+    return out.sort(function (a, b) { return a - b; });
+  }
+
+  /** Núcleo aplicado a filas nuevas: devuelve una función que evalúa Σ coef·K(x, sv) + b para varias tareas. */
+  function svmEmpaquetar(Z, p, E, tareas, tipo, gamma, nota, extra) {
+    // Vectores de soporte = unión de los de todas las tareas
+    const n = Z.length / p, uso = new Uint8Array(n);
+    tareas.forEach(function (t) { for (let i = 0; i < n; i++) if (Math.abs(t.coef[i]) > 1e-9) uso[i] = 1; });
+    const U = []; for (let i = 0; i < n; i++) if (uso[i]) U.push(i);
+    const nU = U.length, SV = new Float64Array(nU * p), SVn = new Float64Array(nU);
+    for (let u = 0; u < nU; u++) { let s = 0; for (let j = 0; j < p; j++) { const v = Z[U[u] * p + j]; SV[u * p + j] = v; s += v * v; } SVn[u] = s; }
+    const T = tareas.map(function (t) { const c = new Float64Array(nU); for (let u = 0; u < nU; u++) c[u] = t.coef[U[u]]; return { c: c, b: t.b, platt: t.platt || null }; });
+    let W = null;
+    if (tipo === 'lineal') W = T.map(function (t) { const w = new Float64Array(p); for (let u = 0; u < nU; u++) for (let j = 0; j < p; j++) w[j] += t.c[u] * SV[u * p + j]; return w; });
+    const z = new Float64Array(p), kv = new Float64Array(nU);
+    function decisiones(fila, out) {
+      let zn = 0; for (let j = 0; j < p; j++) { const v = (fila[j] - E.mu[j]) / E.sd[j]; z[j] = v; zn += v * v; }
+      if (tipo === 'lineal') { for (let k = 0; k < T.length; k++) { let s = T[k].b; for (let j = 0; j < p; j++) s += W[k][j] * z[j]; out[k] = s; } return; }
+      for (let u = 0; u < nU; u++) { let d = 0; const o = u * p; for (let j = 0; j < p; j++) d += SV[o + j] * z[j]; kv[u] = Math.exp(-gamma * Math.max(0, zn + SVn[u] - 2 * d)); }
+      for (let k = 0; k < T.length; k++) { let s = T[k].b; const c = T[k].c; for (let u = 0; u < nU; u++) s += c[u] * kv[u]; out[k] = s; }
+    }
+    return { nSV: nU, nref: tipo === 'lineal' ? 0 : nU, decisiones: decisiones, T: T, nota: nota };
+  }
+
+  /** SVM de clasificación: binaria directa; multiclase uno-contra-resto con escalado de Platt por clase. */
+  async function svmClfAjustar(X, yi, K, par, rng, rep, rapido) {
+    const n0 = X.length, p = X[0].length;
+    let sub = null, nota = '';
+    if (n0 > SVM_MAX) { sub = submuestra(n0, SVM_MAX, yi, rng); X = sub.map(function (i) { return X[i]; }); yi = elegirFilas(yi, sub); }
+    const n = X.length, E = estdAjustar(X), Z = new Float64Array(n * p);
+    for (let i = 0; i < n; i++) for (let j = 0; j < p; j++) Z[i * p + j] = (X[i][j] - E.mu[j]) / E.sd[j];
+    const tipo = par.kernel === 'lineal' ? 'lineal' : 'rbf', C = par.C, gamma = par.gamma || 1 / p;
+    const Kd = svmNucleo(Z, n, p, tipo, gamma);
+    const w0 = tk(); if (w0) await w0;
+    const todos = new Int32Array(n); for (let i = 0; i < n; i++) todos[i] = i;
+    // Subconjunto de calibración (80 % para ajustar y 20 % para estimar Platt)
+    const perm = Array.prototype.slice.call(todos); rng.shuffle(perm);
+    const nCal = Math.max(10, Math.round(0.2 * n)), calIdx = perm.slice(0, nCal), calTr = perm.slice(nCal).sort(function (a, b) { return a - b; });
+    const nT = K === 2 ? 1 : K, tareas = [];
+    const maxIter = tipo === 'lineal' ? 3 * n : (rapido ? 5 * n : Math.min(60000, Math.max(3000, 12 * n))), tol = (tipo === 'lineal' || rapido) ? 1e-2 : 2e-3;
+    let iters = 0;
+    for (let c = 0; c < nT; c++) {
+      const cls = K === 2 ? 1 : c;
+      const yv = function (i) { return yi[i] === cls ? 1 : -1; };
+      const ys = new Float64Array(n), pv = new Float64Array(n);
+      for (let i = 0; i < n; i++) { ys[i] = yv(i); pv[i] = -1; }
+      const sol = svmSMO(Kd, n, todos, ys, pv, C, tol, maxIter); iters += sol.iter;
+      const coef = new Float64Array(n); for (let i = 0; i < n; i++) coef[i] = sol.a[i] * ys[i];
+      // Platt con el modelo ajustado al 80 %
+      const mapT = Int32Array.from(calTr), yT = new Float64Array(mapT.length), pT = new Float64Array(mapT.length).fill(-1);
+      for (let i = 0; i < mapT.length; i++) yT[i] = ys[mapT[i]];
+      const s2 = svmSMO(Kd, n, mapT, yT, pT, C, tol, maxIter); iters += s2.iter;
+      const f = new Float64Array(nCal), pos = new Array(nCal);
+      for (let k = 0; k < nCal; k++) {
+        const r = calIdx[k] * n; let s = s2.b;
+        for (let t = 0; t < mapT.length; t++) { const al = s2.a[t]; if (al > 1e-9) s += al * yT[t] * Kd[r + mapT[t]]; }
+        f[k] = s; pos[k] = ys[calIdx[k]] > 0;
+      }
+      tareas.push({ coef: coef, b: sol.b, platt: platt(f, pos) });
+      if (rep) rep((c + 1) / nT, 'SVM · clase ' + (c + 1) + ' de ' + nT);
+      const w = tk(); if (w) await w;
+    }
+    const emp = svmEmpaquetar(Z, p, E, tareas, tipo, gamma);
+    const tn = tipo === 'lineal' ? 'núcleo lineal' : 'núcleo curvo (RBF)';
+    nota = 'núcleo ' + (tipo === 'lineal' ? 'lineal' : 'RBF') + ', ' + emp.nSV + ' vectores de soporte';
+    const hall = [];
+    if (sub) { nota = 'Como había ' + fmt(n0, 0) + ' filas y este método se vuelve muy lento con muchas, se entrenó con una muestra estratificada de ' + fmt(SVM_MAX, 0) + ' filas; ' + nota; hall.push('Se entrenó con una muestra de ' + fmt(SVM_MAX, 0) + ' de las ' + fmt(n0, 0) + ' filas de aprendizaje (se mantiene la proporción de cada categoría) porque el método se vuelve muy lento con más datos. La evaluación sí usa todas las filas de prueba.'); }
+    hall.push('La máquina de vectores de soporte usa ' + tn + ' y se apoya en ' + fmt(emp.nSV, 0) + ' casos clave (' + fpct(emp.nSV / n, 0) + ' de los que usó para aprender); es difícil leer reglas simples de ella, pero las importancias de abajo muestran qué variables pesan.');
+    const d = new Float64Array(nT);
+    return {
+      nref: emp.nref, nota: nota, hallazgos: hall, nSV: emp.nSV, submuestreo: sub ? { de: n0, a: n } : null,
+      predecir: function (Xn) {
+        const o = new Array(Xn.length);
+        for (let i = 0; i < Xn.length; i++) {
+          emp.decisiones(Xn[i], d);
+          if (K === 2) { const t = emp.T[0].platt, pr = 1 / (1 + Math.exp(-(t.A * d[0] + t.B))); o[i] = Float64Array.of(1 - pr, pr); }
+          else { const pr = new Float64Array(K); let s = 0; for (let k = 0; k < K; k++) { const t = emp.T[k].platt; pr[k] = 1 / (1 + Math.exp(-(t.A * d[k] + t.B))) + 1e-9; s += pr[k]; } for (let k = 0; k < K; k++) pr[k] /= s; o[i] = pr; }
+        }
+        return o;
+      }
+    };
+  }
+
+  /** ε-SVR (regresión por vectores de soporte). */
+  async function svmRegAjustar(X, y, par, rng, rep, rapido) {
+    const n0 = X.length, p = X[0].length;
+    let sub = null;
+    if (n0 > SVM_MAX) { sub = submuestra(n0, SVM_MAX, null, rng); X = sub.map(function (i) { return X[i]; }); y = elegirFilas(y, sub); }
+    const n = X.length, E = estdAjustar(X), Z = new Float64Array(n * p);
+    for (let i = 0; i < n; i++) for (let j = 0; j < p; j++) Z[i * p + j] = (X[i][j] - E.mu[j]) / E.sd[j];
+    const ym = media(y); let ysd = desvio(y, ym); if (!(ysd > 1e-12)) ysd = 1;
+    const tipo = par.kernel === 'lineal' ? 'lineal' : 'rbf', C = par.C, eps = par.epsilon, gamma = par.gamma || 1 / p;
+    const Kd = svmNucleo(Z, n, p, tipo, gamma);
+    const w0 = tk(); if (w0) await w0;
+    const map = new Int32Array(2 * n), ys = new Float64Array(2 * n), pv = new Float64Array(2 * n);
+    for (let i = 0; i < n; i++) {
+      const zt = (y[i] - ym) / ysd;
+      map[i] = i; map[n + i] = i; ys[i] = 1; ys[n + i] = -1; pv[i] = eps - zt; pv[n + i] = eps + zt;
+    }
+    const sol = svmSMO(Kd, n, map, ys, pv, C, (tipo === 'lineal' || rapido) ? 1e-2 : 2e-3, tipo === 'lineal' ? 3 * n : (rapido ? 4 * n : Math.min(60000, Math.max(3000, 8 * n))));
+    const coef = new Float64Array(n); for (let i = 0; i < n; i++) coef[i] = sol.a[i] - sol.a[n + i];
+    if (rep) rep(1, 'SVR · ' + sol.iter + ' iteraciones');
+    const emp = svmEmpaquetar(Z, p, E, [{ coef: coef, b: sol.b }], tipo, gamma);
+    let nota = 'núcleo ' + (tipo === 'lineal' ? 'lineal' : 'RBF') + ', ' + emp.nSV + ' vectores de soporte';
+    const hall = [];
+    if (sub) { nota = 'Como había ' + fmt(n0, 0) + ' filas y este método se vuelve muy lento con muchas, se entrenó con una muestra de ' + fmt(SVM_MAX, 0) + ' filas; ' + nota; hall.push('Se entrenó con una muestra de ' + fmt(SVM_MAX, 0) + ' de las ' + fmt(n0, 0) + ' filas de aprendizaje porque el método se vuelve muy lento con más datos. La evaluación sí usa todas las filas de prueba.'); }
+    hall.push('La regresión por vectores de soporte usa ' + (tipo === 'lineal' ? 'núcleo lineal' : 'núcleo curvo (RBF)') + ' y se apoya en ' + fmt(emp.nSV, 0) + ' casos clave (' + fpct(emp.nSV / n, 0) + ' de los usados para aprender); ignora errores menores a ' + fmt(eps * ysd, 2) + ' unidades de la respuesta.');
+    const d = new Float64Array(1);
+    return {
+      nref: emp.nref, nota: nota, hallazgos: hall, nSV: emp.nSV, submuestreo: sub ? { de: n0, a: n } : null,
+      predecir: function (Xn) { const o = new Float64Array(Xn.length); for (let i = 0; i < Xn.length; i++) { emp.decisiones(Xn[i], d); o[i] = d[0] * ysd + ym; } return o; }
+    };
+  }
+
+  // --- Red neuronal (perceptrón multicapa) con Adam, L2 y parada temprana ----------
+  async function mlpAjustar(X, y, K, par, rng, rep) {
+    const n = X.length, p = X[0].length, reg = K === 0, o = reg ? 1 : (K === 2 ? 1 : K);
+    const E = estdAjustar(X), Z = new Float64Array(n * p);
+    for (let i = 0; i < n; i++) for (let j = 0; j < p; j++) Z[i * p + j] = (X[i][j] - E.mu[j]) / E.sd[j];
+    let ym = 0, ysd = 1, yt = null;
+    if (reg) { ym = media(y); ysd = desvio(y, ym); if (!(ysd > 1e-12)) ysd = 1; yt = new Float64Array(n); for (let i = 0; i < n; i++) yt[i] = (y[i] - ym) / ysd; }
+    const tanhAct = par.act === 'tanh', h1 = par.h, h2 = par.capas === 2 ? Math.max(4, Math.round(par.h / 2)) : 0;
+    const sizes = h2 ? [p, h1, h2, o] : [p, h1, o], L = sizes.length - 1;
+    // Parámetros en un solo arreglo (pesos + sesgos por capa)
+    const offW = [], offB = []; let tot = 0;
+    for (let l = 0; l < L; l++) { offW.push(tot); tot += sizes[l] * sizes[l + 1]; offB.push(tot); tot += sizes[l + 1]; }
+    const th = new Float64Array(tot), gr = new Float64Array(tot), mA = new Float64Array(tot), vA = new Float64Array(tot);
+    for (let l = 0; l < L; l++) {
+      const esc = Math.sqrt((tanhAct || l === L - 1 ? 1 : 2) / sizes[l]);
+      for (let k = 0; k < sizes[l] * sizes[l + 1]; k++) th[offW[l] + k] = rng.normal() * esc;
+    }
+    const A = sizes.map(function (s) { return new Float64Array(s); }), dz = sizes.map(function (s) { return new Float64Array(s); });
+    function adelante(off) {
+      const a0 = A[0]; for (let j = 0; j < p; j++) a0[j] = Z[off + j];
+      for (let l = 0; l < L; l++) {
+        const ai = A[l], ao = A[l + 1], ni = sizes[l], no = sizes[l + 1], w0 = offW[l], b0 = offB[l];
+        for (let q = 0; q < no; q++) ao[q] = th[b0 + q];
+        for (let i = 0; i < ni; i++) { const v = ai[i]; if (v === 0) continue; const wo = w0 + i * no; for (let q = 0; q < no; q++) ao[q] += v * th[wo + q]; }
+        if (l < L - 1) { if (tanhAct) for (let q = 0; q < no; q++) ao[q] = Math.tanh(ao[q]); else for (let q = 0; q < no; q++) if (ao[q] < 0) ao[q] = 0; }
+      }
+    }
+    // Pérdida de la muestra tras `adelante`; llena dz[L] con el gradiente de la salida
+    function perdidaMuestra(i, gradiente) {
+      const z = A[L], d = dz[L];
+      if (reg) { const e = z[0] - yt[i]; if (gradiente) d[0] = e; return 0.5 * e * e; }
+      if (K === 2) { const s = 1 / (1 + Math.exp(-z[0])), t = y[i]; if (gradiente) d[0] = s - t; return -(t === 1 ? Math.log(Math.max(s, 1e-12)) : Math.log(Math.max(1 - s, 1e-12))); }
+      const pr = softmaxEn(z, K); if (gradiente) for (let k = 0; k < K; k++) d[k] = pr[k] - (k === y[i] ? 1 : 0);
+      return -Math.log(Math.max(pr[y[i]], 1e-12));
+    }
+    // Partición interna 15 % para parada temprana
+    const perm = []; for (let i = 0; i < n; i++) perm.push(i); rng.shuffle(perm);
+    const usaVal = n >= 40, nVal = usaVal ? Math.max(5, Math.round(0.15 * n)) : 0;
+    const val = perm.slice(0, nVal), trn = Int32Array.from(perm.slice(nVal));
+    const nt = trn.length, bs = nt >= 1500 ? 64 : 32, lr = 0.005, l2 = par.l2, maxEp = par.epocas || 120, pac = 10;
+    let mejorV = Infinity, mejorEp = 0, mejorTh = null, epUsadas = 0, t = 0, ultimaP = NaN;
+    for (let ep = 1; ep <= maxEp; ep++) {
+      rng.shuffle(trn);
+      let suma = 0;
+      for (let b0 = 0; b0 < nt; b0 += bs) {
+        const b1 = Math.min(nt, b0 + bs), m = b1 - b0;
+        gr.fill(0);
+        for (let s = b0; s < b1; s++) {
+          const i = trn[s];
+          adelante(i * p);
+          suma += perdidaMuestra(i, true);
+          for (let l = L - 1; l >= 0; l--) {
+            const ai = A[l], d = dz[l + 1], ni = sizes[l], no = sizes[l + 1], w0 = offW[l], b0o = offB[l];
+            for (let q = 0; q < no; q++) gr[b0o + q] += d[q];
+            for (let ii = 0; ii < ni; ii++) { const v = ai[ii]; if (v === 0) continue; const wo = w0 + ii * no; for (let q = 0; q < no; q++) gr[wo + q] += v * d[q]; }
+            if (l > 0) {
+              const dp = dz[l];
+              for (let ii = 0; ii < ni; ii++) {
+                let g = 0; const wo = w0 + ii * no; for (let q = 0; q < no; q++) g += th[wo + q] * d[q];
+                const a = ai[ii]; dp[ii] = tanhAct ? g * (1 - a * a) : (a > 0 ? g : 0);
+              }
+            }
+          }
+        }
+        t++;
+        const c1 = 1 - Math.pow(0.9, t), c2 = 1 - Math.pow(0.999, t);
+        for (let l = 0; l < L; l++) {
+          const w0 = offW[l], nw = sizes[l] * sizes[l + 1];
+          for (let k = w0; k < w0 + nw; k++) gr[k] += l2 * th[k] * m;
+        }
+        for (let k = 0; k < tot; k++) {
+          const g = gr[k] / m;
+          mA[k] = 0.9 * mA[k] + 0.1 * g; vA[k] = 0.999 * vA[k] + 0.001 * g * g;
+          th[k] -= lr * (mA[k] / c1) / (Math.sqrt(vA[k] / c2) + 1e-8);
+        }
+      }
+      const pt = suma / nt; ultimaP = pt; epUsadas = ep;
+      let pv = pt;
+      if (usaVal) { pv = 0; for (let s = 0; s < val.length; s++) { adelante(val[s] * p); pv += perdidaMuestra(val[s], false); } pv /= val.length; }
+      if (pv < mejorV - 1e-5) { mejorV = pv; mejorEp = ep; mejorTh = Float64Array.from(th); }
+      if (rep) rep(ep / maxEp, 'época ' + ep + ' · pérdida ' + fmt(pt, 3) + (usaVal ? ' (validación ' + fmt(pv, 3) + ')' : ''));
+      const w = tk(); if (w) await w;
+      if (usaVal && ep - mejorEp >= pac) break;
+      if (!isFinite(pt)) break;
+    }
+    if (mejorTh) th.set(mejorTh);
+    const detEp = usaVal ? (epUsadas < maxEp ? 'se detuvo en la época ' + epUsadas + ' porque dejó de mejorar con datos de validación; se conservó la mejor (época ' + mejorEp + ')' : 'llegó al máximo de ' + maxEp + ' épocas; se conservó la mejor (época ' + mejorEp + ')') : 'se entrenó ' + epUsadas + ' épocas (pocos datos para validar)';
+    const arq = sizes.slice(1, -1).join(' y ');
+    const nota = 'red con ' + (h2 ? '2 capas ocultas (' + arq + ' neuronas)' : '1 capa oculta de ' + arq + ' neuronas') + '; ' + detEp + '.';
+    const hall = ['La red neuronal tiene ' + (h2 ? '2 capas ocultas (' + arq + ' neuronas)' : '1 capa oculta de ' + arq + ' neuronas') + ' y ' + detEp + '. Capta relaciones complejas, pero no se puede leer como una fórmula: para saber qué usa, mira las importancias.'];
+    return {
+      nota: nota, hallazgos: hall, epocas: epUsadas, perdida: ultimaP,
+      predecir: function (Xn) {
+        const m = Xn.length;
+        const sal = reg ? new Float64Array(m) : new Array(m);
+        const Zt = new Float64Array(p);
+        for (let r = 0; r < m; r++) {
+          const fila = Xn[r], a0 = A[0];
+          for (let j = 0; j < p; j++) { Zt[j] = (fila[j] - E.mu[j]) / E.sd[j]; a0[j] = Zt[j]; }
+          for (let l = 0; l < L; l++) {
+            const ai = A[l], ao = A[l + 1], ni = sizes[l], no = sizes[l + 1], w0 = offW[l], b0 = offB[l];
+            for (let q = 0; q < no; q++) ao[q] = th[b0 + q];
+            for (let i = 0; i < ni; i++) { const v = ai[i]; if (v === 0) continue; const wo = w0 + i * no; for (let q = 0; q < no; q++) ao[q] += v * th[wo + q]; }
+            if (l < L - 1) { if (tanhAct) for (let q = 0; q < no; q++) ao[q] = Math.tanh(ao[q]); else for (let q = 0; q < no; q++) if (ao[q] < 0) ao[q] = 0; }
+          }
+          const z = A[L];
+          if (reg) sal[r] = z[0] * ysd + ym;
+          else if (K === 2) { const s = 1 / (1 + Math.exp(-z[0])); sal[r] = Float64Array.of(1 - s, s); }
+          else sal[r] = softmaxEn(z, K);
+        }
+        return sal;
+      }
+    };
+  }
+
+  // --- Gradient boosting de árboles pequeños ----------------------------------------
+  function hojaIdArbol(T, row) { let k = 0; while (T.feat[k] >= 0) k = row[T.feat[k]] <= T.thr[k] ? T.izq[k] : T.der[k]; return k; }
+
+  async function gbmAjustar(X, y, K, par, rng) {
+    const n = X.length, p = X[0].length, reg = K === 0, nc = (reg || K === 2) ? 1 : K;
+    const Bn = crearBins(X, 64), lr = par.tasa, rondas = par.rondas;
+    const perm = []; for (let i = 0; i < n; i++) perm.push(i); rng.shuffle(perm);
+    const usaVal = n >= 60, nVal = usaVal ? Math.max(8, Math.round(0.15 * n)) : 0;
+    const val = Int32Array.from(perm.slice(0, nVal)), trn = Int32Array.from(perm.slice(nVal)), nt = trn.length;
+    // ¿Hay atípicos en la respuesta? Entonces pérdida de Huber (solo regresión)
+    let huber = false;
+    if (reg) {
+      if (par.perdida === 'huber') huber = true;
+      else if (par.perdida !== 'cuadratica') {
+        const md = mediana(Array.prototype.slice.call(y)), ad = Array.prototype.slice.call(y).map(function (v) { return Math.abs(v - md); }), mad = 1.4826 * mediana(ad);
+        if (mad > 0) { let c = 0; for (let i = 0; i < n; i++) if (ad[i] > 3.5 * mad) c++; huber = c / n >= 0.03; }
+      }
+    }
+    // Predicción inicial
+    const F = []; for (let k = 0; k < nc; k++) F.push(new Float64Array(n));
+    let F0 = new Float64Array(nc);
+    if (reg) { const yy = Array.prototype.slice.call(elegirFilas(y, trn)); F0[0] = huber ? mediana(yy) : media(yy); }
+    else if (K === 2) { let c1 = 0; for (let s = 0; s < nt; s++) c1 += y[trn[s]]; const pp = Math.min(0.999, Math.max(0.001, c1 / nt)); F0[0] = Math.log(pp / (1 - pp)); }
+    else { const cn = new Float64Array(K); for (let s = 0; s < nt; s++) cn[y[trn[s]]]++; for (let k = 0; k < K; k++) F0[k] = Math.log((cn[k] + 1) / (nt + K)); }
+    for (let k = 0; k < nc; k++) F[k].fill(F0[k]);
+    const arboles = [], g = new Float64Array(n), hs = new Float64Array(n), lp = new Float64Array(K || 1), Gm = [];
+    if (nc > 1) for (let k = 0; k < nc; k++) Gm.push(new Float64Array(n));
+    const nsub = Math.max(10, Math.round((par.sub || 1) * nt));
+    const hoja_min = Math.max(3, Math.min(10, Math.floor(nt / 40)));
+    const perdidaVal = function () {
+      let s = 0;
+      for (let q = 0; q < nVal; q++) {
+        const i = val[q];
+        if (reg) { const e = y[i] - F[0][i]; s += e * e; }
+        else if (K === 2) { const z = F[0][i]; s += (z > 0 ? z + Math.log1p(Math.exp(-z)) : Math.log1p(Math.exp(z))) - y[i] * z; }
+        else { for (let k = 0; k < K; k++) lp[k] = F[k][i]; const sm = softmaxEn(lp, K); s -= Math.log(Math.max(sm[y[i]], 1e-12)); }
+      }
+      return s / nVal;
+    };
+    let mejorV = Infinity, mejorR = 0, rondasHechas = 0; const pac = 15;
+    for (let r = 1; r <= rondas; r++) {
+      // Residuos (gradiente negativo) de todas las filas de entrenamiento
+      let delta = 0;
+      if (reg && huber) { const ab = new Float64Array(nt); for (let s = 0; s < nt; s++) ab[s] = Math.abs(y[trn[s]] - F[0][trn[s]]); delta = Math.max(1e-9, cuantilOrd(ordenado(ab), 0.9)); }
+      for (let s = 0; s < nt; s++) {
+        const i = trn[s];
+        if (reg) { const e = y[i] - F[0][i]; g[i] = huber ? Math.max(-delta, Math.min(delta, e)) : e; }
+        else if (K === 2) { const pb = 1 / (1 + Math.exp(-F[0][i])); g[i] = y[i] - pb; hs[i] = Math.max(pb * (1 - pb), 1e-9); }
+      }
+      if (nc > 1) for (let s = 0; s < nt; s++) { const i = trn[s]; for (let k = 0; k < K; k++) lp[k] = F[k][i]; const sm = softmaxEn(lp, K); for (let k = 0; k < K; k++) Gm[k][i] = (y[i] === k ? 1 : 0) - sm[k]; }
+      const ronda = [];
+      for (let k = 0; k < nc; k++) {
+        const gk = nc > 1 ? Gm[k] : g;
+        const sel = rng.muestra(nt, nsub), idx = new Int32Array(sel.length); for (let a = 0; a < sel.length; a++) idx[a] = trn[sel[a]];
+        const T = construirArbol(Bn, gk, 0, idx, { profundidad: par.profundidad, hoja_min: hoja_min, mtry: p }, rng);
+        // Valor de cada hoja: regresión = media del residuo; clasificación = paso de Newton
+        if (!reg) {
+          const num = new Float64Array(T.feat.length), den = new Float64Array(T.feat.length);
+          for (let a = 0; a < idx.length; a++) {
+            const i = idx[a], h = hojaIdArbol(T, X[i]), rr = gk[i];
+            num[h] += rr; den[h] += nc > 1 ? Math.abs(rr) * (1 - Math.abs(rr)) : hs[i];
+          }
+          for (let h = 0; h < T.feat.length; h++) if (T.feat[h] < 0) { let v = den[h] > 1e-9 ? num[h] / den[h] : 0; if (nc > 1) v *= (K - 1) / K; T.val[h] = Math.max(-6, Math.min(6, v)); }
+        }
+        for (let h = 0; h < T.feat.length; h++) if (T.feat[h] < 0) T.val[h] = lr * T.val[h];
+        ronda.push(T);
+        for (let s = 0; s < nt; s++) { const i = trn[s]; F[k][i] += T.val[hojaIdArbol(T, X[i])]; }
+        for (let q = 0; q < nVal; q++) { const i = val[q]; F[k][i] += T.val[hojaIdArbol(T, X[i])]; }
+      }
+      arboles.push(ronda); rondasHechas = r;
+      if (usaVal) {
+        const pv = perdidaVal();
+        if (pv < mejorV - 1e-6) { mejorV = pv; mejorR = r; }
+        if (r - mejorR >= pac) break;
+      }
+      const w = tk(); if (w) await w;
+    }
+    const usar = usaVal ? Math.max(1, mejorR) : rondasHechas;
+    arboles.length = usar;
+    const nota = usar + ' árboles de profundidad ' + par.profundidad + (usaVal && usar < rondas ? ' (la parada temprana detuvo el entrenamiento: más rondas ya no mejoraban con datos de validación)' : '') + (huber ? '; pérdida de Huber por atípicos' : '') + '.';
+    const hall = ['El modelo suma ' + usar + ' árboles pequeños (profundidad ' + par.profundidad + ') que corrigen los errores de los anteriores' + (usaVal && usar < rondas ? '; se detuvo antes del máximo de ' + rondas + ' porque ya no mejoraba con datos de validación' : '') + '. Suele ser muy preciso, pero no se lee como una regla única.'];
+    if (huber) hall.push('Se detectaron valores atípicos en la respuesta, así que se usó una pérdida robusta (Huber) para que no desvíen el modelo.');
+    return {
+      nota: nota, hallazgos: hall, nArboles: usar, huber: huber,
+      predecir: function (Xn) {
+        const m = Xn.length, T = arboles.length;
+        if (reg) { const o = new Float64Array(m); for (let i = 0; i < m; i++) { let s = F0[0]; for (let t = 0; t < T; t++) s += predecirArbol(arboles[t][0], Xn[i]); o[i] = s; } return o; }
+        const o = new Array(m), l = new Float64Array(nc);
+        for (let i = 0; i < m; i++) {
+          for (let k = 0; k < nc; k++) l[k] = F0[k];
+          for (let t = 0; t < T; t++) for (let k = 0; k < nc; k++) l[k] += predecirArbol(arboles[t][k], Xn[i]);
+          if (K === 2) { const s = 1 / (1 + Math.exp(-l[0])); o[i] = Float64Array.of(1 - s, s); } else o[i] = softmaxEn(l, K);
+        }
+        return o;
+      }
+    };
+  }
+
   // --- Registro de modelos: valores por defecto y rejillas de calibración --------
   function unicosOrd(a) { const r = unicosArr(a).filter(function (x) { return x >= 1; }); return r.sort(function (x, y) { return x - y; }); }
   const MODELOS = {
@@ -1668,8 +2131,32 @@
     bosque_clf: { tipo: 'clf', defecto: function (c) { return { arboles: 100, mtry: Math.max(1, Math.floor(Math.sqrt(c.p))) }; }, rejilla: function (c) { return rejillaBosque(c, true); }, ajustar: async function (X, y, par, c) { return bosqueAjustar(X, y, c.K, { arboles: par.arboles, profundidad: 16, hoja_min: 3, mtry: par.mtry }, c.rng, true); } },
     knn_clf: { tipo: 'clf', evaluarRejilla: evaluarRejillaKnn, defecto: function (c) { return { k: Math.max(1, Math.min(10, Math.floor(c.n / 3))) }; }, rejilla: function (c) { return rejillaKnn(c); }, ajustar: async function (X, y, par, c) { return knnAjustar(X, y, par.k, c.K, c.rng); } },
     naive_bayes: { tipo: 'clf', defecto: function () { return {}; }, rejilla: function () { return null; }, ajustar: async function (X, y, par, c) { return nbAjustar(X, y, c.K); } },
-    lda: { tipo: 'clf', defecto: function () { return {}; }, rejilla: function () { return null; }, ajustar: async function (X, y, par, c) { return ldaAjustar(X, y, c.K); } }
+    lda: { tipo: 'clf', defecto: function () { return {}; }, rejilla: function () { return null; }, ajustar: async function (X, y, par, c) { return ldaAjustar(X, y, c.K); } },
+    svm_clf: { tipo: 'clf', defecto: function (c) { return { kernel: 'rbf', C: 1, gamma: redond(1 / c.p) }; }, rejilla: function (c) { return rejillaSvm(c, false); }, ajustar: async function (X, y, par, c) { return svmClfAjustar(X, y, c.K, par, c.rng, c.rep, c.cv); } },
+    svm_reg: { tipo: 'reg', defecto: function (c) { return { kernel: 'rbf', C: 1, epsilon: 0.1, gamma: redond(1 / c.p) }; }, rejilla: function (c) { return rejillaSvm(c, true); }, ajustar: async function (X, y, par, c) { return svmRegAjustar(X, y, par, c.rng, c.rep, c.cv); } },
+    mlp_clf: { tipo: 'clf', defecto: function (c) { return { capas: c.n >= 1000 ? 2 : 1, h: 16, l2: 0.0001, act: c.n < 300 ? 'tanh' : 'relu' }; }, rejilla: function (c) { return rejillaMlp(c); }, ajustar: async function (X, y, par, c) { return mlpAjustar(X, y, c.K, par, c.rng, c.rep); } },
+    mlp_reg: { tipo: 'reg', defecto: function (c) { return { capas: c.n >= 1000 ? 2 : 1, h: 16, l2: 0.0001, act: c.n < 300 ? 'tanh' : 'relu' }; }, rejilla: function (c) { return rejillaMlp(c); }, ajustar: async function (X, y, par, c) { return mlpAjustar(X, y, 0, par, c.rng, c.rep); } },
+    gbm_clf: { tipo: 'clf', defecto: function () { return { rondas: 200, profundidad: 3, tasa: 0.1, sub: 0.8 }; }, rejilla: function (c) { return rejillaGbm(c); }, ajustar: async function (X, y, par, c) { return gbmAjustar(X, y, c.K, par, c.rng); } },
+    gbm_reg: { tipo: 'reg', defecto: function () { return { rondas: 200, profundidad: 3, tasa: 0.1, sub: 0.8 }; }, rejilla: function (c) { return rejillaGbm(c); }, ajustar: async function (X, y, par, c) { return gbmAjustar(X, y, 0, par, c.rng); } }
   };
+  function redond(x) { return Number(x.toPrecision(3)); }
+  function rejillaSvm(c, reg) {
+    const r = [];
+    [1, 10].forEach(function (C) { [0.5, 2].forEach(function (g) { r.push(reg ? { kernel: 'rbf', C: C, epsilon: 0.1, gamma: redond(g / c.p) } : { kernel: 'rbf', C: C, gamma: redond(g / c.p) }); }); });
+    if (reg) r.push({ kernel: 'rbf', C: 1, epsilon: 0.3, gamma: redond(1 / c.p) });
+    r.push(reg ? { kernel: 'lineal', C: 1, epsilon: 0.1 } : { kernel: 'lineal', C: 1 });
+    return r;
+  }
+  function rejillaMlp(c) {
+    const capas = c.n >= 1000 ? 2 : 1, act = c.n < 300 ? 'tanh' : 'relu', r = [];
+    [8, 16, 32].forEach(function (h) { [0.0001, 0.01].forEach(function (l2) { r.push({ capas: capas, h: h, l2: l2, act: act }); }); });
+    return r;
+  }
+  function rejillaGbm(c) {
+    const r = [];
+    [100, 300].forEach(function (t) { [2, 3, 4].forEach(function (d) { [0.05, 0.15].forEach(function (lr) { r.push({ rondas: t, profundidad: d, tasa: lr, sub: 0.8 }); }); }); });
+    return r;
+  }
   function rejillaArbol(c) {
     const r = [];
     [3, 5, 8, 12].forEach(function (d) { [3, 10, 25].forEach(function (h) { if (h <= c.n / 6 || h === 3) r.push({ profundidad: d, hoja_min: h }); }); });
@@ -2158,7 +2645,7 @@
   async function evaluarConfig(id, par, folds, ctxBase, esReg, rep) {
     const preds = []; let sc = 0;
     for (let f = 0; f < folds.length; f++) {
-      const ctx = Object.assign({}, ctxBase, { n: folds[f].Xtr.length });
+      const ctx = Object.assign({}, ctxBase, { n: folds[f].Xtr.length, cv: true });
       const modelo = await ajustarModelo(id, folds[f].Xtr, folds[f].ytr, par, ctx);
       const pr = await predecirAsync(modelo, folds[f].Xva);
       preds.push(pr);
@@ -2223,6 +2710,8 @@
     }
     return out;
   }
+
+  const COSTOSOS = ['bosque_reg', 'bosque_clf', 'svm_clf', 'svm_reg', 'mlp_clf', 'mlp_reg', 'gbm_clf', 'gbm_reg'];
 
   async function correrSup(cfg, ds, ej) {
     const t00 = Date.now();
@@ -2303,14 +2792,15 @@
     const parDef = MODELOS[id].defecto(ctxM);
     let modelo, parFinal = parDef;
     await ej.etapa('entrenamiento', 'Entrenamiento del modelo', async function (rep) {
-      modelo = await ajustarModelo(id, Atr.X, ytr, parDef, ctxM);
-      return 'Se ajustó «' + M.nombre + '» con ' + Atr.X.length + ' filas y ' + P + ' variables' + (Object.keys(parDef).length ? ' usando valores iniciales de hiperparámetros.' : '.');
+      ctxM.rep = rep;
+      try { modelo = await ajustarModelo(id, Atr.X, ytr, parDef, ctxM); } finally { ctxM.rep = null; }
+      return 'Se ajustó «' + M.nombre + '» con ' + Atr.X.length + ' filas y ' + P + ' variables' + (Object.keys(parDef).length ? ' usando valores iniciales de hiperparámetros' : '') + (modelo.nota ? ' (' + modelo.nota.replace(/\.$/, '') + ')' : '') + '.';
     });
 
     // --- Calibración (búsqueda de hiperparámetros por validación cruzada)
     let rejillaRes = [], cvRes = null, mejorIdx = 0, foldsDatos = [];
     await ej.etapa('calibracion', 'Calibración y validación cruzada', async function (rep) {
-      const nFoldsUso = (id === 'bosque_reg' || id === 'bosque_clf') ? Math.min(nFolds, 3) : nFolds;
+      const nFoldsUso = COSTOSOS.indexOf(id) >= 0 ? Math.min(nFolds, 3) : nFolds;
       const posFolds = crearFolds(Atr.X.length, nFoldsUso, rng, esReg ? null : ytr);
       for (let f = 0; f < posFolds.length; f++) {
         try {
@@ -2345,7 +2835,7 @@
       cvRes = promediarMetricas(fm);
       if (rej && rej.length) {
         parFinal = configs[mj];
-        if (JSON.stringify(parFinal) !== JSON.stringify(parDef)) { rep(1, 'Reajustando con la mejor combinación'); modelo = await ajustarModelo(id, Atr.X, ytr, parFinal, ctxM); }
+        if (JSON.stringify(parFinal) !== JSON.stringify(parDef)) { rep(1, 'Reajustando con la mejor combinación'); ctxM.rep = function (p, d) { rep(1, 'Reajustando · ' + d); }; try { modelo = await ajustarModelo(id, Atr.X, ytr, parFinal, ctxM); } finally { ctxM.rep = null; } }
         return 'Se probaron ' + configs.length + ' combinaciones con ' + foldsDatos.length + ' pliegues; mejor: ' + JSON.stringify(parFinal).replace(/[{}"]/g, '').replace(/,/g, ', ') + '.';
       }
       return 'Este método no tiene hiperparámetros que ajustar: se omite la búsqueda y se evalúa con ' + foldsDatos.length + ' pliegues de validación cruzada.';
@@ -2377,8 +2867,8 @@
         if (!mapaG.has(o.origen)) { const g = { nombre: porNombre[o.origen].label, origen: o.origen, cols: [] }; mapaG.set(o.origen, g); grupos.push(g); }
         mapaG.get(o.origen).cols.push(j);
       });
-      const costoKnn = id === 'knn_reg' || id === 'knn_clf';
-      importancias = await importanciaPermutacion(modelo, Ate.X, yte, esReg, grupos, rngM, costoKnn ? 2 : 3, costoKnn ? 100 : 800, function (p, d) { rep(0.6 * p, d); });
+      const costoKnn = id === 'knn_reg' || id === 'knn_clf', costoSvm = id === 'svm_reg' || id === 'svm_clf';
+      importancias = await importanciaPermutacion(modelo, Ate.X, yte, esReg, grupos, rngM, (costoKnn || costoSvm) ? 2 : 3, costoKnn ? 100 : (costoSvm ? 200 : 800), function (p, d) { rep(0.6 * p, d); });
       if (esReg) residuos = diagResiduos(yte, await predecirAsync(modelo, Ate.X), Ate.filas);
       coeficientes = construirCoeficientes(id, modelo, pm, K, clases);
       // Curva de aprendizaje con el primer pliegue de validación cruzada
@@ -2389,7 +2879,7 @@
           if (m > nF) continue;
           try {
             const Xs = f0.Xtr.slice(0, m), ys = f0.ytr.slice(0, m);
-            const par = (parFinal.arboles ? Object.assign({}, parFinal, { arboles: Math.min(parFinal.arboles, 30) }) : parFinal);
+            const par = (parFinal.arboles ? Object.assign({}, parFinal, { arboles: Math.min(parFinal.arboles, 30) }) : (parFinal.epocas !== undefined || parFinal.h ? Object.assign({}, parFinal, { epocas: 60 }) : (parFinal.rondas ? Object.assign({}, parFinal, { rondas: Math.min(parFinal.rondas, 150) }) : parFinal)));
             const ctx = { K: K, rng: crearRng(semilla + 7), p: P, n: m };
             const mod = await ajustarModelo(id, Xs, ys, par, ctx);
             const ptr = await predecirAsync(mod, Xs), pva = await predecirAsync(mod, f0.Xva);
@@ -2444,6 +2934,7 @@
       const sig = coeficientes.filter(function (c) { return c.nombre !== '(Intercepto)' && c.p !== null && c.p < 0.05; });
       hallazgos.push(sig.length ? 'Con 95 % de confianza, ' + sig.length + ' de ' + (coeficientes.length - 1) + ' variables tienen un efecto claro: ' + lista(sig.slice(0, 5).map(function (c) { return c.var + (c.coef > 0 ? ' (+)' : ' (−)'); })) + '.' : 'Ninguna variable tiene un efecto estadísticamente claro (p < 0.05); puede que no haya relación lineal.');
     }
+    if (modelo.hallazgos) modelo.hallazgos.forEach(function (h) { hallazgos.push(h); });
     if (id === 'lasso') { const ceros = coeficientes.filter(function (c) { return c.nombre !== '(Intercepto)' && Math.abs(c.coef) < 1e-12; }).length; hallazgos.push('Lasso dejó en cero ' + ceros + ' de ' + P + ' variables por no aportar.'); }
     if (id === 'logistica' && K === 2) {
       const sig = coeficientes.filter(function (c) { return c.nombre !== '(Intercepto)' && c.p !== null && c.p < 0.05; }).slice(0, 3);
