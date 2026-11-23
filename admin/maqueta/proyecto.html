@@ -13,6 +13,7 @@ aside{overflow:auto;padding:22px 24px 40px;background:#fff;border-right:1px soli
 #map{height:100%;min-height:360px}
 h1{font:800 24px/1.2 system-ui;margin:0 0 6px;letter-spacing:-.01em}.obj{color:#475569;margin:0 0 14px}
 .av{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:12px;padding:11px 14px;font-size:13px;margin:12px 0 18px}
+.sel{margin:0 0 14px}.sel label{display:block;font:700 11px system-ui;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:5px}.sel .r{display:flex;gap:8px}.sel input{flex:1;border:1.5px solid #c7d2fe;border-radius:10px;padding:10px 12px;font:600 14px system-ui;background:#fff}.sel input:focus{outline:0;border-color:#4f46e5;box-shadow:0 0 0 3px #e0e7ff}.sel button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:0 12px;font:600 12px system-ui;cursor:pointer}
 .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 6px}.kp div{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#f8fafc}.kp b{display:block;font:800 20px system-ui;color:#4338ca}.kp span{font-size:11.5px;color:#64748b}
 h2{font:800 17px system-ui;margin:26px 0 4px}.mu{color:#64748b;font-size:12.5px;margin:0 0 10px}
 details{border:1px solid #e2e8f0;border-radius:12px;margin:8px 0;background:#fff}summary{cursor:pointer;padding:10px 14px;display:flex;gap:8px;align-items:baseline;font-weight:600;font-size:13px}summary i{font-style:normal;color:#64748b;font-weight:500}
@@ -35,7 +36,7 @@ function pintaMapa(pts){
   capas.mapa=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri'});
   capaT=capas.sat.addTo(mapa);
   document.querySelectorAll('.bt button').forEach(b=>b.onclick=()=>{mapa.removeLayer(capaT);capaT=capas[b.dataset.t].addTo(mapa);document.querySelectorAll('.bt button').forEach(x=>x.classList.toggle('on',x===b));});
-  const g=[];pts.forEach(q=>{const la=+q.lat,lo=+q.lng;if(!isFinite(la)||!isFinite(lo))return;g.push([la,lo]);const m=L.circleMarker([la,lo],{radius:pts.length>400?4:7,color:'#fff',weight:1.5,fillColor:'#4f46e5',fillOpacity:.9}).addTo(mapa);const n=q.nombre||q.name||q.id;if(n)m.bindTooltip(esc(n));});
+  const g=[];marks=[];pts.forEach((q,i)=>{const la=+q.lat,lo=+q.lng;if(!isFinite(la)||!isFinite(lo))return;g.push([la,lo]);const m=L.circleMarker([la,lo],{radius:pts.length>400?4:7,color:'#fff',weight:1.5,fillColor:'#4f46e5',fillOpacity:.9}).addTo(mapa);marks[i]=m;m.bindTooltip(esc(nom(q,i)));m.on('click',()=>elige(i));});
   if(g.length)mapa.fitBounds(g,{padding:[40,40],maxZoom:17});else mapa.setView([23.8,-102.3],5);
 }
 function indHtml(I){
@@ -48,15 +49,37 @@ function indHtml(I){
   return t+'<p class="mu">'+I.items.length+' de '+I.total+' indicadores de la malla nacional (Censo, DENUE, OpenStreetMap, INEGI, WorldCover, WorldClim) tienen dato en '+(I.puntos>1?'los '+I.puntos+' puntos del proyecto':'el punto del proyecto')+(I.conAgeb<I.puntos?' ('+(I.puntos-I.conAgeb)+' caen fuera de una AGEB urbana y no tienen dato)':'')+'.</p>'
    +Object.entries(G).map(([g,L2],k)=>'<details'+(k<2?' open':'')+'><summary><b>'+esc(g)+'</b> <i>'+L2.length+'</i></summary><table><tbody>'+L2.map(i=>'<tr><td>'+esc(i.n)+'</td><td>'+val(i)+'</td><td>'+esc(i.u||'')+'</td></tr>').join('')+'</tbody></table></details>').join('');
 }
+let P=null,pts=[],marks=[],sel=-1,hl=null,I0=null;
+const nom=(q,i)=>(q.id!=null&&q.id!==''?String(q.id):'Punto '+(i+1));
+function resalta(i){
+  if(hl){mapa.removeLayer(hl);hl=null;}
+  marks.forEach((m,k)=>m&&m.setStyle({fillColor:k===i?'#f59e0b':'#4f46e5',radius:k===i?10:(pts.length>400?4:7)}));
+  if(i>=0&&marks[i]){marks[i].bringToFront();mapa.setView(marks[i].getLatLng(),17,{animate:true});}
+  else{const g=pts.filter(q=>isFinite(+q.lat)).map(q=>[+q.lat,+q.lng]);if(g.length)mapa.fitBounds(g,{padding:[40,40],maxZoom:17});}
+}
+function panel(I){
+  const pt=sel>=0?pts[sel]:null,cols=(P.columnas||[]);
+  let h='<h1>'+esc(P.nombre||'Proyecto')+'</h1><p class="obj">'+esc(P.objetivo||'')+'</p>'
+   +'<div class="sel"><label>Punto del proyecto</label><div class="r"><input id="pq" list="pl" placeholder="Busca o elige entre '+pts.length.toLocaleString('es-MX')+' puntos…" value="'+(pt?esc(nom(pt,sel)+' · #'+(sel+1)):'')+'" autocomplete="off"><button id="pt">Todo el proyecto</button></div><datalist id="pl">'+pts.map((q,i)=>'<option value="'+esc(nom(q,i)+' · #'+(i+1))+'">').join('')+'</datalist></div>';
+  if(!pt)h+='<div class="av">Este proyecto no tiene maqueta 3D. Elige un punto para ver sus indicadores en el mapa, o consulta el resumen de todo el proyecto.</div><div class="kp"><div><b>'+fmt(pts.length)+'</b><span>puntos</span></div><div><b>'+fmt(cols.length)+'</b><span>variables propias</span></div><div><b>'+esc(P.zona||'—')+'</b><span>zona</span></div></div>';
+  else{h+='<div class="kp"><div><b>'+fmt(+pt.lat)+'</b><span>latitud</span></div><div><b>'+fmt(+pt.lng)+'</b><span>longitud</span></div><div><b>#'+(sel+1)+'</b><span>de '+pts.length.toLocaleString('es-MX')+'</span></div></div>';
+    const xs=cols.filter(c=>pt.x&&pt.x[c.name]!=null);
+    if(xs.length)h+='<h2>Datos del punto</h2><details open><summary><b>Variables del archivo</b> <i>'+xs.length+'</i></summary><table><tbody>'+xs.map(c=>'<tr><td>'+esc(c.label||c.name)+'</td><td>'+fmt(pt.x[c.name])+'</td><td></td></tr>').join('')+'</tbody></table></details>';}
+  $('#pn').innerHTML=h+indHtml(I);
+  const inp=$('#pq');
+  inp.onchange=()=>{const v=inp.value,k=pts.findIndex((q,i)=>nom(q,i)+' · #'+(i+1)===v);if(k>=0)elige(k);};
+  $('#pt').onclick=()=>elige(-1);
+}
+async function elige(i){
+  sel=i;resalta(i);panel(i<0?I0:null);
+  try{const j=await fetch(API+'/geometrika/indicadores?id='+ID+(i>=0?'&i='+i:'')).then(r=>r.json());const R=j.ok?j:{err:j.error||'Sin respuesta'};if(sel!==i)return;if(i<0)I0=R;panel(R);}catch(e){if(sel===i)panel({err:String(e.message||e)});}
+}
 (async()=>{
   if(!/^m[a-z0-9]{6,24}$/.test(ID)){$('#pn').innerHTML='<p class="er">Proyecto no válido.</p>';return;}
   $('#ml').href='../../geometrika/?s=modelo&p='+ID;
-  let P=null,pts=[];
   try{const j=await fetch(API+'/geometrika/modelab/proyectos/'+ID).then(r=>r.json());if(!j.ok)throw new Error(j.error||'No se pudo cargar');P=j.proyecto;pts=j.puntos||[];}catch(e){$('#pn').innerHTML='<p class="er">'+esc(e.message)+'</p>';pintaMapa([]);return;}
   document.title='Geo Lab · '+(P.nombre||'Proyecto');$('#tit').textContent=P.nombre||'Proyecto';
   pintaMapa(pts);
-  const pan=I=>{$('#pn').innerHTML='<h1>'+esc(P.nombre||'Proyecto')+'</h1><p class="obj">'+esc(P.objetivo||'')+'</p><div class="av">Este proyecto no tiene maqueta 3D. En su lugar se muestran el mapa y todos los indicadores disponibles para su ubicación.</div><div class="kp"><div><b>'+fmt(pts.length)+'</b><span>puntos</span></div><div><b>'+fmt((P.columnas||[]).length)+'</b><span>variables propias</span></div><div><b>'+esc(P.zona||'—')+'</b><span>zona</span></div></div>'+indHtml(I);};
-  pan(null);
-  try{const j=await fetch(API+'/geometrika/indicadores?id='+ID).then(r=>r.json());pan(j.ok?j:{err:j.error||'Sin respuesta'});}catch(e){pan({err:String(e.message||e)});}
+  panel(null);elige(-1);
 })();
 </script></body></html>
