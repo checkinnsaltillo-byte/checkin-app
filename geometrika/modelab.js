@@ -894,7 +894,7 @@
     const lib = (S.M.x || []).filter(esLib); if (!lib.length) { toast("Este modelo no usa indicadores de la biblioteca."); return; } try { const j = await api(R + "/tabla", { puntos: [[lat, lng]], specs: lib.map(k => BIBK()[k].s) }); if (j.sinAgeb) toast("Esa coordenada no cae en una AGEB urbana: los indicadores quedan vacíos.", 5000); lib.forEach((k, i) => { const x = j.rows[0][i]; simS().vals[k] = x == null ? "" : String(Math.round(x * 1000) / 1000); }); simS().last = null; simPinta(); toast("Indicadores leídos de la coordenada."); } catch (e) { toast(e.message, 5000); }
   }
   /* ── puntos nuevos: gestión de conjuntos ── */
-  const EST_A = { hecho: ["#059669", "✓"], proc: ["#d97706", "…"], reg: ["#4f46e5", "◷"], no: ["#94a3b8", "—"] };
+  const EST_A = { hecho: ["#059669", "✓"], proc: ["#d97706", "…"], pau: ["#64748b", "⏸"], reg: ["#4f46e5", "◷"], no: ["#94a3b8", "—"] };
   function simAnalisis(W, nVars, verNombre) {
     const o = W.opt, od = W.odOn ? (W.odModo === "google" ? "Origen / Destino vehicular con Google Routes (de paga)" : "Origen / Destino vehicular con OpenStreetMap (gratis)") : "";
     return [{ k: "ind", t: "Indicadores de la biblioteca nacional", d: nVars + " variables por coordenada (AGEB)", e: "hecho", g: 1 }, { k: "mod", t: "Evaluación con el modelo", d: verNombre, e: "hecho", g: 1 },
@@ -947,16 +947,25 @@
     const s = simS(), sid = s.view; wrap('<div class="mo-empty"><b>Abriendo el conjunto…</b></div>'); let j;
     try { j = await api(R + "/proyectos/" + S.id + "/sim/" + sid); } catch (e) { s.view = null; toast(e.message); return simPinta(); }
     s.cur = j; try { await aseguraDs(); } catch (_) { } try { const q = await api("/geometrika/modelab-precalcular/estado?id=" + sid); s.estado = q.estado || null; } catch (_) { s.estado = null; } simVistaPinta();
-    clearTimeout(s._tm); if (s.estado && s.estado.running) s._tm = setTimeout(() => { if (S.sec === "simulacion" && s.view === sid) simVista(); }, 15000);
+    clearTimeout(s._tm); s._ek = JSON.stringify(s.estado && [s.estado.fase, s.estado.hechos, s.estado.od, s.estado.running, s.estado.error]); if (s.estado && s.estado.running && !/pausa/i.test(s.estado.fase || "")) s._tm = setTimeout(simPoll, 20000);
   }
   function simEstadoA(a, E) {
     if (!E) return a; const k = a.k, liston = E.fase === "Listo", error = E.error; const b = Object.assign({}, a);
     if (k === "amb") { b.e = liston ? "hecho" : error ? "no" : "proc"; if (!liston && !error) b.d += " · " + (E.fase === "Datos ambientales" ? "en curso" : "listo"); if (E.fase !== "Datos ambientales") b.e = "hecho"; }
     if (k === "esc") { b.e = liston || /Origen/.test(E.fase || "") ? "hecho" : error ? "no" : (E.fase === "Datos ambientales" ? "proc" : "proc"); if (!liston && /Escena/.test(E.fase || "")) b.d += ` · ${gN(E.hechos || 0, 0)} de ${gN(E.total || 0, 0)} puntos`; }
-    if (k === "od" && a.e !== "no") { b.e = liston ? "hecho" : "proc"; if (/pausa/i.test(E.fase || "")) b.d += " · en pausa"; else if (/Origen/.test(E.fase || "")) b.d += ` · ${gN(E.od || 0, 0)} de ${gN(E.total || 0, 0)} puntos`; }
+    if (k === "od" && a.e !== "no") { b.e = liston ? "hecho" : "proc"; if (/pausa/i.test(E.fase || "")) { b.d += " · en pausa"; b.e = "pau"; } else if (/Origen/.test(E.fase || "")) b.d += ` · ${gN(E.od || 0, 0)} de ${gN(E.total || 0, 0)} puntos`; }
     return b;
   }
   const PAL_R = ["#5b7fa6", "#3f8f8b", "#8fb36b", "#c9a24a", "#c2703d", "#8a4f7d"], PAL_C = ["#5b7fa6", "#c9a24a", "#3f8f8b", "#8a4f7d", "#c2703d", "#7a8b99", "#9d6b53", "#6f8f55"];
+  function simAnHtml(A, E) {
+    return `<section class="mo-sx2" id="simAn"><h3>Análisis del conjunto</h3><div class="mo-tw"><table class="mo-t"><thead><tr><th>Análisis</th><th>Estado</th><th>Detalle</th><th>Costo</th></tr></thead><tbody>${A.map(a => { const e = EST_A[a.e] || EST_A.no, tx = { hecho: "Hecho", proc: "En proceso", pau: "En pausa", reg: "Registrado", no: a.k === "od" || a.k === "mq" || a.k === "vi" || a.k === "tr" ? "No solicitado" : "—" }[a.e]; return `<tr><td><b>${esc(a.t)}</b></td><td><span class="mo-b" style="background:${e[0]}1a;color:${e[0]}">${e[1]} ${tx}</span></td><td class="mo-mut">${esc(a.d)}</td><td>${a.g ? '<span class="mo-gratis">Gratis</span>' : '<span class="mo-paga">De paga</span>'}</td></tr>`; }).join("")}</tbody></table></div>
+        <p class="mo-mut">${E && E.running ? `Análisis por punto en curso: ${esc(E.fase || "")}. La tabla se actualiza sola.` : E && E.fase === "Listo" ? "Todos los análisis por punto terminaron." : "Los análisis «Registrado» quedan guardados con el conjunto; se lanzan desde Geo Lab porque incurren en costos."} <button type="button" class="mo-ghost" data-sm="refresca">Actualizar</button></p></section>`;
+  }
+  /* actualiza solo la tabla de análisis (sin recargar la página ni el mapa) */
+  async function simPoll() {
+    const s = simS(), sid = s.view; if (!sid || S.sec !== "simulacion" || !s.cur) return; try { const q = await api("/geometrika/modelab-precalcular/estado?id=" + sid); if (s.view !== sid) return; const E = q.estado || null, k = JSON.stringify(E && [E.fase, E.hechos, E.od, E.running, E.error]); if (k !== s._ek) { s._ek = k; s.estado = E; const el = $("#simAn"); if (el) el.outerHTML = simAnHtml(((s.cur.conjunto.sim || {}).analisis || []).map(a => simEstadoA(a, E)), E); } } catch (_) { }
+    clearTimeout(s._tm); if (S.sec === "simulacion" && s.view === sid && s.estado && s.estado.running && !/pausa/i.test(s.estado.fase || "")) s._tm = setTimeout(simPoll, 20000);
+  }
   function simVistaPinta() {
     const s = simS(), j = s.cur; if (!j) return; const c = j.conjunto, m = c.sim || {}, res = j.res, pts = j.puntos || [], E = s.estado, A = (m.analisis || []).map(a => simEstadoA(a, E));
     const reg = res && res.tipoY === "regresion", vp = res ? res.pred : [], rows = pts.slice(0, 500);
@@ -965,8 +974,7 @@
       return `<div class="mo-sr" style="--c:${col}"><span class="mo-sr-n">${i + 1}</span><div class="mo-sr-p"><b>${esc(q.id || "P" + (i + 1))}</b><small>${q.lat}, ${q.lng}</small></div><div class="mo-sr-v"><b>${v == null ? "—" : reg ? gN(v) : esc(v)}</b>${reg ? `<small>${esc(unidadY().trim())}</small>` : pr != null ? `<small>${gN(100 * pr, 0)} % de probabilidad</small>` : ""}</div>${pos != null ? `<div class="mo-sr-b"><i><u style="left:${pos}%"></u></i><small>mayor que el ${pc} % de tu proyecto</small></div>` : '<div class="mo-sr-b"></div>'}<span class="mo-mut mo-sr-x">${esc((res.motivo && res.motivo[i]) || "")}</span></div>`; }).join("")}</div>${pts.length > 500 ? `<p class="mo-mut">Se muestran 500 de ${gN(pts.length, 0)} puntos; el CSV trae todos.</p>` : ""}` : '<div class="mo-empty"><b>Este conjunto aún no se evalúa.</b></div>';
     wrap(`<div class="mo-h"><div><h1>${esc(c.nombre)}</h1><p>Conjunto de puntos nuevos · modelo ${esc(m.verNombre || "—")}</p></div><button type="button" class="mo-ghost" data-sm="volver">${mi("back")} Todos los conjuntos</button></div>
       <div class="mo-kp2 mo-kpis">${kp.map(([t, v, col]) => `<div class="mo-kpi" style="--c:${col}"><b style="font-size:${String(v).length > 16 ? 14 : 20}px">${v}</b><span>${t}</span></div>`).join("")}</div>
-      <section class="mo-sx2"><h3>Análisis del conjunto</h3><div class="mo-tw"><table class="mo-t"><thead><tr><th>Análisis</th><th>Estado</th><th>Detalle</th><th>Costo</th></tr></thead><tbody>${A.map(a => { const e = EST_A[a.e] || EST_A.no, tx = { hecho: "Hecho", proc: "En proceso", reg: "Registrado", no: a.k === "od" || a.k === "mq" || a.k === "vi" || a.k === "tr" ? "No solicitado" : "—" }[a.e]; return `<tr><td><b>${esc(a.t)}</b></td><td><span class="mo-b" style="background:${e[0]}1a;color:${e[0]}">${e[1]} ${tx}</span></td><td class="mo-mut">${esc(a.d)}</td><td>${a.g ? '<span class="mo-gratis">Gratis</span>' : '<span class="mo-paga">De paga</span>'}</td></tr>`; }).join("")}</tbody></table></div>
-        <p class="mo-mut">${E && E.running ? `Análisis por punto en curso: ${esc(E.fase || "")}. Esta página se actualiza sola.` : E && E.fase === "Listo" ? "Todos los análisis por punto terminaron." : "Los análisis «Registrado» quedan guardados con el conjunto; se lanzan desde Geo Lab porque incurren en costos."} <button type="button" class="mo-ghost" data-sm="refresca">Actualizar</button></p></section>
+      ${simAnHtml(A, E)}
       <section class="mo-sx2"><h3>Resultados del modelo</h3>${res ? `<div class="mo-sm-lo"><label class="mo-fl">Evaluar de nuevo con otra versión<select id="smVer2" class="mo-in">${verOpts(m.ver)}</select></label><div class="mo-chs"><button type="button" class="mo-new" data-sm="reeval">Evaluar de nuevo</button><button type="button" class="mo-ghost" data-sm="csv">Descargar CSV</button></div></div>
         ${res.sinAgeb ? `<div class="mo-av"><div>${gN(res.sinAgeb, 0)} de ${gN(pts.length, 0)} puntos no caen en una AGEB urbana: sus indicadores de la biblioteca están vacíos y el modelo los rellena.</div></div>` : ""}<div id="simMap" class="mo-map"></div>` : ""}${tabla}</section>`);
     if (res) simMapa(pts, res, reg);
@@ -1023,7 +1031,7 @@
     if ((b = t.closest("[data-smescdel]"))) { api(R + "/proyectos/" + S.id + "/sim-escenarios/" + b.dataset.smescdel, null, "DELETE").then(() => { s.escenarios = s.escenarios.filter(q => q.id !== b.dataset.smescdel); simPinta(); }).catch(er => toast(er.message)); return true; }
     if ((b = t.closest("[data-sm]"))) { const a = b.dataset.sm;
       if (a === "expande" || a === "contrae") { $$(".mo-sg").forEach(d => { d.open = a === "expande"; s.ab[d.dataset.g] = d.open; }); return true; } if (a === "eval") { simEvalManual(); return true; } if (a === "reset") { s.vals = simDefaults(); s.last = null; simPinta(); return true; } if (a === "guardaesc") { simGuardaEsc(); return true; }
-      if (a === "nuevo") { simNuevo(); return true; } if (a === "volver") { s.view = null; clearTimeout(s._tm); simPinta(); return true; } if (a === "refresca") { simVista(); return true; } if (a === "reeval") { simReeval(); return true; } if (a === "csv") { simCsv(); return true; }
+      if (a === "nuevo") { simNuevo(); return true; } if (a === "volver") { s.view = null; clearTimeout(s._tm); simPinta(); return true; } if (a === "refresca") { simPoll(); return true; } if (a === "reeval") { simReeval(); return true; } if (a === "csv") { simCsv(); return true; }
       if (a === "cargacoord") { const la = parseFloat($("#smLat").value), lo = parseFloat($("#smLng").value); if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) { toast("Escribe una latitud y una longitud válidas."); return true; } simCargaIndic(la, lo); return true; } }
     return false;
   }
