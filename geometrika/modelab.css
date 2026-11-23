@@ -498,13 +498,13 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-sl b{white-space:nowrap;background:#2563eb;color:#fff;font:800 12px system-ui;padding:3px 9px;border-radius:8px;box-shadow:0 3px 10px rgba(37,99,235,.45)}
 .mo-sl i{display:block;height:34px;border-left:2.5px dotted #2563eb}
 /* controlador de rango estilo EconoLab: tira con la forma de los datos y una ventana con agarraderas */
-.mo-rng{margin-top:8px;padding:8px 2px 0;border-top:1px dashed #e2e8f0}
-.mo-rng-t{position:relative;height:38px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;overflow:visible;touch-action:none;cursor:pointer;user-select:none}
-.mo-rng-t svg{position:absolute;inset:3px 0 0 0;width:100%;height:calc(100% - 3px);display:block;border-radius:0 0 7px 7px}
+.mo-rng{margin:0 2.8125%;padding:0}
+.mo-rng-t{position:relative;height:26px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;overflow:visible;touch-action:none;cursor:pointer;user-select:none}
+.mo-rng-t svg{position:absolute;inset:2px 0 0 0;width:100%;height:calc(100% - 2px);display:block;border-radius:0 0 7px 7px}
 .mo-rng-d{position:absolute;top:0;bottom:0;background:rgba(241,245,249,.8);pointer-events:none}#simRngD0{left:0;border-radius:7px 0 0 7px}#simRngD1{right:0;border-radius:0 7px 7px 0}
 .mo-rng-w{position:absolute;top:-2px;bottom:-2px;border:2px solid #6366f1;border-radius:8px;background:rgba(99,102,241,.12);cursor:grab;box-sizing:border-box}.mo-rng-w:active{cursor:grabbing}
 .mo-rng-g{position:absolute;top:-2px;bottom:-2px;width:14px;background:#6366f1;border-radius:6px;cursor:ew-resize;touch-action:none;display:flex;align-items:center;justify-content:center}
 .mo-rng-g::after{content:"";width:2px;height:14px;border-left:2px solid rgba(255,255,255,.9);border-right:2px solid rgba(255,255,255,.9);box-sizing:content-box;width:0}
 #simRngH0{left:-9px}#simRngH1{right:-9px}.mo-rng-g.on,.mo-rng-g:focus-visible{background:#4338ca;outline:0;box-shadow:0 0 0 4px rgba(99,102,241,.3)}
-.mo-rng-l{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;font:500 11.5px system-ui;color:#64748b}.mo-rng-l b{color:#0f172a;font-weight:800}
+.mo-rng-l{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 2.8125%;font:500 11.5px system-ui;color:#64748b}.mo-rng-l b{color:#0f172a;font-weight:800}
 .mo-rng-r{all:unset;cursor:pointer;font:700 11.5px system-ui;color:#4338ca;padding:2px 8px;border-radius:6px}.mo-rng-r:hover{background:#eef2ff}.mo-rng-r[hidden]{display:none}
