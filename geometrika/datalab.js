@@ -879,6 +879,13 @@
       + (has ? `<i style="position:absolute;left:calc(${pc(ref)}% - 7px);top:3px;width:14px;height:14px;border-radius:50%;background:${col};border:2px solid #fff;box-shadow:0 0 0 2px ${col},0 1px 3px rgba(0,0,0,.35);box-sizing:border-box;z-index:2" title="${esc(nom)}: ${esc(mlFv(d, ref))}"></i>` : "");
     return `<div class="dl-mlbr"><div class="dl-mlbh"><b>${nom}</b><span>${sub}</span>${has ? `<em style="color:${col}">${esc(mlFv(d, ref))} · P${per}</em>` : ""}</div><div class="dl-mlbk">${caja}</div></div>`;
   }
+  /* nivel nacional: un solo valor (total o promedio de todo el país); se ubica el polígono contra él */
+  function mlBxNac(d, b, ref) {
+    const nac = b.nac; if (nac == null || !isFinite(nac)) return ""; const has = ref != null && isFinite(ref) && nac !== 0; let det = "", gauge = "";
+    if (has) { const r = ref / nac; if (b.suma) { const p = r * 100; det = (p < .01 ? "< 0.01" : p.toFixed(p < 1 ? 2 : 1)) + " % del total nacional"; } else det = r.toFixed(2) + "× el promedio nacional";
+      if (!b.suma) { const mx = Math.max(nac, ref) * 1.15 || 1, col = ref >= nac * 1.25 ? "#ea580c" : ref <= nac * .8 ? "#2563eb" : "#16a34a"; gauge = `<div class="dl-mlbk"><i style="position:absolute;left:0;right:0;top:9px;height:2px;background:#cbd5e1"></i><i style="position:absolute;left:${nac / mx * 100}%;top:3px;width:2px;height:14px;background:#0f172a" title="Promedio nacional ${esc(mlFv(d, nac))}"></i><i style="position:absolute;left:calc(${ref / mx * 100}% - 7px);top:3px;width:14px;height:14px;border-radius:50%;background:${col};border:2px solid #fff;box-shadow:0 0 0 2px ${col},0 1px 3px rgba(0,0,0,.35);box-sizing:border-box;z-index:2"></i></div>`; } }
+    return `<div class="dl-mlbr"><div class="dl-mlbh"><b>Nacional</b><span>${b.suma ? "total" : "promedio"} del país</span><em style="color:#0f172a">${esc(mlFv(d, nac))}</em></div>${gauge}${det ? `<div class="dl-mlbn" style="margin-top:2px">${esc(det)}</div>` : ""}</div>`;
+  }
   function mlBxRender() {
     const P = ML.el && ML.el.querySelector(".dl-mlbx"); if (!P) return; const d = ML_D[ML.k], sp = mlSpec(d), cl = P.classList.contains("cl"), S = ML.bsel;
     const cab = `<div class="dl-mlbt" data-bxt><span>Comparación · ${esc(d.n)}</span><u>${cl ? "▸" : "▾"}</u></div>`; let cuerpo = "";
@@ -889,7 +896,10 @@
       if (un) rows.push(mlBxRow(d, un + " en pantalla", ML.loc ? "n = " + gN(ML.locN) : "", ML.loc, S ? S.v : null));
       rows.push(mlBxRow(d, "AGEB", "todo el país · n = " + gN(b.ageb.n), b.ageb.q, aRef));
       rows.push(mlBxRow(d, "Municipio" + (S && S.mun ? " · " + esc(S.mun.n) : ""), (b.suma ? "total" : "promedio") + " · n = " + gN(b.mun.n), b.mun.q, S && S.mun ? S.mun.valor : null));
+      const sinCity = S && S.mun && !S.city;
+      rows.push(mlBxRow(d, "Ciudad" + (S && S.city ? " · " + esc(S.city.n.replace(/^(Zona metropolitana|Metrópoli municipal|Zona conurbada) (de |del |de la |de los |de las )?/, "")) : ""), sinCity ? "no está en una metrópoli" : (b.suma ? "total" : "promedio") + " · metrópolis n = " + gN(b.city ? b.city.n : 0), b.city && b.city.q, S && S.city ? S.city.valor : null));
       rows.push(mlBxRow(d, "Entidad" + (S && S.ent ? " · " + esc(S.ent.n) : ""), (b.suma ? "total" : "promedio") + " · n = " + gN(b.ent.n), b.ent.q, S && S.ent ? S.ent.valor : null));
+      rows.push(mlBxNac(d, b, S ? S.v : null));
       cuerpo = rows.join("") + (S ? "" : '<div class="dl-mlbn">Haz clic en un polígono para ubicarlo en cada nivel.</div>');
     }
     P.innerHTML = cab + '<div class="dl-mlbb">' + cuerpo + "</div>";
@@ -901,7 +911,7 @@
   function mlSetSel(f) { const m = ML.map; if (!m || !ML.listo) return; try { m.getSource("sel").setData({ type: "FeatureCollection", features: f ? [f] : [] }); } catch (_) { } }
   async function mlSel(geom, props, ll) {
     const d = ML_D[ML.k], sp = mlSpec(d), S = { v: props && typeof props.v === "number" ? props.v : null, geom, t: props && props.t }; ML.bsel = S; mlSetSel(geom ? { type: "Feature", geometry: geom, properties: {} } : null); mlBxRender(); if (!sp || !ll) return;
-    try { const j = await api(`/geometrika/malla/punto?lat=${(ll.lat).toFixed(5)}&lng=${(ll.lng).toFixed(5)}&v=${sp}`); if (ML.bsel === S && j.ok) { S.ageb = j.ageb; S.mun = j.mun; S.ent = j.ent; mlBxRender(); } } catch (_) { }
+    try { const j = await api(`/geometrika/malla/punto?lat=${(ll.lat).toFixed(5)}&lng=${(ll.lng).toFixed(5)}&v=${sp}`); if (ML.bsel === S && j.ok) { S.ageb = j.ageb; S.mun = j.mun; S.city = j.city; S.ent = j.ent; mlBxRender(); } } catch (_) { }
   }
   function mlIr(it) {
     const m = ML.map; if (!m) return; if (m.ir) return m.ir(it); const bb = it.bb;
