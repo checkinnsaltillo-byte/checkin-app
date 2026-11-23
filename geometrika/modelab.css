@@ -410,3 +410,11 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-sgt{display:flex;flex-direction:column;gap:1px}.mo-app .mo-sgt b{font:800 14.5px system-ui;color:var(--ink)}.mo-app .mo-sgt small{font:600 11px system-ui;color:var(--mut)}
 .mo-app details.mo-sg>summary em{margin-left:auto;font:600 12px system-ui;color:#4338ca;background:#eef2ff;border-radius:99px;padding:2px 10px;font-style:normal}
 .mo-app details.mo-sg>.mo-svg{margin:0;padding:14px 16px 16px}
+/* buscador de lugares dentro del mapa */
+.mo-app .mo-mapw{position:relative}.mo-app .mo-mapw .mo-map{margin:8px 0}
+.mo-app .mo-mbus{position:absolute;z-index:1000;top:18px;left:56px;right:16px;max-width:460px}
+.mo-app .mo-mbus .mo-in{box-shadow:0 4px 14px rgba(15,23,42,.18)}
+.mo-app .mo-mbl{margin-top:4px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 22px rgba(15,23,42,.18);padding:4px;max-height:260px;overflow:auto}
+.mo-app .mo-mbl button{all:unset;cursor:pointer;box-sizing:border-box;display:block;width:100%;padding:8px 10px;border-radius:8px}.mo-app .mo-mbl button:hover{background:#eef2ff}
+.mo-app .mo-mbl b{display:block;font:700 12.5px system-ui;color:var(--ink)}.mo-app .mo-mbl span{display:block;font:500 11px system-ui;color:var(--mut)}
+.mo-app .mo-mapw .mo-map{height:560px}@media(max-width:760px){.mo-app .mo-mapw .mo-map{height:440px}}

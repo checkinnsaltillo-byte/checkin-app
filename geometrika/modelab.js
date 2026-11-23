@@ -119,8 +119,8 @@
     return `<div class="mo-av${alto ? " alto" : ""}"><div>${base}</div>${costoTxt ? `<div class="c">⚠ ${costoTxt}</div>` : ""}${muchos ? `<div class="c">Tu proyecto tiene <b>${gN(n, 0)} coordenadas</b>: los análisis de «Radio de maqueta», «Vialidades» y «Días y horas de tráfico» se cobran <b>por punto</b> y pueden resultar muy costosos con decenas de puntos o más. Estimado total de lo activado: <b>${usd(c.total)}</b>.</div>` : ""}</div>`;
   }
   function wizard(P, pts) {
-    if (!S.wiz) S.wiz = wizVacio(); S.sec = "nuevo"; nav(); const W = S.wiz, p = W.paso, sim = !!W.sim, off = sim ? 1 : 0, lista = sim ? PASOS.slice(1, 6) : PASOS, total = lista.length + off, pasos = lista.map((_, i) => { const n = i + 1 + off; return `<i class="${n < p ? "ok" : n === p ? "on" : ""}"></i>`; }).join("");
-    wrap(`<div class="mo-wz"><div class="mo-wzh"><span class="mo-wzp">${String(p).padStart(2, "0")}/${String(total).padStart(2, "0")}</span><div><h2>${PASOS[p - 1][0]}</h2><p>${sim && p === 2 ? "dónde están los puntos nuevos: en el mapa, con coordenadas, en un archivo o en el DENUE" : PASOS[p - 1][1]}</p></div></div><div class="mo-wzg">${pasos}</div><div class="mo-wzb" id="wzBody">${wzPaso(W)}</div>
+    if (!S.wiz) S.wiz = wizVacio(); S.sec = "nuevo"; nav(); const W = S.wiz, p = W.paso, sim = !!W.sim, off = sim ? 1 : 0, lista = sim ? PASOS.slice(1) : PASOS, total = lista.length + off, pasos = lista.map((_, i) => { const n = i + 1 + off; return `<i class="${n < p ? "ok" : n === p ? "on" : ""}"></i>`; }).join("");
+    wrap(`<div class="mo-wz"><div class="mo-wzh"><span class="mo-wzp">${String(p).padStart(2, "0")}/${String(total).padStart(2, "0")}</span><div><h2>${PASOS[p - 1][0]}</h2><p>${sim && p === 7 ? "revisa el conjunto antes de analizarlo" : sim && p === 2 ? "dónde están los puntos nuevos: en el mapa, con coordenadas, en un archivo o en el DENUE" : PASOS[p - 1][1]}</p></div></div><div class="mo-wzg">${pasos}</div><div class="mo-wzb" id="wzBody">${wzPaso(W)}</div>
       <div class="mo-wzf"><button type="button" class="mo-ghost" data-wz="atras">${mi("back")} ${p === (sim ? 2 : 1) ? "Cancelar" : "Atrás"}</button><span class="mo-wzm" id="wzMsg">${esc(W.msg || "")}</span>${p < total ? `<button type="button" class="mo-new" data-wz="sig">Continuar →</button>` : sim ? `<button type="button" class="mo-new mo-rojo" data-wz="simular">Analizar puntos</button>` : `<button type="button" class="mo-new mo-rojo" data-wz="modelar">${W.editId ? "Guardar y modelar" : "Modelar"}</button>`}</div></div>`);
     wzPost(W);
   }
@@ -139,10 +139,15 @@
     if (p === 5) { const on = W.opt.trafico; return `<div class="mo-swr mo-swg"><button type="button" class="mo-swb${on ? " on" : ""}" data-wzopt="trafico" aria-label="Consultar tráfico"><i></i></button><div><b>¿Consultar el tráfico por día y hora?</b><span>⚠ <strong>Incurre en costos</strong>: una consulta de Google Routes por cada sentido de vía, día y hora. ${on ? "" : "Es opcional: déjalo apagado si no lo necesitas."}</span></div></div>`
       + (on ? aviso(W, 5) + dTrafico(W) + `<div class="mo-fl">Días</div><div class="mo-chs">${chips(DIAS, W.dias, "data-wzdia")}</div><div class="mo-fl">Horas del día</div><div class="mo-chs mo-hs">${Array.from({ length: 24 }, (_, h) => [h, String(h).padStart(2, "0")]).map(([h, t]) => `<button type="button" class="mo-c${W.horas.includes(h) ? " on" : ""}" data-wzhor="${h}">${t}</button>`).join("")}</div>
       <div class="mo-chs"><button type="button" class="mo-ghost" data-wzq="pico">Hora pico</button><button type="button" class="mo-ghost" data-wzq="habil">Entre semana</button><button type="button" class="mo-ghost" data-wzq="finde">Fin de semana</button><button type="button" class="mo-ghost" data-wzq="todo">Todo el día</button></div>` : `<div class="mo-nota">Tráfico desactivado: no se consultará Google Routes ni se generará costo. Actívalo para elegir los días y las horas, y ver el estimado.</div>`); }
-    if (p === 6) return wzOD(W) + (W.sim ? wzSimResumen(W) : "");
-    return wzVerif(W);
+    if (p === 6) return wzOD(W);
+    return W.sim ? wzSimVerif(W) : wzVerif(W);
   }
   /* resumen del conjunto de puntos nuevos antes de analizarlo */
+  function wzSimVerif(W) {
+    const v = verDe(W.simVer), n = W.puntos.length, falta = []; if (!W.nombre.trim()) falta.push("el nombre del conjunto"); if (!n) falta.push("al menos un punto");
+    const fuente = { mapa: "elegidos en el mapa o por coordenadas", archivo: "cargados desde un archivo", denue: "unidades del DENUE" }[W.fuente] || "";
+    return `${falta.length ? `<div class="mo-av alto"><div class="c">Falta ${falta.join(" y ")}. Regresa al paso 2 para completarlo.</div></div>` : ""}<div class="mo-fa">Resumen del conjunto</div><div class="mo-tw"><table class="mo-t"><tbody><tr><td><b>Nombre</b></td><td>${esc(W.nombre)}</td></tr><tr><td><b>Puntos</b></td><td>${gN(n, 0)} ${fuente ? "· " + fuente : ""}</td></tr><tr><td><b>Versión del modelo</b></td><td>${esc(v ? v.nombre : "—")}</td></tr></tbody></table></div>${wzSimResumen(W)}`;
+  }
   function wzSimResumen(W) {
     const v = verDe(W.simVer), c = costo(W), A = simAnalisis(W, (S.M.x || []).length, v ? v.nombre : "—"), pago = c.total;
     return `<div class="mo-fa">Qué se hará al pulsar «Analizar puntos»</div><div class="mo-tw"><table class="mo-t"><tbody>${A.map(a => { const e = EST_A[a.e]; return `<tr><td><b>${esc(a.t)}</b></td><td><span class="mo-b" style="background:${e[0]}1a;color:${e[0]}">${a.e === "hecho" || a.e === "proc" ? "Se hace ahora" : a.e === "reg" ? "Se registra" : "No solicitado"}</span></td><td class="mo-mut">${esc(a.d)}</td></tr>`; }).join("")}</tbody></table></div>
@@ -194,9 +199,9 @@
     const M = W.modoP || "mapa", OPC = [["coord", "1 · Coordenada manual", "Escribe latitud y longitud"], ["url", "2 · URL de Google Maps", "Pega el enlace de un lugar"], ["mapa", "3 · Seleccionar en el mapa", "Busca un lugar y haz clic"]];
     const panel = M === "coord" ? `<div class="mo-sm-cc2"><textarea id="wzCoord" class="mo-in" rows="2" placeholder="Latitud, longitud (una pareja por renglón). Ej. 25.6866, -100.3161"></textarea><button type="button" class="mo-new" data-wz="coord">Agregar coordenadas</button></div>`
       : M === "url" ? `<div class="mo-sm-cc2"><textarea id="wzUrl" class="mo-in" rows="2" placeholder="Pega el enlace de Google Maps (largo o corto, como maps.app.goo.gl/…). Uno por renglón."></textarea><button type="button" class="mo-new" data-wz="url">Agregar desde el enlace</button></div>`
-      : `<div class="mo-nota">Haz clic en el mapa para agregar puntos (máximo 200 en este modo; para más, carga un archivo). Busca un lugar para moverte.</div><div class="mo-bus"><input id="wzBus" class="mo-in" placeholder="Buscar ciudad, colonia o dirección…" autocomplete="off"><div class="mo-bl" id="wzBL" style="display:none"></div></div>`;
+      : `<div class="mo-nota">Haz clic en el mapa para agregar puntos (máximo 200 en este modo; para más, carga un archivo). Usa el buscador de arriba del mapa para moverte a un lugar.</div>`;
     return `<div class="mo-fa">¿Cómo quieres agregar los puntos?</div><div class="mo-gl2 mo-gl3">${OPC.map(([k, t, d]) => `<button type="button" class="mo-opc${M === k ? " on" : ""}" data-wzmodo="${k}"><b>${t}</b><span>${d}</span></button>`).join("")}</div>${panel}
-    <div class="mo-fa">Puntos agregados</div><div class="mo-chs" id="wzPL">${wzChips(W)}</div><div id="wzMap" class="mo-map"></div>`;
+    <div class="mo-fa">Puntos agregados</div><div class="mo-chs" id="wzPL">${wzChips(W)}</div><div class="mo-mapw"><div id="wzMap" class="mo-map"></div><div class="mo-mbus"><input id="wzMb" class="mo-in" placeholder="Buscar un lugar: dirección, colonia, negocio, ciudad…" autocomplete="off"><div class="mo-mbl" id="wzMbL" style="display:none"></div></div></div>`;
   };
   const wzChips = W => W.puntos.length ? W.puntos.slice(0, 200).map((q, i) => `<span class="mo-c on">${esc(q.id || "P" + (i + 1))} <i class="mo-mut">${q.lat}, ${q.lng}</i> <button type="button" data-wzrm="${i}" aria-label="Quitar">×</button></span>`).join("") : '<span class="mo-mut">Aún no hay puntos.</span>';
   const wzArchHtml = W => {
@@ -292,6 +297,20 @@
     if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; } if (W.puntos.length + nuevos.length > 200) { toast("En el modo mapa el máximo son 200 puntos; para más, carga un archivo."); return; }
     nuevos.forEach(q => { q.id = "P" + (W.puntos.length + 1); W.puntos.push(q); }); if (W.pinta) W.pinta(); wzPts(W); if (W.gl) { try { W.gl.setView([nuevos[0].lat, nuevos[0].lng], Math.max(W.gl.getZoom(), 14)); } catch (_) { } } const ta = $("#wzCoord"); if (ta) ta.value = ""; toast(nuevos.length + " punto" + (nuevos.length === 1 ? "" : "s") + " agregado" + (nuevos.length === 1 ? "" : "s") + (malos.length ? "; " + malos.length + " renglón(es) no se entendieron." : "."), 4000);
   }
+  /* buscador de lugares con texto libre dentro del mapa (mismas sugerencias que Geo Lab) */
+  let _mbt = null, _mbs = 0;
+  function wzMbBusca(W, q) {
+    clearTimeout(_mbt); const L = $("#wzMbL"); if (!L) return; q = q.trim(); if (q.length < 3) { L.style.display = "none"; W.mb = null; return; }
+    _mbt = setTimeout(async () => { const seq = ++_mbs; if (!W.mbSt) W.mbSt = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())); L.style.display = ""; L.innerHTML = '<div class="mo-bn">Buscando…</div>'; let r = [];
+      try { const j = await api("/geometrika/sugerir?q=" + encodeURIComponent(q) + "&st=" + W.mbSt); r = j.r || []; if (!r.length) { const k = await api("/geometrika/direccion?q=" + encodeURIComponent(q)); r = k.r || []; } } catch (_) { }
+      if (seq !== _mbs) return; W.mb = r; L.innerHTML = r.length ? r.slice(0, 8).map((x, i) => `<button type="button" data-wzmb="${i}"><b>${esc(x.n || x.dir || "")}</b><span>${esc(x.dir && x.dir !== x.n ? x.dir : "")}</span></button>`).join("") : '<div class="mo-bn">Sin resultados</div>'; }, 260);
+  }
+  async function wzMbElige(W, i) {
+    let r = (W.mb || [])[i]; if (!r) return; const L = $("#wzMbL"); try { if (r.pid) { const j = await api("/geometrika/lugar?id=" + encodeURIComponent(r.pid) + "&st=" + (W.mbSt || "")); W.mbSt = ""; r = { n: j.n || r.n, lat: j.lat, lng: j.lng }; } } catch (_) { toast("No se pudo ubicar ese lugar."); return; }
+    if (L) L.style.display = "none"; const inp = $("#wzMb"); if (inp && r.n) inp.value = r.n; if (!isFinite(r.lat) || !W.gl) return;
+    W.gl.setView([r.lat, r.lng], 17); if (W.mbPin) { try { W.mbPin.remove(); } catch (_) { } } W.mbPin = L2marker(W.gl, r.lat, r.lng, r.n);
+  }
+  const L2marker = (m, la, lo, n) => window.L.marker([la, lo], { title: n || "" }).addTo(m).bindTooltip(esc(n || "Lugar buscado"), { permanent: false });
   async function wzUrl(W) {
     const t = ($("#wzUrl") || {}).value || "", L = t.split(/\n+/).map(x => x.trim()).filter(Boolean); if (!L.length) { toast("Pega un enlace de Google Maps."); return; } if (W.fuente !== "mapa") { W.puntos = []; W.columnas = []; W.fuente = "mapa"; }
     let ok = 0, mal = []; const b = $('[data-wz="url"]'); if (b) { b.disabled = true; b.textContent = "Leyendo enlace…"; }
@@ -376,6 +395,7 @@
       if (a === "sig") { if (W.paso === 1 && !W.nombre.trim()) { W.msg = "Escribe el nombre del proyecto."; wzRe(); return true; } if (W.paso === 2 && W.sim && !W.nombre.trim()) { W.msg = "Escribe el nombre del conjunto."; wzRe(); return true; } if (W.paso === 2 && !W.puntos.length) { W.msg = W.sim ? "Agrega al menos un punto nuevo." : "Elige al menos un punto de interés."; wzRe(); return true; } W.paso++; W.msg = ""; wizard(); return true; }
       if (a === "modelar") { wzModelar(W); return true; } if (a === "simular") { wzSimular(W); return true; } if (a === "coord") { wzCoord(W); return true; } if (a === "url") { wzUrl(W); return true; } if (a === "limpia") { W.puntos = []; W.columnas = []; W.fuente = W.tab === "denue" ? "denue" : W.tab; if (W.pinta) W.pinta(); wzRe(); return true; }
       if (a === "geolab") { wzGeoLab(W); return true; } if (a === "usaarch") { usaArchivo(W); return true; } if (a === "denbusca") { denBusca(W); return true; } if (a === "usaden") { usaDenue(W); return true; } }
+    if ((b = t.closest("[data-wzmb]"))) { wzMbElige(W, +b.dataset.wzmb); return true; }
     if ((b = t.closest("[data-wzmodo]"))) { W.modoP = b.dataset.wzmodo; wzRe(); return true; }
     if ((b = t.closest("[data-wzt]"))) { W.tab = b.dataset.wzt; W.msg = ""; wzRe(); const bar = $(".mo-tabs"); if (bar) bar.outerHTML = bar.outerHTML; return true; }
     if ((b = t.closest("[data-wzod]"))) { const k = b.dataset.wzod; if (k === "on") W.odOn = !W.odOn; else W.odModo = k; W.opt.od = !!(W.odOn && W.odModo === "google"); wzRe(); return true; }
@@ -401,6 +421,7 @@
     if (id === "wzNom" || id === "wzNomS") { W.nombre = t.value; return true; } if (id === "wzObj") { W.objetivo = t.value; return true; }
     if (id === "wzRad") { W.radio = +t.value; const v = $("#wzRadV"); if (v) v.textContent = W.radio + " m"; wzRadios(W); return true; } if (id === "wzFot") { W.fotos = +t.value; const v = $("#wzFotV"); if (v) v.textContent = W.fotos; return true; } if (id === "wzPre") { W.pre = +t.value; const v = $("#wzPreV"); if (v) v.textContent = W.pre; return true; }
     if (id === "wzQ") { W.den.q = t.value; return true; } if (id === "wzCod") { W.den.cod = t.value; return true; }
+    if (id === "wzMb") { wzMbBusca(W, t.value); return true; }
     if (id === "wzBus") { busca(t, $("#wzBL"), "/geometrika/malla/buscar?q=", it => it.t + (it.d ? " · " + it.d : ""), it => { const m = W.gl; if (!m) return; const bb = it.bb; if (bb && bb[2] - bb[0] > 1e-4) m.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { maxZoom: 17 }); else m.setView([it.lat, it.lng], 16); t.value = it.n; }); return true; }
     if (id === "wzCiu") { busca(t, $("#wzCL"), R + "/ciudades?q=", it => it.t + " · " + it.d, it => { if (!W.den.ciudades.some(c => c.n === it.n)) W.den.ciudades.push({ n: it.n, muns: it.muns }); W.den.muns = [...new Set(W.den.ciudades.flatMap(c => c.muns))]; W.den.res = null; wzRe(); }); return true; }
     return false;
