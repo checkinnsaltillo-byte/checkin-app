@@ -13,7 +13,7 @@
   const $ = (s, r) => (r || host).querySelector(s), $$ = (s, r) => Array.from((r || host).querySelectorAll(s));
   const tick = () => new Promise(r => setTimeout(r, 0));
   const S = { sec: "proyectos", proy: [], cargado: false, pv: "card", pf: "", pq: "", id: null, P: null, puntos: [], M: null, ds: null, res: null, bib: window.MO_BIBLIO || [], wiz: null, busy: false, AN: [], aid: null, A: null, af: "", aq: "", av: "card" };
-  const SEC = [["variables", "1", "Variables", "Elige las variables del modelo"], ["enfoque", "2", "Enfoque", "Supervisado o no supervisado"], ["metodos", "3", "Métodos", "Métodos analíticos factibles"], ["prep", "4", "Preprocesamiento", "Limpieza y preparación"], ["modelar", "5", "Modelar", "Entrenar, calibrar y evaluar"], ["resultados", "6", "Resultados y calidad", "Hallazgos, gráficas y calidad del modelo"], ["simulacion", "7", "Simulación", "Evalúa valores y puntos nuevos con el modelo"]];
+  const SEC = [["datos", "0", "Datos", "Tabla cargada o coordenadas del proyecto"], ["variables", "1", "Variables", "Elige las variables del modelo"], ["enfoque", "2", "Enfoque", "Supervisado o no supervisado"], ["metodos", "3", "Métodos", "Métodos analíticos factibles"], ["prep", "4", "Preprocesamiento", "Limpieza y preparación"], ["modelar", "5", "Modelar", "Entrenar, calibrar y evaluar"], ["resultados", "6", "Resultados y calidad", "Hallazgos, gráficas y calidad del modelo"], ["simulacion", "7", "Simulación", "Evalúa valores y puntos nuevos con el modelo"]];
 
   /* ───────── servidor ───────── */
   const token = () => { try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); return g && g.token ? g.token : ""; } catch (_) { return ""; } };
@@ -42,7 +42,7 @@
     $("#moSalir").onclick = () => { if (window.GM_SALIR) window.GM_SALIR(); else location.reload(); };
     host.addEventListener("click", clic); host.addEventListener("input", entrada); host.addEventListener("change", cambia); tipInit();
   }
-  const hecho = k => { const M = S.M || {}; return k === "variables" ? !!(M.vars && M.vars.length) : k === "enfoque" ? !!(M.enfoque && (M.enfoque === "nosup" || M.y)) : k === "metodos" ? !!M.metodo : k === "prep" ? !!M.prepOk : k === "modelar" || k === "resultados" ? !!S.res : k === "simulacion" ? !!(S.sim && ((S.sim.conjuntos || []).length || (S.sim.escenarios || []).length)) : false; };
+  const hecho = k => { const M = S.M || {}; return k === "datos" ? !!(S.puntos && S.puntos.length) : k === "variables" ? !!(M.vars && M.vars.length) : k === "enfoque" ? !!(M.enfoque && (M.enfoque === "nosup" || M.y)) : k === "metodos" ? !!M.metodo : k === "prep" ? !!M.prepOk : k === "modelar" || k === "resultados" ? !!S.res : k === "simulacion" ? !!(S.sim && ((S.sim.conjuntos || []).length || (S.sim.escenarios || []).length)) : false; };
   function nav() {
     const n = $("#moNav"); if (!n) return; let h = `<label class="mo-psel"><small>Proyecto</small><select id="moPSel" class="mo-in"><option value="">Todos los proyectos</option>${S.proy.map(p => `<option value="${p.id}"${p.id === S.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label><button type="button" class="mo-nav${S.sec === "proyectos" || (S.sec === "nuevo" && !(S.wiz && S.wiz.sim)) ? " on" : ""}" data-sec="proyectos"><span class="ic">${mi("folder")}</span><span class="tx">Mis proyectos</span><span class="bd">${S.proy.length}</span></button>`;
     if (S.id && S.P) { h += `<div class="mo-prj"><small>Proyecto abierto</small><b>${esc(S.P.nombre)}</b><span>${gN(S.puntos.length, 0)} puntos · ${S.P.fuente === "denue" ? "unidades DENUE" : S.P.fuente === "archivo" ? "archivo" : S.P.fuente === "inmuebles" ? "bienes inmuebles" : S.P.fuente === "geolab" ? "Geo Lab" : "mapa"}</span></div>`;
@@ -53,7 +53,7 @@
   }
   /* migas de pan: Mis proyectos › Proyecto › Análisis (cada una regresa a esa pantalla) */
   const migas = () => {
-    const flujo = ["variables", "enfoque", "metodos", "prep", "modelar", "resultados", "simulacion"]; if (!S.P || !S.id) return "";
+    const flujo = ["datos", "variables", "enfoque", "metodos", "prep", "modelar", "resultados", "simulacion"]; if (!S.P || !S.id) return "";
     if (S.sec === "analisis") return `<nav class="mo-bc"><button type="button" class="mo-bcb" data-sec="proyectos">${mi("back")} Mis proyectos</button><span>›</span><b>${esc(S.P.nombre)}</b></nav>`;
     if (flujo.includes(S.sec) && S.aid && S.A) return `<nav class="mo-bc"><button type="button" class="mo-bcb" data-sec="analisis">${mi("back")} Análisis del proyecto</button><span>›</span><a href="#" data-sec="proyectos">Mis proyectos</a><span>›</span><a href="#" data-sec="analisis">${esc(S.P.nombre)}</a><span>›</span><b>${esc(S.A.nombre)}</b></nav>`;
     return "";
@@ -64,7 +64,7 @@
     if (sec !== "nuevo") S.wiz = (sec === "proyectos" || (S.wiz && S.wiz.sim)) ? null : S.wiz; S.sec = sec; nav();
     try { history.replaceState(null, "", "#" + sec); } catch (_) { }
     if (sec === "proyectos") { vistaProyectos(); cargaProy().then(() => { if (S.sec === "proyectos") vistaProyectos(); }); return; } if (sec === "nuevo") return wizard(); if (sec === "analisis") return S.id ? vistaAnalisis() : ir("proyectos");
-    if (!S.id) return ir("proyectos"); if (!S.aid) return ir("analisis"); const f = { variables: secVariables, enfoque: secEnfoque, metodos: secMetodos, prep: secPrep, modelar: secModelar, resultados: secResultados, simulacion: secSimulacion }[sec]; if (f) f();
+    if (!S.id) return ir("proyectos"); if (!S.aid) return ir("analisis"); const f = { datos: secDatos, variables: secVariables, enfoque: secEnfoque, metodos: secMetodos, prep: secPrep, modelar: secModelar, resultados: secResultados, simulacion: secSimulacion }[sec]; if (f) f();
   }
 
   /* ───────── Mis proyectos (misma estructura que Media Lab: KPIs arriba y tarjetas o tabla) ───────── */
@@ -94,7 +94,7 @@
   async function abreAn(aid) {
     try { S.busy = true; wrap('<div class="mo-empty"><b>Abriendo análisis…</b></div>'); S.aid = aid; S.resVer = null; S.sim = null; S.ds = null; S.res = null; S.perfiles = null; S.cg = null; const j = await api(R + "/proyectos/" + S.id + "/analisis/" + aid); S.A = j.analisis; S.M = j.modelo || { vars: [], enfoque: null, y: null, x: [], metodo: null, prep: null, prepOk: false };
       if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name); const yv = S.P.cfg && S.P.cfg.yVar; if (aid === "principal" && yv && !j.modelo && S.M.vars.includes(yv)) { S.M.enfoque = "sup"; S.M.y = yv; S.M.x = S.M.vars.filter(v => v !== yv); }
-      try { const r = await api(R + "/proyectos/" + S.id + "/resultados"); S.res = r.res || null; } catch (_) { } S.busy = false; await ir(S.res ? "resultados" : "variables"); }
+      try { const r = await api(R + "/proyectos/" + S.id + "/resultados"); S.res = r.res || null; } catch (_) { } S.busy = false; await ir(S.res ? "resultados" : "datos"); }
     catch (e) { S.busy = false; toast(e.message); ir("analisis"); }
   }
   async function elimina(id) { const p = S.proy.find(x => x.id === id); if (!p || !confirm("¿Eliminar el proyecto «" + p.nombre + "»? Se borran sus puntos, datos y resultados. No se puede deshacer.")) return; try { await api(R + "/proyectos/" + id, null, "DELETE"); if (S.id === id) { S.id = S.P = S.res = null; } await cargaProy(); vistaProyectos(); toast("Proyecto eliminado."); } catch (e) { toast(e.message); } }
@@ -592,7 +592,7 @@
         <div class="mo-vb"><label class="mo-q${S.vq ? " has" : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="moVQ" type="search" placeholder="Buscar indicador…" value="${esc(S.vq || "")}"></label>
         <div class="mo-chs"><button type="button" class="mo-c${cat ? "" : " on"}" data-vcat="">Todas</button>${cats.map(c => `<button type="button" class="mo-c${cat === c ? " on" : ""}" data-vcat="${esc(c)}">${esc(c)}</button>`).join("")}</div></div>
         ${Object.keys(grp).length ? Object.entries(grp).map(([g, L2]) => { const n = L2.filter(b => sel.has(b.k)).length; return `<details class="mo-sx"${q || n ? " open" : ""}><summary><b>${esc(g)}</b><span>${n}/${L2.length} elegidos</span><span class="mo-vgb"><button type="button" class="mo-ghost" data-vg="${esc(L2.map(b => b.k).join("|"))}" data-on="1" title="Elegir todos los indicadores de este grupo">Todos</button><button type="button" class="mo-ghost" data-vg="${esc(L2.map(b => b.k).join("|"))}" data-on="0" title="Quitar todos los de este grupo">Ninguno</button></span></summary><div class="mo-vl">${L2.map(b => `<button type="button" class="mo-vi${sel.has(b.k) ? " on" : ""}" data-v="${esc(b.k)}">${ck(sel.has(b.k))}<span><b>${esc(b.n)}</b><i>${esc(b.u)}${b.cat ? " · categórico" : ""}</i></span></button>`).join("")}</div></details>`; }).join("") : '<div class="mo-empty"><b>Ningún indicador coincide.</b></div>'}</section>
-      <div class="mo-resv" id="vRes">${resumenVars()}</div>${pie(null, "construir", "Construir tabla de datos y continuar", !(M.vars || []).length)}`);
+      <div class="mo-resv" id="vRes">${resumenVars()}</div>${pie("datos", "construir", "Construir tabla de datos y continuar", !(M.vars || []).length)}`);
     const i = $("#moVQ"); if (i && S._vfoco) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); S._vfoco = false; }
   }
   const resumenVars = () => { const v = S.M.vars || [], nl = v.filter(esLib).length; return `<b>${v.length}</b> variable${v.length === 1 ? "" : "s"} elegida${v.length === 1 ? "" : "s"} · ${nl} de la biblioteca · ${v.length - nl} de tu proyecto${S.ds ? ` · tabla actual: ${gN(S.ds.rows.length, 0)} filas × ${S.ds.cols.length} columnas` : ""}`; };
@@ -622,6 +622,29 @@
   function opcionesAgrupadas(lista, sel, tipoTxt) { const G = {}; lista.forEach(p => { const o = origen(p.name); (G[o.g] = G[o.g] || { o: o.o, l: [] }).l.push(p); }); return Object.entries(G).sort((a, b) => a[1].o - b[1].o || a[0].localeCompare(b[0])).map(([g, v]) => `<optgroup label="${esc(g)}">${v.l.map(p => `<option value="${esc(p.name)}"${sel === p.name ? " selected" : ""}>${esc(p.label || p.name)} · ${tipoTxt(p)}</option>`).join("")}</optgroup>`).join(""); }
   const perfiles = () => { if (!S.perfiles && S.ds && window.MLMotor) { try { S.perfiles = window.MLMotor.perfilar(S.ds); } catch (e) { toast(e.message); } } return S.perfiles || []; };
   const perfilDe = n => perfiles().find(p => p.name === n);
+
+  /* ── 0 · Datos: la tabla cargada o el conjunto de coordenadas del proyecto ── */
+  const datosCols = () => colsProy().map(c => ({ name: c.name, label: c.label || c.name }));
+  const datosFilas = () => { const q = ((S.dt && S.dt.q) || "").toLowerCase(), C = datosCols(); return (S.puntos || []).filter(p => !q || String(p.id).toLowerCase().includes(q) || C.some(c => String((p.x || {})[c.name] == null ? "" : p.x[c.name]).toLowerCase().includes(q))); };
+  const datosV = v => v == null || v === "" ? '<span class="mo-mut">—</span>' : typeof v === "number" ? esc(gN(v, Math.abs(v) < 1000 && v % 1 ? 2 : 0)) : esc(String(v).slice(0, 80));
+  function datosPinta() {
+    const tb = $("#moDTb"), L = datosFilas(), n = (S.dt && S.dt.n) || 100, C = datosCols(); if (!tb) return;
+    tb.innerHTML = L.slice(0, n).map((p, i) => `<tr><td>${i + 1}</td><td><b>${esc(String(p.id).slice(0, 60))}</b></td><td>${(+p.lat).toFixed(5)}</td><td>${(+p.lng).toFixed(5)}</td>${C.map(c => `<td>${datosV((p.x || {})[c.name])}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${4 + C.length}" class="mo-mut">Ningún punto coincide con la búsqueda.</td></tr>`;
+    const m = $("#moDMas"); if (m) m.innerHTML = L.length > n ? `<span class="mo-mut">Mostrando ${gN(n, 0)} de ${gN(L.length, 0)}.</span><button type="button" class="mo-ghost" data-dmas="1">Mostrar 100 más</button>` : `<span class="mo-mut">${gN(L.length, 0)} punto${L.length === 1 ? "" : "s"}.</span>`;
+  }
+  function datosCsv() { const C = datosCols(); descarga("datos-del-proyecto.csv", [["id", "latitud", "longitud"].concat(C.map(c => c.label))].concat(datosFilas().map(p => [p.id, p.lat, p.lng].concat(C.map(c => (p.x || {})[c.name] == null ? "" : p.x[c.name]))))); }
+  function secDatos() {
+    S.sec = "datos"; nav(); const P = S.P, pts = S.puntos || [], C = datosCols(), st = S.dt || (S.dt = { q: "", n: 100 }), ori = { mapa: "elegidos en el mapa", archivo: "cargados desde un archivo", denue: "unidades del DENUE", geolab: "traídos de Geo Lab", inmuebles: "de la base de bienes inmuebles" }[P.fuente] || "";
+    wrap(`${cab("0", "Datos del proyecto", "La tabla cargada o el conjunto de coordenadas con los que se trabajará. Revísalos antes de elegir las variables del modelo.")}
+      <div class="mo-fic"><div><small>Puntos</small><b>${gN(pts.length, 0)}</b></div><div><small>Origen</small><b>${esc(ori || "—")}</b></div><div><small>Columnas propias</small><b>${C.length}</b></div></div>
+      <section class="mo-sx2"><h3>Ubicación de los puntos</h3><div class="mo-mapw"><div id="moDMap" class="mo-map" style="height:300px"></div></div></section>
+      <section class="mo-sx2"><h3>Tabla de datos <small>${C.length ? "coordenadas y columnas del archivo" : "coordenadas de los puntos"}</small></h3>
+        <div class="mo-chs"><input id="moDQ" class="mo-in" type="search" placeholder="Buscar en la tabla…" value="${esc(st.q)}" style="max-width:280px"><span class="mo-sp"></span><button type="button" class="mo-ghost" data-dcsv="1">⬇ Descargar CSV</button></div>
+        <div class="mo-tw" style="max-height:480px;overflow:auto"><table class="mo-t"><thead><tr><th>#</th><th>Identificador</th><th>Latitud</th><th>Longitud</th>${C.map(c => `<th>${esc(c.label)}</th>`).join("")}</tr></thead><tbody id="moDTb"></tbody></table></div><div class="mo-chs" id="moDMas"></div></section>
+      <div class="mo-wzf"><span></span><span class="mo-wzm"></span><button type="button" class="mo-new" data-sec="variables">Continuar a Variables →</button></div>`);
+    datosPinta();
+    leaflet(() => { const el = $("#moDMap"); if (!el || !window.L || !pts.length) return; if (S._dMap) { try { S._dMap.remove(); } catch (_) { } } const m = L.map(el); L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(m); const ll = []; pts.slice(0, 5000).forEach(p => { if (isFinite(+p.lat) && isFinite(+p.lng)) { ll.push([+p.lat, +p.lng]); L.circleMarker([+p.lat, +p.lng], { radius: 4, color: "#fff", weight: 1, fillColor: "#4f46e5", fillOpacity: .85 }).bindTooltip(String(p.id).slice(0, 50)).addTo(m); } }); if (ll.length) m.fitBounds(L.latLngBounds(ll).pad(.1)); S._dMap = m; setTimeout(() => m.invalidateSize(), 150); });
+  }
 
   /* ── 2 · Enfoque y variable de respuesta ── */
   /* la variable a modelar elegida al cargar el archivo se toma sola como variable de respuesta (si aún no hay una y el enfoque no es no supervisado) */
@@ -733,7 +756,7 @@
   const ETAPAS = { sup: [["prep", "Preprocesamiento"], ["entrenamiento", "Entrenamiento"], ["calibracion", "Calibración de hiperparámetros"], ["evaluacion", "Evaluación con datos de prueba"], ["diagnostico", "Diagnóstico e importancia de variables"]], nosup: [["prep", "Preprocesamiento"], ["reduccion", "Reducción y estandarización"], ["ajuste", "Ajuste del modelo"], ["validacion", "Validación"], ["interpretacion", "Interpretación"]] };
   ETAPAS.val = [["limpieza", "Limpieza exhaustiva de las publicaciones"], ["hedonico", "Modelo de precios por atributos y zona"], ["variograma", "Variograma de los residuos"], ["kriging", "Kriging (corrección espacial)"], ["clasificacion", "Clasificación: por debajo, en línea o por encima"]];
   /* puente con modelab-valuacion.js */
-  const HV = { S, cab, pie, gN, ck, leaflet, guarda: () => guardaModelo(), reMetodos: () => secMetodos(), reResultados: () => secResultados() };
+  const HV = { S, cab, pie, gN, ck, leaflet, api, guarda: () => guardaModelo(), reMetodos: () => secMetodos(), reResultados: () => secResultados() };
 
   /* ── 5 · Modelar / Analizar ── */
   function secModelar() {
@@ -1004,7 +1027,7 @@
   /* ── eventos del flujo ── */
   const guardaPrep = () => { S.M.prepOk = false; };
   function flujoClic(e) {
-    const t = e.target; let b; if (window.MLVal && window.MLVal.clic(e, HV)) return true; if (simClic(e)) return true; if (cgClic(e)) return true; { const b2 = e.target.closest && e.target.closest("[data-mgp]"); if (b2 && S._mg) { S._mg.elige(+b2.dataset.mgp, true); return true; } const b3 = e.target.closest && e.target.closest("[data-mg=todos]"); if (b3 && S._mg) { S._mg.todos(); return true; } }
+    const t = e.target; let b; if (window.MLVal && window.MLVal.clic(e, HV)) return true; if (t.closest("[data-dmas]")) { S.dt.n += 100; datosPinta(); return true; } if (t.closest("[data-dcsv]")) { datosCsv(); return true; } if (simClic(e)) return true; if (cgClic(e)) return true; { const b2 = e.target.closest && e.target.closest("[data-mgp]"); if (b2 && S._mg) { S._mg.elige(+b2.dataset.mgp, true); return true; } const b3 = e.target.closest && e.target.closest("[data-mg=todos]"); if (b3 && S._mg) { S._mg.todos(); return true; } }
     if ((b = t.closest("[data-v]")) && S.sec === "variables") { const k = b.dataset.v, s = new Set(S.M.vars || []); s.has(k) ? s.delete(k) : s.add(k); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vg]"))) { e.preventDefault(); const ks = b.dataset.vg.split("|").filter(Boolean), s = new Set(S.M.vars || []); ks.forEach(k => b.dataset.on === "1" ? s.add(k) : s.delete(k)); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vermod]"))) { S.resVer = b.dataset.vermod; secResultados(); return true; }
@@ -1022,7 +1045,7 @@
     return false;
   }
   function resetModelo() { const M = S.M; M.metodo = null; M.prep = null; M.prepOk = false; M.y = null; M.x = []; M.enfoque = M.enfoque; S.ds = null; S.perfiles = null; const r = $("#vRes"); if (r) r.innerHTML = resumenVars(); }
-  function flujoEntrada(e) { const t = e.target; if (window.MLVal && window.MLVal.entrada(e, HV)) return; if (simEntrada(e)) return; if (t.id === "moVQ") { S.vq = t.value; S._vfoco = true; secVariables(); } }
+  function flujoEntrada(e) { const t = e.target; if (t.id === "moDQ") { S.dt = S.dt || { q: "", n: 100 }; S.dt.q = t.value; S.dt.n = 100; datosPinta(); return; } if (window.MLVal && window.MLVal.entrada(e, HV)) return; if (simEntrada(e)) return; if (t.id === "moVQ") { S.vq = t.value; S._vfoco = true; secVariables(); } }
   function flujoCambia(e) {
     const t = e.target; if (window.MLVal && window.MLVal.cambia(e, HV)) return; if (simCambia(e)) return; if (t.id === "moY") { S.M.y = t.value || null; S.M.x = (S.M.x || []).filter(k => k !== S.M.y); if (S.M.y && !(S.M.x || []).length) { S.M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== S.M.y).map(p => p.name); } S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); secEnfoque(); return; }
     if (t.dataset && t.dataset.prep) { S.M.prep.global[t.dataset.prep] = t.value; guardaModelo(); secPrep(); return; } if (t.id === "moK") { S.M.k = t.value ? Math.max(2, Math.min(20, +t.value)) : null; guardaModelo(); }
