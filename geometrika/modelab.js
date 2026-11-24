@@ -93,7 +93,10 @@
   async function cargaAn() { if (!S.id) return; try { const j = await api(R + "/proyectos/" + S.id); S.AN = j.analisis || S.AN; if (S.A) S.A = S.AN.find(a => a.id === S.A.id) || S.A; const p = S.proy.find(x => x.id === S.id); if (p && j.proyecto) Object.assign(p, { estado: j.proyecto.estado, kpi: j.proyecto.kpi, metodo: j.proyecto.metodo, enfoque: j.proyecto.enfoque, nAn: S.AN.length, vars: j.proyecto.nVars }); nav(); } catch (_) { } }
   async function abreAn(aid) {
     try { S.busy = true; wrap('<div class="mo-empty"><b>Abriendo análisis…</b></div>'); S.aid = aid; S.resVer = null; S.sim = null; S.ds = null; S.res = null; S.perfiles = null; S.cg = null; const j = await api(R + "/proyectos/" + S.id + "/analisis/" + aid); S.A = j.analisis; S.M = j.modelo || { vars: [], enfoque: null, y: null, x: [], metodo: null, prep: null, prepOk: false };
-      if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name); const yv = S.P.cfg && S.P.cfg.yVar; if (aid === "principal" && yv && !j.modelo && S.M.vars.includes(yv)) { S.M.enfoque = "sup"; S.M.y = yv; S.M.x = S.M.vars.filter(v => v !== yv); }
+      if (!(S.M.vars || []).length && (S.P.columnas || []).length) S.M.vars = S.P.columnas.map(c => c.name);
+      /* proyectos de bienes inmuebles: se preseleccionan (una sola vez) indicadores del entorno que explican el precio: nivel socioeconómico, ingreso, densidad, comercio, accesibilidad… */
+      if (S.P.fuente === "inmuebles" && !S.M.ctxInm) { const rec = ["dem:nsei", "dem:ing"], hay = new Set((S.bib || []).map(b => b.k)); S.M.vars = [...new Set((S.M.vars || []).concat(rec.filter(k => hay.has(k))))]; S.M.ctxInm = true; }
+      const yv = S.P.cfg && S.P.cfg.yVar; if (aid === "principal" && yv && !j.modelo && S.M.vars.includes(yv)) { S.M.enfoque = "sup"; S.M.y = yv; S.M.x = S.M.vars.filter(v => v !== yv); }
       try { const r = await api(R + "/proyectos/" + S.id + "/resultados"); S.res = r.res || null; } catch (_) { } S.busy = false; await ir(S.res ? "resultados" : "datos"); }
     catch (e) { S.busy = false; toast(e.message); ir("analisis"); }
   }
@@ -637,6 +640,7 @@
     S.sec = "datos"; nav(); const P = S.P, pts = S.puntos || [], C = datosCols(), st = S.dt || (S.dt = { q: "", n: 100 }), ori = { mapa: "elegidos en el mapa", archivo: "cargados desde un archivo", denue: "unidades del DENUE", geolab: "traídos de Geo Lab", inmuebles: "de la base de bienes inmuebles" }[P.fuente] || "";
     wrap(`${cab("0", "Datos del proyecto", "La tabla cargada o el conjunto de coordenadas con los que se trabajará. Revísalos antes de elegir las variables del modelo.")}
       <div class="mo-fic"><div><small>Puntos</small><b>${gN(pts.length, 0)}</b></div><div><small>Origen</small><b>${esc(ori || "—")}</b></div><div><small>Columnas propias</small><b>${C.length}</b></div></div>
+      ${P.fuente === "inmuebles" ? '<div class="mo-nota">Para que la valuación considere el <b>nivel socioeconómico de la zona</b>, en «Variables» ya vienen marcados dos indicadores por AGEB: el índice NSE y el ingreso mensual típico del hogar. Pulsa «Construir tabla de datos» ahí para traerlos. Puedes agregar más (densidad, comercio, accesibilidad…), pero con pocas publicaciones demasiados indicadores empeoran el modelo.</div>' : ""}
       <section class="mo-sx2"><h3>Ubicación de los puntos</h3><div class="mo-mapw"><div id="moDMap" class="mo-map" style="height:300px"></div></div></section>
       <section class="mo-sx2"><h3>Tabla de datos <small>${C.length ? "coordenadas y columnas del archivo" : "coordenadas de los puntos"}</small></h3>
         <div class="mo-chs"><input id="moDQ" class="mo-in" type="search" placeholder="Buscar en la tabla…" value="${esc(st.q)}" style="max-width:280px"><span class="mo-sp"></span><button type="button" class="mo-ghost" data-dcsv="1">⬇ Descargar CSV</button></div>
@@ -650,7 +654,7 @@
   /* la variable a modelar elegida al cargar el archivo se toma sola como variable de respuesta (si aún no hay una y el enfoque no es no supervisado) */
   const esInm = () => !!(S.P && S.P.fuente === "inmuebles"), colPrecio = () => { const c = colsProy().find(c => /^precio$/i.test(String(c.label || c.name))); return c ? c.name : null; };
   /* en un proyecto de bienes inmuebles el enfoque «Valuación inmobiliaria» se elige solo la primera vez */
-  function inmAuto() { const M = S.M; if (!esInm() || !M || M.enfoque || !perfiles().length) return; const y = colPrecio(); M.enfoque = "val"; M.y = y; M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== y).map(p => p.name); M.metodo = null; M.prep = null; M.prepOk = false; guardaModelo(); }
+  function inmAuto() { const M = S.M; if (!esInm() || !M || (M.enfoque && !(M.enfoque === "val" && !M.y)) || !perfiles().length) return; const y = colPrecio(); M.enfoque = "val"; M.y = y; M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== y).map(p => p.name); M.metodo = null; M.prep = null; M.prepOk = false; guardaModelo(); }
   function aplicaYVar() {
     const yv = S.P && S.P.cfg && S.P.cfg.yVar, M = S.M; if (S.aid !== "principal" || !yv || !M || M.y || M.enfoque === "nosup" || !(M.vars || []).includes(yv)) return;
     const p = perfiles().find(q => q.name === yv); if (p && (p.tipo === "texto" || p.constante)) return; M.enfoque = "sup"; M.y = yv; M.x = (M.x || []).filter(k => k !== yv); if (!M.x.length) M.x = perfiles().filter(q => q.tipo !== "texto" && !q.constante && q.name !== yv).map(q => q.name); M.metodo = null; M.prep = null; M.prepOk = false; guardaModelo();
