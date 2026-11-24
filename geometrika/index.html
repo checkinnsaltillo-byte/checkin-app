@@ -154,10 +154,197 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-types span{display:inline-flex;align-items:center;gap:8px;font:600 12.5px system-ui,sans-serif;color:#0f172a;padding:7px 14px 7px 9px;border-radius:99px;background:rgba(255,255,255,.88);border:1px solid rgba(100,116,139,.25);box-shadow:0 1px 3px rgba(15,23,42,.05)}
 .gp-types svg{width:20px;height:20px;padding:3px;border-radius:50%;box-sizing:border-box;background:linear-gradient(135deg,rgba(8,145,178,.16),rgba(99,102,241,.16));fill:none;stroke:#0e7490;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:700px){.gp-wrap{gap:14px}.gp-card{padding:26px 22px 20px}}
+/* ===== Landing (lp-) y panel de subsistemas (hb-) ===== */
+.lp,.hb{position:fixed;inset:0;z-index:3500;overflow-y:auto;overflow-x:hidden;background:#060a18;color:#e2e8f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+.lp.off,.hb.off{display:none}
+.lp *,.hb *{box-sizing:border-box}
+.lp-aur{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.lp-aur i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:lpFloat 22s ease-in-out infinite}
+.lp-aur i:nth-child(1){width:46vw;height:46vw;left:-10vw;top:-12vw;background:#4f46e5}
+.lp-aur i:nth-child(2){width:40vw;height:40vw;right:-8vw;top:8vh;background:#0891b2;animation-delay:-7s}
+.lp-aur i:nth-child(3){width:34vw;height:34vw;left:30vw;bottom:-14vw;background:#be185d;opacity:.38;animation-delay:-13s}
+@keyframes lpFloat{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(5vw,4vh) scale(1.12)}66%{transform:translate(-4vw,6vh) scale(.94)}}
+.lp-nav{position:sticky;top:0;z-index:20;background:rgba(6,10,24,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(148,163,184,.14)}
+.lp-nav-i{max-width:1180px;margin:auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.lp-logo{height:44px;width:auto;background:#fff;border-radius:12px;padding:5px 14px;display:block}
+.lp-btn{border:0;cursor:pointer;font:700 14px system-ui,sans-serif;color:#fff;padding:11px 24px;border-radius:999px;background:linear-gradient(120deg,#06b6d4,#6366f1 55%,#ec4899);background-size:200% 100%;box-shadow:0 6px 26px rgba(99,102,241,.5);transition:background-position .5s,transform .15s,box-shadow .25s;display:inline-flex;align-items:center;gap:8px}
+.lp-btn:hover{background-position:100% 0;box-shadow:0 8px 34px rgba(236,72,153,.5)}.lp-btn:active{transform:translateY(1px)}
+.lp-btn.gh{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3)}.lp-btn.gh:hover{background:rgba(255,255,255,.16)}
+.lp-drop{max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.8,.2,1)}
+.lp-drop.on{max-height:220px}
+.lp-drop-i{max-width:440px;margin:0 auto;padding:6px 24px 22px;text-align:center}
+.lp-drop label{display:block;font:700 11px system-ui,sans-serif;letter-spacing:.16em;color:#67e8f9;margin-bottom:8px}
+.lp-pw{display:flex;gap:8px}
+.lp-pw input{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1.5px solid rgba(148,163,184,.35);background:rgba(15,23,42,.7);color:#fff;font:500 15px system-ui,sans-serif;letter-spacing:3px;text-align:center;outline:none}
+.lp-pw input:focus{border-color:#22d3ee;box-shadow:0 0 0 4px rgba(34,211,238,.16)}
+.lp-err{min-height:18px;margin-top:8px;font-size:12.5px;color:#fda4af}
+.lp-hero{position:relative;z-index:2;max-width:1180px;margin:auto;padding:92px 24px 120px;text-align:center}
+#lpCv{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.lp-hero>*:not(canvas){position:relative;z-index:1}
+.lp-kick{display:inline-block;font:800 11.5px system-ui,sans-serif;letter-spacing:.22em;color:#67e8f9;padding:7px 16px;border-radius:999px;background:rgba(34,211,238,.1);box-shadow:inset 0 0 0 1px rgba(34,211,238,.35)}
+.lp-hero h1{margin:22px auto 18px;max-width:880px;font:800 clamp(34px,6vw,68px)/1.04 system-ui,sans-serif;letter-spacing:-.025em;color:#fff}
+.lp-hero h1 em{font-style:normal;background:linear-gradient(90deg,#22d3ee,#818cf8,#f472b6,#fb923c,#22d3ee);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:lpSh 9s linear infinite}
+@keyframes lpSh{to{background-position:260% 0}}
+.lp-hero p.lead{margin:0 auto 30px;max-width:640px;font-size:clamp(15px,1.7vw,19px);line-height:1.6;color:#b6c2d6}
+.lp-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.lp-stats{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:54px}
+.lp-stat{min-width:140px;padding:16px 22px;border-radius:20px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);backdrop-filter:blur(6px)}
+.lp-stat b{display:block;font:800 34px system-ui,sans-serif;background:linear-gradient(120deg,#22d3ee,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-stat span{font-size:12px;letter-spacing:.06em;color:#94a3b8}
+.lp-wave{display:block;width:100%;height:clamp(50px,8vw,110px);position:relative;z-index:2;margin-bottom:-1px}
+.lp-wave.fl{transform:scaleY(-1);margin:-1px 0 0}
+.lp-wave path{animation:lpWv 14s ease-in-out infinite alternate}
+@keyframes lpWv{to{transform:translateX(-4%)}}
+.lp-sec{position:relative;z-index:2;padding:30px 24px 50px}
+.lp-sec.lt{background:#f4f7fb;color:#0f172a}
+.lp-sec.dk2{background:linear-gradient(180deg,#0b1230,#0a0f26)}
+.lp-w{max-width:1180px;margin:auto}
+.lp-h{text-align:center;margin-bottom:34px}
+.lp-h small{display:block;font:800 11px system-ui,sans-serif;letter-spacing:.22em;color:#0891b2;margin-bottom:8px}
+.lp-sec:not(.lt) .lp-h small{color:#67e8f9}
+.lp-h h2{margin:0 0 8px;font:800 clamp(26px,4vw,40px)/1.1 system-ui,sans-serif;letter-spacing:-.02em}
+.lp-h p{margin:0 auto;max-width:620px;font-size:15.5px;line-height:1.6;color:#64748b}.lp-sec:not(.lt) .lp-h p{color:#9fb0c8}
+.lp-flow{display:flex;align-items:stretch;justify-content:center;gap:0}
+.lp-step{flex:1 1 0;max-width:340px;padding:26px 24px;border-radius:26px;background:#fff;box-shadow:0 10px 40px rgba(30,41,59,.1);text-align:center;position:relative}
+.lp-step .n{width:48px;height:48px;margin:0 auto 12px;border-radius:16px;display:grid;place-items:center;font-size:24px;background:linear-gradient(135deg,#06b6d4,#6366f1);box-shadow:0 8px 20px rgba(99,102,241,.35)}
+.lp-step h3{margin:0 0 6px;font:800 18px system-ui,sans-serif}.lp-step p{margin:0;font-size:13.5px;line-height:1.55;color:#64748b}
+.lp-arrow{flex:0 0 64px;align-self:center;height:24px}
+.lp-arrow svg{width:100%;height:100%;overflow:visible}.lp-arrow path{stroke-dasharray:6 7;animation:lpDash 1.2s linear infinite}
+@keyframes lpDash{to{stroke-dashoffset:-26}}
+.lp-two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.lp-box{padding:28px;border-radius:28px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.lp-box h3{margin:0 0 4px;font:800 19px system-ui,sans-serif;color:#fff}.lp-box>p{margin:0 0 16px;font-size:13.5px;color:#9fb0c8;line-height:1.5}
+.lp-lst{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.lp-lst div{display:flex;gap:9px;align-items:center;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);font-size:13px;line-height:1.25;color:#dbe4f2}
+.lp-lst div b{font-size:18px;flex:none}
+.lp-chips{display:flex;flex-wrap:wrap;gap:8px}
+.lp-chips span{padding:9px 15px;border-radius:999px;font:600 13px system-ui,sans-serif;color:#fff;background:linear-gradient(120deg,rgba(6,182,212,.35),rgba(99,102,241,.35));box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.lp-chips span:nth-child(3n+2){background:linear-gradient(120deg,rgba(236,72,153,.35),rgba(249,115,22,.3))}
+.lp-chips span:nth-child(3n){background:linear-gradient(120deg,rgba(139,92,246,.4),rgba(6,182,212,.3))}
+.lp-dims{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.lp-dim{padding:22px 20px;border-radius:24px;background:#fff;box-shadow:0 8px 30px rgba(30,41,59,.08);position:relative;overflow:hidden;transition:transform .25s,box-shadow .25s}
+.lp-dim::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:var(--c,#6366f1);opacity:.14;transition:transform .4s}
+.lp-dim:hover{transform:translateY(-5px);box-shadow:0 18px 44px rgba(30,41,59,.15)}.lp-dim:hover::after{transform:scale(2.2)}
+.lp-dim i{font-style:normal;font-size:28px;display:block;margin-bottom:8px}.lp-dim h4{margin:0 0 5px;font:800 15px system-ui,sans-serif}.lp-dim p{margin:0;font-size:12.5px;line-height:1.5;color:#64748b}
+.lp-dim:nth-child(1){--c:#ec4899}.lp-dim:nth-child(2){--c:#8b5cf6}.lp-dim:nth-child(3){--c:#10b981}.lp-dim:nth-child(4){--c:#f97316}.lp-dim:nth-child(5){--c:#06b6d4}.lp-dim:nth-child(6){--c:#6366f1}.lp-dim:nth-child(7){--c:#22c55e}
+.lp-dim.last{background:linear-gradient(135deg,#312e81,#0e7490);color:#fff;display:flex;flex-direction:column;justify-content:center}.lp-dim.last p{color:#c7d2fe}
+.lp-subs{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.lp-sub{padding:22px 18px;border-radius:24px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);position:relative;transition:transform .25s,background .25s}
+.lp-sub:hover{transform:translateY(-6px);background:rgba(255,255,255,.09)}
+.lp-sub::before{content:"";position:absolute;left:18px;right:18px;top:0;height:3px;border-radius:0 0 4px 4px;background:var(--g)}
+.lp-sub i{font-style:normal;font-size:30px;display:block;margin-bottom:10px}.lp-sub h4{margin:0 0 3px;font:800 17px system-ui,sans-serif;color:#fff}.lp-sub em{display:block;font-style:normal;font-size:11px;letter-spacing:.12em;font-weight:700;color:#67e8f9;margin-bottom:8px}
+.lp-sub p{margin:0;font-size:13px;line-height:1.55;color:#a9b8cf}
+.lp-sub:nth-child(1){--g:linear-gradient(90deg,#0891b2,#22d3ee)}.lp-sub:nth-child(2){--g:linear-gradient(90deg,#6366f1,#22d3ee)}.lp-sub:nth-child(3){--g:linear-gradient(90deg,#7c3aed,#db2777)}.lp-sub:nth-child(4){--g:linear-gradient(90deg,#f97316,#ec4899)}.lp-sub:nth-child(5){--g:linear-gradient(90deg,#0ea5e9,#6366f1)}
+.lp-end{position:relative;z-index:2;text-align:center;padding:40px 24px 70px;background:#0a0f26}
+.lp-end h2{margin:0 0 18px;font:800 clamp(24px,3.4vw,36px)/1.15 system-ui,sans-serif;color:#fff}
+.lp-foot{margin-top:34px;font-size:11.5px;color:#64748b}
+@media(max-width:980px){.lp-dims{grid-template-columns:repeat(2,1fr)}.lp-subs{grid-template-columns:repeat(2,1fr)}.lp-two{grid-template-columns:1fr}.lp-flow{flex-direction:column;align-items:center}.lp-step{max-width:420px;width:100%}.lp-arrow{transform:rotate(90deg);flex:0 0 40px}}
+@media(max-width:560px){.lp-dims,.lp-subs,.lp-lst{grid-template-columns:1fr}.lp-hero{padding-top:56px}}
+@media(prefers-reduced-motion:reduce){.lp *,.hb *{animation:none!important;transition:none!important}}
+/* panel de subsistemas */
+.hb-top{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 24px;background:rgba(6,10,24,.6);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(148,163,184,.14)}
+.hb-in{position:relative;z-index:2;max-width:880px;margin:auto;padding:56px 24px 80px}
+.hb-h{text-align:center;margin-bottom:40px}.hb-h small{font:800 11px system-ui,sans-serif;letter-spacing:.22em;color:#67e8f9}
+.hb-h h1{margin:10px 0 8px;font:800 clamp(28px,4.4vw,44px)/1.1 system-ui,sans-serif;letter-spacing:-.02em;color:#fff}.hb-h p{margin:0;color:#9fb0c8;font-size:15px}
+.hb-list{position:relative;display:flex;flex-direction:column;gap:22px}
+.hb-list::before{content:"";position:absolute;left:50%;top:20px;bottom:20px;width:2px;background:linear-gradient(#22d3ee,#6366f1,#ec4899,#f97316);opacity:.35;transform:translateX(-50%);z-index:0}
+.hb-card{position:relative;z-index:1;display:grid;grid-template-columns:240px 1fr auto;gap:26px;align-items:center;padding:24px 28px;border-radius:30px;background:rgba(255,255,255,.97);color:#0f172a;cursor:pointer;box-shadow:0 14px 44px rgba(0,0,0,.35);transition:transform .25s,box-shadow .25s;animation:hbIn .7s cubic-bezier(.2,.8,.2,1) backwards;border:0;text-align:left;font:inherit;width:100%}
+.hb-card:nth-child(2){animation-delay:.1s}.hb-card:nth-child(3){animation-delay:.2s}.hb-card:nth-child(4){animation-delay:.3s}.hb-card:nth-child(5){animation-delay:.4s}
+@keyframes hbIn{from{opacity:0;transform:translateY(24px)}}
+.hb-card:hover{transform:translateY(-5px) scale(1.01);box-shadow:0 22px 60px rgba(0,0,0,.45),0 0 0 3px var(--c)}
+.hb-card .lg{display:flex;align-items:center;justify-content:center;min-height:70px}.hb-card .lg img{max-width:100%;max-height:70px;object-fit:contain}
+.hb-card h3{margin:0 0 4px;font:800 19px system-ui,sans-serif}.hb-card em{display:block;font-style:normal;font:800 10.5px system-ui,sans-serif;letter-spacing:.14em;color:var(--c);margin-bottom:6px}.hb-card p{margin:0;font-size:13.5px;line-height:1.5;color:#475569}
+.hb-go{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:20px;background:var(--c);transition:transform .25s}.hb-card:hover .hb-go{transform:translateX(5px)}
+.hb-card.base{--c:#0891b2;background:linear-gradient(135deg,#fff,#ecfeff)}
+@media(max-width:720px){.hb-card{grid-template-columns:1fr auto;gap:14px}.hb-card .lg{grid-column:1/-1;justify-content:flex-start}.hb-list::before{display:none}}
 </style>
 </head>
 <body>
-<div id="gpLogin" class="gp-login">
+<div id="lpLand" class="lp off">
+  <div class="lp-aur" aria-hidden="true"><i></i><i></i><i></i></div>
+  <header class="lp-nav">
+    <div class="lp-nav-i"><img class="lp-logo" src="metrika-logo.png" alt="Metrika Business Intelligence"><button class="lp-btn" id="lpBtn" type="button">Log-in <span aria-hidden="true">▾</span></button></div>
+    <div class="lp-drop" id="lpDrop"><div class="lp-drop-i"><label for="lpPass">CONTRASEÑA DEL SISTEMA</label><div class="lp-pw"><input id="lpPass" type="password" autocomplete="current-password" placeholder="••••••••"><button class="lp-btn" id="lpGo" type="button">Entrar</button></div><div class="lp-err" id="lpErr"></div></div></div>
+  </header>
+  <section class="lp-hero">
+    <canvas id="lpCv" aria-hidden="true"></canvas>
+    <span class="lp-kick">PLATAFORMA INTEGRAL DE INTELIGENCIA</span>
+    <h1>De los datos públicos a <em>decisiones con ubicación</em></h1>
+    <p class="lead">Data Lab reúne fuentes, indicadores y series; cuatro laboratorios los convierten en mapas, análisis económicos, lectura de noticias y modelos predictivos.</p>
+    <div class="lp-cta"><button class="lp-btn" type="button" data-lp="login">Acceder al sistema →</button><button class="lp-btn gh" type="button" data-lp="sub">Conocer los subsistemas</button></div>
+    <div class="lp-stats"><div class="lp-stat"><b>5</b><span>SUBSISTEMAS</span></div><div class="lp-stat"><b>39</b><span>FUENTES DE DATOS</span></div><div class="lp-stat"><b>7</b><span>DIMENSIONES</span></div><div class="lp-stat"><b>1</b><span>ACCESO ÚNICO</span></div></div>
+  </section>
+  <svg class="lp-wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C240 10 480 120 760 70 S1220 10 1500 60 L1500 120 L0 120Z" fill="#f4f7fb"/></svg>
+  <section class="lp-sec lt">
+    <div class="lp-w">
+      <div class="lp-h"><small>CÓMO FUNCIONA</small><h2>Una base de datos, cuatro laboratorios</h2><p>Todo parte de Data Lab; cada subsistema usa esa misma base para un tipo distinto de análisis.</p></div>
+      <div class="lp-flow">
+        <div class="lp-step"><div class="n">🗂️</div><h3>Fuentes</h3><p>Censos, mapas, directorios, estadísticas oficiales, imágenes y noticias.</p></div>
+        <div class="lp-arrow"><svg viewBox="0 0 64 24"><path d="M2 12 C20 0 44 24 62 12" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round"/></svg></div>
+        <div class="lp-step"><div class="n">🧬</div><h3>Data Lab</h3><p>Las ordena en indicadores y series comparables, con su origen y método.</p></div>
+        <div class="lp-arrow"><svg viewBox="0 0 64 24"><path d="M2 12 C20 0 44 24 62 12" fill="none" stroke="#ec4899" stroke-width="2.5" stroke-linecap="round"/></svg></div>
+        <div class="lp-step"><div class="n">🚀</div><h3>Laboratorios</h3><p>Geo, Econo, Media y Model Lab los convierten en decisiones.</p></div>
+      </div>
+    </div>
+  </section>
+  <svg class="lp-wave fl" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true" style="background:#f4f7fb"><path d="M0 60 C300 120 520 0 800 60 S1240 110 1500 50 L1500 120 L0 120Z" fill="#0b1230"/></svg>
+  <section class="lp-sec dk2">
+    <div class="lp-w">
+      <div class="lp-h"><small>FUENTES Y VARIABLES</small><h2>De dónde viene lo que se mide</h2><p>Información pública y privada, de descarga masiva o consulta en vivo, siempre con su origen identificado.</p></div>
+      <div class="lp-two">
+        <div class="lp-box"><h3>Familias de fuentes</h3><p>Instituciones y proveedores que alimentan el sistema.</p>
+          <div class="lp-lst"><div><b>👥</b>Población y territorio (INEGI)</div><div><b>🗺️</b>Mapas, calles y entorno</div><div><b>🔷</b>Servicios de Google</div><div><b>🧠</b>Inteligencia artificial</div><div><b>🏪</b>Mercado y operación</div><div><b>📰</b>Noticias y medios</div></div></div>
+        <div class="lp-box"><h3>Tipos de variables</h3><p>Lo que se puede medir y cruzar entre sí.</p>
+          <div class="lp-chips"><span>Demográficas</span><span>Económicas</span><span>Geoespaciales</span><span>Unidades económicas</span><span>Ambientales y clima</span><span>Tráfico y movilidad</span><span>Edificación y entorno</span><span>Imágenes</span><span>Texto y noticias</span><span>Series de tiempo</span></div></div>
+      </div>
+    </div>
+  </section>
+  <svg class="lp-wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true" style="background:#0b1230"><path d="M0 50 C260 120 560 0 840 60 S1260 100 1500 40 L1500 120 L0 120Z" fill="#f4f7fb"/></svg>
+  <section class="lp-sec lt">
+    <div class="lp-w">
+      <div class="lp-h"><small>DIMENSIONES DE ANÁLISIS</small><h2>Siete miradas sobre un mismo lugar</h2><p>Cada indicador pertenece a una dimensión; juntas describen el entorno completo.</p></div>
+      <div class="lp-dims">
+        <div class="lp-dim"><i>📰</i><h4>Entorno mediático</h4><p>Qué se publica en noticias y redes alrededor.</p></div>
+        <div class="lp-dim"><i>📈</i><h4>Entorno económico</h4><p>La economía del estado y del país.</p></div>
+        <div class="lp-dim"><i>🌍</i><h4>Entorno natural</h4><p>Clima, agua y relieve del sitio.</p></div>
+        <div class="lp-dim"><i>🏙️</i><h4>Entorno construido</h4><p>Urbanización de la zona y riesgos de la escena.</p></div>
+        <div class="lp-dim"><i>🚗</i><h4>Accesibilidad y movilidad</h4><p>Qué tan fácil es llegar y cómo se mueve el tráfico.</p></div>
+        <div class="lp-dim"><i>👥</i><h4>Entorno socioeconómico</h4><p>Población, negocios y calidad del entorno urbano.</p></div>
+        <div class="lp-dim"><i>🌿</i><h4>Medio ambiente</h4><p>Aire, energía solar, arbolado y carbono.</p></div>
+        <div class="lp-dim last"><h4>Un solo lenguaje</h4><p>Todas se miden con la misma base, así se comparan entre sí.</p></div>
+      </div>
+    </div>
+  </section>
+  <svg class="lp-wave fl" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true" style="background:#f4f7fb"><path d="M0 70 C280 0 500 120 780 60 S1230 20 1500 70 L1500 120 L0 120Z" fill="#0a0f26"/></svg>
+  <section class="lp-sec dk2" id="lpSub" style="background:#0a0f26">
+    <div class="lp-w">
+      <div class="lp-h"><small>SUBSISTEMAS</small><h2>Cinco sistemas, un solo acceso</h2><p>Con una contraseña se entra a todos.</p></div>
+      <div class="lp-subs">
+        <div class="lp-sub"><i>🧬</i><h4>Data Lab</h4><em>LA BASE</em><p>Catálogo de fuentes, indicadores y series: qué se mide, de dónde viene y cómo se calcula.</p></div>
+        <div class="lp-sub"><i>🛰️</i><h4>Geo Lab</h4><em>GEO-INTELIGENCIA</em><p>Analiza un lugar con mapas, entorno urbano, población y competencia para valorar su potencial.</p></div>
+        <div class="lp-sub"><i>📈</i><h4>EconoLab</h4><em>LABORATORIO ECONÓMICO</em><p>Indicadores económicos del INEGI y series de tiempo para entender el contexto del país y del estado.</p></div>
+        <div class="lp-sub"><i>📰</i><h4>Media Lab</h4><em>MONITOR DE NOTICIAS</em><p>Rastrea y resume miles de noticias para saber qué se dice y con qué tono.</p></div>
+        <div class="lp-sub"><i>🤖</i><h4>Model Lab</h4><em>MODELADO ESTADÍSTICO Y ML</em><p>Encuentra qué variables explican un resultado, agrupa casos y simula escenarios nuevos.</p></div>
+      </div>
+    </div>
+  </section>
+  <section class="lp-end"><h2>Entra y explora todos los subsistemas</h2><button class="lp-btn" type="button" data-lp="login">Log-in →</button><div class="lp-foot">Metrika · Check Inn · acceso restringido</div></section>
+</div>
+<div id="hbPanel" class="hb off">
+  <div class="lp-aur" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="hb-top"><img class="lp-logo" src="metrika-logo.png" alt="Metrika"><button class="lp-btn gh" type="button" id="hbOut">Cerrar sesión</button></div>
+  <div class="hb-in">
+    <div class="hb-h"><small>SESIÓN INICIADA</small><h1>Elige un subsistema</h1><p>Tu acceso sirve para todos; no se pedirá otra contraseña.</p></div>
+    <div class="hb-list">
+      <button class="hb-card base" type="button" data-sys="data" style="--c:#0891b2"><div class="lg"><img src="datalab-logo.png?v=15cd89db" alt="Data Lab"></div><div><em>LA BASE · DATOS Y FUENTES</em><h3>Data Lab</h3><p>Catálogo de fuentes, indicadores y series que alimentan a todos los sistemas.</p></div><span class="hb-go">→</span></button>
+      <button class="hb-card" type="button" data-sys="geo" style="--c:#6366f1"><div class="lg"><img src="geometrika-logo.png?v=2409" alt="Geo Lab"></div><div><em>GEO-INTELIGENCIA</em><h3>Geo Lab</h3><p>Análisis de un lugar con mapas 3D, entorno urbano, población y competencia.</p></div><span class="hb-go">→</span></button>
+      <button class="hb-card" type="button" data-sys="eco" style="--c:#7c3aed"><div class="lg"><img src="econolab-logo.png" alt="EconoLab"></div><div><em>LABORATORIO ECONÓMICO</em><h3>EconoLab</h3><p>Indicadores y series económicas del INEGI para entender el contexto.</p></div><span class="hb-go">→</span></button>
+      <button class="hb-card" type="button" data-sys="media" style="--c:#f97316"><div class="lg"><img src="medialab-logo.png" alt="Media Lab"></div><div><em>MONITOR MASIVO DE NOTICIAS</em><h3>Media Lab</h3><p>Rastrea y resume noticias para saber qué se dice y con qué tono.</p></div><span class="hb-go">→</span></button>
+      <button class="hb-card" type="button" data-sys="modelo" style="--c:#0ea5e9"><div class="lg"><img src="modelab-logo.png" alt="Model Lab"></div><div><em>MODELADO ESTADÍSTICO Y ML</em><h3>Model Lab</h3><p>Descubre qué variables explican un resultado, agrupa casos y simula escenarios.</p></div><span class="hb-go">→</span></button>
+    </div>
+  </div>
+</div>
+<div id="gpLogin" class="gp-login hidden">
   <div class="gp-bg" aria-hidden="true">
     <div class="gp-glow g1"></div><div class="gp-glow g2"></div><div class="gp-glow g3"></div><canvas class="gp-cv" id="gpCv"></canvas><div class="gp-vig"></div>
   </div>
@@ -349,6 +536,50 @@ document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpCl
   var ult = 0; function bucle(ts) { requestAnimationFrame(bucle); if (ts - ult < 33 || !vivo()) return; ult = ts; paso(); }
   dim(); var rz; window.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(dim, 250); });
   if (stat) paso(); else requestAnimationFrame(bucle);
+})();
+</script>
+<script>
+/* Landing única + panel de subsistemas: una contraseña da acceso a todo */
+(function () {
+  const $ = id => document.getElementById(id), land = $("lpLand"), hub = $("hbPanel");
+  const _abre = window.gpAbre;
+  window.gpAbre = function (s) { land.classList.add("off"); hub.classList.add("off"); _abre(s); };
+  function muestraLand() { hub.classList.add("off"); land.classList.remove("off"); anim(); }
+  function muestraHub() { land.classList.add("off"); hub.classList.remove("off"); hub.scrollTop = 0; }
+  function abreDrop(f) { const d = $("lpDrop"), on = f === undefined ? !d.classList.contains("on") : f; d.classList.toggle("on", on); if (on) { land.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => $("lpPass").focus(), 350); } }
+  $("lpBtn").onclick = () => abreDrop();
+  land.querySelectorAll("[data-lp=login]").forEach(b => b.onclick = () => abreDrop(true));
+  land.querySelectorAll("[data-lp=sub]").forEach(b => b.onclick = () => $("lpSub").scrollIntoView({ behavior: "smooth" }));
+  async function entra() {
+    const inp = $("lpPass"), e = $("lpErr"), v = inp.value.trim(); e.textContent = ""; if (!v) { e.textContent = "Captura la contraseña."; return; }
+    const h = await gpSha(v), n = h === GP_HASH2 ? "2" : h === GP_HASH ? "1" : "";
+    if (!n) { e.textContent = "Contraseña incorrecta."; inp.select(); return; }
+    try { sessionStorage.setItem("gp_ok", n); localStorage.setItem("gp_ok", n); } catch (_) { }
+    let tk = null; try { const r = await fetch("https://api.check-inn.mx/geometrika/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: v }) }); tk = await r.json(); } catch (_) { }
+    const mal = m => { try { sessionStorage.removeItem("gp_ok"); localStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = m; };
+    if (!(tk && tk.ok && tk.token)) return mal("No se pudo validar el acceso con el servidor. Intenta de nuevo.");
+    window.gmGuarda(tk); try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); if (!(g && g.token)) throw 0; } catch (_) { return mal("Tu navegador no permite guardar el acceso (¿modo privado?). Desactívalo e intenta de nuevo."); }
+    gpNivel(n); inp.value = ""; $("lpDrop").classList.remove("on"); muestraHub();
+  }
+  $("lpGo").onclick = entra; $("lpPass").onkeydown = ev => { if (ev.key === "Enter") entra(); };
+  hub.querySelectorAll(".hb-card").forEach(b => b.onclick = () => { const n = gpAut(); if (!n) { muestraLand(); return; } gpNivel(n); gpAbre(b.dataset.sys); });
+  $("hbOut").onclick = () => window.GM_SALIR();
+  /* red de puntos animada del hero */
+  let raf = 0;
+  function anim() {
+    const cv = $("lpCv"); if (!cv || !cv.getContext || raf) return; const cx = cv.getContext("2d"); let W, H, P = [];
+    const rs = () => { const r = cv.getBoundingClientRect(); W = cv.width = r.width; H = cv.height = r.height; P = Array.from({ length: Math.round(Math.min(70, W / 18)) }, () => ({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .35, vy: (Math.random() - .5) * .35 })); };
+    rs(); addEventListener("resize", rs);
+    const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+    (function f() {
+      raf = requestAnimationFrame(f); if (land.classList.contains("off") || document.hidden) return; cx.clearRect(0, 0, W, H);
+      for (const p of P) { if (!reduce) { p.x += p.vx; p.y += p.vy; } if (p.x < 0 || p.x > W) p.vx *= -1; if (p.y < 0 || p.y > H) p.vy *= -1; }
+      for (let i = 0; i < P.length; i++) { for (let j = i + 1; j < P.length; j++) { const d = Math.hypot(P[i].x - P[j].x, P[i].y - P[j].y); if (d < 150) { cx.strokeStyle = "rgba(129,140,248," + (.32 * (1 - d / 150)) + ")"; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(P[i].x, P[i].y); cx.lineTo(P[j].x, P[j].y); cx.stroke(); } } cx.fillStyle = "rgba(103,232,249,.85)"; cx.beginPath(); cx.arc(P[i].x, P[i].y, 2, 0, 7); cx.fill(); }
+    })();
+  }
+  /* estado inicial: con sesión → panel (o directo al subsistema pedido); sin sesión → landing */
+  const n = gpAut(); let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media" || q === "modelo") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { }
+  if (!n) muestraLand(); else if (!s) muestraHub();
 })();
 </script>
 </body>
