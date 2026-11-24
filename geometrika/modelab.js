@@ -45,10 +45,10 @@
   const hecho = k => { const M = S.M || {}; return k === "variables" ? !!(M.vars && M.vars.length) : k === "enfoque" ? !!(M.enfoque && (M.enfoque === "nosup" || M.y)) : k === "metodos" ? !!M.metodo : k === "prep" ? !!M.prepOk : k === "modelar" || k === "resultados" ? !!S.res : k === "simulacion" ? !!(S.sim && ((S.sim.conjuntos || []).length || (S.sim.escenarios || []).length)) : false; };
   function nav() {
     const n = $("#moNav"); if (!n) return; let h = `<label class="mo-psel"><small>Proyecto</small><select id="moPSel" class="mo-in"><option value="">Todos los proyectos</option>${S.proy.map(p => `<option value="${p.id}"${p.id === S.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label><button type="button" class="mo-nav${S.sec === "proyectos" || (S.sec === "nuevo" && !(S.wiz && S.wiz.sim)) ? " on" : ""}" data-sec="proyectos"><span class="ic">${mi("folder")}</span><span class="tx">Mis proyectos</span><span class="bd">${S.proy.length}</span></button>`;
-    if (S.id && S.P) { h += `<div class="mo-prj"><small>Proyecto abierto</small><b>${esc(S.P.nombre)}</b><span>${gN(S.puntos.length, 0)} puntos · ${S.P.fuente === "denue" ? "unidades DENUE" : S.P.fuente === "archivo" ? "archivo" : S.P.fuente === "geolab" ? "Geo Lab" : "mapa"}</span></div>`;
+    if (S.id && S.P) { h += `<div class="mo-prj"><small>Proyecto abierto</small><b>${esc(S.P.nombre)}</b><span>${gN(S.puntos.length, 0)} puntos · ${S.P.fuente === "denue" ? "unidades DENUE" : S.P.fuente === "archivo" ? "archivo" : S.P.fuente === "inmuebles" ? "bienes inmuebles" : S.P.fuente === "geolab" ? "Geo Lab" : "mapa"}</span></div>`;
       h += `<button type="button" class="mo-nav${S.sec === "analisis" ? " on" : ""}" data-sec="analisis"><span class="ic">${mi("list")}</span><span class="tx">Análisis del proyecto</span><span class="bd">${(S.AN || []).length}</span></button>`;
-      if (S.aid && S.A) h += `<div class="mo-prj mo-prja"><small>Análisis abierto</small><b>${esc(S.A.nombre)}</b><span>${S.M && S.M.enfoque ? (S.M.enfoque === "sup" ? "Supervisado" : "No supervisado") : "Sin configurar"}${S.M && S.M.metodo ? " · " + esc(S.M.metodo === "auto" ? "mejor modelo" : S.M.metodo) : ""}</span></div>`;
-      if (S.aid) SEC.filter(([k]) => !(k === "simulacion" && S.M && S.M.enfoque === "nosup")).forEach(([k, n2, t, d]) => { h += `<button type="button" class="mo-nav${S.sec === k || (k === "simulacion" && S.sec === "nuevo" && S.wiz && S.wiz.sim) ? " on" : ""}" data-sec="${k}" title="${esc(d)}"><span class="ic mo-n">${n2}</span><span class="tx">${t}</span><span class="bd mo-ok">${hecho(k) ? "✓" : ""}</span></button>`; }); }
+      if (S.aid && S.A) h += `<div class="mo-prj mo-prja"><small>Análisis abierto</small><b>${esc(S.A.nombre)}</b><span>${S.M && S.M.enfoque ? (S.M.enfoque === "val" ? "Valuación inmobiliaria" : S.M.enfoque === "sup" ? "Supervisado" : "No supervisado") : "Sin configurar"}${S.M && S.M.metodo ? " · " + esc(S.M.metodo === "auto" ? "mejor modelo" : S.M.metodo) : ""}</span></div>`;
+      if (S.aid) SEC.filter(([k]) => !((k === "simulacion" && S.M && (S.M.enfoque === "nosup" || S.M.enfoque === "val")) || (k === "prep" && S.M && S.M.enfoque === "val"))).forEach(([k, n2, t, d]) => { h += `<button type="button" class="mo-nav${S.sec === k || (k === "simulacion" && S.sec === "nuevo" && S.wiz && S.wiz.sim) ? " on" : ""}" data-sec="${k}" title="${esc(d)}"><span class="ic mo-n">${n2}</span><span class="tx">${t}</span><span class="bd mo-ok">${hecho(k) ? "✓" : ""}</span></button>`; }); }
     n.innerHTML = h;
   }
   /* migas de pan: Mis proyectos › Proyecto › Análisis (cada una regresa a esa pantalla) */
@@ -60,7 +60,7 @@
   };
   const wrap = h => { const w = $("#moWrap"); if (w) { w.innerHTML = migas() + h; $("#moMain").scrollTop = 0; } };
   async function ir(sec) {
-    if (sec === "calidad") sec = "resultados"; if (sec === "simulacion" && S.M && S.M.enfoque === "nosup") sec = "resultados";
+    if (sec === "calidad") sec = "resultados"; if (sec === "simulacion" && S.M && (S.M.enfoque === "nosup" || S.M.enfoque === "val")) sec = "resultados";
     if (sec !== "nuevo") S.wiz = (sec === "proyectos" || (S.wiz && S.wiz.sim)) ? null : S.wiz; S.sec = sec; nav();
     try { history.replaceState(null, "", "#" + sec); } catch (_) { }
     if (sec === "proyectos") { vistaProyectos(); cargaProy().then(() => { if (S.sec === "proyectos") vistaProyectos(); }); return; } if (sec === "nuevo") return wizard(); if (sec === "analisis") return S.id ? vistaAnalisis() : ir("proyectos");
@@ -100,7 +100,7 @@
   async function elimina(id) { const p = S.proy.find(x => x.id === id); if (!p || !confirm("¿Eliminar el proyecto «" + p.nombre + "»? Se borran sus puntos, datos y resultados. No se puede deshacer.")) return; try { await api(R + "/proyectos/" + id, null, "DELETE"); if (S.id === id) { S.id = S.P = S.res = null; } await cargaProy(); vistaProyectos(); toast("Proyecto eliminado."); } catch (e) { toast(e.message); } }
 
   /* ═══════════════ Análisis del proyecto (misma estructura que «Mis proyectos») ═══════════════ */
-  const ENFT = e => e === "sup" ? "Supervisado" : e === "nosup" ? "No supervisado" : "—";
+  const ENFT = e => e === "sup" ? "Supervisado" : e === "nosup" ? "No supervisado" : e === "val" ? "Valuación inmobiliaria" : "—";
   function vistaAnalisis() {
     S.sec = "analisis"; nav(); const L = S.AN || [], q = (S.aq || "").trim().toLowerCase(), vis = L.filter(a => (!S.af || a.estado === S.af) && (!q || (a.nombre + " " + (a.metodo || "")).toLowerCase().includes(q))), P = S.P || {};
     const cuenta = e => L.filter(a => a.estado === e).length, K = [["", "Todos los análisis", L.length, "#4f46e5"], ["modelado", "Modelados", cuenta("modelado"), "#059669"], ["configurado", "Configurados", cuenta("configurado"), "#d97706"], ["nuevo", "Sin configurar", cuenta("nuevo"), "#64748b"]];
@@ -184,7 +184,7 @@
   /* resumen del conjunto de puntos nuevos antes de analizarlo */
   function wzSimVerif(W) {
     const v = verDe(W.simVer), n = W.puntos.length, falta = []; if (!W.nombre.trim()) falta.push("el nombre del conjunto"); if (!n) falta.push("al menos un punto");
-    const fuente = { mapa: "elegidos en el mapa o por coordenadas", archivo: "cargados desde un archivo", denue: "unidades del DENUE" }[W.fuente] || "";
+    const fuente = { mapa: "elegidos en el mapa o por coordenadas", archivo: "cargados desde un archivo", denue: "unidades del DENUE", inmuebles: "propiedades de la base de bienes inmuebles" }[W.fuente] || "";
     return `${falta.length ? `<div class="mo-av alto"><div class="c">Falta ${falta.join(" y ")}. Regresa al paso 2 para completarlo.</div></div>` : ""}<div class="mo-fa">Resumen del conjunto</div><div class="mo-tw"><table class="mo-t"><tbody><tr><td><b>Nombre</b></td><td>${esc(W.nombre)}</td></tr><tr><td><b>Puntos</b></td><td>${gN(n, 0)} ${fuente ? "· " + fuente : ""}</td></tr><tr><td><b>Versión del modelo</b></td><td>${esc(v ? v.nombre : "—")}</td></tr></tbody></table></div>${wzSimResumen(W)}`;
   }
   function wzSimResumen(W) {
@@ -205,7 +205,7 @@
   }
   function wzVerif(W) {
     const c = costo(W), n = W.puntos.length, falta = []; if (!W.nombre.trim()) falta.push("el nombre del proyecto"); if (!n) falta.push("al menos un punto de interés");
-    const fuente = { mapa: "elegidos en el mapa", archivo: "cargados desde un archivo", denue: "unidades del DENUE", geolab: "traídos de un proyecto de Geo Lab" }[W.fuente] || "";
+    const fuente = { mapa: "elegidos en el mapa", archivo: "cargados desde un archivo", denue: "unidades del DENUE", inmuebles: "propiedades de la base de bienes inmuebles", geolab: "traídos de un proyecto de Geo Lab" }[W.fuente] || "";
     const libre = (t, v) => `<tr class="gr"><td>${t}</td><td>${v}</td><td class="r"><span class="mo-gratis">Gratis</span></td></tr>`;
     const fila = (t, v, b) => `<tr><td>${t}</td><td>${v}</td><td class="r">${b != null ? usd(b) : "—"}</td></tr>`;
     return `<div class="mo-fic"><div><small>Proyecto</small><b>${esc(W.nombre || "—")}</b></div><div><small>Puntos</small><b>${gN(n, 0)}</b><span>${fuente}</span></div><div><small>Columnas importadas</small><b>${W.columnas.length}</b><span>${esc(W.columnas.slice(0, 4).map(c => c.label).join(", ") || "ninguna")}${W.columnas.length > 4 ? "…" : ""}</span></div></div>
@@ -229,10 +229,10 @@
       ${usaPr.length ? `<div class="mo-nota">Este modelo también usa columnas propias del proyecto (${esc(usaPr.slice(0, 6).join(", "))}${usaPr.length > 6 ? "…" : ""}). Los puntos nuevos no las traen, salvo que cargues un archivo (o unidades del DENUE) con esas mismas columnas; si faltan, el modelo las rellena según el preprocesamiento.</div>` : ""}`;
   }
   function wzPuntos(W) {
-    const T = [["mapa", "Elegir en el mapa"], ["archivo", "Cargar archivo (CSV, SHP, GeoJSON)"], ["denue", "Unidades del DENUE"]], tab = W.tab;
+    const T = [["mapa", "Elegir en el mapa"], ["archivo", "Cargar archivo (CSV, SHP, GeoJSON)"], ["denue", "Unidades del DENUE"], ["inmuebles", "Bienes inmuebles"]], tab = W.tab;
     return `${W.sim ? wzSimPanel(W) : ""}<div class="mo-tabs">${T.map(([k, t]) => `<button type="button" class="${tab === k ? "on" : ""}" data-wzt="${k}">${t}</button>`).join("")}</div>
-      <div class="mo-pts"><b>${gN(W.puntos.length, 0)}</b> punto${W.puntos.length === 1 ? "" : "s"} listo${W.puntos.length === 1 ? "" : "s"}${W.puntos.length ? ` <i>· ${{ mapa: "elegidos en el mapa", archivo: "del archivo", denue: "del DENUE", geolab: "de Geo Lab" }[W.fuente] || ""}</i> <button type="button" class="mo-ghost" data-wz="limpia">Quitar todos</button>` : ""}</div>
-      ${tab === "mapa" ? wzMapaHtml(W) : tab === "archivo" ? wzArchHtml(W) : wzDenueHtml(W)}`;
+      <div class="mo-pts"><b>${gN(W.puntos.length, 0)}</b> punto${W.puntos.length === 1 ? "" : "s"} listo${W.puntos.length === 1 ? "" : "s"}${W.puntos.length ? ` <i>· ${{ mapa: "elegidos en el mapa", archivo: "del archivo", denue: "del DENUE", geolab: "de Geo Lab", inmuebles: "de la base de bienes inmuebles" }[W.fuente] || ""}</i> <button type="button" class="mo-ghost" data-wz="limpia">Quitar todos</button>` : ""}</div>
+      ${tab === "mapa" ? wzMapaHtml(W) : tab === "archivo" || tab === "inmuebles" ? wzArchHtml(W) : wzDenueHtml(W)}`;
   }
   const wzMapaHtml = W => {
     const M = W.modoP || "mapa", OPC = [["coord", "1 · Coordenada manual", "Escribe latitud y longitud"], ["url", "2 · URL de Google Maps", "Pega el enlace de un lugar"], ["mapa", "3 · Seleccionar en el mapa", "Busca un lugar y haz clic"]];
@@ -243,10 +243,25 @@
     <div class="mo-fa">Puntos agregados</div><div class="mo-chs" id="wzPL">${wzChips(W)}</div><div class="mo-mapw"><div id="wzMap" class="mo-map"></div><div class="mo-mbus"><input id="wzMb" class="mo-in" placeholder="Buscar un lugar: dirección, colonia, negocio, ciudad…" autocomplete="off"><div class="mo-mbl" id="wzMbL" style="display:none"></div></div></div>`;
   };
   const wzChips = W => W.puntos.length ? W.puntos.slice(0, 200).map((q, i) => `<span class="mo-c on">${esc(q.id || "P" + (i + 1))} <i class="mo-mut">${q.lat}, ${q.lng}</i> <button type="button" data-wzrm="${i}" aria-label="Quitar">×</button></span>`).join("") : '<span class="mo-mut">Aún no hay puntos.</span>';
+  /* ── Bienes inmuebles: bases de propiedades descargadas en Check Inn (Alojamientos, Facebook, Mercado Libre) ── */
+  const wzInmHtml = W => {
+    const I = W.inm || (W.inm = { lista: null, cargando: false, err: "", cargaId: "" });
+    if (!I.lista && !I.cargando && !I.err) { I.cargando = true; api(R + "/inmuebles").then(j => { I.lista = j.fuentes || []; }).catch(e => { I.err = e.message; }).then(() => { I.cargando = false; if (S.wiz === W && W.tab === "inmuebles") wzRe(); }); }
+    const act = W.arch && W.arch.inm;
+    return `<div class="mo-nota">Elige una de las <b>bases de propiedades descargadas</b> en Check Inn. Verás la tabla completa con los mismos filtros y funciones que en cualquier archivo de puntos, y podrás analizarla con un método de <b>valuación inmobiliaria</b> que detecta propiedades por debajo o por encima del precio de mercado.</div>
+      ${I.err ? `<div class="mo-av alto"><div class="c">${esc(I.err)}</div></div>` : ""}${!I.lista && !I.err ? '<div class="mo-bn">Cargando las bases disponibles…</div>' : ""}
+      <div class="mo-gl2 mo-gl3">${(I.lista || []).map(f => `<button type="button" class="mo-opc${act === f.id ? " on" : ""}" data-wzinm="${esc(f.id)}"${f.n ? "" : " disabled"}><b>${esc(f.nombre)}</b><span>${esc(f.desc || "")}</span><span class="mo-mut">${gN(f.n, 0)} con ubicación · ${gN(f.conPrecio, 0)} con precio</span></button>`).join("")}</div>${I.cargaId ? '<div class="mo-bn">Cargando la tabla…</div>' : ""}`;
+  };
+  async function wzInmCarga(W, id) {
+    const I = W.inm; if (!I || I.cargaId) return; I.cargaId = id; wzRe();
+    try { const j = await api(R + "/inmuebles/" + encodeURIComponent(id)), ix = n => j.cols.indexOf(n), il = ix("Latitud"), io = ix("Longitud"), ii = ix("ID"), ip = ix("Precio");
+      W.arch = { nombre: j.fuente, inm: id, cols: j.cols, rows: j.rows, sel: new Set(j.rows.map((_, k) => k)), _hadF: false, ilat: il, ilng: io, iid: ii, iy: ip, extra: j.cols.map((_, k) => k).filter(k => k !== il && k !== io && k !== ii && k !== ip) }; W.puntos = []; W.columnas = []; W.msg = ""; }
+    catch (e) { I.err = e.message; } I.cargaId = ""; wzRe();
+  }
   const wzArchHtml = W => {
-    const A = W.arch; let h = `<div class="mo-nota">Carga un <b>CSV</b>, <b>GeoJSON</b> o <b>Shapefile (.zip)</b> con las coordenadas. Verás una vista previa y podrás elegir la columna de coordenadas, la de nombre o identificador y otras columnas para usarlas como variables.</div>
+    const A = W.arch; let h = W.tab === "inmuebles" ? wzInmHtml(W) : `<div class="mo-nota">Carga un <b>CSV</b>, <b>GeoJSON</b> o <b>Shapefile (.zip)</b> con las coordenadas. Verás una vista previa y podrás elegir la columna de coordenadas, la de nombre o identificador y otras columnas para usarlas como variables.</div>
       <label class="mo-file"><input type="file" id="wzFile" accept=".csv,.txt,.tsv,.geojson,.json,.zip,.shp"></label>`;
-    if (!A) return h;
+    if (!A || (W.tab === "inmuebles") !== !!A.inm) return h;
     if (A.err) return h + `<div class="mo-av alto"><div class="c">${esc(A.err)}</div></div>`;
     const op = (sel, vacio) => (vacio ? `<option value="-1">${vacio}</option>` : "") + A.cols.map((c, i) => `<option value="${i}"${sel === i ? " selected" : ""}>${esc(c)}</option>`).join("");
     h += `<div class="mo-fa"><b>${esc(A.nombre)}</b> · ${gN(A.rows.length, 0)} filas · ${A.cols.length} columnas</div>${wzFiltHtml(A)}
@@ -318,7 +333,7 @@
   }
   function wzPost(W) {
     if ((W.paso === 3 || W.paso === 4) && W.puntos.length) wzMapaPuntos(W);
-    if (W.paso === 2 && W.tab === "archivo" && W.arch && W.arch.rows && W.arch.rows.length) { wzRowsMas(W.arch, true); const tw = $(".mo-twp"); if (tw && !tw._pg) { tw._pg = 1; tw.addEventListener("scroll", () => { const A = S.wiz && S.wiz.arch; if (A && tw.scrollTop + tw.clientHeight >= tw.scrollHeight - 200 && (A._nr || 0) < visL(A).length) wzRowsMas(A, false); }); } }
+    if (W.paso === 2 && (W.tab === "archivo" || W.tab === "inmuebles") && W.arch && W.arch.rows && W.arch.rows.length) { wzRowsMas(W.arch, true); const tw = $(".mo-twp"); if (tw && !tw._pg) { tw._pg = 1; tw.addEventListener("scroll", () => { const A = S.wiz && S.wiz.arch; if (A && tw.scrollTop + tw.clientHeight >= tw.scrollHeight - 200 && (A._nr || 0) < visL(A).length) wzRowsMas(A, false); }); } }
     if (W.paso === 2 && W.tab === "denue") wzDenMapa(W);
     if (W.paso === 2 && W.tab === "mapa") wzMapa(W);
     if (W.paso === 2 && W.tab === "denue" && !S.scian) api(R + "/scian").then(j => { S.scian = j; if (S.wiz === W && W.paso === 2 && W.tab === "denue") wzRe(); }).catch(() => { });
@@ -455,7 +470,7 @@
     const A = W.arch; if (A.ilat < 0 || A.ilng < 0) { W.msg = "Elige las columnas de latitud y longitud."; return wzRe(); }
     if (A.iy >= 0 && !A.extra.includes(A.iy)) A.extra.push(A.iy); W.yVar = A.iy >= 0 && A.iy !== A.ilat && A.iy !== A.ilng ? slug(A.cols[A.iy]) : null; const ex = A.extra.filter(i => i !== A.ilat && i !== A.ilng), cols = ex.map(i => { const v = A.rows.map(r => numV(r[i])).filter(x => x != null); const tipo = v.length >= A.rows.filter(r => r[i] !== "" && r[i] != null).length * .9 && v.length ? "num" : "cat"; return { name: slug(A.cols[i]), label: String(A.cols[i]), tipo }; });
     const puntos = []; visL(A).filter(k => A.sel.has(k)).forEach(k => { const r = A.rows[k], lat = numV(r[A.ilat]), lng = numV(r[A.ilng]); if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) return; const q = { lat, lng, id: A.iid >= 0 && r[A.iid] != null && r[A.iid] !== "" ? String(r[A.iid]).slice(0, 80) : "F" + (k + 1), x: {} }; ex.forEach((i, j) => { q.x[cols[j].name] = cols[j].tipo === "num" ? numV(r[i]) : (r[i] == null || r[i] === "" ? null : String(r[i]).slice(0, 120)); }); puntos.push(q); });
-    if (!puntos.length) { W.msg = "Ninguna fila tiene coordenadas válidas."; return wzRe(); } W.puntos = puntos; W.columnas = cols; W.fuente = "archivo"; W.msg = puntos.length < selN(A) ? `Se omitieron ${selN(A) - puntos.length} filas sin coordenadas válidas.` : ""; wzRe(); toast(`${gN(puntos.length, 0)} puntos cargados.`);
+    if (!puntos.length) { W.msg = "Ninguna fila tiene coordenadas válidas."; return wzRe(); } W.puntos = puntos; W.columnas = cols; W.fuente = A.inm ? "inmuebles" : "archivo"; if (A.inm) W.yVar = null; W.msg = puntos.length < selN(A) ? `Se omitieron ${selN(A) - puntos.length} filas sin coordenadas válidas.` : ""; wzRe(); toast(`${gN(puntos.length, 0)} puntos cargados.`);
   }
   async function denBusca(W) {
     const D = W.den; if (!D.ciudades.length) return; D.cargando = true; wzRe(); const cod = D.cod.split(/[,\s]+/).filter(c => /^\d{4,6}$/.test(c)), scian = cod.length ? cod : D.sub ? [D.sub] : D.sector ? [D.sector] : [];
@@ -482,7 +497,7 @@
       S.wiz = null; api("/geometrika/modelab-precalcular", { id: j.proyecto.id, od: { on: W.odOn, modo: W.odModo } }).catch(() => { }); await cargaProy(); await abre(j.proyecto.id, "principal"); toast(W.editId ? "Proyecto actualizado." : "Proyecto creado."); } catch (e) { S.busy = false; W.msg = e.message; wizard(); }
   }
   async function editar(id) {
-    try { const j = await api(R + "/proyectos/" + id), p = j.proyecto, W = wizVacio(), c = p.cfg || {}; Object.assign(W, { nombre: p.nombre, objetivo: p.objetivo || "", fuente: p.fuente || "mapa", tab: p.fuente === "denue" ? "denue" : p.fuente === "archivo" ? "archivo" : "mapa", puntos: j.puntos || [], columnas: p.columnas || [], mapa: p.mapa || null, editId: id, radio: c.radio || 200, fotos: c.fotos || 24, vias: c.vias || W.vias, pre: c.pre || 12, dias: c.dias || W.dias, horas: c.horas || W.horas, opt: Object.assign(W.opt, c.opt || {}), yVar: c.yVar || null, odOn: c.odOn !== false, odModo: c.odModo === "google" ? "google" : "osm" }); S.wiz = W; wizard(); }
+    try { const j = await api(R + "/proyectos/" + id), p = j.proyecto, W = wizVacio(), c = p.cfg || {}; Object.assign(W, { nombre: p.nombre, objetivo: p.objetivo || "", fuente: p.fuente || "mapa", tab: p.fuente === "denue" ? "denue" : p.fuente === "archivo" ? "archivo" : p.fuente === "inmuebles" ? "inmuebles" : "mapa", puntos: j.puntos || [], columnas: p.columnas || [], mapa: p.mapa || null, editId: id, radio: c.radio || 200, fotos: c.fotos || 24, vias: c.vias || W.vias, pre: c.pre || 12, dias: c.dias || W.dias, horas: c.horas || W.horas, opt: Object.assign(W.opt, c.opt || {}), yVar: c.yVar || null, odOn: c.odOn !== false, odModo: c.odModo === "google" ? "google" : "osm" }); S.wiz = W; wizard(); }
     catch (e) { toast(e.message); }
   }
   function wizClic(e) {
@@ -510,6 +525,7 @@
     if ((b = t.closest("[data-wzfclear]")) && W.arch) { W.arch.f = []; W.arch.cf = {}; W.arch.fe = null; wzFiltAplica(W); return true; }
     if ((b = t.closest("[data-wzfv]")) && W.arch && W.arch.fe) { const A = W.arch, fe = A.fe, v = wzCS(A, fe.i).vals[+b.dataset.wzfv][0]; fe.sel.has(v) ? fe.sel.delete(v) : fe.sel.add(v); const on = fe.sel.has(v), k = b.querySelector(".mo-ck"); b.classList.toggle("on", on); if (k) { k.classList.toggle("on", on); k.textContent = on ? "✓" : ""; } const n = $("#wzFn"), pre = visIdx(A, fe); if (n) n.textContent = gN(pre ? pre.length : A.rows.length, 0) + " filas coinciden"; return true; }
     if ((b = t.closest("[data-wzfall],[data-wzfnone]")) && W.arch && W.arch.fe) { const A = W.arch, fe = A.fe; if (b.dataset.wzfall) { const vq = (fe.vq || "").toLowerCase(); wzCS(A, fe.i).vals.forEach(v => { if (!vq || v[0].toLowerCase().includes(vq)) fe.sel.add(v[0]); }); } else fe.sel.clear(); wzFiltRe(W); return true; }
+    if ((b = t.closest("[data-wzinm]"))) { if (!b.disabled) wzInmCarga(W, b.dataset.wzinm); return true; }
     if ((b = t.closest("[data-wzt]"))) { W.tab = b.dataset.wzt; W.msg = ""; wzRe(); const bar = $(".mo-tabs"); if (bar) bar.outerHTML = bar.outerHTML; return true; }
     if ((b = t.closest("[data-wzod]"))) { const k = b.dataset.wzod; if (k === "on") W.odOn = !W.odOn; else W.odModo = k; W.opt.od = !!(W.odOn && W.odModo === "google"); wzRe(); return true; }
     if ((b = t.closest("[data-wzopt]"))) { const k = b.dataset.wzopt; W.opt[k] = !W.opt[k]; wzRe(); return true; }
@@ -609,30 +625,33 @@
 
   /* ── 2 · Enfoque y variable de respuesta ── */
   /* la variable a modelar elegida al cargar el archivo se toma sola como variable de respuesta (si aún no hay una y el enfoque no es no supervisado) */
+  const esInm = () => !!(S.P && S.P.fuente === "inmuebles"), colPrecio = () => { const c = colsProy().find(c => /^precio$/i.test(String(c.label || c.name))); return c ? c.name : null; };
+  /* en un proyecto de bienes inmuebles el enfoque «Valuación inmobiliaria» se elige solo la primera vez */
+  function inmAuto() { const M = S.M; if (!esInm() || !M || M.enfoque || !perfiles().length) return; const y = colPrecio(); M.enfoque = "val"; M.y = y; M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== y).map(p => p.name); M.metodo = null; M.prep = null; M.prepOk = false; guardaModelo(); }
   function aplicaYVar() {
     const yv = S.P && S.P.cfg && S.P.cfg.yVar, M = S.M; if (S.aid !== "principal" || !yv || !M || M.y || M.enfoque === "nosup" || !(M.vars || []).includes(yv)) return;
     const p = perfiles().find(q => q.name === yv); if (p && (p.tipo === "texto" || p.constante)) return; M.enfoque = "sup"; M.y = yv; M.x = (M.x || []).filter(k => k !== yv); if (!M.x.length) M.x = perfiles().filter(q => q.tipo !== "texto" && !q.constante && q.name !== yv).map(q => q.name); M.metodo = null; M.prep = null; M.prepOk = false; guardaModelo();
   }
   async function secEnfoque() {
     S.sec = "enfoque"; nav(); if (!(await aseguraDs())) { wrap(`${cab("2", "Enfoque", "")}<div class="mo-empty"><b>Primero construye la tabla de datos.</b><p>Elige las variables y pulsa «Construir tabla de datos».</p><button type="button" class="mo-new" data-sec="variables">Ir a Variables</button></div>`); return; }
-    aplicaYVar(); const M = S.M, P = perfiles(), enf = M.enfoque, usables = P.filter(p => p.tipo !== "texto" && !p.constante), y = M.y, x = new Set(M.x || []);
+    aplicaYVar(); inmAuto(); const M = S.M, P = perfiles(), enf = M.enfoque, usables = P.filter(p => p.tipo !== "texto" && !p.constante), y = M.y, x = new Set(M.x || []);
     const tipoTxt = p => ({ num: "numérica continua", int: "numérica entera", bin: "binaria (2 valores)", cat: "categórica", texto: "texto (no usable)" }[p.tipo] || p.tipo);
     const filas = usables.filter(p => !(enf === "sup" && p.name === y)).map(p => `<tr><td><button type="button" class="mo-vi${x.has(p.name) ? " on" : ""}" data-x="${esc(p.name)}">${ck(x.has(p.name))}<span><b>${esc(p.label || p.name)}</b></span></button></td><td>${chipOr(p.name)}</td><td>${tipoTxt(p)}</td><td>${gN(p.unicos, 0)}</td><td${p.pctFaltantes > 30 ? ' class="mo-mal"' : ""}>${gN(p.pctFaltantes, 1)} %</td><td>${p.tipo === "num" || p.tipo === "int" ? gN(p.media) + " ± " + gN(p.sd) : (p.categorias || []).slice(0, 2).map(c => esc(c.v)).join(", ")}</td></tr>`).join("");
     const exc = P.filter(p => p.tipo === "texto" || p.constante);
     wrap(`${cab("2", "Enfoque del análisis", "¿Hay algo que quieras predecir o explicar, o quieres explorar la estructura de los datos?")}
-      <div class="mo-bxg"><button type="button" class="mo-bxo${enf === "sup" ? " on" : ""}" data-enf="sup"><i>🎯</i><b>Supervisado</b><small>Hay una <b>variable de respuesta</b> (lo que quieres predecir o explicar) y variables explicativas. Ej.: ventas ← entorno urbano.</small></button>
+      <div class="mo-bxg${esInm() ? " t3" : ""}">${esInm() ? `<button type="button" class="mo-bxo${enf === "val" ? " on" : ""}" data-enf="val"><i>🏠</i><b>Valuación inmobiliaria</b><small>Estima el <b>precio esperado</b> de cada propiedad según sus características y su ubicación, y detecta las que están <b>por debajo o por encima</b> del mercado. Incluye limpieza de datos, modelo predictivo y geoestadística (variograma y kriging).</small></button>` : ""}<button type="button" class="mo-bxo${enf === "sup" ? " on" : ""}" data-enf="sup"><i>🎯</i><b>Supervisado</b><small>Hay una <b>variable de respuesta</b> (lo que quieres predecir o explicar) y variables explicativas. Ej.: ventas ← entorno urbano.</small></button>
         <button type="button" class="mo-bxo${enf === "nosup" ? " on" : ""}" data-enf="nosup"><i>🧭</i><b>No supervisado</b><small>Solo un conjunto de variables: se buscan <b>grupos, patrones, relaciones o casos atípicos</b> sin variable objetivo.</small></button></div>
-      ${enf ? `<section class="mo-sx2">${enf === "sup" ? `<h3>Variable de respuesta (dependiente) <small>obligatoria</small></h3><label class="mo-fl"><select class="mo-in" id="moY"><option value="">— Elige la variable de respuesta —</option>${opcionesAgrupadas(usables, y, tipoTxt)}</select></label>${y && perfilDe(y) ? `<div class="mo-nota">La respuesta es <b>${tipoTxt(perfilDe(y))}</b>${perfilDe(y).tipo === "num" || perfilDe(y).tipo === "int" ? ": el análisis será de <b>regresión</b>." : perfilDe(y).tipo === "bin" ? ": el análisis será de <b>clasificación binaria</b>." : ": el análisis será de <b>clasificación en varias categorías</b>."}</div>` : ""}` : ""}
+      ${enf === "val" ? `<section class="mo-sx2"><h3>Variable de respuesta: precio de la propiedad</h3><div class="mo-nota">Se analiza el <b>${esc(nomVar(M.y) || "Precio")}</b> usando todas las características de la base (superficie, recámaras, baños, tipo, antigüedad…) y la ubicación de cada propiedad. En el siguiente paso eliges la operación (venta, renta o noche) y el método.</div></section>` : ""}${enf && enf !== "val" ? `<section class="mo-sx2">${enf === "sup" ? `<h3>Variable de respuesta (dependiente) <small>obligatoria</small></h3><label class="mo-fl"><select class="mo-in" id="moY"><option value="">— Elige la variable de respuesta —</option>${opcionesAgrupadas(usables, y, tipoTxt)}</select></label>${y && perfilDe(y) ? `<div class="mo-nota">La respuesta es <b>${tipoTxt(perfilDe(y))}</b>${perfilDe(y).tipo === "num" || perfilDe(y).tipo === "int" ? ": el análisis será de <b>regresión</b>." : perfilDe(y).tipo === "bin" ? ": el análisis será de <b>clasificación binaria</b>." : ": el análisis será de <b>clasificación en varias categorías</b>."}</div>` : ""}` : ""}
         <h3>${enf === "sup" ? "Variables explicativas (independientes)" : "Variables del análisis"} <small>${x.size} elegidas</small></h3><p class="mo-mut">${enf === "sup" ? "Por omisión entran todas las demás variables; quita las que no quieras usar." : "Por omisión entran todas; quita las que no quieras usar."}</p>
         <div class="mo-chs"><button type="button" class="mo-ghost" data-xg="1">Elegir todas</button><button type="button" class="mo-ghost" data-xg="0">Quitar todas</button></div>
         <div class="mo-tw"><table class="mo-t"><thead><tr><th>Variable</th><th>Origen</th><th>Naturaleza</th><th>Valores distintos</th><th>Faltantes</th><th>Resumen</th></tr></thead><tbody>${filas}</tbody></table></div>
         ${exc.length ? `<div class="mo-nota">No se usarán: ${exc.map(p => esc(p.label || p.name) + (p.constante ? " (constante)" : " (texto libre)")).join(", ")}.</div>` : ""}</section>` : ""}
-      ${pie("variables", "metodos", "Continuar a Métodos", !(enf && (enf === "nosup" ? x.size >= 2 : (y && x.size >= 1))))}`);
+      ${pie("variables", "metodos", "Continuar a Métodos", !(enf && (enf === "val" ? !!y : enf === "nosup" ? x.size >= 2 : (y && x.size >= 1))))}`);
   }
 
   /* ── 3 · Métodos analíticos factibles ── */
   async function secMetodos() {
-    S.sec = "metodos"; nav(); if (!(await aseguraDs()) || !S.M.enfoque) return ir("enfoque"); if (!window.MLMotor) { wrap('<div class="mo-empty"><b>No se cargó el motor de modelado.</b></div>'); return; }
+    S.sec = "metodos"; nav(); if (!(await aseguraDs()) || !S.M.enfoque) return ir("enfoque"); if (S.M.enfoque === "val") { if (!window.MLVal) { wrap('<div class="mo-empty"><b>No se cargó el módulo de valuación.</b></div>'); return; } wrap(window.MLVal.htmlMetodos(HV)); return; } if (!window.MLMotor) { wrap('<div class="mo-empty"><b>No se cargó el motor de modelado.</b></div>'); return; }
     const M = S.M, P = perfiles(), py = M.y ? perfilDe(M.y) : null, px = (M.x || []).map(perfilDe).filter(Boolean); let L2 = [];
     try { L2 = window.MLMotor.sugerirMetodos(M.enfoque, py, px, S.ds.rows.length) || []; } catch (e) { toast(e.message); }
     const rec = L2.find(m => m.recomendado && m.aplica), aplic = L2.filter(m => m.aplica), hayAuto = M.enfoque === "sup" && aplic.length > 1; if (M.metodo === "auto" && !hayAuto) M.metodo = null;
@@ -712,10 +731,19 @@
     o.querySelector(".mo-pet").innerHTML = E.map(([id, n], i) => `<li class="${hechas.has(id) ? "ok" : id === act ? "on" : ""}"><i>${hechas.has(id) ? "✓" : id === act ? '<b class="mo-spin"></b>' : i + 1}</i><span>${esc(n)}</span>${hechas.has(id) && hechas.get(id) != null ? `<em>${gN(hechas.get(id) / 1000, 1)} s</em>` : ""}</li>`).join(""); o.querySelector(".mo-pd").textContent = det || "";
   }
   const ETAPAS = { sup: [["prep", "Preprocesamiento"], ["entrenamiento", "Entrenamiento"], ["calibracion", "Calibración de hiperparámetros"], ["evaluacion", "Evaluación con datos de prueba"], ["diagnostico", "Diagnóstico e importancia de variables"]], nosup: [["prep", "Preprocesamiento"], ["reduccion", "Reducción y estandarización"], ["ajuste", "Ajuste del modelo"], ["validacion", "Validación"], ["interpretacion", "Interpretación"]] };
+  ETAPAS.val = [["limpieza", "Limpieza exhaustiva de las publicaciones"], ["hedonico", "Modelo de precios por atributos y zona"], ["variograma", "Variograma de los residuos"], ["kriging", "Kriging (corrección espacial)"], ["clasificacion", "Clasificación: por debajo, en línea o por encima"]];
+  /* puente con modelab-valuacion.js */
+  const HV = { S, cab, pie, gN, ck, leaflet, guarda: () => guardaModelo(), reMetodos: () => secMetodos(), reResultados: () => secResultados() };
 
   /* ── 5 · Modelar / Analizar ── */
   function secModelar() {
-    S.sec = "modelar"; nav(); const M = S.M; if (!M.metodo || !M.prepOk && !M.prep) return ir(M.metodo ? "prep" : "metodos"); const sup = M.enfoque === "sup";
+    S.sec = "modelar"; nav(); const M = S.M; if (M.enfoque === "val") { if (!M.metodo) return ir("metodos"); const V = M.val || {}, NO = { venta: "Venta", renta: "Renta mensual", noche: "Alquiler por noche" };
+      wrap(`${cab("5", "Valuar las propiedades", "Se limpian las publicaciones, se estima el precio esperado de cada una y se clasifican frente al mercado.")}
+        <div class="mo-fic"><div><small>Enfoque</small><b>Valuación inmobiliaria</b></div><div><small>Operación</small><b>${esc(NO[V.op] || V.op || "Todas")}</b></div><div><small>Publicaciones en la tabla</small><b>${gN(S.ds ? S.ds.rows.length : S.puntos.length, 0)}</b></div></div>
+        <div class="mo-fic"><div><small>Método</small><b>${esc(M.metodoNombre || M.metodo)}</b></div><div><small>Diferencia mínima</small><b>${V.minDif || 10} %</b></div><div><small>Variable analizada</small><b>${esc(nomVar(M.y) || "Precio")}</b></div></div>
+        <div class="mo-etp"><b>Etapas</b><ol>${ETAPAS.val.map(([, n]) => `<li>${n}</li>`).join("")}</ol></div>
+        <div class="mo-go"><button type="button" class="mo-new mo-rojo mo-big" data-fl="correr">Valuar</button>${S.res && S.res.enfoque === "val" ? '<span class="mo-mut">Ya hay un resultado guardado; volver a valuar lo reemplaza.</span>' : ""}</div>${pie("metodos", null, "", false)}`); return; }
+    if (!M.metodo || !M.prepOk && !M.prep) return ir(M.metodo ? "prep" : "metodos"); const sup = M.enfoque === "sup";
     wrap(`${cab("5", "Modelar / Analizar", sup ? "Se entrena el modelo, se calibra y se evalúa con datos que no vio al entrenar." : "Se ajusta el análisis exploratorio y se valida su calidad.")}
       <div class="mo-fic"><div><small>Enfoque</small><b>${sup ? "Supervisado" : "No supervisado"}</b></div><div><small>${sup ? "Variable de respuesta" : "Variables"}</small><b>${sup ? esc(nomVar(M.y)) : (M.x || []).length}</b></div><div><small>${sup ? "Variables explicativas" : "Observaciones"}</small><b>${sup ? (M.x || []).length : gN(S.ds ? S.ds.rows.length : S.puntos.length, 0)}</b></div></div>
       <div class="mo-fic"><div><small>Método</small><b>${esc(M.metodoNombre || M.metodo)}</b></div><div><small>Observaciones</small><b>${gN(S.ds ? S.ds.rows.length : S.puntos.length, 0)}</b></div><div><small>Preprocesamiento</small><b>${Object.keys((M.prep || {}).global || {}).length} reglas</b></div></div>
@@ -723,7 +751,18 @@
       <div class="mo-go"><button type="button" class="mo-new mo-rojo mo-big" data-fl="correr">${sup ? "Modelar" : "Analizar"}</button>${S.res ? '<span class="mo-mut">Ya hay un resultado guardado; volver a modelar lo reemplaza.</span>' : ""}</div>${pie("prep", null, "", false)}`);
   }
   const fmtK = k => typeof k.valor === "number" ? (k.formato === "pct" ? gN(k.valor * 100, 1) + " %" : gN(k.valor)) : String(k.valor == null ? "—" : k.valor);
+  async function correVal() {
+    const M = S.M, E = ETAPAS.val, V = M.val || {}; if (!(await aseguraDs())) { toast("Falta la tabla de datos."); return; } if (!window.MLVal) { toast("No se cargó el módulo de valuación."); return; } S.perfiles = null;
+    const o = popup("Valuando propiedades", `${S.ds.rows.length} publicaciones · ${M.metodoNombre || M.metodo}`), hechas = new Map(); let act = E[0][0], t0 = Date.now(), ult = null; const tIni = Date.now(); popupEtapas(o, E, act, hechas, "");
+    const cfg = { y: M.y, op: V.op || null, metodo: M.metodo, minDif: (V.minDif || 10) / 100, semilla: 42 };
+    try { const res = await window.MLVal.correr(S.ds, cfg, ev => { if (!ev) return; const i = E.findIndex(x => x[0] === ev.id); if (i < 0) return; if (ult && ult !== ev.id) hechas.set(ult, Date.now() - t0); if (ult !== ev.id) { t0 = Date.now(); } ult = ev.id; act = ev.id; E.forEach(([id], j) => { if (j < i) hechas.set(id, hechas.get(id) != null ? hechas.get(id) : 0); }); popupAv(o, (i + (ev.progreso || 0)) / E.length); popupEtapas(o, E, act, hechas, ev.detalle || ""); });
+      popupAv(o, 1); const resta = 1200 - (Date.now() - tIni); if (resta > 0) await new Promise(r => setTimeout(r, resta)); S.res = res; S.mv = null; S._mvM = null; S.M.prepOk = true; S.M.hecho = new Date().toISOString(); await guardaModelo();
+      try { const kpi = (res.kpis || []).slice(0, 2).map(k => ({ etiqueta: k.etiqueta, valor: fmtK(k) })); await api(R + "/proyectos/" + S.id + "/resultados", { res, kpi }); const p = S.proy.find(x => x.id === S.id); if (p) { p.estado = "modelado"; p.kpi = kpi; p.metodo = res.nombreMetodo || p.metodo; } } catch (e) { toast("El resultado se calculó pero no se pudo guardar: " + e.message, 6000); }
+      popupCierra(o); nav(); ir("resultados"); }
+    catch (e) { o.querySelector(".mo-pbar").classList.add("err"); o.querySelector(".mo-pd").innerHTML = `<b class="mo-mal">No se pudo completar:</b> ${esc(e.message)}`; o.querySelector("footer").innerHTML = '<button type="button" class="mo-ghost" data-fl="cierrapop">Cerrar</button>'; }
+  }
   async function corre() {
+    if (S.M.enfoque === "val") return correVal();
     if (S.M.metodo === "auto") return correAuto();
     const M = S.M, sup = M.enfoque === "sup", E = ETAPAS[sup ? "sup" : "nosup"]; if (!(await aseguraDs())) { toast("Falta la tabla de datos."); return; } S.perfiles = null;
     const o = popup(sup ? "Modelando" : "Analizando", `${S.ds.rows.length} observaciones · ${M.metodoNombre || M.metodo}`), hechas = new Map(); let act = E[0][0], t0 = Date.now(), ult = null; const tIni = Date.now(); popupEtapas(o, E, act, hechas, "");
@@ -965,14 +1004,14 @@
   /* ── eventos del flujo ── */
   const guardaPrep = () => { S.M.prepOk = false; };
   function flujoClic(e) {
-    const t = e.target; let b; if (simClic(e)) return true; if (cgClic(e)) return true; { const b2 = e.target.closest && e.target.closest("[data-mgp]"); if (b2 && S._mg) { S._mg.elige(+b2.dataset.mgp, true); return true; } const b3 = e.target.closest && e.target.closest("[data-mg=todos]"); if (b3 && S._mg) { S._mg.todos(); return true; } }
+    const t = e.target; let b; if (window.MLVal && window.MLVal.clic(e, HV)) return true; if (simClic(e)) return true; if (cgClic(e)) return true; { const b2 = e.target.closest && e.target.closest("[data-mgp]"); if (b2 && S._mg) { S._mg.elige(+b2.dataset.mgp, true); return true; } const b3 = e.target.closest && e.target.closest("[data-mg=todos]"); if (b3 && S._mg) { S._mg.todos(); return true; } }
     if ((b = t.closest("[data-v]")) && S.sec === "variables") { const k = b.dataset.v, s = new Set(S.M.vars || []); s.has(k) ? s.delete(k) : s.add(k); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vg]"))) { e.preventDefault(); const ks = b.dataset.vg.split("|").filter(Boolean), s = new Set(S.M.vars || []); ks.forEach(k => b.dataset.on === "1" ? s.add(k) : s.delete(k)); S.M.vars = [...s]; resetModelo(); const y = $("#moMain").scrollTop; secVariables(); $("#moMain").scrollTop = y; return true; }
     if ((b = t.closest("[data-vermod]"))) { S.resVer = b.dataset.vermod; secResultados(); return true; }
     if ((b = t.closest("[data-calt]"))) { const sec = b.closest(".mo-cal"), x = $(".mo-calx", sec), ab = x.hidden; x.hidden = !ab; b.setAttribute("aria-expanded", String(ab)); sec.classList.toggle("on", ab); return true; }
     if ((b = t.closest("[data-jmp]"))) { const el = $(b.dataset.jmp === "cal" ? "#moSecCal" : "#moSecRes"); if (b.dataset.jmp === "cal" && el) { const x = $(".mo-calx", el); if (x && x.hidden) { x.hidden = false; $(".mo-calh", el).setAttribute("aria-expanded", "true"); el.classList.add("on"); } } if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
     if ((b = t.closest("[data-vcat]"))) { S.vcat = b.dataset.vcat; secVariables(); return true; }
-    if ((b = t.closest("[data-enf]"))) { const M = S.M; if (M.enfoque !== b.dataset.enf) { M.enfoque = b.dataset.enf; M.y = null; M.metodo = null; M.prep = null; M.prepOk = false; const P = perfiles(); M.x = P.filter(p => p.tipo !== "texto" && !p.constante).map(p => p.name); guardaModelo(); } secEnfoque(); return true; }
+    if ((b = t.closest("[data-enf]"))) { const M = S.M; if (M.enfoque !== b.dataset.enf) { M.enfoque = b.dataset.enf; M.y = null; M.metodo = null; M.prep = null; M.prepOk = false; const P = perfiles(); M.x = P.filter(p => p.tipo !== "texto" && !p.constante).map(p => p.name); if (M.enfoque === "val") { M.y = colPrecio(); M.x = M.x.filter(k => k !== M.y); } guardaModelo(); } secEnfoque(); return true; }
     if ((b = t.closest("[data-x]"))) { const k = b.dataset.x, s = new Set(S.M.x || []); s.has(k) ? s.delete(k) : s.add(k); S.M.x = [...s]; S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); const y = $("#moMain").scrollTop; secEnfoque().then(() => { $("#moMain").scrollTop = y; }); return true; }
     if ((b = t.closest("[data-xg]"))) { const P = perfiles().filter(p => p.tipo !== "texto" && !p.constante && !(S.M.enfoque === "sup" && p.name === S.M.y)); S.M.x = b.dataset.xg === "1" ? P.map(p => p.name) : []; S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); secEnfoque(); return true; }
     if ((b = t.closest("[data-met]"))) { if (b.disabled) return true; S.M.metodo = b.dataset.met; S.M.prep = null; S.M.prepOk = false; guardaModelo(); const y = $("#moMain").scrollTop; secMetodos().then(() => { $("#moMain").scrollTop = y; }); return true; }
@@ -983,9 +1022,9 @@
     return false;
   }
   function resetModelo() { const M = S.M; M.metodo = null; M.prep = null; M.prepOk = false; M.y = null; M.x = []; M.enfoque = M.enfoque; S.ds = null; S.perfiles = null; const r = $("#vRes"); if (r) r.innerHTML = resumenVars(); }
-  function flujoEntrada(e) { const t = e.target; if (simEntrada(e)) return; if (t.id === "moVQ") { S.vq = t.value; S._vfoco = true; secVariables(); } }
+  function flujoEntrada(e) { const t = e.target; if (window.MLVal && window.MLVal.entrada(e, HV)) return; if (simEntrada(e)) return; if (t.id === "moVQ") { S.vq = t.value; S._vfoco = true; secVariables(); } }
   function flujoCambia(e) {
-    const t = e.target; if (simCambia(e)) return; if (t.id === "moY") { S.M.y = t.value || null; S.M.x = (S.M.x || []).filter(k => k !== S.M.y); if (S.M.y && !(S.M.x || []).length) { S.M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== S.M.y).map(p => p.name); } S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); secEnfoque(); return; }
+    const t = e.target; if (window.MLVal && window.MLVal.cambia(e, HV)) return; if (simCambia(e)) return; if (t.id === "moY") { S.M.y = t.value || null; S.M.x = (S.M.x || []).filter(k => k !== S.M.y); if (S.M.y && !(S.M.x || []).length) { S.M.x = perfiles().filter(p => p.tipo !== "texto" && !p.constante && p.name !== S.M.y).map(p => p.name); } S.M.metodo = null; S.M.prep = null; S.M.prepOk = false; guardaModelo(); secEnfoque(); return; }
     if (t.dataset && t.dataset.prep) { S.M.prep.global[t.dataset.prep] = t.value; guardaModelo(); secPrep(); return; } if (t.id === "moK") { S.M.k = t.value ? Math.max(2, Math.min(20, +t.value)) : null; guardaModelo(); }
   }
 
@@ -1037,6 +1076,7 @@
   function secResultados() {
     S.sec = "resultados"; nav(); const r = resActual();
     if (!r) { wrap(`${cab("6", "Resultados y calidad del modelo", "")}<div class="mo-empty"><b>Aún no hay resultados.</b><p>Configura el análisis y pulsa «${S.M && S.M.enfoque === "nosup" ? "Analizar" : "Modelar"}».</p><button type="button" class="mo-new" data-sec="${S.M && S.M.metodo ? "modelar" : "variables"}">Ir al flujo</button></div>`); return; }
+    if (r.enfoque === "val") { if (!window.MLVal) { wrap('<div class="mo-empty"><b>No se cargó el módulo de valuación.</b></div>'); return; } wrap(`${cab("6", "Resultados de la valuación", esc(r.nombreMetodo || r.metodo))}<div class="mo-rpb"><button type="button" class="mo-ghost" data-sec="modelar">← Cambiar la configuración</button></div>${window.MLVal.htmlResultados(r, HV)}`); window.MLVal.post(r, HV); return; }
     const sup = r.enfoque === "sup", tipo = sup ? (r.tipoY === "regresion" ? "regresión" : r.tipoY === "binaria" ? "clasificación binaria" : "clasificación multiclase") : "análisis no supervisado";
     wrap(`${cab("6", "Resultados y calidad del modelo", `${esc(r.nombreMetodo || r.metodo)} · ${tipo}`)}${bannerModelo()}<div class="mo-rpb"><button type="button" class="mo-new" data-fl="reporte">⬇ Descargar reporte (PDF)</button></div><nav class="mo-jmp"><button type="button" data-jmp="res">Resultados del modelado</button><button type="button" data-jmp="cal">Confiabilidad del modelo</button></nav>
       <section id="moSecRes" class="mo-cal on"><button type="button" class="mo-calh" data-calt="1" aria-expanded="true"><span class="mo-calb">A</span><span class="mo-calt"><b>Resultados del modelado</b><small>Qué encontró el modelo: indicadores clave, hallazgos y gráficas</small></span><span class="mo-calc">▾</span></button><div class="mo-calx">${bannerRespuesta(r)}${resultadosHtml(r)}</div></section><section id="moSecCal" class="mo-cal"><button type="button" class="mo-calh" data-calt="1" aria-expanded="false"><span class="mo-calb">B</span><span class="mo-calt"><b>Confiabilidad del modelo</b><small>Estadísticos y diagnósticos para saber cuánto confiar en los resultados</small></span><span class="mo-calc">▾</span></button><div class="mo-calx" hidden>${calidadHtml(r)}</div></section>${pie("modelar", null, "", false)}`);

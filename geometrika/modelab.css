@@ -609,3 +609,26 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mo-app .mo-mgr{display:flex;align-items:center;gap:10px}.mo-app .mo-mgr .mo-mgc{flex:none;width:13px;height:13px;margin:0;box-shadow:0 0 0 2px #fff,0 0 0 3px var(--c)}
 .mo-app .mo-mgn{flex:1;min-width:0}.mo-app .mo-mgn b{display:block;word-break:break-word;font:700 12.5px/1.3 system-ui;color:var(--ink)}
 .mo-app .mo-mgk{flex:none;padding:3px 10px;border-radius:99px;background:var(--c);border:1px solid var(--c);color:#fff;font:700 11px system-ui;white-space:nowrap}
+
+/* Valuación inmobiliaria */
+.mo-bxg.t3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mv-reglas{margin:6px 0 12px;padding-left:20px;display:grid;gap:4px;font-size:12.5px;color:#334155}
+.mv-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.mv-k{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:1px;border-left:3px solid var(--c,#06b6d4)}
+.mv-k span{font:600 10.5px system-ui;color:#94a3b8;text-transform:uppercase;letter-spacing:.03em}.mv-k b{font:800 21px/1.15 system-ui;color:#fff}.mv-k small{font:500 11px system-ui;color:#94a3b8}
+.mv-leg{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}.mv-lc{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font:600 11.5px system-ui;color:#334155}
+.mv-lc i{width:10px;height:10px;border-radius:50%;background:var(--c)}.mv-lc.on{background:var(--c);color:#fff;border-color:var(--c)}.mv-lc.on i{background:#fff}.mv-lc small{opacity:.75}
+.mo-sp{flex:1}.mv-q{max-width:260px}
+.mv-split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:12px;align-items:start}
+.mv-map{height:560px;border-radius:10px}.mv-tw{max-height:560px;overflow:auto}
+.mv-t td,.mv-t th{font-size:12px;vertical-align:top}.mv-t small{display:block;color:#64748b;font-size:10.5px}.mv-t1{max-width:230px}.mv-t1 a{color:#4338ca;font-weight:700;text-decoration:none}.mv-t1 a:hover{text-decoration:underline}
+.mv-tr{cursor:pointer}.mv-tr:hover td{background:#f1f5f9}.mv-tr.foco td{background:#e0e7ff}
+.mv-th{background:none;border:0;font:inherit;font-weight:700;color:inherit;cursor:pointer;padding:0}
+.mv-chip{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--c);color:#fff;font:700 10.5px system-ui;white-space:nowrap}
+.mv-bar{display:block;height:6px;border-radius:3px;background:#e2e8f0;min-width:90px}.mv-bar i{display:block;height:100%;border-radius:3px;background:#4f46e5}.mv-nada td{color:#94a3b8}
+.mv-svg{width:100%;height:auto;max-height:300px}.mv-ax{font:500 10.5px system-ui;fill:#64748b}
+.mv-vg{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start}.mv-par{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #e2e8f0;padding:5px 0;font-size:12px;color:#475569}.mv-par b{color:#0f172a;white-space:nowrap}
+.mv-ef{display:grid;gap:3px}.mv-efr{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(0,3fr) 54px;gap:8px;align-items:center;font-size:12px}.mv-efr span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#334155}
+.mv-efb{position:relative;height:12px;background:#f1f5f9;border-radius:3px}.mv-efb:before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#94a3b8}.mv-efb i{position:absolute;top:0;bottom:0;border-radius:2px}
+.mv-efb i.pos,.mv-efr b.pos{background:#10b981;color:#047857}.mv-efb i.neg,.mv-efr b.neg{background:#f87171;color:#b91c1c}.mv-efr b{background:none!important;text-align:right}
+@media(max-width:1000px){.mv-kpis{grid-template-columns:repeat(2,1fr)}.mv-split,.mv-vg{grid-template-columns:1fr}.mo-bxg.t3{grid-template-columns:1fr}.mv-map{height:360px}}
