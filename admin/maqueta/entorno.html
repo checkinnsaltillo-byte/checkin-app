@@ -5601,6 +5601,7 @@ function visEstado() {
   E.cam = { p: [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)], t: [+t.x.toFixed(3), +t.y.toFixed(3), +t.z.toFixed(3)], fov: camera.fov, alt: +p.y.toFixed(1), rumbo: Math.round(((Math.atan2(dx, dz) * 180 / Math.PI) + 360) % 360), incl: Math.round(Math.atan2(dy, hd) * 180 / Math.PI), dist: +Math.hypot(dx, dy, dz).toFixed(1) };
   E.capas = {}; const dsgH = []; try { if (DSG.on) world.traverse(o => { if (o.userData && o.userData.dsgHid && !o.visible) { o.visible = true; dsgH.push(o); } }); } catch (_) { }
   CAPAS.forEach(c => { const k = c[0]; try { if (capaHay(k) || k === 'maqueta' || k === 'mapa' || k === 'mapa3d') E.capas[k] = !!capaVis(k); } catch (_) { } }); dsgH.forEach(o => { o.visible = false; });
+  try { E.hl = HL.g && HL.key && HL.row ? { leg: HL.key.split('|')[0], lr: HL.row.dataset.lr } : null; E.legAb = !!LEG.abierto; } catch (_) { }
   E.dsg = DSG.on ? { on: true, off: [...DSG.off], solo: DSG.solo != null ? DSG.solo : null, offPrev: DSG.offPrev ? [...DSG.offPrev] : null, cnt: DSG.cnt, ty0: DSG.ty0 } : { on: false };
   E.tags = Object.assign({}, ETQ); E.mapa = mapTipo; E.tod = { k: TOD.k, h: TOD.h }; E.rz = !!RZ.on; E.g3d = !!(G3D && G3D.on); E.tema = TEMA.v;
   E.win = []; PW.m.forEach((r, id) => { if (!r.el.classList.contains('on')) return; const w = { id, l: r.el.style.left, t: r.el.style.top, min: r.el.classList.contains('min') }; let h = ''; try { h = r.body ? r.body.innerHTML : ''; } catch (_) { } if (h && h.length < 60000) w.html = h; E.win.push(w); });
@@ -5623,6 +5624,7 @@ function visRender() {
 async function visAplica(it, op) {
   op = op || {}; const E = it && it.estado; if (!E) return; try { if (!op.sinCam && typeof VUELO !== 'undefined' && VUELO.on) vueloToggle(); } catch (_) { }
   try { if (!op.sinCam && VV.on) vvPara(); } catch (_) { }
+  try { if (HL.g) hlLimpia(false); } catch (_) { }
   try { controls.autoRotate = false; const br = $('b-rot'); if (br) br.classList.remove('on'); } catch (_) { }
   try { if (E.tema && E.tema !== TEMA.v) temaSet(E.tema); } catch (_) { }
   try { if (E.tod && TODP[E.tod.k]) { if (E.tod.h != null) todHora(E.tod.h); else { TOD.h = null; todSet(E.tod.k); } } } catch (_) { }
@@ -5637,7 +5639,12 @@ async function visAplica(it, op) {
   try { DK.origenNuevo = null; } catch (_) { }
   try { capasSync(); renderer.shadowMap.needsUpdate = true; } catch (_) { }
   const cam = () => { const c = E.cam; if (!c) return; camera.fov = c.fov || camera.fov; camera.updateProjectionMatrix(); camera.position.set(...c.p); controls.target.set(...c.t); zWant = 0; controls.update(); try { renderer.shadowMap.needsUpdate = true; } catch (_) { } };
-  if (op.sinCam) return; cam(); setTimeout(cam, 400); setTimeout(cam, 1200); visToast('📸 ' + it.nombre);
+  if (op.sinCam) return; cam(); setTimeout(cam, 400); try { if (E.legAb != null && !!LEG.abierto !== !!E.legAb) legColAbre(!!E.legAb); } catch (_) { }
+  if (E.hl) {   // resalte elegido en la leyenda: se vuelve a aplicar y después se regresa a la cámara guardada
+    setTimeout(() => { try { const l = $(E.hl.leg), r = l && [...l.querySelectorAll('[data-lr]')].find(x => x.dataset.lr === E.hl.lr); if (r) r.click(); } catch (_) { } }, 800);
+    const c = E.cam; setTimeout(() => { cam(); try { if (HL.g && c) HL.home = { p: new THREE.Vector3(...c.p), t: new THREE.Vector3(...c.t) }; } catch (_) { } }, 2000); setTimeout(cam, 2600);
+  } else setTimeout(cam, 1200);
+  visToast('📸 ' + it.nombre);
 }
 
 // la lista de vistas se puede sacar a una ventana flotante (arrastrable) sobre el mapa y volver a anclarla en Sobrevuelo
