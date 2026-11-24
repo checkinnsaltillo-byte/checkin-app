@@ -451,6 +451,17 @@ window._rsvEnsureLeaflet_ = function (cb) {
 };
 async function gpSha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function gpAut() { try { const n = sessionStorage.getItem("gp_ok") || localStorage.getItem("gp_ok"), t = JSON.parse(localStorage.getItem("gmTok") || "null"); return (n === "1" || n === "2") && t && t.exp > Date.now() ? n : ""; } catch (_) { return ""; } }
+/* Acceso abierto temporal: sin contraseña, la página pide sola un token de nivel 1 y se recarga una vez. Para volver a pedir contraseña: GP_ABIERTO = false (y GM_ABIERTO=0 en el servidor). */
+const GP_ABIERTO = true;
+if (GP_ABIERTO && !gpAut()) {
+  let intento = ""; try { intento = sessionStorage.getItem("gp_auto") || ""; } catch (_) { }
+  if (!intento) {
+    try { sessionStorage.setItem("gp_auto", "1"); } catch (_) { }
+    fetch("https://api.check-inn.mx/geometrika/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: "" }) })
+      .then(r => r.json()).then(tk => { if (tk && tk.ok && tk.token && window.gmGuarda) { window.gmGuarda(tk); try { sessionStorage.setItem("gp_ok", "1"); localStorage.setItem("gp_ok", "1"); } catch (_) { } location.reload(); } })
+      .catch(() => { });
+  }
+}
 function gpCarga(src, cb) { const s = document.createElement("script"); s.src = src; s.onload = cb; document.body.appendChild(s); }
 function gpAbre(sys) {
   try { sessionStorage.setItem("gp_sys", sys); } catch (_) { }
