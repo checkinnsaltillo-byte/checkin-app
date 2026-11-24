@@ -97,8 +97,8 @@ function dibuja() {
   lista(); capasRef(); G.clearLayers(); LB.clearLayers(); const C = cur(); if (!C || !C.arbol) { document.getElementById('ms').textContent = st.modo === 'punto' ? 'Aún no hay un cálculo para un punto específico.' : ''; return; } const mn = st.mn / 100;
   ED = C.arbol.map(r => ({ r, v: val(r), c: esEnt(r) ? VERDE : ROJO })).filter(e => e.v >= mn).sort((a, b) => a.v - b.v);
   ED.forEach(e => L.polyline([[e.r[0], e.r[1]], [e.r[2], e.r[3]]], { renderer: cv, color: e.c, weight: 1.6 + 11 * Math.sqrt(e.v), opacity: .88, lineCap: 'round' }).addTo(G));
-  document.getElementById('ms').textContent = ED.length + ' tramos con ≥ ' + st.mn + ' % de los viajes';
-  if (!fitted && ED.length) { fitted = true; map.fitBounds(L.latLngBounds(ED.map(e => [e.r[0], e.r[1]])).pad(.08)); }
+  document.getElementById('ms').textContent = ED.length ? ED.length + ' tramos con ≥ ' + st.mn + ' % de los viajes' : (C.arbol.length ? 'Ningún tramo llega a ' + st.mn + ' % de los viajes: baja el porcentaje mínimo.' : 'El modelo no encontró rutas entre las zonas que crucen esta calle, así que no hay árbol que dibujar. Prueba «Punto específico» sobre una avenida cercana.');
+  if (!fitted) { if (ED.length) { fitted = true; map.fitBounds(L.latLngBounds(ED.map(e => [e.r[0], e.r[1]])).pad(.08)); } else { const A0 = D || DP || DD; if (A0 && A0.lat != null) { fitted = true; map.setView([A0.lat, A0.lng], 12); } } }  // sin árbol, el mapa se centra en la propiedad (antes quedaba gris, sin vista)
   etiqueta();
 }
 // etiquetas de porcentaje: de mayor a menor, sin encimarse en pantalla
