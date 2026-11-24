@@ -294,7 +294,7 @@
   function selMod(R, st, r, H) {
     const M = R.modelos;
     return `<div class="mv-sm"><div class="mv-smh"><b>Modelo mostrado</b><span>${R.modelos.length} modelos en esta corrida${R.descartados && R.descartados.length ? ` · ${R.descartados.length} subconjuntos descartados` : ""}</span></div>
-      <div class="mv-mods"><button type="button" class="mv-md${st.mod === "todos" ? " on" : ""}" data-val-mod="todos"><b>Todos los modelos</b><small>${H.gN(M.reduce((a, m) => a + m.res.limpieza.conserva, 0), 0)} propiedades</small></button>${M.map(m => `<button type="button" class="mv-md${st.mod === m.id ? " on" : ""}" data-val-mod="${E(m.id)}" title="${E(m.nombre)}"><b>${E(m.nombre)}</b><small>${H.gN(m.res.limpieza.conserva, 0)} propiedades · R² ${m.res.modelo.r2cv.toFixed(2)}</small></button>`).join("")}</div>
+      <div class="mv-mods"><button type="button" class="mv-mb${st.mod === "todos" ? " on" : ""}" data-val-mod="todos"><b>Todos los modelos</b><small>${H.gN(M.reduce((a, m) => a + m.res.limpieza.conserva, 0), 0)} propiedades</small></button>${M.map(m => `<button type="button" class="mv-mb${st.mod === m.id ? " on" : ""}" data-val-mod="${E(m.id)}" title="${E(m.nombre)}"><b>${E(m.nombre)}</b><small>${H.gN(m.res.limpieza.conserva, 0)} propiedades · R² ${m.res.modelo.r2cv.toFixed(2)}</small></button>`).join("")}</div>
       <div class="mv-sub">Estás viendo: <b>${E(r.titulo)}</b></div></div>`;
   }
   function compModelos(R, H) {
@@ -389,12 +389,17 @@
   const tokG = () => { try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); return g && g.token ? g.token : ""; } catch (_) { return ""; } };
   const px = u => "https://api.check-inn.mx/geometrika/modelab/inmuebles/img?t=" + encodeURIComponent(tokG()) + "&u=" + encodeURIComponent(u);
   const mini = u => /mlstatic\.com/.test(u) ? u.replace(/-F(\.|-)/, "-O$1") : u;
-  function cardHtml(f, k, r, F, H) {
+  /* minibarra de la tarjeta: rango esperado (80 %) y punto del precio publicado */
+  function rangoMini(f, col) {
+    const lo = Math.min(f.precio, f.bajo) * .9, hi = Math.max(f.precio, f.alto) * 1.05, X = v => ((v - lo) / (hi - lo) * 100).toFixed(1);
+    return `<div class="mv-rg" title="Rango esperado ${fm(f.bajo)} – ${fm(f.alto)}; publicado ${fm(f.precio)}"><i style="left:${X(f.bajo)}%;width:${(X(f.alto) - X(f.bajo)).toFixed(1)}%"></i><em style="left:${X(f.esperado)}%"></em><b style="left:${X(f.precio)}%;background:${col}"></b></div><div class="mv-rl"><span>${fmc(f.bajo)}</span><span>rango 80 %</span><span>${fmc(f.alto)}</span></div>`;
+  }
+  function cardHtml(f, k, r, F, H, pop) {
     const c = CLS[f.clase], x = F[f.id] || {}, op = { venta: "Venta", renta: "Renta", noche: "Noche" }[f.op || r.config.op] || "", pm = f.area ? f.precio / f.area : null, sp = [f.rec != null ? f.rec + " rec." : "", f.ban != null ? f.ban + " baños" : "", f.area ? H.gN(f.area, 0) + " m²" : ""].filter(Boolean).join(" · "), w = Math.min(100, Math.abs(f.dif) * 100 / 1.2);
-    return `<div class="mv-cd" data-val-foco="${k}"><div class="mv-cv${x.f ? "" : " nf"}">${x.f ? `<img src="${E(px(mini(x.f)))}" alt="" decoding="async" data-d="${E(mini(x.f))}" data-o="${E(x.f)}" onerror="var n=+this.dataset.r||0;this.dataset.r=n+1;this.referrerPolicy='no-referrer';if(n==0)this.src=this.dataset.d;else if(n==1)this.src=this.dataset.o;else{this.parentNode.classList.add('nf');this.remove()}">` : ""}<span class="mv-nf">Sin foto</span><div class="mv-bg"><span class="b">${E(f.tipo || "Inmueble")}</span>${op ? `<span class="o">${op}</span>` : ""}</div><span class="mv-vd" style="--c:${c[1]}">${E(c[0])}</span></div>
+    return `<div class="mv-cd"${pop ? "" : ` data-val-foco="${k}"`}><div class="mv-cv${x.f ? "" : " nf"}">${x.f ? `<img src="${E(px(mini(x.f)))}" alt="" decoding="async" data-d="${E(mini(x.f))}" data-o="${E(x.f)}" onerror="var n=+this.dataset.r||0;this.dataset.r=n+1;this.referrerPolicy='no-referrer';if(n==0)this.src=this.dataset.d;else if(n==1)this.src=this.dataset.o;else{this.parentNode.classList.add('nf');this.remove()}">` : ""}<span class="mv-nf">Sin foto</span><div class="mv-bg"><span class="b">${E(f.tipo || "Inmueble")}</span>${op ? `<span class="o">${op}</span>` : ""}</div><span class="mv-vd" style="--c:${c[1]}">${E(c[0])}</span></div>
       <div class="mv-lb">${r.nMod > 1 ? `<span class="mv-tgc" title="${E(f.modelo || "")}">${E(f.modelo || "")}</span>` : ""}<h4>${E(f.titulo || f.id)}</h4><small>${E([x.s || f.colonia, f.ciudad].filter(Boolean).join(" · "))}</small><small>${E(sp) || "&nbsp;"}</small>${x.h ? `<small>👤 ${E(x.h)}</small>` : ""}
         <div class="mv-pr"><span><b>${fm(f.precio)}</b></span><span>${pm ? `<b>${fm(pm)}</b> <small>/m²</small>` : ""}</span></div>
-        <div class="mv-md"><div class="mv-mr"><span>Precio esperado</span><b>${fm(f.esperado)}</b></div><small>Rango 80 %: ${fm(f.bajo)} – ${fm(f.alto)}</small><div class="mv-df" style="--c:${c[1]}"><i style="width:${w.toFixed(0)}%;${f.dif < 0 ? "right:50%" : "left:50%"}"></i><em></em></div><div class="mv-mr"><span>${f.dif < 0 ? "Por debajo del mercado" : "Por encima del mercado"}</span><b style="color:${c[1]}">${fp(f.dif, 0)}</b></div><small>z = ${f.z}</small></div>
+        <div class="mv-vb" style="--c:${c[1]}"><div class="mv-vh"><span>Precio esperado</span><b>${fm(f.esperado)}</b></div>${rangoMini(f, c[1])}<div class="mv-vf"><span class="mv-dp">${fp(f.dif, 0)}</span><span class="mv-vt">${f.dif < 0 ? "por debajo del mercado" : "por encima del mercado"}</span><small>z ${f.z}</small></div></div>
         <span class="mv-fi" role="button" tabindex="0" data-val-ficha="${k}">Ver ficha ↗</span></div></div>`;
   }
   function htmlResultados(R, H) {
@@ -420,10 +425,19 @@
     const S = H.S, st = S.mv, r = vista(R, st && st.mod); const Hm = Object.assign({}, H, { mult: r.nMod > 1 }), pinta = () => {
       const L = filasVis(r, st), tb = document.getElementById("mvTb"), cd = document.getElementById("mvCards"), vac = "Ninguna propiedad coincide con el filtro."; if (tb) tb.innerHTML = L.slice(0, st.vista).map(f => filaHtml(f, r.filas.indexOf(f), Hm)).join("") || `<tr><td colspan="7" class="mo-mut">${vac}</td></tr>`; else if (cd) cd.innerHTML = L.slice(0, st.vista).map(f => cardHtml(f, r.filas.indexOf(f), r, S._mvF || {}, H)).join("") || `<p class="mo-mut">${vac}</p>`; else return;
       const mas = document.getElementById("mvMas"); if (mas) mas.innerHTML = L.length > st.vista ? `<span class="mo-mut">Mostrando ${H.gN(st.vista, 0)} de ${H.gN(L.length, 0)}.</span><button type="button" class="mo-ghost" data-val-mas="1">Mostrar 100 más</button>` : `<span class="mo-mut">${H.gN(L.length, 0)} propiedades.</span>`;
-      if (S._mvM) { S._mvM.cap.clearLayers(); const ids = new Set(L.map(f => r.filas.indexOf(f))); S._mvM.pts.forEach((m, k) => { if (ids.has(k)) S._mvM.cap.addLayer(m); }); }
-    }; S._mvPinta = pinta;
+      if (S._mvM) { const idl = L.map(f => r.filas.indexOf(f)), sig = idl.length + ":" + idl.slice(0, 40).join(",") + ":" + idl.slice(-40).join(",") + ":" + (st.mod || ""); if (S._mvM.sig !== sig) { S._mvM.sig = sig; S._mvM.cap.clearLayers(); const ids = new Set(idl); S._mvM.pts.forEach((m, k) => { if (ids.has(k)) S._mvM.cap.addLayer(m); }); } }
+      if (st.foco != null) aplicaFoco(st.foco, false);
+    };
+    /* resalta (y si se pide, desplaza hasta) la tarjeta o fila de la propiedad: lo usan el mapa y la lista */
+    const aplicaFoco = (k, desplaza) => {
+      const f = r.filas[k]; if (!f) return; st.foco = k; document.querySelectorAll(".mv-cd.foco,.mv-tr.foco").forEach(x => x.classList.toggle("foco", false));
+      const bus = () => document.querySelector(`#mvCards [data-val-foco="${k}"], #mvTb [data-val-foco="${k}"]`); let el = bus();
+      if (!el && desplaza) { const pos = filasVis(r, st).indexOf(f); if (pos < 0) return; if (pos >= st.vista) { st.vista = pos + 20; pinta(); } el = bus(); }
+      if (!el) return; el.classList.add("foco");
+      if (desplaza) { const cont = el.closest(".mv-cards, .mv-tw"); if (cont) cont.scrollTo({ top: cont.scrollTop + el.getBoundingClientRect().top - cont.getBoundingClientRect().top - (cont.clientHeight - el.offsetHeight) / 2, behavior: "smooth" }); }
+    }; S._mvPinta = pinta; S._mvFoco = aplicaFoco;
     H.leaflet(() => { const el = document.getElementById("mvMap"); if (!el || !window.L) return; if (S._mvM && S._mvM.map) { try { S._mvM.map.remove(); } catch (_) { } } const Lf = window.L, map = Lf.map(el, { zoomControl: true }), cap = Lf.layerGroup().addTo(map); Lf.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
-      const pts = r.filas.map(f => Lf.circleMarker([f.lat, f.lng], { radius: 5.5, color: "#fff", weight: 1, fillColor: CLS[f.clase][1], fillOpacity: .9 }).bindPopup(`<b>${E(f.titulo || f.id)}</b><br>Publicado: <b>${fm(f.precio)}</b><br>Esperado: ${fm(f.esperado)} (${fp(f.dif, 0)})<br><span style="color:${CLS[f.clase][1]}">${E(CLS[f.clase][0])}</span>${f.url ? `<br><a href="${E(f.url)}" target="_blank" rel="noopener">Abrir la publicación</a>` : ""}`)); S._mvM = { map, cap, pts };
+      const pts = r.filas.map(f => Lf.circleMarker([f.lat, f.lng], { radius: 5.5, color: "#fff", weight: 1, fillColor: CLS[f.clase][1], fillOpacity: .9 }).bindPopup(() => cardHtml(f, r.filas.indexOf(f), r, S._mvF || {}, H, true), { maxWidth: 300, minWidth: 280, className: "mv-pp", autoPanPadding: [20, 20] })); S._mvM = { map, cap, pts }; pts.forEach((m, k) => m.on("click", () => aplicaFoco(k, true)));
       const b = Lf.latLngBounds(r.filas.map(f => [f.lat, f.lng])); map.fitBounds(b.pad(.1)); setTimeout(() => { map.invalidateSize(); pinta(); }, 120); });
     pinta();
     if (!S._mvF || S._mvFr !== r.creado) { S._mvFr = r.creado; S._mvF = {}; if (H.api) H.api("/geometrika/modelab/inmuebles/fotos", { ids: r.filas.map(f => f.id) }).then(j => { S._mvF = j.items || {}; if (S.sec === "resultados" && S._mvPinta) S._mvPinta(); }).catch(() => { }); }
@@ -449,7 +463,7 @@
     if ((b = t.closest("[data-val-mas]"))) { S.mv.vista += 100; S._mvPinta && S._mvPinta(); return true; }
     if ((b = t.closest("[data-val-csv]"))) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv(r)], { type: "text/csv;charset=utf-8" })); a.download = "valuacion-inmuebles.csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return true; }
     if ((b = t.closest("[data-val-ficha]"))) { ficha(r, +b.dataset.valFicha, H); return true; }
-    if ((b = t.closest("[data-val-foco]"))) { if (t.closest("a")) return false; const k = +b.dataset.valFoco, m = S._mvM && S._mvM.pts[k]; if (m && S._mvM.map) { S._mvM.cap.addLayer(m); S._mvM.map.flyTo(m.getLatLng(), Math.max(S._mvM.map.getZoom(), 16), { duration: .5 }); m.openPopup(); $$(".mv-tr.foco").forEach(x => x.classList.remove("foco")); b.classList.add("foco"); } return true; }
+    if ((b = t.closest("[data-val-foco]"))) { if (t.closest("a")) return false; const k = +b.dataset.valFoco, m = S._mvM && S._mvM.pts[k]; if (m && S._mvM.map) { S._mvM.cap.addLayer(m); S._mvM.map.flyTo(m.getLatLng(), Math.max(S._mvM.map.getZoom(), 16), { duration: .5 }); m.openPopup(); S._mvFoco && S._mvFoco(k, false); } return true; }
     return false;
   }
   function cambia(e, H) {
