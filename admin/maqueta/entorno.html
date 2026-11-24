@@ -5599,7 +5599,9 @@ function visToast(t, err) { let e = document.getElementById('vis-toast'); if (!e
 function visEstado() {
   const p = camera.position, t = controls.target, dx = p.x - t.x, dz = p.z - t.z, dy = p.y - t.y, hd = Math.hypot(dx, dz), E = { v: 1 };
   E.cam = { p: [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)], t: [+t.x.toFixed(3), +t.y.toFixed(3), +t.z.toFixed(3)], fov: camera.fov, alt: +p.y.toFixed(1), rumbo: Math.round(((Math.atan2(dx, dz) * 180 / Math.PI) + 360) % 360), incl: Math.round(Math.atan2(dy, hd) * 180 / Math.PI), dist: +Math.hypot(dx, dy, dz).toFixed(1) };
-  E.capas = {}; CAPAS.forEach(c => { const k = c[0]; try { if (capaHay(k) || k === 'maqueta' || k === 'mapa' || k === 'mapa3d') E.capas[k] = !!capaVis(k); } catch (_) { } });
+  E.capas = {}; const dsgH = []; try { if (DSG.on) world.traverse(o => { if (o.userData && o.userData.dsgHid && !o.visible) { o.visible = true; dsgH.push(o); } }); } catch (_) { }
+  CAPAS.forEach(c => { const k = c[0]; try { if (capaHay(k) || k === 'maqueta' || k === 'mapa' || k === 'mapa3d') E.capas[k] = !!capaVis(k); } catch (_) { } }); dsgH.forEach(o => { o.visible = false; });
+  E.dsg = DSG.on ? { on: true, off: [...DSG.off], solo: DSG.solo != null ? DSG.solo : null, offPrev: DSG.offPrev ? [...DSG.offPrev] : null, cnt: DSG.cnt, ty0: DSG.ty0 } : { on: false };
   E.tags = Object.assign({}, ETQ); E.mapa = mapTipo; E.tod = { k: TOD.k, h: TOD.h }; E.rz = !!RZ.on; E.g3d = !!(G3D && G3D.on); E.tema = TEMA.v;
   E.win = []; PW.m.forEach((r, id) => { if (!r.el.classList.contains('on')) return; const w = { id, l: r.el.style.left, t: r.el.style.top, min: r.el.classList.contains('min') }; let h = ''; try { h = r.body ? r.body.innerHTML : ''; } catch (_) { } if (h && h.length < 60000) w.html = h; E.win.push(w); });
   E.dock = DK && DK.cur || null; E.proy = ID;
@@ -5624,6 +5626,7 @@ async function visAplica(it, op) {
   try { controls.autoRotate = false; const br = $('b-rot'); if (br) br.classList.remove('on'); } catch (_) { }
   try { if (E.tema && E.tema !== TEMA.v) temaSet(E.tema); } catch (_) { }
   try { if (E.tod && TODP[E.tod.k]) { if (E.tod.h != null) todHora(E.tod.h); else { TOD.h = null; todSet(E.tod.k); } } } catch (_) { }
+  try { const D = E.dsg; if (D && D.on) { if (!DSG.on) dsgSet(true); DSG.off = new Set(D.off || []); DSG.solo = D.solo != null ? D.solo : null; DSG.offPrev = D.offPrev ? new Set(D.offPrev) : null; if (D.cnt != null) DSG.cnt = D.cnt; if (D.ty0 != null) DSG.ty0 = D.ty0; dsgVenSync(); } else if (DSG.on) dsgSet(false); } catch (_) { }
   try { if (E.rz != null && !!RZ.on !== !!E.rz) rzSet(!!E.rz, true); } catch (_) { }
   try { if (E.mapa && E.mapa !== mapTipo) { const b = $('b-map').querySelector(`[data-m="${E.mapa}"]`); if (b) b.click(); } } catch (_) { }
   try { if (E.tags) { Object.keys(ETQ).forEach(k => delete ETQ[k]); Object.assign(ETQ, E.tags); try { localStorage.setItem('etq', JSON.stringify(ETQ)); } catch (_) { } } } catch (_) { }
