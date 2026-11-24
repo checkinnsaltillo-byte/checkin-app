@@ -408,12 +408,12 @@
   /* sección plegable (cerrada de inicio) con el boxplot de esta propiedad y sus similares */
   function boxHtml(mr, f, sims) {
     if (!sims.length) return ""; const svg = boxSvg(mr, f, sims); if (!svg) return "";
-    return `<details class="mv-dt"><summary><b>Boxplot · esta propiedad y sus similares</b><span>precio por m² del modelo</span></summary><div class="ev" style="margin-top:8px"><div class="ev-bx" style="margin-top:0">${svg}</div></div></details>`;
+    return `<div class="ev" style="margin-top:10px"><div class="ev-bx" style="margin-top:0"><h5>Boxplot · esta propiedad y sus similares</h5>${svg}</div></div>`;
   }
-  function simHtml(sims, r, H) {
+  function simHtml(sims, r, H, box) {
     if (!sims.length) return "";
     const F = H.S._mvF || {};
-    return `<details class="mv-dt"><summary><b>Publicaciones similares</b><span>${sims.length} que más se parecen</span></summary><p class="mo-mut" style="margin-top:8px">Las que más se parecen a ésta en precio, superficie, recámaras, baños, cercanía y tipo de inmueble (dentro del mismo modelo).</p><div class="mv-sl">${sims.map((s, i) => { const x = s.f, fo = (F[x.id] || {}).f, c = CLS[x.clase], k = r.filas.indexOf(x), pm = x.area ? x.precio / x.area : null;
+    return `<details class="mv-dt"><summary><b>Publicaciones similares</b><span>${sims.length} que más se parecen</span></summary>${box || ""}<p class="mo-mut" style="margin-top:10px">Las que más se parecen a ésta en precio, superficie, recámaras, baños, cercanía y tipo de inmueble (dentro del mismo modelo).</p><div class="mv-sl">${sims.map((s, i) => { const x = s.f, fo = (F[x.id] || {}).f, c = CLS[x.clase], k = r.filas.indexOf(x), pm = x.area ? x.precio / x.area : null;
       return `<div class="mv-si"><span class="mv-sn">${i + 1}</span><div class="mv-st2">${fo ? `<img src="${E(px(mini(fo)))}" alt="" onerror="this.remove()">` : ""}</div><div class="mv-sb"><b>${E(x.titulo || x.id)}</b><small>${E([x.area ? H.gN(x.area, 0) + " m²" : "", x.rec != null ? x.rec + " rec." : "", x.ban != null ? x.ban + " baños" : "", "a " + (s.km < 1 ? Math.round(s.km * 1000) + " m" : s.km.toFixed(1) + " km")].filter(Boolean).join(" · "))}</small><small>${s.sim} % de parecido${pm ? " · " + fm(pm) + "/m²" : ""}</small></div><div class="mv-sp2"><b>${fm(x.precio)}</b><span class="mv-dp mv-dp1" style="--c:${c[1]}">${fp(x.dif, 0)}</span></div><span class="mv-fi mv-fs" role="button" tabindex="0" data-val-ficha="${k}">Ver ficha</span></div>`; }).join("")}</div></details>`;
   }
   function panelVal(r, f, mult, sims) {
@@ -444,7 +444,7 @@
     det.innerHTML = nav() + `<div class="mo-bn" style="padding:40px;text-align:center">Cargando la ficha…</div>`; det.scrollTop = 0;
     document.removeEventListener("keydown", cierraFicha._k, true); cierraFicha._k = e => { if (e.key === "Escape") volverFicha(r, H, "prev"); }; document.addEventListener("keydown", cierraFicha._k, true);
     try { const m = S._mvM; if (m && m.map && m.pts[k]) { m.cap.addLayer(m.pts[k]); m.map.flyTo(m.pts[k].getLatLng(), Math.max(m.map.getZoom(), 15), { duration: .5 }); } if (S._mvFoco) S._mvFoco(k, false); } catch (_) { }
-    const base = S.res, mr = base && base.multi ? ((base.modelos.find(x => x.id === f.mid) || {}).res || r) : r, sims = similares(mr, f, 6), vr = panelVal(mr, f, r.nMod > 1 || (base && base.multi && base.modelos.length > 1), sims), simL = boxHtml(mr, f, sims) + simHtml(sims, r, H);
+    const base = S.res, mr = base && base.multi ? ((base.modelos.find(x => x.id === f.mid) || {}).res || r) : r, sims = similares(mr, f, 6), vr = panelVal(mr, f, r.nMod > 1 || (base && base.multi && base.modelos.length > 1), sims), simL = simHtml(sims, r, H, boxHtml(mr, f, sims));
     try { const j = await H.api("/geometrika/modelab/inmuebles/ficha", { id: f.id }); if (tk !== st._fk) return; const F = j.ficha, fo = (F.fotos || []).filter(Boolean);
       det.innerHTML = nav() + `<div class="mv-fb"><div class="mv-gal">${fo.length ? `<div class="mv-big"><img id="mvBig" src="${E(px(fo[0]))}" data-o="${E(fo[0])}" alt="" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.o}"></div>${fo.length > 1 ? `<div class="mv-th2">${fo.slice(0, 24).map((u, i) => `<img src="${E(px(u))}" data-u="${E(u)}" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.u}" data-val-ph="${i}" class="${i ? "" : "on"}" alt="" referrerpolicy="no-referrer">`).join("")}</div>` : ""}` : '<div class="mv-big mv-sf">Sin fotos</div>'}</div>
         <div class="mv-fd"><div class="mv-fh"><span class="mv-src">${E(F.fuente)}</span>${f.tipo ? `<span class="mv-src">${E(f.tipo)}</span>` : ""}</div><h2>${E(F.titulo || f.titulo || f.id)}</h2><p class="mo-mut">${E(F.ubicacion || "")}${F.publicado ? " · " + E(String(F.publicado).slice(0, 10)) : ""}</p>${vr}

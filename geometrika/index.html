@@ -486,8 +486,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "modelo") {
     document.getElementById("modelab-host").style.display = "";
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=c18a6a4c"; document.head.appendChild(l);
-    gpCarga("modelab-biblioteca.js?v=c18a6a4c", () => gpCarga("modelab-motor.js?v=c18a6a4c", () => gpCarga("modelab-valuacion.js?v=c18a6a4c", () => gpCarga("modelab.js?v=c18a6a4c", () => window.modelabInit && window.modelabInit()))));
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=d3ac6cfa"; document.head.appendChild(l);
+    gpCarga("modelab-biblioteca.js?v=d3ac6cfa", () => gpCarga("modelab-motor.js?v=d3ac6cfa", () => gpCarga("modelab-valuacion.js?v=d3ac6cfa", () => gpCarga("modelab.js?v=d3ac6cfa", () => window.modelabInit && window.modelabInit()))));
   } else if (sys === "media") {
     document.getElementById("medialab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "medialab.css?v=0305c841"; document.head.appendChild(l);
