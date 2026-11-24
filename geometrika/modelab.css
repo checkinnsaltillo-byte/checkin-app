@@ -663,3 +663,15 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 @media(max-width:860px){.mv-fb{grid-template-columns:1fr}.mv-gal{min-height:0}}
 .mv-map{height:clamp(760px,115vh,1200px)!important}.mv-cards,.mv-tw{max-height:clamp(760px,115vh,1200px)}.mv-mapw{position:static}
 .mv-nf{display:none}.mv-cv.nf .mv-nf{display:flex}.mv-cv:not(.nf){background:linear-gradient(110deg,#e2e8f0 30%,#f1f5f9 50%,#e2e8f0 70%);background-size:200% 100%;animation:mvsh 1.4s linear infinite}@keyframes mvsh{to{background-position:-200% 0}}
+
+/* Panel de valuación · diseño EconoLab */
+.ev{margin-top:10px;padding:14px;border-radius:16px;color:#e6ecff;background:radial-gradient(520px 260px at 100% -10%,rgba(124,58,237,.28),transparent 60%),radial-gradient(420px 240px at -5% 110%,rgba(6,182,212,.22),transparent 60%),#080d1c;border:1px solid rgba(148,163,184,.18);box-shadow:0 10px 30px rgba(8,13,28,.35)}
+.ev small{color:#94a3b8}.ev p{color:#cbd5e1!important;font-size:12px!important}
+.ev-hd{display:flex;align-items:center;gap:10px;margin-bottom:6px}.ev-pill{padding:4px 12px;border-radius:99px;background:color-mix(in srgb,var(--c) 22%,transparent);border:1px solid var(--c);color:#fff;font:800 12px system-ui;box-shadow:0 0 16px color-mix(in srgb,var(--c) 55%,transparent)}.ev-sg{font:600 11.5px system-ui;color:#94a3b8}
+.ev-top{display:grid;grid-template-columns:minmax(190px,230px) 1fr;gap:12px;align-items:center}.ev-gw{position:relative;text-align:center}.ev-g{width:100%;display:block}.ev-gv{position:absolute;left:0;right:0;top:50px;font:800 25px system-ui;text-shadow:0 0 18px currentColor}.ev-gw small{display:block;margin-top:-6px;font-size:10.5px}
+.ev-kp{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ev-kp>div{padding:8px 10px;border-radius:11px;background:rgba(30,41,59,.6);border:1px solid rgba(148,163,184,.16)}.ev-kp small{display:block;font:600 10.5px system-ui;text-transform:uppercase;letter-spacing:.04em}.ev-kp b{font:800 17px system-ui;color:#fff}.ev-kp b.cy{color:#22d3ee;text-shadow:0 0 14px rgba(34,211,238,.45)}
+.ev-bx{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(15,23,42,.65);border:1px solid rgba(148,163,184,.14)}.ev-bx h5{margin:0 0 4px;font:700 12px system-ui;color:#e2e8f0;display:flex;gap:8px;align-items:baseline}.ev-bx h5 small{font-weight:500}
+.ev-b{width:100%;display:block}.ev .ev-t{font:500 10px system-ui;fill:#94a3b8}
+.ev-cp{display:grid;grid-template-columns:minmax(120px,1.2fr) 2fr 82px;gap:8px;align-items:center;font-size:11.5px;color:#cbd5e1;margin:5px 0}.ev-cb{height:9px;border-radius:5px;background:rgba(148,163,184,.14);overflow:hidden}.ev-cb i{display:block;height:100%;border-radius:5px;box-shadow:0 0 10px currentColor}.ev-cp b{text-align:right;color:#fff}
+.ev-nt{margin-top:8px!important;color:#64748b!important;font-size:11px!important}
+@media(max-width:560px){.ev-top{grid-template-columns:1fr}}
