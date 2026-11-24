@@ -702,3 +702,22 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mv-pp .mv-cd{border:0;border-radius:0;box-shadow:none;cursor:default}.mv-pp .mv-cv{aspect-ratio:16/10}.mv-pp .leaflet-popup-close-button{top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:rgba(15,23,42,.75);color:#fff!important;font-size:16px;line-height:24px;text-align:center;padding:0;z-index:5}
 .mv-pp .mv-lb h4{font-size:13.5px}
 .mv-cd.foco{outline:3px solid #4f46e5;box-shadow:0 0 0 6px rgba(79,70,229,.18),0 10px 28px rgba(79,70,229,.25)}.mv-tr.foco td{background:#e0e7ff}
+/* Barra de herramientas de propiedades (clasificación, búsqueda, orden, vista) */
+.mv-ex{padding:0}.mv-exh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}.mv-exh h3{margin:0}.mv-exh span{font:500 12px system-ui;color:#64748b}
+.mv-tb{display:flex;flex-direction:column;gap:10px;padding:12px;margin-bottom:12px;border-radius:16px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0}
+.mv-seg{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mv-seg .mv-lc{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:99px;border:1px solid #dbe3ee;background:#fff;color:#334155;font:600 12px system-ui;cursor:pointer;transition:.15s}
+.mv-seg .mv-lc i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
+.mv-seg .mv-lc small{padding:1px 7px;border-radius:99px;background:#f1f5f9;color:#64748b;font:700 10.5px system-ui}
+.mv-seg .mv-lc:hover{border-color:var(--c);transform:translateY(-1px)}.mv-seg .mv-lc.on{background:var(--c);border-color:var(--c);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 40%,transparent)}.mv-seg .mv-lc.on i{background:#fff;box-shadow:none}.mv-seg .mv-lc.on small{background:rgba(255,255,255,.25);color:#fff}
+.mv-all{height:34px;padding:0 12px;border:0;background:none;color:#4f46e5;font:700 12px system-ui;cursor:pointer;border-radius:99px}.mv-all:hover{background:#eef2ff}
+.mv-ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.mv-srch{flex:1 1 240px;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:11px;border:1px solid #dbe3ee;background:#fff;color:#94a3b8}.mv-srch:focus-within{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.mv-srch input{flex:1;min-width:0;border:0;outline:0;background:none;font:500 13px system-ui;color:#0f172a;height:100%}
+.mv-ord{display:flex;align-items:center;gap:8px;height:38px;padding:0 6px 0 12px;border-radius:11px;border:1px solid #dbe3ee;background:#fff}.mv-ord span{font:600 11px system-ui;color:#64748b;white-space:nowrap}
+.mv-ord select{height:34px;border:0;outline:0;background:none;font:600 12.5px system-ui;color:#0f172a;cursor:pointer;padding-right:6px;width:auto;min-width:200px}
+.mv-vm2{display:flex;padding:3px;height:38px;border-radius:11px;background:#e2e8f0}.mv-vm2 button{border:0;background:none;padding:0 14px;border-radius:9px;font:700 12px system-ui;color:#475569;cursor:pointer;white-space:nowrap}.mv-vm2 button.on{background:#0f172a;color:#fff;box-shadow:0 2px 8px rgba(15,23,42,.3)}
+.mv-csv{height:38px;padding:0 14px;border-radius:11px;border:1px solid #dbe3ee;background:#fff;color:#334155;font:700 12px system-ui;cursor:pointer}.mv-csv:hover{border-color:#6366f1;color:#4338ca}
+/* tarjeta compacta de la ventana del mapa */
+.mv-pp .leaflet-popup-content{width:220px!important}.mv-pp .mv-mini .mv-cv{aspect-ratio:16/8}.mv-pp .mv-mini .mv-lb{padding:8px 10px 10px;gap:1px}.mv-pp .mv-mini h4{font-size:12.5px;margin:0 0 1px;-webkit-line-clamp:2}.mv-pp .mv-mini small{font-size:10.5px}.mv-pp .mv-mini .mv-pr{margin-top:4px}.mv-pp .mv-mini .mv-pr b{font-size:14px}.mv-pp .mv-mini .mv-pr span+span b{font-size:11px}.mv-pp .mv-mini .mv-chipw{margin-top:6px}.mv-pp .mv-mini .mv-dp{background:var(--c)}.mv-pp .mv-mini .mv-vt{font-size:10.5px}.mv-pp .mv-mini .mv-fi{margin-top:7px;padding:5px;font-size:11px;border-radius:8px}
+.mv-dp1{display:inline-block;padding:3px 10px;border-radius:99px;background:var(--c);color:#fff;font:700 10.5px system-ui;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
