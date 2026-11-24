@@ -662,3 +662,4 @@ html.mo-dark .mo-emb .mo-side{background:rgba(255,255,255,.80)}
 .mv-ds{white-space:pre-wrap;max-height:220px;overflow:auto}
 @media(max-width:860px){.mv-fb{grid-template-columns:1fr}.mv-gal{min-height:0}}
 .mv-map{height:clamp(760px,115vh,1200px)!important}.mv-cards,.mv-tw{max-height:clamp(760px,115vh,1200px)}.mv-mapw{position:static}
+.mv-nf{display:none}.mv-cv.nf .mv-nf{display:flex}.mv-cv:not(.nf){background:linear-gradient(110deg,#e2e8f0 30%,#f1f5f9 50%,#e2e8f0 70%);background-size:200% 100%;animation:mvsh 1.4s linear infinite}@keyframes mvsh{to{background-position:-200% 0}}
