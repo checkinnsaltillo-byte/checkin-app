@@ -107,8 +107,8 @@
     /* tendencia espacial (polinomio de 2.º grado en las coordenadas) */
     const la0 = med(idx.map(i => ds.lat[i])), ln0 = med(idx.map(i => ds.lng[i])), XY = idx.map(i => xyDe(ds.lat[i], ds.lng[i], la0, ln0)), sc = Math.max(1, Math.sqrt(mean(XY.map(p => p[0] * p[0] + p[1] * p[1]))));
     const poly = [[p => p[0] / sc, "Ubicación este-oeste"], [p => p[1] / sc, "Ubicación norte-sur"], [p => (p[0] / sc) ** 2, "Ubicación este-oeste (curva)"], [p => (p[1] / sc) ** 2, "Ubicación norte-sur (curva)"], [p => (p[0] / sc) * (p[1] / sc), "Ubicación diagonal"]];
-    if (cfg.tendencia !== false) poly.forEach(([f, nm]) => { const a = XY.map(f), m = mean(a), s = Math.sqrt(mean(a.map(x => (x - m) ** 2))) || 1; cols.push(a.map(x => (x - m) / s)); nombres.push(nm); info.push({ tipo: "geo", col: nm }); });
-    const X = Array.from({ length: n }, (_, i) => cols.map(c => c[i])); return { X, nombres, info, XY, la0, ln0 };
+    const polyInfo = []; if (cfg.tendencia !== false) poly.forEach(([f, nm]) => { const a = XY.map(f), m = mean(a), s = Math.sqrt(mean(a.map(x => (x - m) ** 2))) || 1; cols.push(a.map(x => (x - m) / s)); nombres.push(nm); info.push({ tipo: "geo", col: nm }); polyInfo.push({ f, m, s }); });
+    const X = Array.from({ length: n }, (_, i) => cols.map(c => c[i])); return { X, nombres, info, XY, la0, ln0, polyInfo };
   }
 
   /* validación cruzada: Ridge con λ elegido por validación cruzada interna */
@@ -148,6 +148,35 @@
     return { pred, sd, kn };
   }
 
+  /* kriging ordinario de los residuos en puntos cualesquiera (no excluye ningún dato): sirve para la malla de precios */
+  function krigPts(XY, e, aj, P) {
+    const sill = aj.c0 + aj.c, f = MODV[aj.tipo], C = h => h <= 0 ? sill : sill - f(h, aj.c0, aj.c, aj.a), rad = aj.a * 1.5, celda = Math.max(500, rad / 2), G = new Map(), out = new Array(P.length).fill(0);
+    XY.forEach((p, i) => { const k = Math.floor(p[0] / celda) + "," + Math.floor(p[1] / celda); (G.get(k) || G.set(k, []).get(k)).push(i); });
+    P.forEach((q, ip) => {
+      const cx = Math.floor(q[0] / celda), cy = Math.floor(q[1] / celda), nbh = [], R = Math.ceil(rad / celda);
+      for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) { const L = G.get((cx + dx) + "," + (cy + dy)); if (!L) continue; L.forEach(j => { const d = Math.hypot(q[0] - XY[j][0], q[1] - XY[j][1]); if (d <= rad) nbh.push([d, j]); }); }
+      nbh.sort((a, b) => a[0] - b[0]); const m = Math.min(24, nbh.length); if (m < 5) return; const V = nbh.slice(0, m), A = Array.from({ length: m + 1 }, () => new Array(m + 1).fill(0)), b = new Array(m + 1).fill(0);
+      for (let a = 0; a < m; a++) { for (let c = a; c < m; c++) { const d = Math.hypot(XY[V[a][1]][0] - XY[V[c][1]][0], XY[V[a][1]][1] - XY[V[c][1]][1]), v = a === c ? sill : C(d); A[a][c] = v; A[c][a] = v; } A[a][m] = 1; A[m][a] = 1; b[a] = C(V[a][0]); } b[m] = 1;
+      const w = resuelve(A, b.slice()); if (!w) return; let p = 0; for (let a = 0; a < m; a++) p += w[a] * e[V[a][1]]; out[ip] = p;
+    });
+    return out;
+  }
+  /* Malla de precios estimados: precio esperado de una «propiedad típica» del modelo (mediana de sus atributos) en cada celda:
+     regresión (atributos de referencia + tendencia espacial) + kriging de los residuos con el variograma ajustado */
+  function mallaPrecio(A, cv, e, aj, mr, L, ds, idx) {
+    const XY = A.XY, n = XY.length, p = A.X[0].length, nGeo = A.polyInfo.length, ref = new Array(p).fill(0);
+    for (let j = 0; j < p - nGeo; j++) ref[j] = med(A.X.map(r => r[j]));
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; XY.forEach(q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
+    const w = Math.max(x1 - x0, 500), h = Math.max(y1 - y0, 500), cell = Math.max(250, Math.max(w, h) / 55), mg = cell * 1.5; x0 -= mg; y0 -= mg; const nx = Math.ceil((w + 2 * mg) / cell) + 1, ny = Math.ceil((h + 2 * mg) / cell) + 1, dmax = Math.max(900, aj ? aj.a * .55 : 900);
+    const celdas = [], P = [];
+    for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) { const q = [x0 + ix * cell, y0 + iy * cell]; let near = Infinity; for (let i = 0; i < n; i++) { const d = Math.hypot(q[0] - XY[i][0], q[1] - XY[i][1]); if (d < near) near = d; } if (near <= dmax) { celdas.push([ix, iy]); P.push(q); } }
+    if (P.length < 8) return null;
+    const kr = aj ? krigPts(XY, e, aj, P) : P.map(() => 0), vals = new Array(nx * ny).fill(null);
+    P.forEach((q, k) => { const x = ref.slice(); A.polyInfo.forEach((pi, g) => { x[p - nGeo + g] = (pi.f(q) - pi.m) / pi.s; }); const ln = predice(cv.modelo, x) + kr[k]; vals[celdas[k][1] * nx + celdas[k][0]] = Math.round(Math.exp(ln + mr)); });
+    const C = L.C, num = c => idx.map(i => c >= 0 ? numV(L.Rows[i][c]) : null).filter(nz), area = med(idx.map(i => L.areaDe(i)).filter(nz)), rec = C.rec >= 0 ? med(num(C.rec)) : null, ban = C.ban >= 0 ? med(num(C.ban)) : null;
+    return { la0: A.la0, ln0: A.ln0, x0, y0, cell, nx, ny, vals, ref: { area: nz(area) ? Math.round(area) : null, rec: nz(rec) ? rec : null, ban: nz(ban) ? ban : null }, nCeldas: P.length };
+  }
+
   /* ───────── análisis completo ───────── */
   const NOMBRES = { val_rk: "Regresión-kriging (atributos + geoestadística)", val_hed: "Modelo hedónico (regresión Ridge del precio)", val_geo: "Geoestadístico (tamaño + variograma y kriging)" };
   async function correr(ds, cfg, onEtapa) {
@@ -164,6 +193,7 @@
       if (vario.ajuste) { ev("kriging", 0); await tick(); krig = krigingLOO(A.XY, e, vario.ajuste); lnPred = lnPred.map((p, i) => p + krig.pred[i]); ev("kriging", 1); await tick(); }
     }
     ev("clasificacion", 0); await tick();
+    let malla = null; try { malla = mallaPrecio(A, cv, e, vario && vario.ajuste, med(y.map((v, i) => v - lnPred[i])), L, ds, idx); } catch (_) { malla = null; }
     const r = y.map((v, i) => v - lnPred[i]), sig = mad(r, med(r)) * 1.4826 || Math.sqrt(mean(r.map(x => x * x))) || .1, mr = med(r);
     const rmse = Math.sqrt(mean(r.map(x => x * x))), vy = mean(y.map(v => (v - mean(y)) ** 2)), r2 = 1 - mean(r.map(x => x * x)) / vy, mape = mean(r.map(x => Math.abs(Math.exp(x) - 1))), mdape = med(r.map(x => Math.abs(Math.exp(x) - 1)));
     const MINDIF = cfg.minDif != null ? cfg.minDif : .10, cls = (z, d) => Math.abs(d) < MINDIF || Math.abs(z) < 1 ? "linea" : z <= -2 ? "muy_abajo" : z < 0 ? "abajo" : z >= 2 ? "muy_arriba" : "arriba";
@@ -181,7 +211,7 @@
       limpieza: { total: L.n0, conserva: n, pasos: L.pasos, corregidos: L.corregidos, excluidas: L.excl.slice(0, 1500), nExcl: L.excl.length },
       modelo: { r2cv: r2, rmseLn: rmse, sigma: sig, mape, mdape, coefs: coefs.slice(0, 30), nCoef: coefs.length, atributos: A.nombres },
       variograma: vario ? { bins: vario.bins, ajuste: aj ? { tipo: aj.tipo, c0: aj.c0, c: aj.c, a: aj.a, meseta: aj.meseta, dependencia: aj.dependencia } : null, lag: vario.lag, pares: vario.pares } : null,
-      kriging: krig ? { r2Mejora: null, vecinos: Math.round(mean(krig.kn)) } : null,
+      kriging: krig ? { r2Mejora: null, vecinos: Math.round(mean(krig.kn)) } : null, malla,
       resumen: { conteos: cnt, medianaDif: +med(filas.map(f => f.dif)).toFixed(4), difMin: Math.min(...filas.map(f => f.dif)), difMax: Math.max(...filas.map(f => f.dif)) }, filas };
   }
 
@@ -393,24 +423,34 @@
       ${pm && nz(pmT) ? `<div class="ev-bx"><h5>Precio por m² · comparación</h5>${cmp("Esta propiedad", pm, pmT, c[1])}${cmp("Esperado por el modelo", est, pmT, "#22d3ee")}${cmp("Mediana de «" + E(f.tipo || "inmuebles") + "» (" + mis.length + ")", pmT, pm, "#a78bfa")}${cmp("Mediana de todo el mercado", pmAll, pm, "#64748b")}</div>` : ""}
       <p class="ev-nt">Rango esperado del 80 %: ${fm(f.bajo)} a ${fm(f.alto)}. Resultado del método «${E(r.nombreMetodo)}» con R² validado de ${r.modelo.r2cv.toFixed(2)}.</p></div>`;
   }
-  /* ficha de la publicación: ventana con fotos, datos, descripción y el resultado de la valuación */
-  function cierraFicha() { const o = document.getElementById("mvFicha"); if (o) o.remove(); document.removeEventListener("keydown", cierraFicha._k, true); document.body.style.overflow = ""; }
-  async function ficha(r, k, H) {
-    const f = r.filas[k]; if (!f) return; cierraFicha(); const c = CLS[f.clase], ov = document.createElement("div"); ov.id = "mvFicha"; ov.className = "mv-ov"; document.body.style.overflow = "hidden";
-    ov.innerHTML = `<div class="mv-mo" role="dialog" aria-modal="true"><button type="button" class="mv-x" data-val-cierra="1" aria-label="Cerrar">✕</button><div class="mv-fb"><div class="mo-bn" style="padding:40px;text-align:center">Cargando la ficha…</div></div></div>`; document.body.appendChild(ov);
-    cierraFicha._k = e => { if (e.key === "Escape") cierraFicha(); }; document.addEventListener("keydown", cierraFicha._k, true);
-    const base = H.S.res, mr = base && base.multi ? ((base.modelos.find(m => m.id === f.mid) || {}).res || r) : r, sims = similares(mr, f, 6), vr = panelVal(mr, f, r.nMod > 1 || (base && base.multi && base.modelos.length > 1), sims), simL = simHtml(sims, r, H);
-    try { const j = await H.api("/geometrika/modelab/inmuebles/ficha", { id: f.id }), F = j.ficha, fo = (F.fotos || []).filter(Boolean), cuerpo = ov.querySelector(".mv-fb"); if (!cuerpo) return;
-      cuerpo.innerHTML = `<div class="mv-gal">${fo.length ? `<div class="mv-big"><img id="mvBig" src="${E(px(fo[0]))}" data-o="${E(fo[0])}" alt="" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.o}"></div>${fo.length > 1 ? `<div class="mv-th2">${fo.slice(0, 24).map((u, i) => `<img src="${E(px(u))}" data-u="${E(u)}" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.u}" data-val-ph="${i}" class="${i ? "" : "on"}" alt="" referrerpolicy="no-referrer">`).join("")}</div>` : ""}` : '<div class="mv-big mv-sf">Sin fotos</div>'}</div>
+  /* ficha de la publicación: se abre en la misma columna de las tarjetas (junto al mapa), con «Volver a la lista» y «Anterior» */
+  function cierraFicha() {
+    const d = document.getElementById("mvDet"), l = document.getElementById("mvLista"); if (d) { d.hidden = true; d.innerHTML = ""; } if (l) l.hidden = false;
+    document.removeEventListener("keydown", cierraFicha._k, true);
+  }
+  function volverFicha(r, H, modo) {
+    const st = H.S.mv; if (!st) return; if (modo === "prev" && st.pila && st.pila.length > 1) { st.pila.pop(); ficha(r, st.pila[st.pila.length - 1], H, "pop"); return; }
+    st.pila = []; cierraFicha(); if (st.foco != null && H.S._mvFoco) H.S._mvFoco(st.foco, true);
+  }
+  async function ficha(r, k, H, modo) {
+    const S = H.S, st = S.mv, f = r.filas[k], det = document.getElementById("mvDet"), lis = document.getElementById("mvLista"); if (!f || !det || !lis) return;
+    st.pila = st.pila || []; if (modo !== "pop" && st.pila[st.pila.length - 1] !== k) st.pila.push(k); const tk = st._fk = (st._fk || 0) + 1;
+    lis.hidden = true; det.hidden = false; const c = CLS[f.clase];
+    const nav = () => `<div class="mv-dn"><button type="button" class="mv-bk" data-val-fvol="lista">← Volver a la lista</button>${st.pila.length > 1 ? `<button type="button" class="mv-bk" data-val-fvol="prev">↶ Anterior</button>` : ""}<span>${st.pila.length > 1 ? "Ficha " + st.pila.length + " · vas navegando entre similares" : "Detalle de la publicación"}</span></div>`;
+    det.innerHTML = nav() + `<div class="mo-bn" style="padding:40px;text-align:center">Cargando la ficha…</div>`; det.scrollTop = 0;
+    document.removeEventListener("keydown", cierraFicha._k, true); cierraFicha._k = e => { if (e.key === "Escape") volverFicha(r, H, "prev"); }; document.addEventListener("keydown", cierraFicha._k, true);
+    try { const m = S._mvM; if (m && m.map && m.pts[k]) { m.cap.addLayer(m.pts[k]); m.map.flyTo(m.pts[k].getLatLng(), Math.max(m.map.getZoom(), 15), { duration: .5 }); } if (S._mvFoco) S._mvFoco(k, false); } catch (_) { }
+    const base = S.res, mr = base && base.multi ? ((base.modelos.find(x => x.id === f.mid) || {}).res || r) : r, sims = similares(mr, f, 6), vr = panelVal(mr, f, r.nMod > 1 || (base && base.multi && base.modelos.length > 1), sims), simL = simHtml(sims, r, H);
+    try { const j = await H.api("/geometrika/modelab/inmuebles/ficha", { id: f.id }); if (tk !== st._fk) return; const F = j.ficha, fo = (F.fotos || []).filter(Boolean);
+      det.innerHTML = nav() + `<div class="mv-fb"><div class="mv-gal">${fo.length ? `<div class="mv-big"><img id="mvBig" src="${E(px(fo[0]))}" data-o="${E(fo[0])}" alt="" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.o}"></div>${fo.length > 1 ? `<div class="mv-th2">${fo.slice(0, 24).map((u, i) => `<img src="${E(px(u))}" data-u="${E(u)}" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.u}" data-val-ph="${i}" class="${i ? "" : "on"}" alt="" referrerpolicy="no-referrer">`).join("")}</div>` : ""}` : '<div class="mv-big mv-sf">Sin fotos</div>'}</div>
         <div class="mv-fd"><div class="mv-fh"><span class="mv-src">${E(F.fuente)}</span>${f.tipo ? `<span class="mv-src">${E(f.tipo)}</span>` : ""}</div><h2>${E(F.titulo || f.titulo || f.id)}</h2><p class="mo-mut">${E(F.ubicacion || "")}${F.publicado ? " · " + E(String(F.publicado).slice(0, 10)) : ""}</p>${vr}
           ${F.pares && F.pares.length ? `<h3>Características</h3><div class="mv-pg">${F.pares.map(([a, b]) => `<div><small>${E(a)}</small><b>${E(b)}</b></div>`).join("")}</div>` : ""}
           ${F.amenidades && F.amenidades.length ? `<h3>Amenidades</h3><div class="mo-chs">${F.amenidades.map(a => `<span class="mv-chip" style="--c:#64748b">${E(a)}</span>`).join("")}</div>` : ""}
           ${F.vendedor ? `<h3>Publicante</h3><p>👤 ${E(F.vendedor)}</p>` : ""}
           ${F.descripcion ? `<h3>Descripción</h3><p class="mv-ds">${E(F.descripcion)}</p>` : ""}
           ${simL}
-          ${F.url ? `<a class="mv-fi" href="${E(F.url)}" target="_blank" rel="noopener">Abrir la publicación original ↗</a>` : ""}</div>`;
-    } catch (e) { const cuerpo = ov.querySelector(".mv-fb"); if (cuerpo) cuerpo.innerHTML = `<div class="mv-fd"><h2>${E(f.titulo || f.id)}</h2>${vr}${simL}<p class="mo-mut">No se pudo cargar el detalle de la publicación (${E(e.message)}).</p>${f.url ? `<a class="mv-fi" href="${E(f.url)}" target="_blank" rel="noopener">Abrir la publicación original ↗</a>` : ""}</div>`; }
-    ov.addEventListener("click", e => { if (e.target === ov || e.target.closest("[data-val-cierra]")) { cierraFicha(); return; } const o2 = e.target.closest("[data-val-ficha]"); if (o2 && +o2.dataset.valFicha >= 0) { ficha(r, +o2.dataset.valFicha, H); return; } const t =e.target.closest("[data-val-ph]"); if (t) { const big = ov.querySelector("#mvBig"); if (big) { big.dataset.r = ""; big.dataset.o = t.dataset.u; big.src = t.src; } ov.querySelectorAll(".mv-th2 img").forEach(x => x.classList.toggle("on", x === t)); } });
+          ${F.url ? `<a class="mv-fi" href="${E(F.url)}" target="_blank" rel="noopener">Abrir la publicación original ↗</a>` : ""}</div></div>`;
+    } catch (e) { if (tk !== st._fk) return; det.innerHTML = nav() + `<div class="mv-fd"><h2>${E(f.titulo || f.id)}</h2>${vr}${simL}<p class="mo-mut">No se pudo cargar el detalle de la publicación (${E(e.message)}).</p>${f.url ? `<a class="mv-fi" href="${E(f.url)}" target="_blank" rel="noopener">Abrir la publicación original ↗</a>` : ""}</div>`; }
   }
   /* miniatura ligera: Mercado Libre sirve la misma foto en 500 px (-O) en lugar de 1200 px (-F), unas 6 veces menos peso */
   const tokG = () => { try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); return g && g.token ? g.token : ""; } catch (_) { return ""; } };
@@ -448,7 +488,7 @@
           <label class="mv-ord"><span>Ordenar por</span><select id="mvOrd" data-val-in="ord">${[["dif|1", "Más baratas frente al mercado"], ["dif|0", "Más caras frente al mercado"], ["precio|1", "Precio: menor a mayor"], ["precio|0", "Precio: mayor a menor"], ["pm2|1", "Precio por m²: menor a mayor"], ["pm2|0", "Precio por m²: mayor a menor"], ["area|0", "Superficie: mayor a menor"], ["esperado|0", "Precio esperado: mayor a menor"]].map(([v, t]) => `<option value="${v}"${v === (st.orden || "dif") + "|" + (st.asc ? 1 : 0) ? " selected" : ""}>${t}</option>`).join("")}</select></label>
           <div class="mv-vm2" role="group" aria-label="Vista"><button type="button" class="${st.modo !== "tabla" ? "on" : ""}" data-val-modo="cards">▦ Tarjetas</button><button type="button" class="${st.modo === "tabla" ? "on" : ""}" data-val-modo="tabla">☰ Tabla</button></div>
           <button type="button" class="mv-csv" data-val-csv="1" title="Descargar la tabla en CSV">⬇ CSV</button></div></div>
-        <div class="mv-split"><div class="mv-mapw"><div id="mvMap" class="mo-map mv-map"></div></div><div class="mv-tabw">${st.modo === "tabla" ? '<div class="mo-tw mv-tw"><table class="mo-t mv-t"><thead><tr><th>Propiedad</th><th><button type="button" class="mv-th" data-val-ord="area">m²</button></th><th>Rec./Baños</th><th><button type="button" class="mv-th" data-val-ord="precio">Precio publicado</button></th><th><button type="button" class="mv-th" data-val-ord="esperado">Precio esperado</button></th><th><button type="button" class="mv-th" data-val-ord="dif">Diferencia ${st.orden === "dif" ? (st.asc ? "▲" : "▼") : ""}</button></th><th>Clasificación</th></tr></thead><tbody id="mvTb"></tbody></table></div>' : '<div class="mv-cards" id="mvCards"></div>'}<div class="mo-chs" id="mvMas"></div></div></div></section>
+        <div class="mv-split"><div class="mv-mapw"><div id="mvMap" class="mo-map mv-map"></div></div><div class="mv-tabw"><div id="mvLista">${st.modo === "tabla" ? '<div class="mo-tw mv-tw"><table class="mo-t mv-t"><thead><tr><th>Propiedad</th><th><button type="button" class="mv-th" data-val-ord="area">m²</button></th><th>Rec./Baños</th><th><button type="button" class="mv-th" data-val-ord="precio">Precio publicado</button></th><th><button type="button" class="mv-th" data-val-ord="esperado">Precio esperado</button></th><th><button type="button" class="mv-th" data-val-ord="dif">Diferencia ${st.orden === "dif" ? (st.asc ? "▲" : "▼") : ""}</button></th><th>Clasificación</th></tr></thead><tbody id="mvTb"></tbody></table></div>' : '<div class="mv-cards" id="mvCards"></div>'}<div class="mo-chs" id="mvMas"></div></div><div id="mvDet" class="mv-det" hidden></div></div></div></section>
       ${r.agg ? "" : `<section class="mo-sx2"><h3>¿Qué se hizo con los datos?${tg} <small>limpieza de las publicaciones</small></h3>${hist(r, H)}<p class="mo-mut">Cada paso trabaja sobre lo que dejó el anterior. Al final de esta página puedes ver cuáles publicaciones salieron y por qué.</p></section>`}
       ${r.agg ? "" : `<section class="mo-sx2"><h3>Qué influye en el precio${tg} <small>modelo hedónico · efecto de cada atributo</small></h3><p class="mo-mut">Efecto aproximado en el precio al subir una desviación estándar del atributo (o al pertenecer a la categoría), manteniendo lo demás igual. Se calculó con ${H.gN(r.config.nAtributos, 0)} atributos y penalización Ridge (λ = ${r.config.lambda}).</p>${barrasEf(r)}</section>`}
       ${r.variograma && !r.agg ? `<section class="mo-sx2"><h3>Dependencia espacial del precio${tg} <small>variograma y kriging</small></h3><div class="mv-vg"><div>${svgVario(r.variograma)}<p class="mo-mut">Puntos: semivarianza observada entre pares de propiedades a cada distancia. Línea: modelo ${aj ? E(aj.tipo) : ""} ajustado.</p></div><div class="mv-vgi">${aj ? `<div class="mv-par"><span>Modelo</span><b>${E(aj.tipo)}</b></div><div class="mv-par"><span>Alcance (distancia a la que dejan de parecerse)</span><b>${(aj.a / 1000).toFixed(1)} km</b></div><div class="mv-par"><span>Efecto pepita (variación sin explicar localmente)</span><b>${aj.c0.toFixed(3)}</b></div><div class="mv-par"><span>Meseta (variación total)</span><b>${aj.meseta.toFixed(3)}</b></div><div class="mv-par"><span>Dependencia espacial</span><b>${Math.round(aj.dependencia * 100)} %</b></div><p>${aj.dependencia >= .66 ? "La ubicación pesa mucho: propiedades cercanas tienen precios muy parecidos, aun con los mismos atributos." : aj.dependencia >= .33 ? "Hay dependencia espacial moderada: la vecindad explica una parte del precio que los atributos no captan." : "La dependencia espacial es débil: los atributos explican casi todo el precio."}</p>` : '<p class="mo-mut">No se pudo ajustar un modelo de variograma.</p>'}</div></div></section>` : ""}
@@ -456,6 +496,45 @@
       <section class="mo-sx2"><h3>Cómo leer este análisis</h3><ul class="mo-rsm"><li>El <b>precio esperado</b> es el precio que le corresponde a una propiedad con esas características y en esa ubicación según el mercado de las publicaciones útiles; el rango es de 80 %.</li><li>Una propiedad <b>por debajo</b> del mercado no es necesariamente una ganga: puede tener defectos que la publicación no menciona (estado, régimen legal, acabados). Revísala en campo.</li><li>La valuación usa precios de <b>publicación</b> (lo que piden), no de cierre; en venta suele haber margen de negociación.</li><li>Las clasificaciones son relativas al conjunto de publicaciones analizado: si cambias la operación, el filtro o cargas más datos, los resultados cambian.</li></ul></section>`;
   }
   /* mapa y tabla enlazados */
+  /* ── capa opcional: malla de precios estimados por el modelo (regresión + kriging) ── */
+  const PAL_M = [[34, 211, 238], [99, 102, 241], [168, 85, 247], [236, 72, 153], [245, 158, 11]];
+  const colM = t => { t = Math.max(0, Math.min(1, t)); const s = t * (PAL_M.length - 1), i = Math.min(PAL_M.length - 2, Math.floor(s)), u = s - i, a = PAL_M[i], b = PAL_M[i + 1]; return a.map((v, k) => Math.round(v + (b[k] - v) * u)); };
+  function capaMalla(R, r, st, map, H) {
+    const Lf = window.L; if (!Lf) return;
+    const cand = r.agg ? (R.modelos || []).filter(m => m.res.malla).map(m => ({ id: m.id, nombre: m.nombre, g: m.res.malla })) : (r.malla ? [{ id: r.modeloId || "u", nombre: r.titulo || "Modelo", g: r.malla }] : []);
+    const cp = st.capa || (st.capa = { on: false, modo: "precio", op: .65, mod: null });
+    const ctl = Lf.control({ position: "topright" }); let ov = null, info = null;
+    if (!cand.length) { ctl.onAdd = () => { const d = Lf.DomUtil.create("div", "mv-cm"); d.innerHTML = '<div class="mv-cmh"><b>Malla de precios estimados</b></div><small>Este resultado se calculó antes de existir la malla. Vuelve a valuar para generarla.</small>'; Lf.DomEvent.disableClickPropagation(d); return d; }; ctl.addTo(map); return; }
+    if (!cand.some(c => c.id === cp.mod)) cp.mod = (cand.find(c => /\|\|$/.test(c.id)) || cand[0]).id;
+    const cur = () => cand.find(c => c.id === cp.mod) || cand[0], conv = g => { const kx = 111320 * Math.cos(g.la0 * Math.PI / 180), ky = 110574; return { lat: y => g.la0 + y / ky, lng: x => g.ln0 + x / kx, kx, ky }; };
+    const valor = (g, v) => cp.modo === "pm2" && g.ref.area ? v / g.ref.area : v, fmv = v => cp.modo === "pm2" ? fm(v) + "/m²" : fm(v);
+    const estad = g => { const v = g.vals.filter(x => x != null).map(x => valor(g, x)).sort((a, b) => a - b); return { lo: quant(v, .04), hi: quant(v, .96), md: quant(v, .5) }; };
+    const pinta = () => {
+      if (ov) { map.removeLayer(ov); ov = null; } const d = document.querySelector(".mv-cm"); if (!cp.on) { if (d) d.classList.remove("on"); return; }
+      const g = cur().g, cv = conv(g), { lo, hi } = estad(g), cvs = document.createElement("canvas"); cvs.width = g.nx; cvs.height = g.ny; const cx = cvs.getContext("2d"), im = cx.createImageData(g.nx, g.ny);
+      for (let iy = 0; iy < g.ny; iy++) for (let ix = 0; ix < g.nx; ix++) { const v = g.vals[iy * g.nx + ix]; if (v == null) continue; const c = colM((valor(g, v) - lo) / ((hi - lo) || 1)), o = ((g.ny - 1 - iy) * g.nx + ix) * 4; im.data[o] = c[0]; im.data[o + 1] = c[1]; im.data[o + 2] = c[2]; im.data[o + 3] = 255; }
+      cx.putImageData(im, 0, 0); if (!map.getPane("mvMalla")) { map.createPane("mvMalla").style.zIndex = 350; }
+      const b = Lf.latLngBounds([cv.lat(g.y0 - g.cell / 2), cv.lng(g.x0 - g.cell / 2)], [cv.lat(g.y0 + (g.ny - .5) * g.cell), cv.lng(g.x0 + (g.nx - .5) * g.cell)]);
+      ov = Lf.imageOverlay(cvs.toDataURL(), b, { opacity: cp.op, pane: "mvMalla", interactive: false }).addTo(map); ov._g = g; if (d) d.classList.add("on");
+      const lg = document.querySelector(".mv-cml"); if (lg) lg.innerHTML = `<i style="background:linear-gradient(90deg,${PAL_M.map(c => `rgb(${c})`).join(",")})"></i><span>${fmc(lo)}</span><span>${fmc((lo + hi) / 2)}</span><span>${fmc(hi)}</span>`;
+    };
+    ctl.onAdd = () => {
+      const d = Lf.DomUtil.create("div", "mv-cm" + (cp.on ? " on" : "")); Lf.DomEvent.disableClickPropagation(d); Lf.DomEvent.disableScrollPropagation(d);
+      const g = cur().g, rf = g.ref, tip = [rf.area ? rf.area + " m²" : "", rf.rec != null ? rf.rec + " rec." : "", rf.ban != null ? rf.ban + " baños" : ""].filter(Boolean).join(" · ");
+      d.innerHTML = `<button type="button" class="mv-cmh" data-cm="t"><span class="mv-sw"></span><b>Malla de precios estimados</b></button>
+        <div class="mv-cmb">${cand.length > 1 ? `<label>Modelo de la capa<select data-cm="m">${cand.map(c => `<option value="${E(c.id)}"${c.id === cp.mod ? " selected" : ""}>${E(c.nombre)}</option>`).join("")}</select></label>` : `<small class="mv-cmn">${E(cur().nombre)}</small>`}
+          <div class="mv-cms"><button type="button" data-cm="p"${cp.modo === "precio" ? ' class="on"' : ""}>Propiedad típica</button><button type="button" data-cm="q"${cp.modo === "pm2" ? ' class="on"' : ""}${rf.area ? "" : " disabled"}>Por m²</button></div>
+          <label>Transparencia<input type="range" min="15" max="95" value="${Math.round(cp.op * 100)}" data-cm="o"></label><div class="mv-cml"></div><small class="mv-cmi" id="mvCmI">Mueve el cursor sobre el mapa para ver el precio estimado en cada punto.</small>
+          <small>Precio esperado de una propiedad típica del modelo${tip ? " (" + tip + ")" : ""}, calculado con la regresión y el kriging de los residuos. Solo se muestran las zonas con publicaciones cerca.</small></div>`;
+      d.addEventListener("click", e => { const b = e.target.closest("[data-cm]"); if (!b) return; const k = b.dataset.cm;
+        if (k === "t") { cp.on = !cp.on; pinta(); } else if (k === "p" || k === "q") { cp.modo = k === "p" ? "precio" : "pm2"; d.querySelectorAll(".mv-cms button").forEach(x => x.classList.toggle("on", x === b)); pinta(); } });
+      d.addEventListener("input", e => { const t = e.target; if (t.dataset.cm === "o") { cp.op = (+t.value) / 100; if (ov) ov.setOpacity(cp.op); } });
+      d.addEventListener("change", e => { const t = e.target; if (t.dataset.cm === "m") { cp.mod = t.value; pinta(); } });
+      return d;
+    };
+    ctl.addTo(map); pinta();
+    map.on("mousemove", e => { const el = document.getElementById("mvCmI"); if (!el || !ov || !cp.on) return; const g = ov._g, cv = conv(g), x = (e.latlng.lng - g.ln0) * cv.kx, y = (e.latlng.lat - g.la0) * cv.ky, ix = Math.round((x - g.x0) / g.cell), iy = Math.round((y - g.y0) / g.cell), v = ix >= 0 && iy >= 0 && ix < g.nx && iy < g.ny ? g.vals[iy * g.nx + ix] : null; el.innerHTML = v == null ? "Sin publicaciones cerca de este punto." : `Estimado aquí: <b>${fmv(valor(g, v))}</b>${cp.modo === "precio" && g.ref.area ? ` · ${fm(v / g.ref.area)}/m²` : ""}`; });
+  }
   function post(R, H) {
     const S = H.S, st = S.mv, r = vista(R, st && st.mod); const Hm = Object.assign({}, H, { mult: r.nMod > 1 }), pinta = () => {
       const L = filasVis(r, st), tb = document.getElementById("mvTb"), cd = document.getElementById("mvCards"), vac = "Ninguna propiedad coincide con el filtro."; if (tb) tb.innerHTML = L.slice(0, st.vista).map(f => filaHtml(f, r.filas.indexOf(f), Hm)).join("") || `<tr><td colspan="7" class="mo-mut">${vac}</td></tr>`; else if (cd) cd.innerHTML = L.slice(0, st.vista).map(f => cardHtml(f, r.filas.indexOf(f), r, S._mvF || {}, H)).join("") || `<p class="mo-mut">${vac}</p>`; else return;
@@ -472,9 +551,9 @@
       if (desplaza) { const cont = el.closest(".mv-cards, .mv-tw"); if (cont) cont.scrollTo({ top: cont.scrollTop + el.getBoundingClientRect().top - cont.getBoundingClientRect().top - (cont.clientHeight - el.offsetHeight) / 2, behavior: "smooth" }); }
     }; S._mvPinta = pinta; S._mvFoco = aplicaFoco;
     H.leaflet(() => { const el = document.getElementById("mvMap"); if (!el || !window.L) return; if (S._mvM && S._mvM.map) { try { S._mvM.map.remove(); } catch (_) { } } const Lf = window.L, map = Lf.map(el, { zoomControl: true }), cap = Lf.layerGroup().addTo(map); Lf.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
-      const pts = r.filas.map(f => Lf.circleMarker([f.lat, f.lng], { radius: 5.5, color: "#fff", weight: 1, fillColor: CLS[f.clase][1], fillOpacity: .9 }).bindPopup(() => cardHtml(f, r.filas.indexOf(f), r, S._mvF || {}, H, true), { maxWidth: 300, minWidth: 280, className: "mv-pp", autoPanPadding: [20, 20] })); S._mvM = { map, cap, pts }; pts.forEach((m, k) => m.on("click", () => aplicaFoco(k, true)));
+      const pts = r.filas.map(f => Lf.circleMarker([f.lat, f.lng], { radius: 5.5, color: "#fff", weight: 1, fillColor: CLS[f.clase][1], fillOpacity: .9 }).bindPopup(() => cardHtml(f, r.filas.indexOf(f), r, S._mvF || {}, H, true), { maxWidth: 300, minWidth: 280, className: "mv-pp", autoPanPadding: [20, 20] })); S._mvM = { map, cap, pts }; pts.forEach((m, k) => m.on("click", () => aplicaFoco(k, true))); try { capaMalla(R, r, st, map, H); } catch (_) { }
       const b = Lf.latLngBounds(r.filas.map(f => [f.lat, f.lng])); map.fitBounds(b.pad(.1)); setTimeout(() => { map.invalidateSize(); pinta(); }, 120); });
-    pinta();
+    pinta(); if (st.pila && st.pila.length) ficha(r, st.pila[st.pila.length - 1], H, "pop");
     if (!S._mvF || S._mvFr !== r.creado) { S._mvFr = r.creado; S._mvF = {}; if (H.api) H.api("/geometrika/modelab/inmuebles/fotos", { ids: r.filas.map(f => f.id) }).then(j => { S._mvF = j.items || {}; if (S.sec === "resultados" && S._mvPinta) S._mvPinta(); }).catch(() => { }); }
   }
   function csv(r) {
@@ -491,12 +570,14 @@
     if ((b = t.closest && t.closest("[data-val-seg]"))) { const V = (S.M.val = S.M.val || {}), k = b.dataset.valSeg, cur = new Set(V.excl || []); cur.has(k) ? cur.delete(k) : cur.add(k); V.excl = [...cur]; refresca(); return true; }
     if ((b = t.closest && t.closest("[data-val-met]"))) { S.M.metodo = b.dataset.valMet; S.M.metodoNombre = NOMBRES[S.M.metodo]; S.M.prepOk = true; H.guarda(); H.reMetodos(); return true; }
     if (!S.res || S.res.enfoque !== "val") return false; const r = vista(S.res, S.mv && S.mv.mod);
-    if ((b = t.closest("[data-val-mod]"))) { if (!S.mv) return false; S.mv.mod = b.dataset.valMod; S.mv.vista = 100; S.mv.cls.clear(); S.mv.q = ""; H.reResultados(); return true; }
+    if ((b = t.closest("[data-val-mod]"))) { if (!S.mv) return false; S.mv.mod = b.dataset.valMod; S.mv.pila = []; S.mv.foco = null; S.mv.vista = 100; S.mv.cls.clear(); S.mv.q = ""; H.reResultados(); return true; }
     if ((b = t.closest("[data-val-cls]"))) { const st = S.mv; const k = b.dataset.valCls; if (!k) st.cls.clear(); else if (st.cls.has(k)) st.cls.delete(k); else st.cls.add(k); st.vista = 100; $$("[data-val-cls]").forEach(x => { if (x.dataset.valCls) x.classList.toggle("on", st.cls.has(x.dataset.valCls)); }); S._mvPinta && S._mvPinta(); return true; }
     if ((b = t.closest("[data-val-modo]"))) { S.mv.modo = b.dataset.valModo; S.mv.vista = 100; H.reResultados(); return true; }
     if ((b = t.closest("[data-val-ord]"))) { const st = S.mv, k = b.dataset.valOrd; if (st.orden === k) st.asc = !st.asc; else { st.orden = k; st.asc = true; } H.reResultados(); return true; }
     if ((b = t.closest("[data-val-mas]"))) { S.mv.vista += 100; S._mvPinta && S._mvPinta(); return true; }
     if ((b = t.closest("[data-val-csv]"))) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv(r)], { type: "text/csv;charset=utf-8" })); a.download = "valuacion-inmuebles.csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return true; }
+    if ((b = t.closest("[data-val-fvol]"))) { volverFicha(r, H, b.dataset.valFvol); return true; }
+    if ((b = t.closest("[data-val-ph]"))) { const big = document.getElementById("mvBig"); if (big) { big.dataset.r = ""; big.dataset.o = b.dataset.u; big.src = b.src; } document.querySelectorAll("#mvDet .mv-th2 img").forEach(x => x.classList.toggle("on", x === b)); return true; }
     if ((b = t.closest("[data-val-ficha]"))) { ficha(r, +b.dataset.valFicha, H); return true; }
     if ((b = t.closest("[data-val-foco]"))) { if (t.closest("a")) return false; const k = +b.dataset.valFoco, m = S._mvM && S._mvM.pts[k]; if (m && S._mvM.map) { S._mvM.cap.addLayer(m); S._mvM.map.flyTo(m.getLatLng(), Math.max(S._mvM.map.getZoom(), 16), { duration: .5 }); m.openPopup(); S._mvFoco && S._mvFoco(k, false); } return true; }
     return false;
