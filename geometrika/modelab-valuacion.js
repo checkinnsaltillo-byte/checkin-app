@@ -458,7 +458,7 @@
   }
   /* miniatura ligera: Mercado Libre sirve la misma foto en 500 px (-O) en lugar de 1200 px (-F), unas 6 veces menos peso */
   const tokG = () => { try { const g = JSON.parse(localStorage.getItem("gmTok") || "null"); return g && g.token ? g.token : ""; } catch (_) { return ""; } };
-  const px = u => "https://api.check-inn.mx/geometrika/modelab/inmuebles/img?t=" + encodeURIComponent(tokG()) + "&u=" + encodeURIComponent(u);
+  const px = u => /^https:\/\/api\.check-inn\.mx\//.test(u) ? u : "https://api.check-inn.mx/geometrika/modelab/inmuebles/img?t=" + encodeURIComponent(tokG()) + "&u=" + encodeURIComponent(u);
   /* las fotos de Facebook son enlaces firmados que caducan: si fallan se avisa para volver a extraer la publicación */
   const nfTxt = x => x && x.f && /fbcdn\.net/.test(x.f) ? "Foto caducada en Facebook" : "Sin foto";
   const mini = u => /mlstatic\.com/.test(u) ? u.replace(/-F(\.|-)/, "-O$1") : u;
