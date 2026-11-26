@@ -34,10 +34,15 @@
   let host;
 
   /* ───────── datos ───────── */
+  /* estados con un solo nombre (las fuentes traen «Coahuila» y «Coahuila de Zaragoza», o texto basura) */
+  const ESTADOS = ["Aguascalientes", "Baja California Sur", "Baja California", "Campeche", "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila", "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas"];
+  const ESTK = ESTADOS.map(e => [norm(e), e]).concat([["distrito federal", "Ciudad de México"], ["cdmx", "Ciudad de México"], ["edomex", "Estado de México"], ["mexico, mexico", "Estado de México"]]);
+  const estadoNorm = v => { const k = norm(String(v || "").trim()); if (!k) return "Sin dato"; const m = ESTK.find(([a]) => k === a || k.startsWith(a + " ") || k.startsWith(a + ",")); return m ? m[1] : (/\d|mx\$|\$/.test(k) || k.length > 32 ? "Sin dato" : String(v).trim()); };
+  const ciudadNorm = v => { const t = String(v || "").trim(); return !t || /\d|mx\$|\$/.test(t) || t.length > 40 ? "Sin dato" : t; };
   function aObjetos(f, j) {
     const cols = j.cols, g = n => cols.indexOf(n), pick = (r, ...ns) => { for (const n of ns) { const i = g(n); if (i >= 0 && r[i] != null && r[i] !== "" && r[i] !== 0) return r[i]; } return null; };
     return j.rows.map(r => {
-      const o = { f, id: String(r[g("ID")]), titulo: r[g("Título")] || "", tipoOrig: String(r[g("Tipo")] || ""), tipo: tipoGen(f, r[g("Tipo")]), op: String(r[g("Operación")] || "").toLowerCase(), precio: r[g("Precio")], ciudad: r[g("Ciudad")] || "", estado: r[g("Estado")] || "", colonia: g("Colonia") >= 0 ? r[g("Colonia")] || "" : "", lat: r[g("Latitud")], lng: r[g("Longitud")], url: r[g("URL")] || "" };
+      const o = { f, id: String(r[g("ID")]), titulo: r[g("Título")] || "", tipoOrig: String(r[g("Tipo")] || ""), tipo: tipoGen(f, r[g("Tipo")]), op: String(r[g("Operación")] || "").toLowerCase(), precio: r[g("Precio")], ciudad: ciudadNorm(r[g("Ciudad")]), estado: estadoNorm(r[g("Estado")]), colonia: g("Colonia") >= 0 ? r[g("Colonia")] || "" : "", lat: r[g("Latitud")], lng: r[g("Longitud")], url: r[g("URL")] || "" };
       if (f === "airbnb") { o.rec = r[g("Habitaciones")]; o.ban = r[g("Baños")]; o.hu = r[g("Huéspedes")]; o.cal = r[g("Calificación")]; o.ev = r[g("Evaluaciones")]; o.sup = r[g("Superanfitrión")]; o.ocu = r[g("Ocupación a 90 días")]; o.m2 = null; }
       else { o.rec = r[g("Recámaras")]; o.ban = r[g("Baños")]; o.m2 = pick(r, "m² construcción", "m² totales", "m² terreno"); o.est = g("Estacionamientos") >= 0 ? r[g("Estacionamientos")] : null; o.pub = r[g("Publicada")] || r[g("Publicado")] || ""; }
       o.pm2 = o.precio != null && o.m2 > 0 && o.op !== "noche" ? o.precio / o.m2 : null;
