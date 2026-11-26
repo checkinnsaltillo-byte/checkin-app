@@ -337,7 +337,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <div class="lp-sub"><span class="lg"><img src="econolab-logo.png" alt="EconoLab"></span><h4>EconoLab</h4><em>LABORATORIO ECONÓMICO</em><p>Indicadores económicos del INEGI y series de tiempo para entender el contexto del país y del estado.</p></div>
         <div class="lp-sub"><span class="lg"><img src="medialab-logo.png" alt="Media Lab"></span><h4>Media Lab</h4><em>MONITOR DE NOTICIAS</em><p>Rastrea y resume miles de noticias para saber qué se dice y con qué tono.</p></div>
         <div class="lp-sub"><span class="lg"><img src="modelab-logo.png" alt="Model Lab"></span><h4>Model Lab</h4><em>MODELADO ESTADÍSTICO Y ML</em><p>Encuentra qué variables explican un resultado, agrupa casos y simula escenarios nuevos.</p></div>
-        <div class="lp-sub"><span class="lg"><img src="terralab-logo.png" alt="TerraLab"></span><h4>TerraLab</h4><em>LABORATORIO INMOBILIARIO</em><p>Consulta bases de publicaciones de venta y renta de inmuebles en mapa, tarjetas y fichas.</p></div>
+        <div class="lp-sub"><span class="lg"><img src="terralab-logo.png?v=2" alt="TerraLab"></span><h4>TerraLab</h4><em>LABORATORIO INMOBILIARIO</em><p>Consulta bases de publicaciones de venta y renta de inmuebles en mapa, tarjetas y fichas.</p></div>
       </div>
       <div class="lp-h dg-h"><small>VISIÓN INTEGRADA</small><h2>Un fenómeno, todas sus dimensiones</h2><p>Cómo se conectan los sistemas (diagrama teórico: hoy funcionan por separado) y hasta dónde llega cada uno, de los datos oficiales a las redes sociales y de la manzana al mundo.</p></div>
       <div class="dg-wrap">
@@ -359,7 +359,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
       <button class="hb-card" type="button" data-sys="eco" style="--c:#7c3aed"><div class="lg"><img src="econolab-logo.png" alt="EconoLab"></div><div><em>LABORATORIO ECONÓMICO</em><h3>EconoLab</h3><p>Indicadores y series económicas del INEGI para entender el contexto.</p></div><span class="hb-go">→</span></button>
       <button class="hb-card" type="button" data-sys="media" style="--c:#f97316"><div class="lg"><img src="medialab-logo.png" alt="Media Lab"></div><div><em>MONITOR MASIVO DE NOTICIAS</em><h3>Media Lab</h3><p>Rastrea y resume noticias para saber qué se dice y con qué tono.</p></div><span class="hb-go">→</span></button>
       <button class="hb-card" type="button" data-sys="modelo" style="--c:#0ea5e9"><div class="lg"><img src="modelab-logo.png" alt="Model Lab"></div><div><em>MODELADO ESTADÍSTICO Y ML</em><h3>Model Lab</h3><p>Descubre qué variables explican un resultado, agrupa casos y simula escenarios.</p></div><span class="hb-go">→</span></button>
-      <button class="hb-card" type="button" data-sys="terra" style="--c:#10b981"><div class="lg"><img src="terralab-logo.png" alt="TerraLab"></div><div><em>LABORATORIO INMOBILIARIO</em><h3>TerraLab</h3><p>Consulta las bases de publicaciones de bienes raíces con mapa, tarjetas y fichas.</p></div><span class="hb-go">→</span></button>
+      <button class="hb-card" type="button" data-sys="terra" style="--c:#10b981"><div class="lg"><img src="terralab-logo.png?v=2" alt="TerraLab"></div><div><em>LABORATORIO INMOBILIARIO</em><h3>TerraLab</h3><p>Consulta las bases de publicaciones de bienes raíces con mapa, tarjetas y fichas.</p></div><span class="hb-go">→</span></button>
     </div>
   </div>
 </div>
@@ -428,7 +428,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
     </div>
     <div class="gp-card terra" data-sys="terra">
       <div>
-        <div class="gp-top"><img class="gp-img dl" src="terralab-logo.png" alt="TerraLab"></div>
+        <div class="gp-top"><img class="gp-img dl" src="terralab-logo.png?v=2" alt="TerraLab"></div>
         <h2>Bienes raíces: bases de datos, mapa y fichas</h2>
         <p class="s">acceso restringido</p>
         <span class="gp-feed">⬇ se alimenta de las bases de Check Inn</span>
@@ -505,8 +505,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "terra") {
     document.getElementById("terralab-host").style.display = "";
-    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=c256b6f8"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
-    gpCarga("terralab-fbmarc.js?v=c256b6f8", () => gpCarga("terralab-extraccion.js?v=c256b6f8", () => gpCarga("terralab.js?v=c256b6f8", () => window.terralabInit && window.terralabInit())));
+    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=94701def"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
+    gpCarga("terralab-fbmarc.js?v=94701def", () => gpCarga("terralab-extraccion.js?v=94701def", () => gpCarga("terralab.js?v=94701def", () => window.terralabInit && window.terralabInit())));
   } else if (sys === "modelo" || s === "terra") {
     document.getElementById("modelab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=89497466"; document.head.appendChild(l);
