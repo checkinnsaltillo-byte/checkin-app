@@ -505,8 +505,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "terra") {
     document.getElementById("terralab-host").style.display = "";
-    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=ed3ede13"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
-    gpCarga("terralab.js?v=ed3ede13", () => window.terralabInit && window.terralabInit());
+    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=d6a6c564"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
+    gpCarga("terralab-fbmarc.js?v=d6a6c564", () => gpCarga("terralab-extraccion.js?v=d6a6c564", () => gpCarga("terralab.js?v=d6a6c564", () => window.terralabInit && window.terralabInit())));
   } else if (sys === "modelo" || s === "terra") {
     document.getElementById("modelab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=89497466"; document.head.appendChild(l);

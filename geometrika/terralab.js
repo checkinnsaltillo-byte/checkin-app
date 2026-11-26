@@ -74,12 +74,13 @@
     const bd = f => S.datos[f] ? `<span class="bd">${nf(S.datos[f].rows.length)}</span>` : "";
     t.innerHTML = `<button type="button" class="eco-n eco-n0${S.sel === "home" ? " on" : ""}" data-s="home"><span class="ic">📊</span><span class="tx">Resumen de las bases</span></button>
       <div class="tl-gt">Bases de datos</div>` + FUENTES.map(f => `<button type="button" class="eco-n eco-n2${S.sel === f.id ? " on" : ""}" data-s="${f.id}" style="--c:${f.c}"><span class="nm"><i class="tl-dot" style="background:${f.c}"></i>${esc(f.n)}</span>${bd(f.id)}</button>`).join("") +
-      `<div class="tl-gt">Próximas secciones</div><div class="tl-soon">📥 Extracción y programación<br>📅 Ocupación y calendario Airbnb<br>🌆 Entorno urbano y competencia</div><p class="tl-soonp">Hoy se gestionan en check-inn.mx › Investigación de mercados; se migran a TerraLab por fases.</p>`;
+      `<div class="tl-gt">Extracción y programación</div>` + FUENTES.map(f => `<button type="button" class="eco-n eco-n2${S.sel === "x:" + f.id ? " on" : ""}" data-x="${f.id}" style="--c:${f.c}"><span class="nm"><i class="tl-dot" style="background:${f.c}"></i>${esc(f.n)}</span></button>`).join("") +
+      `<div class="tl-gt">Próximas secciones</div><div class="tl-soon">📅 Ocupación y calendario Airbnb<br>🌆 Entorno urbano y competencia</div><p class="tl-soonp">Hoy se gestionan en check-inn.mx › Investigación de mercados; se migran a TerraLab por fases.</p>`;
   }
 
   /* ───────── resumen ───────── */
   async function home() {
-    S.sel = "home"; arbol(); const m = $("#tlMain"); if (S.mapa) { try { S.mapa.remove(); } catch (_) { } S.mapa = null; }
+    if (window.TLX) window.TLX.para(); S.sel = "home"; arbol(); const m = $("#tlMain"); if (S.mapa) { try { S.mapa.remove(); } catch (_) { } S.mapa = null; }
     m.className = "eco-main tl-main"; m.innerHTML = `<div class="eco-h"><div><h1 class="tl-h1">Bases de datos inmobiliarias</h1><div class="eco-crumb">Consulta las publicaciones descargadas: elige una base para verla en mapa, tarjetas y fichas.</div></div></div><div class="tl-hg" id="tlHg"><div class="eco-nada">Cargando las bases…</div></div>`;
     const res = await Promise.all(FUENTES.map(f => carga(f.id).then(d => [f, d]).catch(e => [f, { err: e.message }])));
     $("#tlChip").textContent = nf(res.reduce((a, [, d]) => a + (d.rows ? d.rows.length : 0), 0)) + " publicaciones"; arbol();
@@ -95,8 +96,15 @@
     }).join("");
   }
 
+  function extrae(f) {
+    S.sel = "x:" + f; arbol(); if (S.mapa) { try { S.mapa.remove(); } catch (_) { } S.mapa = null; S.capa = null; S.mk = {}; }
+    const m = $("#tlMain"); m.className = "eco-main tl-main tl-ext"; $("#tlChip").textContent = "Extracción · " + FBY[f].n;
+    const go = () => window.TLX && window.TLX.abre(f, m); if (window.TLX) go(); else m.innerHTML = '<div class="eco-nada">Cargando…</div>';
+  }
+
   /* ───────── base: filtros, mapa, tarjetas y ficha ───────── */
   async function abre(f) {
+    if (window.TLX) window.TLX.para();
     S.sel = f; S.f = { q: S.f.q, op: "", tipo: "", ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }; S.foco = null; S.ficha = null; S.n = 40; arbol();
     const m = $("#tlMain"); if (S.mapa) { try { S.mapa.remove(); } catch (_) { } S.mapa = null; S.capa = null; S.mk = {}; }
     m.className = "eco-main tl-main tl-base"; m.innerHTML = `<div class="eco-nada">Cargando ${esc(FBY[f].n)}…</div>`;
@@ -194,7 +202,8 @@
   }
 
   function clic(e) {
-    const t = e.target, s = t.closest("[data-s]"); if (s && s.closest("#tlTree, .tl-go, .tl-fc")) { $("#tlApp").classList.remove("eco-menu"); const f = s.dataset.s; if (f === "home") home(); else abre(f); return; }
+    const t = e.target, xs = t.closest("[data-x]"); if (xs && xs.closest("#tlTree")) { $("#tlApp").classList.remove("eco-menu"); extrae(xs.dataset.x); return; }
+    const s = t.closest("[data-s]"); if (s && s.closest("#tlTree, .tl-go, .tl-fc")) { $("#tlApp").classList.remove("eco-menu"); const f = s.dataset.s; if (f === "home") home(); else abre(f); return; }
     const fi = t.closest("[data-tl-ficha]"); if (fi) { e.stopPropagation(); abreFicha(fi.dataset.tlFicha); return; }
     if (t.closest("[data-tl-back]")) { cierraFicha(); return; }
     const ph = t.closest("[data-tl-ph]"); if (ph && S._fo) { const b = $("#tlBig"); if (b) { b.dataset.r = ""; b.referrerPolicy = ""; b.dataset.o = S._fo[+ph.dataset.tlPh]; b.src = px(S._fo[+ph.dataset.tlPh]); } $$(".tl-th img").forEach(i => i.classList.toggle("on", i === ph)); return; }
