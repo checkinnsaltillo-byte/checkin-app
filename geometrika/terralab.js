@@ -30,7 +30,7 @@
   /* Airbnb publica cientos de variantes de «tipo» (p. ej. «habitación en hotel en Santiago»): se agrupan en pocos tipos generales */
   const tipoGen = (f, t) => { t = String(t || "").toLowerCase(); if (f !== "airbnb") return t || "otro"; if (/habitaci[oó]n|bed and breakfast|cuarto/.test(t)) return "habitación"; if (/acampar|tienda|campamento|camping/.test(t)) return "zona de acampar"; if (/caba[nñ]a|rancho|granja|finca|quinta|campestre|bosque|chalet/.test(t)) return "cabaña o campestre"; if (/tipi|domo|minicasa|casa rodante|granero|contenedor|casa del [aá]rbol|barco|torre|molino|cueva|[ií]gloo|yurta/.test(t)) return "alojamiento único"; if (/alojamiento entero|departamento|casa|vivienda|loft|villa|estudio|condominio|apartamento/.test(t)) return "alojamiento entero"; return "otro"; };
   const colTipo = t => PAL[Math.max(0, TIPOS_ORD.indexOf(String(t || "otro")))] || PAL[8];
-  const S = { sel: "home", datos: {}, cargando: {}, f: { q: "", op: "", tipo: "", ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }, lista: [], n: 40, foco: null, fotos: {}, ficha: null, mapa: null, capa: null, mk: {}, fk: 0 };
+  const S = { sel: "home", datos: {}, cargando: {}, f: { q: "", op: "", tipos: [], ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }, lista: [], n: 40, foco: null, fotos: {}, ficha: null, mapa: null, capa: null, mk: {}, fk: 0 };
   let host;
 
   /* ───────── datos ───────── */
@@ -107,20 +107,21 @@
   /* ───────── base: filtros, mapa, tarjetas y ficha ───────── */
   async function abre(f) {
     if (window.TLX) window.TLX.para();
-    S.sel = f; S.f = { q: S.f.q, op: "", tipo: "", ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }; S.foco = null; S.ficha = null; S.n = 40; arbol();
+    S.sel = f; S.f = { q: S.f.q, op: "", tipos: [], ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }; S.foco = null; S.ficha = null; S.n = 40; arbol();
     const m = $("#tlMain"); if (S.mapa) { try { S.mapa.remove(); } catch (_) { } S.mapa = null; S.capa = null; S.mk = {}; }
     m.className = "eco-main tl-main tl-base"; m.innerHTML = `<div class="eco-nada">Cargando ${esc(FBY[f].n)}…</div>`;
     let d; try { d = await carga(f); } catch (e) { if (S.sel === f) m.innerHTML = `<div class="eco-nada">${esc(e.message)}</div>`; return; } if (S.sel !== f) return;
     arbol(); $("#tlChip").textContent = nf(d.rows.length) + " en " + FBY[f].n;
     const opt = (a, t) => `<option value="">${t}</option>` + a.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
     m.innerHTML = `<div class="tl-hd"><div><h1 class="tl-h1">${FBY[f].ic} ${esc(FBY[f].n)}</h1><div class="eco-crumb" id="tlKp"></div></div></div>
-      <div class="tl-tb"><label>Operación<select data-k="op">${opt(d.ops, "Todas")}</select></label><label>Tipo<select data-k="tipo">${opt(d.tipos, "Todos")}</select></label><label>Ciudad<select data-k="ciudad">${opt(d.ciudades, "Todas")}</select></label>
+      <div class="tl-tb"><label>Operación<select data-k="op">${opt(d.ops, "Todas")}</select></label><label>Ciudad<select data-k="ciudad">${opt(d.ciudades, "Todas")}</select></label>
         <label>Precio mín.<input data-k="pmin" type="number" min="0" placeholder="0"></label><label>Precio máx.<input data-k="pmax" type="number" min="0" placeholder="sin tope"></label>${f === "airbnb" ? "" : `<label>Recámaras<select data-k="rec"><option value="">Todas</option><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></select></label>`}
         <label>Orden<select data-k="ord"><option value="rel">Sin ordenar</option><option value="pa">Precio ↑</option><option value="pd">Precio ↓</option><option value="ma">$/m² ↑</option><option value="md">$/m² ↓</option><option value="sd">Superficie ↓</option></select></label><button type="button" class="eco-btn" id="tlLimpia">Limpiar</button></div>
+      <div class="tl-tipos" id="tlTipos"><span class="tl-tl">Tipo</span>${d.tipos.map(t => `<button type="button" class="tl-tc" data-tl-tipo="${esc(t)}" style="--c:${colTipo(t)}"><i></i>${esc(t)}<em>${nf(d.rows.filter(r => r.tipo === t).length)}</em></button>`).join("")}</div>
       <div class="eco-kpis tl-kp" id="tlKpis"></div>
       <div class="tl-split"><div class="tl-mapw"><div id="tlMap"></div><div class="tl-leg" id="tlLeg"></div></div><div class="tl-col"><div id="tlLista" class="tl-lista"></div><div id="tlDet" class="tl-det" hidden></div></div></div>`;
     $$("[data-k]", m).forEach(el => { el.addEventListener("input", () => { S.f[el.dataset.k] = el.value; aplica(); }); });
-    $("#tlLimpia", m).onclick = () => { S.f = { q: "", op: "", tipo: "", ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }; $$("[data-k]", m).forEach(el => { el.value = el.dataset.k === "ord" ? "rel" : ""; }); $("#tlQ").value = ""; aplica(); };
+    $("#tlLimpia", m).onclick = () => { S.f = { q: "", op: "", tipos: [], ciudad: "", pmin: "", pmax: "", rec: "", ord: "rel" }; $$(".tl-tc", m).forEach(b => b.classList.remove("on")); $$("[data-k]", m).forEach(el => { el.value = el.dataset.k === "ord" ? "rel" : ""; }); $("#tlQ").value = ""; aplica(); };
     $("#tlLista", m).addEventListener("scroll", e => { const l = e.target; if (l.scrollTop + l.clientHeight > l.scrollHeight - 300 && S.n < S.lista.length) { S.n += 40; pintaLista(true); } });
     leaflet(() => { creaMapa(); aplica(true); });
   }
@@ -134,7 +135,7 @@
   }
   const filtra = () => {
     const f = S.f, q = norm(f.q), pmin = f.pmin === "" ? null : +f.pmin, pmax = f.pmax === "" ? null : +f.pmax, rec = f.rec === "" ? null : +f.rec;
-    let r = D().rows.filter(x => (!q || norm(x.titulo + " " + x.colonia + " " + x.ciudad).includes(q)) && (!f.op || x.op === f.op) && (!f.tipo || x.tipo === f.tipo) && (!f.ciudad || x.ciudad === f.ciudad) && (pmin == null || (x.precio != null && x.precio >= pmin)) && (pmax == null || (x.precio != null && x.precio <= pmax)) && (rec == null || (x.rec != null && x.rec >= rec)));
+    let r = D().rows.filter(x => (!q || norm(x.titulo + " " + x.colonia + " " + x.ciudad).includes(q)) && (!f.op || x.op === f.op) && (!f.tipos.length || f.tipos.includes(x.tipo)) && (!f.ciudad || x.ciudad === f.ciudad) && (pmin == null || (x.precio != null && x.precio >= pmin)) && (pmax == null || (x.precio != null && x.precio <= pmax)) && (rec == null || (x.rec != null && x.rec >= rec)));
     const key = { pa: x => x.precio, pd: x => x.precio, ma: x => x.pm2, md: x => x.pm2, sd: x => x.m2 }[f.ord];
     if (key) { const dir = f.ord === "pa" || f.ord === "ma" ? 1 : -1; r = r.filter(x => key(x) != null).concat(r.filter(x => key(x) == null)).sort((a, b) => { const x = key(a), y = key(b); if (x == null) return 1; if (y == null) return -1; return (x - y) * dir; }); }
     return r;
@@ -221,6 +222,7 @@
     const s = t.closest("[data-s]"); if (s && s.closest("#tlTree, .tl-go, .tl-fc")) { $("#tlApp").classList.remove("eco-menu"); const f = s.dataset.s; if (f === "home") home(); else abre(f); return; }
     const fi = t.closest("[data-tl-ficha]"); if (fi) { e.stopPropagation(); abreFicha(fi.dataset.tlFicha); return; }
     if (t.closest("[data-tl-back]")) { cierraFicha(); return; }
+    const tc = t.closest("[data-tl-tipo]"); if (tc) { const a = S.f.tipos, k = tc.dataset.tlTipo, i = a.indexOf(k); if (i >= 0) a.splice(i, 1); else a.push(k); tc.classList.toggle("on", i < 0); aplica(); return; }
     const nv = t.closest("[data-tl-nav]"); if (nv) { reelIr(+nv.dataset.tlNav); return; }
     const cn = t.closest("[data-tl-cn]"); if (cn) { e.stopPropagation(); const phc = cn.closest(".tl-ph"); reelCard(phc.dataset.tlCard, +cn.dataset.tlCn, phc); return; }
     const ph = t.closest("[data-tl-ph]"); if (ph && S._fo) { S._fi = +ph.dataset.tlPh; const cc = $("#tlCnt"); if (cc) cc.textContent = (S._fi + 1) + " / " + S._fo.length; const b = $("#tlBig"); if (b) { b.dataset.r = ""; b.referrerPolicy = ""; b.dataset.o = S._fo[+ph.dataset.tlPh]; b.src = px(S._fo[+ph.dataset.tlPh]); } $$(".tl-th img").forEach(i => i.classList.toggle("on", i === ph)); return; }
