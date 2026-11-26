@@ -133,8 +133,21 @@
     async mlExtrae(b) { await accion(b, async () => { await mapi("mercadolibre/extraer", {}); await recargaMl(); }, "Extracción iniciada."); }
   };
 
+  /* ─────────────── APIs externas (muestras) ─────────────── */
+  const MAPA = [["Precio", "price / priceAmount / Precio"], ["Tipo de propiedad", "propertyType"], ["Operación", "operation"], ["Recámaras / baños", "bedrooms / bathrooms"], ["Superficie", "totalArea / coveredArea / totalAreaM2"], ["Ubicación", "latitude, longitude, city, state/province, colonia"], ["Fotos", "images / imageUrls"], ["Publicante", "publisherName / advertiserName / agencyName"]];
+  function viewApis() {
+    const L = window.TLAPIS || [];
+    return `<p class="tx-sub" style="max-width:820px">Estructura de cada proveedor según lo que publica en su página (no son datos descargados ni de tu cuenta). Sirve para decidir de cuál traer información y cómo encajaría en las bases de TerraLab.</p>` + L.map(a => `<section class="tx-card" style="border-top:3px solid ${a.c}"><h3>${esc(a.n)}</h3>
+      <div class="tx-ap"><span class="tl-t" style="--c:${a.c}">${esc(a.tipo)}</span><span class="tl-t">${esc(a.tam)}</span><a class="tx-lk" href="${esc(a.url)}" target="_blank" rel="noopener">Abrir su página ↗</a></div>
+      <ul class="tx-ul"><li><b>Costo:</b> ${esc(a.costo)}</li><li><b>Acceso:</b> ${esc(a.acceso)}</li><li><b>Entrega:</b> ${esc(a.entrega)}</li></ul>
+      ${a.campos.length ? `<details class="tx-d" open><summary>Campos (${a.campos.length})</summary><div class="tx-fl">${a.campos.map(([k, t]) => `<span><code>${esc(k)}</code><em>${esc(t)}</em></span>`).join("")}</div></details>` : ""}
+      ${a.ej ? `<details class="tx-d"><summary>Registro de ejemplo (JSON)</summary><pre class="tx-pre">${esc(JSON.stringify(a.ej, null, 2))}</pre></details>` : ""}
+      <p class="tx-nt">ℹ️ ${esc(a.nota)}</p></section>`).join("") +
+      `<section class="tx-card"><h3>Cómo encajan en TerraLab</h3><p class="tx-sub">Equivalencias entre los campos de estos proveedores y los de las bases de TerraLab.</p><table class="tx-tb"><thead><tr><th>Dato en TerraLab</th><th>Campo(s) en los proveedores</th></tr></thead><tbody>${MAPA.map(([a, b]) => `<tr><td>${esc(a)}</td><td><code>${esc(b)}</code></td></tr>`).join("")}</tbody></table></section>`;
+  }
   /* ─────────────── cascarón común ─────────────── */
   const CFG = {
+    apis: { t: "APIs externas (muestras)", ic: "🔌", c: "#22d3ee", url: null, view: viewApis, acc: {}, set: () => { } },
     airbnb: { t: "Airbnb", ic: "🏠", c: "#f43f5e", url: "airbnb", view: viewAir, acc: accAir, set: j => { M = j; } },
     facebook: { t: "Facebook Marketplace", ic: "📣", c: "#3b82f6", url: "facebook", view: viewFb, acc: accFb, set: j => { F = j; } },
     mercadolibre: { t: "Mercado Libre", ic: "🛒", c: "#eab308", url: "mercadolibre", view: viewMl, acc: accMl, set: j => { T = j; } }
@@ -152,9 +165,9 @@
   window.TLX = {
     async abre(f, el) {
       cur = f; root = el; clearInterval(timer); const C = CFG[f]; M = F = T = null;
-      el.innerHTML = `<div class="tl-hd"><div><h1 class="tl-h1">${C.ic} Extracción · ${esc(C.t)}</h1><div class="eco-crumb">Buscar, extraer y programar las publicaciones de esta fuente. Se guardan en la misma base que usa la consulta.</div></div></div><div class="tx-msg" id="txMsg"></div><div id="txBody"><div class="eco-nada">Cargando…</div></div>`;
+      el.innerHTML = `<div class="tl-hd"><div><h1 class="tl-h1">${C.ic} ${f === "apis" ? esc(C.t) : "Extracción · " + esc(C.t)}</h1><div class="eco-crumb">${f === "apis" ? "Proveedores externos de datos inmobiliarios y la forma de sus datos." : "Buscar, extraer y programar las publicaciones de esta fuente. Se guardan en la misma base que usa la consulta."}</div></div></div><div class="tx-msg" id="txMsg"></div><div id="txBody"><div class="eco-nada">Cargando…</div></div>`;
       el.onclick = async e => { const b = e.target.closest("[data-tx]"); if (!b || !el.contains(b)) return; const fn = C.acc[b.dataset.tx]; if (fn) { e.stopPropagation(); try { await fn(b); } catch (er) { toast(er.message, true); } } };
-      try { const j = await mapi(C.url); if (cur !== f) return; C.set(j); pinta(); } catch (e) { $("#txBody").innerHTML = `<div class="eco-nada">${esc(e.message)}</div>`; }
+      try { if (!C.url) { $("#txBody").innerHTML = viewApis(); return; } const j = await mapi(C.url); if (cur !== f) return; C.set(j); pinta(); } catch (e) { $("#txBody").innerHTML = `<div class="eco-nada">${esc(e.message)}</div>`; }
     },
     para() { clearInterval(timer); cur = null; }
   };
