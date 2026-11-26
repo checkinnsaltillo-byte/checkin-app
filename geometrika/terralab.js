@@ -189,9 +189,11 @@
   const reelIr = d => { const fo = S._fo || [], b = $("#tlBig"); if (!b || fo.length < 2) return; S._fi = ((S._fi || 0) + d + fo.length) % fo.length; b.dataset.r = ""; b.referrerPolicy = ""; b.dataset.o = fo[S._fi]; b.src = px(fo[S._fi]); const c = $("#tlCnt"); if (c) c.textContent = (S._fi + 1) + " / " + fo.length; $$(".tl-th img").forEach((i, k) => { i.classList.toggle("on", k === S._fi); if (k === S._fi) i.scrollIntoView({ inline: "center", block: "nearest" }); }); };
   /* reel en la tarjeta: las fotos completas se piden al abrir el reel la primera vez */
   const REEL = {};
+  /* Airbnb guarda una sola foto en la base: el reel completo se lee de la publicación (el servidor la guarda para la próxima vez) */
+  async function fotosAir(id) { try { const r = await fetch(API + "/mercado/airbnb/fotos?id=" + encodeURIComponent(id)), j = await r.json(); return (j.fotos || []).map(x => x.u || x).filter(u => typeof u === "string").slice(0, 30); } catch (_) { return []; } }
   const navBtns = () => '<button type="button" class="tl-nv l" data-tl-cn="-1" aria-label="Foto anterior">‹</button><button type="button" class="tl-nv r" data-tl-cn="1" aria-label="Foto siguiente">›</button>';
   async function reelCard(id, d, ph) {
-    let r = REEL[id]; if (!r) { r = REEL[id] = { fo: [], i: 0 }; try { const j = await api(RT + "/ficha", { id }); r.fo = (j.ficha.fotos || []).filter(Boolean); } catch (_) { } }
+    let r = REEL[id]; if (!r) { r = REEL[id] = { fo: [], i: 0 }; try { const j = await api(RT + "/ficha", { id }); r.fo = (j.ficha.fotos || []).filter(Boolean); if (j.ficha.fuente === "Airbnb" && r.fo.length < 2) { const m = await fotosAir(id); if (m.length) r.fo = m; } } catch (_) { } }
     if (r.fo.length < 2) return; r.i = (r.i + d + r.fo.length) % r.fo.length; const u = r.fo[r.i];
     ph.innerHTML = `<img src="${esc(px(mini(u)))}" data-o="${esc(u)}" alt="" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.o}"><span class="tl-cnt">${r.i + 1} / ${r.fo.length}</span>` + navBtns();
   }
@@ -202,7 +204,7 @@
     const nav = `<div class="tl-dn"><button type="button" class="tl-bk" data-tl-back>← Volver a la lista</button><span>Detalle de la publicación</span></div>`;
     det.innerHTML = nav + `<div class="eco-nada">Cargando la ficha…</div>`; det.scrollTop = 0;
     try {
-      const j = await api(RT + "/ficha", { id }); if (tk !== S.fk) return; const F = j.ficha, fo = (F.fotos || []).filter(Boolean);
+      const j = await api(RT + "/ficha", { id }); if (tk !== S.fk) return; const F = j.ficha; let fo = (F.fotos || []).filter(Boolean); if (F.fuente === "Airbnb" && fo.length < 2) { const m = await fotosAir(id); if (tk !== S.fk) return; if (m.length) fo = m; }
       const gal = fo.length ? `<div class="tl-big tl-reel">${fo.length > 1 ? '<button type="button" class="tl-nv l" data-tl-nav="-1" aria-label="Foto anterior">‹</button><button type="button" class="tl-nv r" data-tl-nav="1" aria-label="Foto siguiente">›</button><span class="tl-cnt" id="tlCnt">1 / ' + fo.length + '</span>' : ""}<img id="tlBig" src="${esc(px(fo[0]))}" data-o="${esc(fo[0])}" alt="" onerror="if(!this.dataset.r){this.dataset.r=1;this.referrerPolicy='no-referrer';this.src=this.dataset.o}"></div>${fo.length > 1 ? `<div class="tl-th">${fo.slice(0, 24).map((u, i) => `<img src="${esc(px(u))}" data-u="${esc(u)}" data-tl-ph="${i}" class="${i ? "" : "on"}" alt="" referrerpolicy="no-referrer" onerror="if(!this.dataset.r){this.dataset.r=1;this.src=this.dataset.u}">`).join("")}</div>` : ""}${fo.some(u => /fbcdn\.net/.test(u)) ? `<p class="tl-fbn">Las fotos de Facebook antiguas son enlaces temporales y pueden haber caducado; vuelve a extraer la publicación para renovarlas.</p>` : ""}` : `<div class="tl-big tl-nf">${nfTxt("")}</div>`;
       S._fo = fo; S._fi = 0;
       det.innerHTML = nav + `<div class="tl-fd">${gal}<div class="tl-fh"><span class="tl-t" style="--c:${colTipo(x.tipo)}">${esc(F.fuente)}</span>${x.tipo ? `<span class="tl-t">${esc(x.tipo)}</span>` : ""}${x.op ? `<span class="tl-t">${esc(x.op)}</span>` : ""}</div>
