@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Geo Lab · Data Lab · EconoLab · Media Lab · Model Lab</title>
+<title>Geo Lab · Data Lab · EconoLab · Media Lab · Model Lab · TerraLab</title>
 <link rel="icon" href="geometrika-logo.png?v=2409">
 <link rel="stylesheet" href="geometrika.css?v=2548">
 <script>window.__gpV="2548";</script>
@@ -31,6 +31,8 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 .gp-card.dl button{background:linear-gradient(135deg,#0891b2,#0e7490);box-shadow:0 4px 14px rgba(8,145,178,.35)}
 .gp-card.eco input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.18)}
 .gp-card.modelo button{background:linear-gradient(135deg,#0ea5e9,#6366f1);box-shadow:0 4px 14px rgba(99,102,241,.35)}.gp-card.modelo input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.18)}
+.gp-card.terra button{background:linear-gradient(135deg,#10b981,#0ea5e9);box-shadow:0 4px 14px rgba(16,185,129,.35)}.gp-card.terra input:focus{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+.gp-row .gp-card[data-sys=terra]:hover{box-shadow:0 24px 60px rgba(2,6,23,.55),0 0 40px rgba(16,185,129,.5)}
 .gp-row .gp-card[data-sys=modelo]:hover{box-shadow:0 24px 60px rgba(2,6,23,.55),0 0 40px rgba(14,165,233,.5)}
 .gp-card.media button{background:linear-gradient(135deg,#f97316,#ec4899);box-shadow:0 4px 14px rgba(236,72,153,.35)}.gp-card.media input:focus{border-color:#ec4899;box-shadow:0 0 0 3px rgba(236,72,153,.18)}
 .gp-card.eco button{background:linear-gradient(135deg,#7c3aed,#0891b2);box-shadow:0 4px 14px rgba(124,58,237,.35)}
@@ -109,7 +111,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 @keyframes gpGlowL{0%,100%{box-shadow:0 0 0 1px rgba(99,102,241,.16),0 12px 50px rgba(99,102,241,.28)}33%{box-shadow:0 0 0 1px rgba(6,182,212,.2),0 12px 56px rgba(6,182,212,.3)}66%{box-shadow:0 0 0 1px rgba(236,72,153,.18),0 12px 56px rgba(236,72,153,.26)}}
 .gp-tag{color:#475569}.gp-tag b{color:#0e7490}
 .gp-row .gp-card,.gp-row .gp-card:nth-child(2),.gp-row .gp-card:nth-child(3){animation:none!important;transform:none!important;box-shadow:0 10px 34px rgba(30,41,59,.14);transition:box-shadow .25s,border-color .25s;border:1px solid rgba(148,163,184,.25)}
-.gp-row .gp-card:hover,.gp-row .gp-card[data-sys=eco]:hover,.gp-row .gp-card[data-sys=media]:hover,.gp-row .gp-card[data-sys=modelo]:hover{transform:none!important}
+.gp-row .gp-card:hover,.gp-row .gp-card[data-sys=eco]:hover,.gp-row .gp-card[data-sys=media]:hover,.gp-row .gp-card[data-sys=modelo]:hover,.gp-row .gp-card[data-sys=terra]:hover{transform:none!important}
 .gp-row .gp-card:hover{box-shadow:0 14px 40px rgba(30,41,59,.18),0 0 0 3px rgba(99,102,241,.28)}
 .gp-row .gp-card[data-sys=eco]:hover{box-shadow:0 14px 40px rgba(30,41,59,.18),0 0 0 3px rgba(124,58,237,.3)}
 .gp-row .gp-card[data-sys=media]:hover{box-shadow:0 14px 40px rgba(30,41,59,.18),0 0 0 3px rgba(249,115,22,.32)}
@@ -328,13 +330,14 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
   <svg class="lp-wave fl" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true" style="background:#f4f7fb"><path d="M0 70 C280 0 500 120 780 60 S1230 20 1500 70 L1500 120 L0 120Z" fill="#0a0f26"/></svg>
   <section class="lp-sec dk2" id="lpSub" style="background:#0a0f26">
     <div class="lp-w">
-      <div class="lp-h"><small>SUBSISTEMAS</small><h2>Cinco sistemas, un solo acceso</h2><p>Con una contraseña se entra a todos.</p></div>
+      <div class="lp-h"><small>SUBSISTEMAS</small><h2>Seis sistemas, un solo acceso</h2><p>Con una contraseña se entra a todos.</p></div>
       <div class="lp-subs">
         <div class="lp-sub"><span class="lg"><img src="datalab-logo.png?v=15cd89db" alt="Data Lab"></span><h4>Data Lab</h4><em>LA BASE</em><p>Catálogo de fuentes, indicadores y series: qué se mide, de dónde viene y cómo se calcula.</p></div>
         <div class="lp-sub"><span class="lg"><img src="geometrika-logo.png?v=2409" alt="Geo Lab"></span><h4>Geo Lab</h4><em>GEO-INTELIGENCIA</em><p>Analiza un lugar con mapas, entorno urbano, población y competencia para valorar su potencial.</p></div>
         <div class="lp-sub"><span class="lg"><img src="econolab-logo.png" alt="EconoLab"></span><h4>EconoLab</h4><em>LABORATORIO ECONÓMICO</em><p>Indicadores económicos del INEGI y series de tiempo para entender el contexto del país y del estado.</p></div>
         <div class="lp-sub"><span class="lg"><img src="medialab-logo.png" alt="Media Lab"></span><h4>Media Lab</h4><em>MONITOR DE NOTICIAS</em><p>Rastrea y resume miles de noticias para saber qué se dice y con qué tono.</p></div>
         <div class="lp-sub"><span class="lg"><img src="modelab-logo.png" alt="Model Lab"></span><h4>Model Lab</h4><em>MODELADO ESTADÍSTICO Y ML</em><p>Encuentra qué variables explican un resultado, agrupa casos y simula escenarios nuevos.</p></div>
+        <div class="lp-sub"><span class="lg"><img src="terralab-logo.svg" alt="TerraLab"></span><h4>TerraLab</h4><em>LABORATORIO INMOBILIARIO</em><p>Consulta bases de publicaciones de venta y renta de inmuebles en mapa, tarjetas y fichas.</p></div>
       </div>
       <div class="lp-h dg-h"><small>VISIÓN INTEGRADA</small><h2>Un fenómeno, todas sus dimensiones</h2><p>Cómo se conectan los sistemas (diagrama teórico: hoy funcionan por separado) y hasta dónde llega cada uno, de los datos oficiales a las redes sociales y de la manzana al mundo.</p></div>
       <div class="dg-wrap">
@@ -356,6 +359,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
       <button class="hb-card" type="button" data-sys="eco" style="--c:#7c3aed"><div class="lg"><img src="econolab-logo.png" alt="EconoLab"></div><div><em>LABORATORIO ECONÓMICO</em><h3>EconoLab</h3><p>Indicadores y series económicas del INEGI para entender el contexto.</p></div><span class="hb-go">→</span></button>
       <button class="hb-card" type="button" data-sys="media" style="--c:#f97316"><div class="lg"><img src="medialab-logo.png" alt="Media Lab"></div><div><em>MONITOR MASIVO DE NOTICIAS</em><h3>Media Lab</h3><p>Rastrea y resume noticias para saber qué se dice y con qué tono.</p></div><span class="hb-go">→</span></button>
       <button class="hb-card" type="button" data-sys="modelo" style="--c:#0ea5e9"><div class="lg"><img src="modelab-logo.png" alt="Model Lab"></div><div><em>MODELADO ESTADÍSTICO Y ML</em><h3>Model Lab</h3><p>Descubre qué variables explican un resultado, agrupa casos y simula escenarios.</p></div><span class="hb-go">→</span></button>
+      <button class="hb-card" type="button" data-sys="terra" style="--c:#10b981"><div class="lg"><img src="terralab-logo.svg" alt="TerraLab"></div><div><em>LABORATORIO INMOBILIARIO</em><h3>TerraLab</h3><p>Consulta las bases de publicaciones de bienes raíces con mapa, tarjetas y fichas.</p></div><span class="hb-go">→</span></button>
     </div>
   </div>
 </div>
@@ -422,6 +426,20 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
         <div class="gp-v">v.Beta.1 · Check Inn</div>
       </div>
     </div>
+    <div class="gp-card terra" data-sys="terra">
+      <div>
+        <div class="gp-top"><img class="gp-img dl" src="terralab-logo.svg" alt="TerraLab"></div>
+        <h2>Bienes raíces: bases de datos, mapa y fichas</h2>
+        <p class="s">acceso restringido</p>
+        <span class="gp-feed">⬇ se alimenta de las bases de Check Inn</span>
+      </div>
+      <div>
+        <input type="password" id="gpPass6" placeholder="Contraseña" autocomplete="current-password">
+        <p class="gp-err" id="gpErr6"></p>
+        <button type="button" id="gpGo6">Entrar a TerraLab</button>
+        <div class="gp-v">v.Beta.1 · Check Inn</div>
+      </div>
+    </div>
     </div>
     <div class="gp-uplab"><span>⬆ ⬆ ⬆</span> los datos, indicadores y fuentes de Data Lab alimentan a los tres sistemas <span>⬆ ⬆ ⬆</span></div>
     <div class="gp-base" id="gpBase">
@@ -451,6 +469,7 @@ html,body{margin:0;background:#f1f5f9;font-family:system-ui,-apple-system,"Segoe
 <div id="ecolab-host" style="display:none"></div>
 <div id="medialab-host" style="display:none"></div>
 <div id="modelab-host" style="display:none"></div>
+<div id="terralab-host" style="display:none"></div>
 <script src="/admin/gm-auth.js?v=2"></script>
 <script>
 const BACKEND = "https://api.check-inn.mx", GP_HASH = "97ef44bc8db6e747ccec504373e35680205e1f3e81d00fcf9f084906e6a927ee", GP_HASH2 = "4739ee3bd29e4f415da8ba9298a087e0fdc9c61378420ba8fbbab298bd74c4df";  // GP_HASH2: nivel con precios reales
@@ -484,7 +503,11 @@ function gpCarga(src, cb) { const s = document.createElement("script"); s.src = 
 function gpAbre(sys) {
   try { sessionStorage.setItem("gp_sys", sys); } catch (_) { }
   document.getElementById("gpLogin").classList.add("hidden");
-  if (sys === "modelo") {
+  if (sys === "terra") {
+    document.getElementById("terralab-host").style.display = "";
+    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=ed3ede13"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
+    gpCarga("terralab.js?v=ed3ede13", () => window.terralabInit && window.terralabInit());
+  } else if (sys === "modelo" || s === "terra") {
     document.getElementById("modelab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=89497466"; document.head.appendChild(l);
     gpCarga("modelab-biblioteca.js?v=89497466", () => gpCarga("modelab-motor.js?v=89497466", () => gpCarga("modelab-valuacion.js?v=89497466", () => gpCarga("modelab.js?v=89497466", () => window.modelabInit && window.modelabInit()))));
@@ -506,7 +529,7 @@ function gpAbre(sys) {
   }
 }
 async function gpEntra(sys) {
-  const inp = document.getElementById(sys === "modelo" ? "gpPass5" : sys === "media" ? "gpPass4" : sys === "eco" ? "gpPass3" : sys === "data" ? "gpPass2" : "gpPass"), e = document.getElementById(sys === "modelo" ? "gpErr5" : sys === "media" ? "gpErr4" : sys === "eco" ? "gpErr3" : sys === "data" ? "gpErr2" : "gpErr"), v = inp.value.trim(); if (!v && GP_ABIERTO) { if (await gpAbierto()) { gpNivel("1"); gpAbre(sys); } else e.textContent = "No se pudo conectar con el servidor. Intenta de nuevo."; return; } if (!v) { e.textContent = "Captura tu contraseña."; return; }
+  const inp = document.getElementById(sys === "terra" ? "gpPass6" : sys === "modelo" ? "gpPass5" : sys === "media" ? "gpPass4" : sys === "eco" ? "gpPass3" : sys === "data" ? "gpPass2" : "gpPass"), e = document.getElementById(sys === "terra" ? "gpErr6" : sys === "modelo" ? "gpErr5" : sys === "media" ? "gpErr4" : sys === "eco" ? "gpErr3" : sys === "data" ? "gpErr2" : "gpErr"), v = inp.value.trim(); if (!v && GP_ABIERTO) { if (await gpAbierto()) { gpNivel("1"); gpAbre(sys); } else e.textContent = "No se pudo conectar con el servidor. Intenta de nuevo."; return; } if (!v) { e.textContent = "Captura tu contraseña."; return; }
   const h = await gpSha(v), n = h === GP_HASH2 ? "2" : h === GP_HASH ? "1" : "";
   if (n) { try { sessionStorage.setItem("gp_ok", n); localStorage.setItem("gp_ok", n); } catch (_) { } let tk = null; try { const r = await fetch("https://api.check-inn.mx/geometrika/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clave: v }) }); tk = await r.json(); } catch (_) { }
     if (!(tk && tk.ok && tk.token)) { try { sessionStorage.removeItem("gp_ok"); localStorage.removeItem("gp_ok"); } catch (_) { } e.textContent = "No se pudo validar el acceso con el servidor. Intenta de nuevo."; return; }
@@ -515,18 +538,18 @@ async function gpEntra(sys) {
 }
 // cada tarjeta entra a su sistema; con la sesión ya iniciada basta un clic (la misma contraseña sirve para los dos)
 function gpClic(sys) { const n = gpAut(); if (n) { gpNivel(n); gpAbre(sys); } else gpEntra(sys); }
-document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data"); document.getElementById("gpGo3").onclick = () => gpClic("eco"); document.getElementById("gpGo4").onclick = () => gpClic("media"); document.getElementById("gpGo5").onclick = () => gpClic("modelo"); document.getElementById("gpPass5").onkeydown = e => { if (e.key === "Enter") gpClic("modelo"); }; document.getElementById("gpPass4").onkeydown = e => { if (e.key === "Enter") gpClic("media"); };
+document.getElementById("gpGo").onclick = () => gpClic("geo"); document.getElementById("gpGo2").onclick = () => gpClic("data"); document.getElementById("gpGo3").onclick = () => gpClic("eco"); document.getElementById("gpGo4").onclick = () => gpClic("media"); document.getElementById("gpGo5").onclick = () => gpClic("modelo"); document.getElementById("gpGo6").onclick = () => gpClic("terra"); document.getElementById("gpPass6").onkeydown = e => { if (e.key === "Enter") gpClic("terra"); }; document.getElementById("gpPass5").onkeydown = e => { if (e.key === "Enter") gpClic("modelo"); }; document.getElementById("gpPass4").onkeydown = e => { if (e.key === "Enter") gpClic("media"); };
 document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpClic("geo"); }; document.getElementById("gpPass2").onkeydown = e => { if (e.key === "Enter") gpClic("data"); }; document.getElementById("gpPass3").onkeydown = e => { if (e.key === "Enter") gpClic("eco"); };
-{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media" || q === "modelo") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco" || s === "media" || s === "modelo") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EconoLab →"; document.getElementById("gpGo4").textContent = "Abrir Media Lab →"; document.getElementById("gpGo5").textContent = "Abrir Model Lab →"; } } }
+{ const n = gpAut(); if (n) { let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media" || q === "modelo" || q === "terra") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { } gpNivel(n); if (s === "geo" || s === "data" || s === "eco" || s === "media" || s === "modelo" || s === "terra") gpAbre(s); else { document.getElementById("gpLogin").classList.add("aut"); document.getElementById("gpGo").textContent = "Abrir Geo Lab →"; document.getElementById("gpGo2").textContent = "Abrir Data Lab →"; document.getElementById("gpGo3").textContent = "Abrir EconoLab →"; document.getElementById("gpGo4").textContent = "Abrir Media Lab →"; document.getElementById("gpGo5").textContent = "Abrir Model Lab →"; document.getElementById("gpGo6").textContent = "Abrir TerraLab →"; } } }
 
 /* flujo animado: de Data Lab (la base) hacia Geo Lab, EconoLab y Media Lab */
 (function () {
-  const NS = "http://www.w3.org/2000/svg", COL = { geo: ["#818cf8", "#6366f1"], eco: ["#c4b5fd", "#22d3ee"], media: ["#fdba74", "#ec4899"], modelo: ["#7dd3fc", "#6366f1"] };
+  const NS = "http://www.w3.org/2000/svg", COL = { geo: ["#818cf8", "#6366f1"], eco: ["#c4b5fd", "#22d3ee"], media: ["#fdba74", "#ec4899"], modelo: ["#7dd3fc", "#6366f1"], terra: ["#6ee7b7", "#0ea5e9"] };
   function flujo() {
     const land = document.getElementById("gpLand"), svg = document.getElementById("gpFlow"), base = document.getElementById("gpBase"); if (!land || !svg || !base || getComputedStyle(svg).display === "none") return;
     const L = land.getBoundingClientRect(), B = base.getBoundingClientRect(); svg.setAttribute("viewBox", "0 0 " + L.width + " " + L.height); svg.innerHTML = "";
     const defs = document.createElementNS(NS, "defs"); svg.appendChild(defs); let n = 0;
-    ["geo", "eco", "media", "modelo"].forEach((k, i) => {
+    ["geo", "eco", "media", "modelo", "terra"].forEach((k, i) => {
       const c = document.querySelector('.gp-row .gp-card[data-sys="' + k + '"]'); if (!c) return; const R = c.getBoundingClientRect(), xe = R.left + R.width / 2 - L.left, ye = R.bottom - L.top, xs = Math.min(B.right - L.left - 60, Math.max(B.left - L.left + 60, xe)), ys = B.top - L.top, dy = ys - ye; if (dy < 20) return;
       const g = document.createElementNS(NS, "linearGradient"); g.id = "gpg" + k; g.setAttribute("gradientUnits", "userSpaceOnUse"); g.setAttribute("x1", xs); g.setAttribute("y1", ys); g.setAttribute("x2", xe); g.setAttribute("y2", ye); g.innerHTML = '<stop offset="0" stop-color="' + COL[k][0] + '"/><stop offset="1" stop-color="' + COL[k][1] + '"/>'; defs.appendChild(g);
       const d = "M" + xs + " " + ys + " C" + xs + " " + (ys - dy * .5) + " " + xe + " " + (ye + dy * .5) + " " + xe + " " + ye;
@@ -607,7 +630,7 @@ document.getElementById("gpPass").onkeydown = e => { if (e.key === "Enter") gpCl
     })();
   }
   /* estado inicial: con sesión → panel (o directo al subsistema pedido); sin sesión → landing */
-  const n = gpAut(); let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media" || q === "modelo") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { }
+  const n = gpAut(); let s = ""; try { const q = new URLSearchParams(location.search).get("s"); s = (q === "geo" || q === "data" || q === "eco" || q === "media" || q === "modelo" || q === "terra") ? q : (sessionStorage.getItem("gp_sys") || ""); } catch (_) { }
   if (!n) muestraLand(); else if (!s) muestraHub();
 })();
 </script>

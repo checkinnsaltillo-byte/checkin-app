@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 100" width="340" height="100" role="img" aria-label="TerraLab">
+  <defs>
+    <linearGradient id="t1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient>
+    <linearGradient id="t2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#6366f1"/></linearGradient>
+  </defs>
+  <rect x="4" y="10" width="80" height="80" rx="22" fill="#0f172a" stroke="url(#t1)" stroke-width="4"/>
+  <path d="M20 58 L44 30 L68 58" fill="none" stroke="url(#t1)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="30" y="52" width="28" height="22" rx="3" fill="none" stroke="url(#t1)" stroke-width="5.5" stroke-linejoin="round"/>
+  <circle cx="68" cy="30" r="6" fill="#fbbf24"/>
+  <text x="98" y="70" font-family="Montserrat, 'Segoe UI', system-ui, Arial, sans-serif" font-size="50" font-weight="800" fill="url(#t2)">Terra</text>
+  <text x="236" y="70" font-family="Montserrat, 'Segoe UI', system-ui, Arial, sans-serif" font-size="50" font-weight="300" fill="#808080">Lab</text>
+</svg>
