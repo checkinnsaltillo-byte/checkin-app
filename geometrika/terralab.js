@@ -55,7 +55,7 @@
   function shell() {
     host.innerHTML = `<div class="eco-app tl-app" id="tlApp">
       <header class="eco-top"><button class="eco-burger" id="tlBurger" type="button" aria-label="Menú">☰</button>
-        <div class="eco-logo"><img src="terralab-logo.svg" alt="TerraLab" height="46"></div>
+        <div class="eco-logo"><img src="terralab-logo.png" alt="TerraLab" height="46"></div>
         <div class="eco-brand"><span>Laboratorio inmobiliario · bases de datos de publicaciones con mapa y fichas</span></div><div class="eco-sp"></div>
         <span class="eco-chip" id="tlChip" title="Publicaciones disponibles en las bases">…</span>
         <button class="eco-theme" id="tlTema" type="button" aria-label="Cambiar tema"></button><button class="eco-btn" id="tlCambia" type="button">Cambiar de sistema</button><button class="eco-btn" id="tlSalir" type="button">Salir</button></header>
