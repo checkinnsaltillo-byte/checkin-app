@@ -36,7 +36,7 @@
   /* ───────── datos ───────── */
   /* estados con un solo nombre (las fuentes traen «Coahuila» y «Coahuila de Zaragoza», o texto basura) */
   const ESTADOS = ["Aguascalientes", "Baja California Sur", "Baja California", "Campeche", "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila", "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas"];
-  const ESTK = ESTADOS.map(e => [norm(e), e]).concat([["distrito federal", "Ciudad de México"], ["cdmx", "Ciudad de México"], ["edomex", "Estado de México"], ["mexico, mexico", "Estado de México"]]);
+  const ESTK = ESTADOS.map(e => [norm(e), e]).concat([["distrito federal", "Ciudad de México"], ["cdmx", "Ciudad de México"], ["coah.", "Coahuila"], ["n.l.", "Nuevo León"], ["nl", "Nuevo León"], ["edomex", "Estado de México"], ["mexico, mexico", "Estado de México"]]);
   const estadoNorm = v => { const k = norm(String(v || "").trim()); if (!k) return "Sin dato"; const m = ESTK.find(([a]) => k === a || k.startsWith(a + " ") || k.startsWith(a + ",")); return m ? m[1] : (/\d|mx\$|\$/.test(k) || k.length > 32 ? "Sin dato" : String(v).trim()); };
   const ciudadNorm = v => { const t = String(v || "").trim(); return !t || /\d|mx\$|\$/.test(t) || t.length > 40 ? "Sin dato" : t; };
   function aObjetos(f, j) {
