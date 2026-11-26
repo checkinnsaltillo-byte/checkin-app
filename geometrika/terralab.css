@@ -54,7 +54,7 @@
 .tl-fc{padding:16px 18px;border-radius:18px;border:1px solid rgba(148,163,184,.18);border-top:3px solid var(--c);background:linear-gradient(170deg,rgba(30,41,59,.8),rgba(15,23,42,.9))}
 .tl-fch{display:flex;gap:12px;align-items:center;margin-bottom:12px}.tl-fch h3{margin:0;font:800 17px system-ui,sans-serif}.tl-fch small{color:#94a3b8;font-size:12px}.tl-fci{font-size:30px}
 .tl-fk{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.tl-fk b{display:block;font:800 19px system-ui,sans-serif}.tl-fk span{font-size:11.5px;color:#94a3b8}
-.tl-bars{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}.tl-bar{display:grid;grid-template-columns:96px 1fr 44px;gap:8px;align-items:center;font-size:12px;text-transform:capitalize}.tl-bar i{height:9px;border-radius:9px;display:block}.tl-bar em{font-style:normal;color:#94a3b8;text-align:right}
+.tl-bars{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}.tl-bar{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center;font-size:12px;text-transform:capitalize}.tl-bar i{height:9px;border-radius:9px;display:block}.tl-bar em{font-style:normal;color:#94a3b8;text-align:right}
 .tl-go{width:100%}
 .tl-pop .leaflet-popup-content-wrapper{padding:0;border-radius:14px;background:#0f172a;color:#e6ecff;border:1px solid rgba(34,211,238,.4);box-shadow:0 10px 28px rgba(0,0,0,.5)}.tl-pop .leaflet-popup-content{margin:0;width:auto!important}.tl-pop .leaflet-popup-tip{background:#0f172a}
 .tl-mini{display:flex;gap:9px;padding:8px;width:236px}.tl-mp{width:70px;height:62px;flex:none;border-radius:9px;overflow:hidden;background:#1e293b;display:flex;align-items:center;justify-content:center}.tl-mp img{width:100%;height:100%;object-fit:cover}
@@ -121,3 +121,6 @@ a.tx-b{text-decoration:none;display:inline-block}
 .tl-tc:hover{border-color:var(--c)}
 .tl-tc.on{background:color-mix(in srgb,var(--c) 22%,transparent);border-color:var(--c);color:#fff}.tl-tc.on em{color:#e2e8f0}
 .eco-light .tl-tc{background:#fff;border-color:#cbd5e1;color:#334155}.eco-light .tl-tc.on{background:color-mix(in srgb,var(--c) 18%,#fff);color:#0f172a;border-color:var(--c)}.eco-light .tl-tc em{color:#64748b}
+
+.tl-bt{font:700 10.5px system-ui,sans-serif;letter-spacing:.5px;text-transform:uppercase;color:#94a3b8;margin:10px 0 5px}
+.tl-bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

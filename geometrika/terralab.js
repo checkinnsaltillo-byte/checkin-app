@@ -90,10 +90,11 @@
     $("#tlHg").innerHTML = res.map(([f, d]) => {
       if (d.err) return `<div class="tl-fc" style="--c:${f.c}"><h3>${f.ic} ${esc(f.n)}</h3><p class="tl-err">${esc(d.err)}</p></div>`;
       const r = d.rows, conP = r.filter(x => x.precio != null), mP = med(conP.map(x => x.precio)), mM = med(r.map(x => x.pm2)), cnt = {}; r.forEach(x => { cnt[x.tipo] = (cnt[x.tipo] || 0) + 1; });
-      const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 5), mx = top.length ? top[0][1] : 1;
+      const grupo = (campo, n) => { const c = {}; r.forEach(x => { const k = x[campo] || "Sin dato"; c[k] = (c[k] || 0) + 1; }); const t = Object.entries(c).sort((p, q) => q[1] - p[1]), top = t.slice(0, n), resto = t.slice(n).reduce((acc, [, v]) => acc + v, 0); if (resto) top.push(["Otras (" + (t.length - n) + ")", resto]); return top; };
+      const barras = (titulo, top, col) => { const mx = top.length ? Math.max(...top.map(x => x[1])) : 1; return `<div class="tl-bt">${titulo}</div><div class="tl-bars">${top.map(([t, n]) => `<div class="tl-bar"><span title="${esc(t)}">${esc(t)}</span><i style="width:${Math.max(4, n / mx * 100)}%;background:${col ? col(t) : "#22d3ee"}"></i><em>${nf(n)}</em></div>`).join("")}</div>`; };
       return `<div class="tl-fc" style="--c:${f.c}"><div class="tl-fch"><span class="tl-fci">${f.ic}</span><div><h3>${esc(f.n)}</h3><small>${esc(f.d)}</small></div></div>
         <div class="tl-fk"><div><b>${nf(r.length)}</b><span>publicaciones con ubicación</span></div><div><b>${nf(conP.length)}</b><span>con precio</span></div><div><b>${money(mP)}</b><span>precio mediano ${esc(f.u)}</span></div>${mM != null ? `<div><b>$${nf(mM)}</b><span>mediana por m²</span></div>` : ""}</div>
-        <div class="tl-bars">${top.map(([t, n]) => `<div class="tl-bar"><span>${esc(t)}</span><i style="width:${Math.max(4, n / mx * 100)}%;background:${colTipo(t)}"></i><em>${nf(n)}</em></div>`).join("")}</div>
+        ${barras("Por tipo", grupo("tipo", 6), colTipo)}${barras("Por estado", grupo("estado", 5), () => "#a78bfa")}${barras("Por ciudad", grupo("ciudad", 6), () => "#34d399")}
         <button type="button" class="eco-btn tl-go" data-s="${f.id}">Abrir base →</button></div>`;
     }).join("");
   }
