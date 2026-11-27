@@ -15,7 +15,7 @@
     if (!r.ok || !j || j.ok === false) throw new Error((j && j.error) || "No se pudo completar la operación (" + r.status + ").");
     return j;
   }
-  let M = null, F = null, T = null, timer = null, toastT = null;
+  let M = null, F = null, T = null, A = null, EST = null, timer = null, toastT = null;
   const ck = on => `<span class="tl-ck${on ? " on" : ""}" aria-hidden="true">${on ? "✓" : ""}</span>`;
   const toast = (m, mal) => { const t = $("#txMsg"); if (!t) return; t.textContent = m; t.className = "tx-msg on" + (mal ? " mal" : ""); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 6000); };
   const card = (n, t, sub, body) => `<section class="tx-card"><h3><span class="tx-n">${n}</span>${t}</h3>${sub ? `<p class="tx-sub">${sub}</p>` : ""}${body}</section>`;
@@ -133,6 +133,54 @@
     async mlExtrae(b) { await accion(b, async () => { await mapi("mercadolibre/extraer", {}); await recargaMl(); }, "Extracción iniciada."); }
   };
 
+
+  /* ─────────────── Apify (Inmuebles24 · Vivanuncios) ─────────────── */
+  const usd = v => v == null || !isFinite(v) ? "—" : "US$ " + Number(v).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const FUE = { i24: "Inmuebles24", viva: "Vivanuncios" };
+  const chip = (a, id, on, t) => `<button type="button" class="tx-h${on ? " on" : ""}" data-tx="${a}" data-id="${esc(id)}">${ck(on)}${esc(t)}</button>`;
+  function viewAp(j) {
+    A = j; const c = j.config || {}, ac = j.actores || {}, run = (j.corridas || []).some(x => !x.fin);
+    const tok = j.token ? `<div class="tx-bt">✓ Token de Apify guardado.</div><div class="tx-bs">${btn("apTokCambia", "Cambiar token")}</div>` : `<label class="tx-l">Token de API de Apify (apify.com › Settings › API & Integrations)<input class="tx-in" id="apTok" type="password" placeholder="apify_api_…" style="width:min(460px,100%)" autocomplete="off"></label><div class="tx-bs">${btn("apTokGuarda", "💾 Guardar token", "pri")}</div><p class="tx-nt">Se guarda en el servidor y no vuelve a mostrarse. Se usa solo para lanzar las corridas de estos dos actores.</p>`;
+    const E = EST, estH = !E ? "" : `<div class="tx-tbw"><table class="tx-tb"><thead><tr><th>Fuente</th><th>Búsqueda</th><th>Publicaciones</th></tr></thead><tbody>${E.filas.map(x => `<tr><td>${esc(FUE[x.f])}</td><td title="${esc(x.url)}">${esc(x.et)}${x.error ? ` <b class="tx-er">${esc(x.error)}</b>` : ""}</td><td>${x.total != null ? nf(x.total) + (x.manual ? " (manual)" : "") : `<input class="tx-in" data-man="${esc(x.url)}" type="number" placeholder="no se pudo contar" style="width:130px">`}</td></tr>`).join("")}</tbody></table></div>
+      <div class="eco-kpis tx-k">${E.resumen.map(r => kpi(esc(r.nombre), nf(r.publicaciones), "publicaciones · " + usd(r.costo))).join("")}${kpi("Total estimado", nf(E.total), usd(E.costo))}</div>
+      ${E.sinConteo ? `<p class="tx-nt">⚠️ ${nf(E.sinConteo)} búsqueda(s) sin conteo: el portal no mostró el total. Escribe el número a mano y vuelve a estimar, o extrae con un tope.</p>` : ""}<p class="tx-nt">ℹ️ ${esc(E.nota)} Vivanuncios cobra US$ ${ac.viva ? ac.viva.item : 0.02} por publicación (plan gratuito de Apify); Inmuebles24 US$ ${ac.i24 ? ac.i24.item : 0.001} por publicación${c.contactos ? " + US$ 0.01 por contacto" : ""} y US$ ${ac.i24 ? ac.i24.start : 0.005} por arranque.</p>
+      <div class="tx-row">${E.resumen.map(r => `<label class="tx-l">Traer hasta (${esc(r.nombre)})${num("lim_" + r.f, Math.ceil(r.publicaciones * 1.05), "", 110)}</label>`).join("")}</div>`;
+    const cor = (j.corridas || []).map(x => `<tr><td>${esc(FUE[x.f] || x.f)}</td><td>${fec(x.inicio)}</td><td>${esc(x.estado || "")}${x.error ? ` <b class="tx-er">${esc(x.error)}</b>` : ""}</td><td>${nf(x.importado)}</td><td>${x.costo != null ? usd(x.costo) : "—"} <small>(tope ${usd(x.costoMax)})</small></td></tr>`).join("");
+    return `<div class="eco-kpis tx-k">${kpi("Publicaciones guardadas", nf(j.total), "de Apify")}${Object.keys(j.por || {}).map(f => kpi(esc(FUE[f] || f), nf(j.por[f]), "")).join("")}${kpi("Token", j.token ? "✓" : "—", j.token ? "guardado" : "falta")}</div>
+      ${card(0, "Cuenta de Apify", "Los actores memo23 (Inmuebles24) y scrapers_lat (Vivanuncios) consultan el portal en vivo cada vez que corren y se cobran por publicación a tu cuenta de Apify.", tok)}
+      ${card(1, "Búsqueda", "Ciudades, operación y tipos de propiedad. Se arma una búsqueda por ciudad y tipo en Inmuebles24; en Vivanuncios pega las URLs de búsqueda del sitio.", `
+        <label class="tx-l">Ciudades / municipios (una por línea)<textarea class="tx-ta" id="apCiu" rows="4" placeholder="Monterrey">${esc((c.ciudades || []).join("\n"))}</textarea></label>
+        <div class="tx-l">Operación</div><div class="tx-hs">${chip("apOp", "venta", c.operacion === "venta", "Venta")}${chip("apOp", "renta", c.operacion === "renta", "Renta")}</div>
+        <div class="tx-l">Tipo de propiedad</div><div class="tx-hs">${(j.tipos || []).map(t => chip("apTipo", t.id, (c.tipos || []).includes(t.id), t.nombre)).join("")}</div>
+        <div class="tx-l">Fuentes</div><div class="tx-hs">${chip("apFte", "i24", (c.fuentes || []).includes("i24"), "Inmuebles24 (memo23)")}${chip("apFte", "viva", (c.fuentes || []).includes("viva"), "Vivanuncios (scrapers_lat)")}</div>
+        <label class="tx-l">URLs propias de Inmuebles24 (opcional, una por línea)<textarea class="tx-ta" id="apUi24" rows="2">${esc(((c.urlsExtra || {}).i24 || []).join("\n"))}</textarea></label>
+        <label class="tx-l">URLs de búsqueda de Vivanuncios (una por línea; el sitio usa códigos, copia la URL tras filtrar por ciudad y tipo)<textarea class="tx-ta" id="apUviva" rows="3">${esc(((c.urlsExtra || {}).viva || []).join("\n"))}</textarea></label>
+        <div class="tx-hs">${chip("apDet", "d", c.detalles, "Detalles completos (descripción, teléfono, coordenadas)")}${chip("apCon", "c", c.contactos, "Contactos de Inmuebles24 (+US$ 0.01 c/u)")}</div>
+        <div class="tx-row" style="margin-top:8px"><label class="tx-l">Presupuesto máximo por fuente (US$)${num("presupuesto", c.presupuesto, "10", 90)}</label></div>
+        <p class="tx-nt">Búsquedas que se ejecutarán: <b>${nf((j.plan || []).length)}</b>.</p>
+        <div class="tx-bs">${btn("apGuarda", "💾 Guardar búsqueda", "pri")}</div>`)}
+      ${card(2, "Estimar antes de extraer", "Cuenta cuántas publicaciones muestra cada búsqueda en el portal y calcula el costo. No descarga publicaciones.", `<div class="tx-bs">${btn("apEstima", "🧮 Estimar publicaciones y costo", "pri", !j.token)}</div>${estH}`)}
+      ${card(3, "Extraer", "Lanza la corrida en Apify con un tope de publicaciones y de costo, y guarda los resultados en la base de TerraLab.", `<div class="tx-bs">${btn("apExtrae", run ? "⏳ En curso…" : "🕷️ Extraer", "pri", run || !EST)}${run ? btn("apDet2", "⛔ Detener", "mal") : ""}</div><p class="tx-nt">${EST ? "Se traerá hasta el número indicado arriba." : "Primero estima para fijar el tope."}</p>
+        <div id="txJob">${cor ? `<div class="tx-tbw"><table class="tx-tb"><thead><tr><th>Fuente</th><th>Inicio</th><th>Estado</th><th>Importadas</th><th>Costo</th></tr></thead><tbody>${cor}</tbody></table></div>` : ""}</div>`)}
+      ${Object.keys(j.muestra || {}).length ? card(4, "Muestra de lo recibido", "Primer registro tal como lo entrega cada actor (sirve para ver su estructura real).", Object.keys(j.muestra).map(f => `<details class="tx-d"><summary>${esc(FUE[f] || f)}</summary><pre class="tx-pre">${esc(JSON.stringify((j.muestra[f] || [])[0] || {}, null, 2).slice(0, 6000))}</pre></details>`).join("")) : ""}`;
+  }
+  const leeAp = () => { if (!$("#apCiu")) return; const c = A.config; c.ciudades = $("#apCiu").value.split(/\n/).map(x => x.trim()).filter(Boolean); c.urlsExtra = { i24: $("#apUi24").value.split(/\n/).map(x => x.trim()).filter(Boolean), viva: $("#apUviva").value.split(/\n/).map(x => x.trim()).filter(Boolean) }; if ($('[data-f="presupuesto"]')) c.presupuesto = nn("presupuesto") || 10; };
+  const alt = (arr, id) => { const i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1); else arr.push(id); };
+  const accAp = {
+    async apTokCambia() { A.token = false; pinta(); },
+    async apTokGuarda(b) { await accion(b, async () => { await mapi("apify/token", { token: $("#apTok").value }); await recargaAp(); }, "Token guardado."); },
+    async apOp(b) { leeAp(); A.config.operacion = b.dataset.id; EST = null; pinta(); },
+    async apTipo(b) { leeAp(); alt(A.config.tipos, b.dataset.id); EST = null; pinta(); },
+    async apFte(b) { leeAp(); alt(A.config.fuentes, b.dataset.id); EST = null; pinta(); },
+    async apDet() { leeAp(); A.config.detalles = !A.config.detalles; pinta(); },
+    async apCon() { leeAp(); A.config.contactos = !A.config.contactos; EST = null; pinta(); },
+    async apGuarda(b) { leeAp(); await accion(b, async () => { const r = await mapi("apify/config", { config: A.config }); A.config = r.config; A.plan = r.plan; EST = null; pinta(); }, "Búsqueda guardada."); },
+    async apEstima(b) { leeAp(); const manual = {}; $$("[data-man]").forEach(i => { if (i.value !== "") manual[i.dataset.man] = +i.value; }); await accion(b, async () => { await mapi("apify/config", { config: A.config }); EST = await mapi("apify/estimar", { manual }); pinta(); }, r => `Estimado: ${nf(r.total)} publicaciones · ${usd(r.costo)}`); },
+    async apExtrae(b) { const limites = {}; (EST.resumen || []).forEach(r => { limites[r.f] = nn("lim_" + r.f) || r.publicaciones; }); const tot = Object.values(limites).reduce((a, x) => a + x, 0); if (!confirm(`Se lanzará la extracción de hasta ${nf(tot)} publicaciones (costo estimado ${usd(EST.costo)}) en tu cuenta de Apify. ¿Continuar?`)) return; await accion(b, async () => { await mapi("apify/extraer", { limites }); await recargaAp(); }, "Extracción iniciada en Apify."); },
+    async apDet2(b) { await accion(b, async () => { await mapi("apify/detener", {}); await recargaAp(); }, "Deteniendo…"); }
+  };
+  async function recargaAp() { const j = await mapi("apify"); A = j; pinta(); }
+
   /* ─────────────── APIs externas (muestras) ─────────────── */
   const MAPA = [["Precio", "price / priceAmount / Precio"], ["Tipo de propiedad", "propertyType"], ["Operación", "operation"], ["Recámaras / baños", "bedrooms / bathrooms"], ["Superficie", "totalArea / coveredArea / totalAreaM2"], ["Ubicación", "latitude, longitude, city, state/province, colonia"], ["Fotos", "images / imageUrls"], ["Publicante", "publisherName / advertiserName / agencyName"]];
   function viewApis() {
@@ -150,21 +198,23 @@
     apis: { t: "APIs externas (muestras)", ic: "🔌", c: "#22d3ee", url: null, view: viewApis, acc: {}, set: () => { } },
     airbnb: { t: "Airbnb", ic: "🏠", c: "#f43f5e", url: "airbnb", view: viewAir, acc: accAir, set: j => { M = j; } },
     facebook: { t: "Facebook Marketplace", ic: "📣", c: "#3b82f6", url: "facebook", view: viewFb, acc: accFb, set: j => { F = j; } },
+    apify: { t: "Apify · Inmuebles24 y Vivanuncios", ic: "🕷️", c: "#a78bfa", url: "apify", view: viewAp, acc: accAp, set: j => { A = j; } },
     mercadolibre: { t: "Mercado Libre", ic: "🛒", c: "#eab308", url: "mercadolibre", view: viewMl, acc: accMl, set: j => { T = j; } }
   };
   let cur = null, root = null;
   function pintaAir() { pinta(); } function pintaFb() { pinta(); } function pintaMl() { pinta(); }
-  function pinta() { const C = CFG[cur], d = cur === "airbnb" ? M : cur === "facebook" ? F : T, z = $("#txBody", root); if (!z || !d) return; const y = root.scrollTop; z.innerHTML = C.view(d); root.scrollTop = y; if (cur === "mercadolibre") poll(); else poll(); }
+  function pinta() { const C = CFG[cur], d = cur === "airbnb" ? M : cur === "facebook" ? F : cur === "apify" ? A : T, z = $("#txBody", root); if (!z || !d) return; const y = root.scrollTop; z.innerHTML = C.view(d); root.scrollTop = y; if (cur === "mercadolibre") poll(); else poll(); }
   async function recarga() { const j = await mapi(CFG[cur].url); CFG[cur].set(j); pinta(); }
   async function recargaMl() { const j = await mapi("mercadolibre"); T = j; pinta(); }
   function poll() {
-    clearInterval(timer); const d = cur === "airbnb" ? M : cur === "facebook" ? F : T; if (!d) return;
+    clearInterval(timer); const d = cur === "airbnb" ? M : cur === "facebook" ? F : cur === "apify" ? A : T; if (!d) return;
+    if (cur === "apify") { if (!(d.corridas || []).some(x => !x.fin)) return; timer = setInterval(async () => { if (!$("#txBody") || cur !== "apify") { clearInterval(timer); return; } try { const e = await mapi("apify/estado"); const antes = (A.corridas || []).some(x => !x.fin); A.corridas = e.corridas; A.total = e.total; if (antes && !e.running) { await recargaAp(); return; } const z = $("#txJob"); if (z) pinta(); } catch (_) { } }, 7000); return; }
     const run = cur === "airbnb" ? ((d.job && d.job.running) || (d.busqueda && d.busqueda.running)) : cur === "mercadolibre" ? (d.job && d.job.running) : false; if (!run) return;
     timer = setInterval(async () => { if (!$("#txBody")) { clearInterval(timer); return; } try { if (cur === "mercadolibre") { const e = await mapi("mercadolibre/estado"); const antes = T.job && T.job.running; T.job = e; if (antes && !e.running) { await recargaMl(); return; } const z = $("#txJob"); if (z) z.innerHTML = jobMl(e); } else { const j = await mapi("airbnb"), antes = (M.job && M.job.running) || (M.busqueda && M.busqueda.running), ahora = (j.job && j.job.running) || (j.busqueda && j.busqueda.running); if (antes && !ahora) { M = j; pinta(); } else { M = j; const jb = $("#txJob"); if (jb && j.job) jb.innerHTML = j.job.running ? bar(j.job.total ? 100 * j.job.done / j.job.total : 0, `${nf(j.job.done)} de ${nf(j.job.total)}${j.job.actual ? " · publicación " + esc(j.job.actual) : ""}`) : ""; const bb = $("#txBus"); if (bb && j.busqueda && j.busqueda.running) bb.innerHTML = bar(j.busqueda.rangos ? 100 * j.busqueda.rango / j.busqueda.rangos : 0, `Rango ${nf(j.busqueda.rango)} de ${nf(j.busqueda.rangos)} · ${nf(j.busqueda.encontrados)} publicaciones encontradas`); } } } catch (_) { } }, 5000);
   }
   window.TLX = {
     async abre(f, el) {
-      cur = f; root = el; clearInterval(timer); const C = CFG[f]; M = F = T = null;
+      cur = f; root = el; clearInterval(timer); const C = CFG[f]; M = F = T = A = null; EST = null;
       el.innerHTML = `<div class="tl-hd"><div><h1 class="tl-h1">${C.ic} ${f === "apis" ? esc(C.t) : "Extracción · " + esc(C.t)}</h1><div class="eco-crumb">${f === "apis" ? "Proveedores externos de datos inmobiliarios y la forma de sus datos." : "Buscar, extraer y programar las publicaciones de esta fuente. Se guardan en la misma base que usa la consulta."}</div></div></div><div class="tx-msg" id="txMsg"></div><div id="txBody"><div class="eco-nada">Cargando…</div></div>`;
       el.onclick = async e => { const b = e.target.closest("[data-tx]"); if (!b || !el.contains(b)) return; const fn = C.acc[b.dataset.tx]; if (fn) { e.stopPropagation(); try { await fn(b); } catch (er) { toast(er.message, true); } } };
       try { if (!C.url) { $("#txBody").innerHTML = viewApis(); return; } const j = await mapi(C.url); if (cur !== f) return; C.set(j); pinta(); } catch (e) { $("#txBody").innerHTML = `<div class="eco-nada">${esc(e.message)}</div>`; }

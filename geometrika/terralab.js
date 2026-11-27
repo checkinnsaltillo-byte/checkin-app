@@ -82,7 +82,7 @@
     t.innerHTML = `<button type="button" class="eco-n eco-n0${S.sel === "home" ? " on" : ""}" data-s="home"><span class="ic">📊</span><span class="tx">Resumen de las bases</span></button>
       <div class="tl-gt">Bases de datos</div>` + FUENTES.map(f => `<button type="button" class="eco-n eco-n2${S.sel === f.id ? " on" : ""}" data-s="${f.id}" style="--c:${f.c}"><span class="nm"><i class="tl-dot" style="background:${f.c}"></i>${esc(f.n)}</span>${bd(f.id)}</button>`).join("") +
       `<div class="tl-gt">Extracción y programación</div>` + FUENTES.map(f => `<button type="button" class="eco-n eco-n2${S.sel === "x:" + f.id ? " on" : ""}" data-x="${f.id}" style="--c:${f.c}"><span class="nm"><i class="tl-dot" style="background:${f.c}"></i>${esc(f.n)}</span></button>`).join("") +
-      `<button type="button" class="eco-n eco-n2${S.sel === "x:apis" ? " on" : ""}" data-x="apis"><span class="nm"><i class="tl-dot" style="background:#22d3ee"></i>🔌 APIs externas (muestras)</span></button><div class="tl-gt">Próximas secciones</div><div class="tl-soon">📅 Ocupación y calendario Airbnb<br>🌆 Entorno urbano y competencia</div><p class="tl-soonp">Hoy se gestionan en check-inn.mx › Investigación de mercados; se migran a TerraLab por fases.</p>`;
+      `<button type="button" class="eco-n eco-n2${S.sel === "x:apify" ? " on" : ""}" data-x="apify"><span class="nm"><i class="tl-dot" style="background:#a78bfa"></i>🕷️ Apify · Inmuebles24 y Vivanuncios</span></button><button type="button" class="eco-n eco-n2${S.sel === "x:apis" ? " on" : ""}" data-x="apis"><span class="nm"><i class="tl-dot" style="background:#22d3ee"></i>🔌 APIs externas (muestras)</span></button><div class="tl-gt">Próximas secciones</div><div class="tl-soon">📅 Ocupación y calendario Airbnb<br>🌆 Entorno urbano y competencia</div><p class="tl-soonp">Hoy se gestionan en check-inn.mx › Investigación de mercados; se migran a TerraLab por fases.</p>`;
   }
 
   /* ───────── resumen ───────── */
@@ -106,7 +106,7 @@
 
   function extrae(f) {
     S.sel = "x:" + f; arbol(); if (S.mapa) { try { S.mapa.remove(); } catch (_) { } S.mapa = null; S.capa = null; S.mk = {}; }
-    const m = $("#tlMain"); m.className = "eco-main tl-main tl-ext"; $("#tlChip").textContent = "Extracción · " + (FBY[f] ? FBY[f].n : "APIs externas");
+    const m = $("#tlMain"); m.className = "eco-main tl-main tl-ext"; $("#tlChip").textContent = "Extracción · " + (FBY[f] ? FBY[f].n : f === "apify" ? "Apify" : "APIs externas");
     const go = () => window.TLX && window.TLX.abre(f, m); if (window.TLX) go(); else m.innerHTML = '<div class="eco-nada">Cargando…</div>';
   }
 

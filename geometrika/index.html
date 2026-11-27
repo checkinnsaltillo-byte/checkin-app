@@ -505,8 +505,8 @@ function gpAbre(sys) {
   document.getElementById("gpLogin").classList.add("hidden");
   if (sys === "terra") {
     document.getElementById("terralab-host").style.display = "";
-    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=76cdcbd6"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
-    gpCarga("terralab-fbmarc.js?v=76cdcbd6", () => gpCarga("terralab-apis.js?v=76cdcbd6", () => gpCarga("terralab-extraccion.js?v=76cdcbd6", () => gpCarga("terralab.js?v=76cdcbd6", () => window.terralabInit && window.terralabInit()))));
+    for (const h of ["ecolab.css?v=8e12c8a9", "terralab.css?v=08484024"]) { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = h; document.head.appendChild(l); }
+    gpCarga("terralab-fbmarc.js?v=08484024", () => gpCarga("terralab-apis.js?v=08484024", () => gpCarga("terralab-extraccion.js?v=08484024", () => gpCarga("terralab.js?v=08484024", () => window.terralabInit && window.terralabInit()))));
   } else if (sys === "modelo" || s === "terra") {
     document.getElementById("modelab-host").style.display = "";
     const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "modelab.css?v=89497466"; document.head.appendChild(l);
